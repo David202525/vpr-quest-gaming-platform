@@ -1,0 +1,58 @@
+CREATE TABLE IF NOT EXISTS parents (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS children (
+    id SERIAL PRIMARY KEY,
+    parent_id INTEGER NOT NULL REFERENCES parents(id),
+    name VARCHAR(255) NOT NULL,
+    grade VARCHAR(20) NOT NULL DEFAULT '5',
+    login_code VARCHAR(32) UNIQUE NOT NULL,
+    pin VARCHAR(16) NOT NULL,
+    avatar VARCHAR(16) NOT NULL DEFAULT 'panda',
+    coins INTEGER NOT NULL DEFAULT 0,
+    xp INTEGER NOT NULL DEFAULT 0,
+    energy INTEGER NOT NULL DEFAULT 5,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS assignments (
+    id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL REFERENCES children(id),
+    parent_id INTEGER NOT NULL REFERENCES parents(id),
+    topic VARCHAR(255) NOT NULL,
+    module VARCHAR(255) NOT NULL,
+    deadline DATE,
+    minutes INTEGER NOT NULL DEFAULT 15,
+    status VARCHAR(32) NOT NULL DEFAULT 'new',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS results (
+    id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL REFERENCES children(id),
+    assignment_id INTEGER REFERENCES assignments(id),
+    topic VARCHAR(255) NOT NULL,
+    module VARCHAR(255) NOT NULL,
+    correct INTEGER NOT NULL DEFAULT 0,
+    total INTEGER NOT NULL DEFAULT 0,
+    coins INTEGER NOT NULL DEFAULT 0,
+    xp INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token VARCHAR(64) PRIMARY KEY,
+    role VARCHAR(16) NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_children_parent ON children(parent_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_child ON assignments(child_id);
+CREATE INDEX IF NOT EXISTS idx_results_child ON results(child_id);

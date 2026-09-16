@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 
 const COLUMNS = [
@@ -10,19 +11,19 @@ const COLUMNS = [
     ],
   },
   {
-    title: 'Учителю',
+    title: 'Родителю',
     links: [
-      { label: 'Классы и рейтинг', href: '#classes' },
+      { label: 'Как это работает', href: '#classes' },
       { label: 'Тепловая карта', href: '#heatmap' },
-      { label: 'Домашние задания', href: '#homework' },
+      { label: 'Отчёты и контроль', href: '#parents' },
     ],
   },
   {
-    title: 'Родителям',
+    title: 'Вход',
     links: [
-      { label: 'Отчёты и контроль', href: '#parents' },
+      { label: 'Кабинет родителя', href: '/login', route: true },
+      { label: 'Вход для ребёнка', href: '/login', route: true },
       { label: 'Безопасность', href: '#parents' },
-      { label: 'Создать класс', href: '#cta' },
     ],
   },
 ];
@@ -63,13 +64,22 @@ const Footer = () => {
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((l) => (
                   <li key={l.label}>
-                    <a
-                      href={l.href}
-                      onClick={go(l.href)}
-                      className="story-link text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {l.label}
-                    </a>
+                    {'route' in l && l.route ? (
+                      <Link
+                        to={l.href}
+                        className="story-link text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {l.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={l.href}
+                        onClick={go(l.href)}
+                        className="story-link text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {l.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

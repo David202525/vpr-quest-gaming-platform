@@ -56,7 +56,7 @@ const ITEMS: Item[] = [
     name: 'Плащ-невидимка',
     kind: 'Скин',
     price: 1700,
-    desc: 'Скрывает твоё место в рейтинге на одну неделю, если хочется отыграться тихо.',
+    desc: 'Скрывает твой профиль от чужих глаз на одну неделю, если хочется поиграть тихо.',
   },
   {
     id: 'dance',
@@ -80,7 +80,7 @@ const ITEMS: Item[] = [
     name: 'Корона рейтинга',
     kind: 'Скин',
     price: 2100,
-    desc: 'Доступна только тем, кто держал первое место в классе три недели подряд.',
+    desc: 'Доступна только тем, кто держал стрик три недели подряд.',
   },
 ];
 
@@ -110,14 +110,14 @@ const Shop = () => {
             <Icon name="Coins" size={22} strokeWidth={1.3} className="text-primary" />
             <p className="mt-4 font-display text-3xl">1 240</p>
             <p className="mt-1 text-[0.72rem] uppercase tracking-[0.12em] text-muted-foreground">
-              Луткоинов у класса в среднем
+              Луткоинов у игрока в среднем
             </p>
           </div>
           <div className="rounded-md border border-border bg-background p-6">
             <Icon name="Flame" size={22} strokeWidth={1.3} className="text-primary" />
             <p className="mt-4 font-display text-3xl">12 дней</p>
             <p className="mt-1 text-[0.72rem] uppercase tracking-[0.12em] text-muted-foreground">
-              Самый длинный стрик в 7 «Б»
+              Самый длинный стрик подряд
             </p>
           </div>
           <div className="rounded-md border border-border bg-background p-6">

@@ -16,7 +16,7 @@ const FAQ = [
   },
   {
     q: 'Может ли ребёнок переписываться с незнакомыми?',
-    a: 'Нет. Свободного ввода текста в общих чатах нет вообще — только предзаписанные фразы и эмодзи. Чат класса учитель может отключить одной кнопкой.',
+    a: 'Нет. Свободного ввода текста нет вообще — только предзаписанные фразы и эмодзи. Общение можно отключить в кабинете родителя одной кнопкой.',
   },
   {
     q: 'Есть ли реклама и настоящие платежи?',
@@ -24,7 +24,7 @@ const FAQ = [
   },
   {
     q: 'Где хранятся данные ребёнка?',
-    a: 'На российских облачных серверах, в соответствии с ФЗ-152. Вход — через детские профили VK ID и Сбер ID, без сбора лишних сведений.',
+    a: 'На российских облачных серверах, в соответствии с ФЗ-152. Ребёнок заходит по коду и ПИНу, без почты и лишних сведений о себе.',
   },
   {
     q: 'Не подсадит ли это на бесконечную игру?',
@@ -38,7 +38,7 @@ const Parents = () => {
       <div className="container">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
           <div>
-            <p className="rubric text-primary">Родителям и школе</p>
+            <p className="rubric text-primary">Родителям</p>
             <h2 className="mt-4 font-display text-[clamp(2rem,5vw,3.5rem)] font-light uppercase leading-[1.05] tracking-[0.04em]">
               Игра — да.
               <br />
@@ -91,7 +91,7 @@ const Parents = () => {
             <div className="mt-8 rounded-md border border-border bg-card p-6">
               <p className="rubric text-muted-foreground">Отчёт за неделю · пример</p>
               <p className="mt-3 font-display text-xl uppercase tracking-[0.04em]">
-                Рома Д., 7 «Б»
+                Рома Д., 7 класс
               </p>
               <ul className="mt-5 space-y-3 text-sm">
                 {[

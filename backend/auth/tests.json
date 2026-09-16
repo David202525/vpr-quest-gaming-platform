@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Неавторизованный me",
+      "method": "GET",
+      "path": "/?action=me",
+      "expectedStatus": 200,
+      "expectedBody": {"authorized": false},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Неверный вход ребёнка",
+      "method": "POST",
+      "path": "/?action=child-login",
+      "body": {"code": "QST-XXXXX", "pin": "0000"},
+      "expectedStatus": 401
+    }
+  ]
+}

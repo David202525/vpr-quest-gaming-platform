@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import {
   Sheet,
@@ -8,10 +9,9 @@ import {
 
 const NAV = [
   { label: 'Предметы', href: '#modules', caret: true },
-  { label: 'Кабинет учителя', href: '#classes' },
   { label: 'Как устроено', href: '#how' },
   { label: 'Родителям', href: '#parents' },
-  { label: 'Школам', href: '#cta' },
+  { label: 'Начать', href: '#cta' },
 ];
 
 const scrollTo = (href: string) => {
@@ -66,13 +66,13 @@ const Header = () => {
           </span>
         </div>
 
-        <button
-          onClick={() => scrollTo('#classes')}
+        <Link
+          to="/login"
           className="flex w-[54px] flex-none items-center justify-center border-r border-border transition-colors hover:bg-secondary"
-          aria-label="Кабинет учителя"
+          aria-label="Вход"
         >
           <Icon name="User" size={16} strokeWidth={1.2} />
-        </button>
+        </Link>
 
         <button
           onClick={() => scrollTo('#shop')}
@@ -108,15 +108,13 @@ const Header = () => {
                   {item.label}
                 </a>
               ))}
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  scrollTo('#cta');
-                }}
-                className="mt-6 rounded-md bg-primary px-5 py-3 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-primary-foreground"
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="mt-6 rounded-md bg-primary px-5 py-3 text-center text-[0.72rem] font-medium uppercase tracking-[0.14em] text-primary-foreground"
               >
-                Создать класс
-              </button>
+                Войти
+              </Link>
             </div>
           </SheetContent>
         </Sheet>

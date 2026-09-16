@@ -1,0 +1,81 @@
+const AUTH_URL = 'https://functions.poehali.dev/f120bf85-e77e-4581-9432-a78236a9b1e1';
+const CABINET_URL = 'https://functions.poehali.dev/cba152f1-fc6e-4b5a-ba0f-a2535f354048';
+
+const TOKEN_KEY = 'vpr_token';
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+export const setToken = (t: string) => localStorage.setItem(TOKEN_KEY, t);
+export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+const request = async (base: string, action: string, options: RequestInit = {}) => {
+  const res = await fetch(`${base}?action=${action}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Auth-Token': getToken(),
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Что-то пошло не так');
+  return data;
+};
+
+export type Parent = { id: number; name: string; email: string };
+export type Child = {
+  id: number;
+  name: string;
+  grade: string;
+  avatar: string;
+  coins: number;
+  xp: number;
+  energy: number;
+  code: string;
+  pin?: string;
+  stats?: TopicStat[];
+};
+export type TopicStat = {
+  topic: string;
+  module: string;
+  correct: number;
+  total: number;
+  percent: number;
+};
+export type Assignment = {
+  id: number;
+  child_id?: number;
+  topic: string;
+  module: string;
+  deadline: string | null;
+  minutes: number;
+  status: string;
+};
+
+export const api = {
+  me: () => request(AUTH_URL, 'me'),
+  register: (body: { name: string; email: string; password: string }) =>
+    request(AUTH_URL, 'register', { method: 'POST', body: JSON.stringify(body) }),
+  login: (body: { email: string; password: string }) =>
+    request(AUTH_URL, 'login', { method: 'POST', body: JSON.stringify(body) }),
+  childLogin: (body: { code: string; pin: string }) =>
+    request(AUTH_URL, 'child-login', { method: 'POST', body: JSON.stringify(body) }),
+  addChild: (body: { name: string; grade: string; pin: string; avatar: string }) =>
+    request(AUTH_URL, 'add-child', { method: 'POST', body: JSON.stringify(body) }),
+  logout: () => request(AUTH_URL, 'logout', { method: 'POST', body: '{}' }),
+  parentDashboard: () => request(CABINET_URL, 'parent-dashboard'),
+  childDashboard: () => request(CABINET_URL, 'child-dashboard'),
+  assign: (body: {
+    child_id: number;
+    topic: string;
+    module: string;
+    deadline: string;
+    minutes: number;
+  }) => request(CABINET_URL, 'assign', { method: 'POST', body: JSON.stringify(body) }),
+  submitResult: (body: {
+    topic: string;
+    module: string;
+    correct: number;
+    total: number;
+    assignment_id?: number | null;
+  }) => request(CABINET_URL, 'submit-result', { method: 'POST', body: JSON.stringify(body) }),
+};

@@ -3,9 +3,8 @@ import Hero from '@/components/Hero';
 import Marquee from '@/components/Marquee';
 import HowItWorks from '@/components/HowItWorks';
 import Modules from '@/components/Modules';
-import TeacherClasses from '@/components/TeacherClasses';
+import ParentFlow from '@/components/ParentFlow';
 import ErrorHeatmap from '@/components/ErrorHeatmap';
-import Homework from '@/components/Homework';
 import Shop from '@/components/Shop';
 import Parents from '@/components/Parents';
 import CtaSection from '@/components/CtaSection';
@@ -19,9 +18,8 @@ const Index = () => {
       <Marquee />
       <HowItWorks />
       <Modules />
-      <TeacherClasses />
+      <ParentFlow />
       <ErrorHeatmap />
-      <Homework />
       <Shop />
       <Parents />
       <CtaSection />

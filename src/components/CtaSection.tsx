@@ -1,52 +1,7 @@
-import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
-import { toast } from '@/hooks/use-toast';
 
 const CtaSection = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [school, setSchool] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const next: Record<string, string> = {};
-    if (name.trim().length < 2) next.name = 'Напишите имя и отчество';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) next.email = 'Проверьте адрес почты';
-    if (school.trim().length < 2) next.school = 'Укажите школу или город';
-    setErrors(next);
-    if (Object.keys(next).length) return;
-
-    toast({
-      title: 'Класс создан',
-      description: `${name}, код комнаты отправим на ${email}. Останется продиктовать его ученикам.`,
-    });
-    setName('');
-    setEmail('');
-    setSchool('');
-  };
-
-  const field = (
-    id: 'name' | 'email' | 'school',
-    label: string,
-    value: string,
-    set: (v: string) => void,
-    type = 'text',
-  ) => (
-    <label className="block text-sm">
-      <span className="text-ink-foreground/70">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => set(e.target.value)}
-        className={`mt-2 w-full rounded-md border bg-ink-foreground/5 px-4 py-3 text-sm text-ink-foreground outline-none transition-colors placeholder:text-ink-foreground/35 focus:border-primary ${
-          errors[id] ? 'border-destructive' : 'border-ink-foreground/25'
-        }`}
-      />
-      {errors[id] && <span className="mt-1.5 block text-xs text-destructive">{errors[id]}</span>}
-    </label>
-  );
-
   return (
     <section id="cta" className="bg-ink py-20 text-ink-foreground md:py-28">
       <div className="container">
@@ -54,15 +9,13 @@ const CtaSection = () => {
           <div>
             <p className="rubric text-primary">Начать</p>
             <h2 className="mt-4 font-display text-[clamp(2.2rem,6vw,4.5rem)] font-light uppercase leading-[1.03] tracking-[0.05em]">
-              Соберите
+              Два входа —
               <br />
-              первый класс
-              <br />
-              за пять минут
+              и всё готово
             </h2>
             <p className="mt-6 max-w-[44ch] text-sm leading-relaxed text-ink-foreground/75">
-              Создаёте комнату, диктуете код на уроке, задаёте первую тему. Дальше платформа
-              работает сама: ученики играют, вы получаете тепловую карту, родители — отчёт.
+              Родитель заводит кабинет по почте, добавляет ребёнка и получает для него код и ПИН.
+              Ребёнок заходит по этим данным, играет и выполняет назначенные темы.
             </p>
 
             <div className="mt-10 flex flex-wrap gap-8">
@@ -85,33 +38,44 @@ const CtaSection = () => {
               </span>
               <span className="inline-flex items-center gap-2">
                 <Icon name="Laptop" size={14} strokeWidth={1.4} />
-                Работает в компьютерном классе
+                Работает и на компьютере
               </span>
             </div>
           </div>
 
-          <form
-            onSubmit={submit}
-            noValidate
-            className="rounded-md border border-ink-foreground/20 bg-ink-foreground/5 p-6 md:p-8"
-          >
-            <p className="rubric text-ink-foreground/60">Заявка учителя</p>
-            <div className="mt-6 space-y-5">
-              {field('name', 'Имя и отчество', name, setName)}
-              {field('email', 'Рабочая почта', email, setEmail, 'email')}
-              {field('school', 'Школа и город', school, setSchool)}
+          <div className="space-y-4">
+            <div className="rounded-md border border-ink-foreground/20 bg-ink-foreground/5 p-6 md:p-8">
+              <Icon name="ShieldCheck" size={22} strokeWidth={1.3} className="text-primary" />
+              <p className="mt-5 font-display text-xl uppercase tracking-[0.05em]">
+                Кабинет родителя
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-foreground/70">
+                Почта и пароль. Внутри — дети, назначение тем и закрытая статистика по каждой
+                теме ВПР.
+              </p>
+              <Link
+                to="/login"
+                className="mt-6 inline-block rounded-md bg-primary px-6 py-3.5 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-primary-foreground transition-transform hover:scale-[1.03]"
+              >
+                Войти или создать кабинет
+              </Link>
             </div>
-            <button
-              type="submit"
-              className="mt-7 w-full rounded-md bg-primary px-6 py-4 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-primary-foreground transition-transform hover:scale-[1.02]"
-            >
-              Создать класс
-            </button>
-            <p className="mt-4 text-[0.7rem] leading-relaxed text-ink-foreground/50">
-              Вход для учеников — через детские профили VK ID и Сбер ID. Данные хранятся на
-              российских серверах.
-            </p>
-          </form>
+
+            <div className="rounded-md border border-ink-foreground/20 bg-ink-foreground/5 p-6 md:p-8">
+              <Icon name="Gamepad2" size={22} strokeWidth={1.3} className="text-primary" />
+              <p className="mt-5 font-display text-xl uppercase tracking-[0.05em]">Вход ребёнка</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-foreground/70">
+                Только код игрока и ПИН из четырёх цифр. Ни почты, ни пароля, ни чужих профилей —
+                и никакой статистики на экране.
+              </p>
+              <Link
+                to="/login"
+                className="mt-6 inline-block rounded-md border border-ink-foreground/45 px-6 py-3.5 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-ink-foreground transition-colors hover:bg-ink-foreground/10"
+              >
+                Войти по коду
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </section>

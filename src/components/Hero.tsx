@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 const HERO_SHOT =
   'https://cdn.poehali.dev/projects/048b225b-47e7-41bf-afa5-e621c72de1da/files/c3789ff5-57d6-4881-a633-c1ef2390e8a9.jpg';
 const GRID =
@@ -34,30 +36,30 @@ const Hero = () => {
         </p>
 
         <div className="absolute bottom-6 left-5 z-[2] animate-rise text-ink-foreground [animation-delay:0.15s] md:bottom-[34px] md:left-[42px]">
-          <p className="rubric opacity-85">Кабинет учителя</p>
+          <p className="rubric opacity-85">Кабинет родителя</p>
           <h1 className="mt-2.5 font-display text-[clamp(2.6rem,9vw,88px)] font-light uppercase leading-[1.02] tracking-[0.06em]">
-            Класс
+            Ребёнок
             <br />
             проходит ВПР
             <br />
             как игру
           </h1>
           <p className="mt-3.5 max-w-[30ch] text-[0.95rem] leading-[1.5] text-ink-foreground/85">
-            Вы задаёте тему и дедлайн. Ученики сражаются, а вы видите, кто на чём споткнулся.
+            Вы задаёте тему и дедлайн. Ребёнок играет, а вы видите, где он споткнулся.
           </p>
           <div className="mt-[22px] flex flex-wrap gap-3">
-            <button
-              onClick={() => scrollTo('#cta')}
+            <Link
+              to="/login"
               className="rounded-md bg-primary px-[22px] py-[13px] text-[0.72rem] font-medium uppercase tracking-[0.14em] text-primary-foreground transition-transform hover:scale-[1.03]"
             >
-              Создать класс
-            </button>
-            <button
-              onClick={() => scrollTo('#modules')}
+              Кабинет родителя
+            </Link>
+            <Link
+              to="/login"
               className="rounded-md border border-ink-foreground/55 px-[22px] py-[13px] text-[0.72rem] font-medium uppercase tracking-[0.14em] text-ink-foreground transition-colors hover:bg-ink-foreground/10"
             >
-              Смотреть демо урока
-            </button>
+              Вход для ребёнка
+            </Link>
           </div>
         </div>
 

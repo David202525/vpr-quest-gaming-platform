@@ -14,7 +14,7 @@ const TOPICS = [
   'Пётр I',
 ];
 
-const PUPILS = ['Настя Ф.', 'Тимур Г.', 'Оля Б.', 'Рома Д.', 'Женя Ш.', 'Лиза А.'];
+const PUPILS = ['1 неделя', '2 неделя', '3 неделя', '4 неделя', '5 неделя', '6 неделя'];
 
 // доля ошибок 0..100
 const DATA: number[][] = [
@@ -49,7 +49,7 @@ const ErrorHeatmap = () => {
       <div className="container">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="rubric text-primary">Аналитика успеваемости</p>
+            <p className="rubric text-primary">Аналитика в кабинете родителя</p>
             <h2 className="mt-4 font-display text-[clamp(2rem,5vw,3.5rem)] font-light uppercase leading-[1.05] tracking-[0.04em]">
               Тепловая карта
               <br />
@@ -57,8 +57,8 @@ const ErrorHeatmap = () => {
             </h2>
           </div>
           <p className="max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-            Видно не «класс слабый», а конкретную клетку: 7 «Б» сыпется на дробях и на запятой
-            перед «что». Наведите курсор на клетку.
+            Видно не «ребёнок ленится», а конкретную клетку: дроби и запятая перед «что». Карта
+            открыта только вам. Наведите курсор на клетку.
           </p>
         </div>
 
@@ -143,7 +143,7 @@ const ErrorHeatmap = () => {
             </div>
 
             <div className="rounded-md border border-border bg-background p-5">
-              <p className="rubric text-muted-foreground">Провалы класса</p>
+              <p className="rubric text-muted-foreground">Слабые темы</p>
               <ul className="mt-4 space-y-3">
                 {worst.map((w) => (
                   <li key={w.topic}>
@@ -167,7 +167,7 @@ const ErrorHeatmap = () => {
                   strokeWidth={1.5}
                   className="mt-0.5 shrink-0 text-primary"
                 />
-                Система сама предложит назначить тренировку по этим темам домашним заданием.
+                Система сама предложит назначить тренировку по этим темам следующим заданием.
               </p>
             </div>
           </div>
