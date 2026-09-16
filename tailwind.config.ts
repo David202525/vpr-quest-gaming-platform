@@ -18,7 +18,16 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				display: ['Jost', 'sans-serif'],
+				body: ['Inter', 'sans-serif'],
+			},
 			colors: {
+				ink: {
+					DEFAULT: 'hsl(var(--ink))',
+					foreground: 'hsl(var(--ink-foreground))'
+				},
+				canvas: 'hsl(var(--canvas))',
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
@@ -84,11 +93,61 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'rise': {
+					from: { opacity: '0', transform: 'translateY(16px)' },
+					to: { opacity: '1', transform: 'none' }
+				},
+				'fade-in': {
+					from: { opacity: '0', transform: 'translateY(10px)' },
+					to: { opacity: '1', transform: 'none' }
+				},
+				'scale-in': {
+					from: { opacity: '0', transform: 'scale(0.95)' },
+					to: { opacity: '1', transform: 'scale(1)' }
+				},
+				'slide-in-right': {
+					from: { transform: 'translateX(100%)' },
+					to: { transform: 'translateX(0)' }
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-8px)' }
+				},
+				'sway': {
+					'0%, 100%': { transform: 'rotate(-3deg)' },
+					'50%': { transform: 'rotate(3deg)' }
+				},
+				'blink': {
+					'0%, 92%, 100%': { transform: 'scaleY(1)' },
+					'96%': { transform: 'scaleY(0.1)' }
+				},
+				'orbit': {
+					from: { transform: 'rotate(0deg) translateX(34px) rotate(0deg)' },
+					to: { transform: 'rotate(360deg) translateX(34px) rotate(-360deg)' }
+				},
+				'marquee': {
+					from: { transform: 'translateX(0)' },
+					to: { transform: 'translateX(-50%)' }
+				},
+				'grow-bar': {
+					from: { transform: 'scaleX(0)' },
+					to: { transform: 'scaleX(1)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'rise': 'rise 0.9s cubic-bezier(.2,.7,.2,1) both',
+				'fade-in': 'fade-in 0.5s ease-out both',
+				'scale-in': 'scale-in 0.3s ease-out both',
+				'slide-in-right': 'slide-in-right 0.3s ease-out',
+				'float': 'float 4s ease-in-out infinite',
+				'sway': 'sway 5s ease-in-out infinite',
+				'blink': 'blink 5s ease-in-out infinite',
+				'orbit': 'orbit 9s linear infinite',
+				'marquee': 'marquee 28s linear infinite',
+				'grow-bar': 'grow-bar 0.8s cubic-bezier(.2,.7,.2,1) both'
 			}
 		}
 	},
