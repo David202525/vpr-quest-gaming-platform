@@ -4,6 +4,7 @@ import Icon from '@/components/ui/icon';
 import CabinetHeader from '@/components/CabinetHeader';
 import ParentHeatmap from '@/components/cabinet/ParentHeatmap';
 import ParentShop from '@/components/cabinet/ParentShop';
+import ParentBackground from '@/components/cabinet/ParentBackground';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, Assignment, Child, Invite, Parent, ShopItem } from '@/lib/api';
 import { GRADES, SUBJECTS, TOPICS, topicsForGrade } from '@/data/curriculum';
@@ -142,7 +143,8 @@ const ParentCabinet = () => {
   ];
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background px-4 py-6 md:px-[30px] md:py-[22px]">
+    <div className="relative min-h-screen overflow-x-hidden px-4 py-6 md:px-[30px] md:py-[22px]">
+      <ParentBackground />
       <CabinetHeader title={`Кабинет родителя · ${parent?.name || ''}`} />
 
       <main className="mx-auto mt-8 max-w-6xl pb-16">
@@ -411,7 +413,8 @@ const ParentCabinet = () => {
                       {selectedTopic && (
                         <p className="mt-5 rounded-md border border-border bg-background px-4 py-3 text-sm">
                           <span className="text-muted-foreground">Модуль: </span>
-                          {selectedTopic.module} · {selectedTopic.questions.length} заданий
+                          {selectedTopic.module} · в капсуле {Math.max(5, Math.round(minutes * 0.8))}{' '}
+                          заданий из {selectedTopic.questions.length}
                         </p>
                       )}
                       {assignError && (

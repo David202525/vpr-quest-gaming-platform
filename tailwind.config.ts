@@ -133,6 +133,16 @@ export default {
 				'grow-bar': {
 					from: { transform: 'scaleX(0)' },
 					to: { transform: 'scaleX(1)' }
+				},
+				'drift': {
+					'0%': { transform: 'translate(0, 0) rotate(0deg)' },
+					'33%': { transform: 'translate(24px, -22px) rotate(6deg)' },
+					'66%': { transform: 'translate(-18px, -12px) rotate(-5deg)' },
+					'100%': { transform: 'translate(0, 0) rotate(0deg)' }
+				},
+				'aurora': {
+					'0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+					'50%': { transform: 'translate(6%, -5%) scale(1.15)' }
 				}
 			},
 			animation: {
@@ -147,7 +157,9 @@ export default {
 				'blink': 'blink 5s ease-in-out infinite',
 				'orbit': 'orbit 9s linear infinite',
 				'marquee': 'marquee 28s linear infinite',
-				'grow-bar': 'grow-bar 0.8s cubic-bezier(.2,.7,.2,1) both'
+				'grow-bar': 'grow-bar 0.8s cubic-bezier(.2,.7,.2,1) both',
+				'drift': 'drift 22s ease-in-out infinite',
+				'aurora': 'aurora 18s ease-in-out infinite'
 			}
 		}
 	},

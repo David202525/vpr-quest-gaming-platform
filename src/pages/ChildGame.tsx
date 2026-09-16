@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import CabinetHeader from '@/components/CabinetHeader';
 import ChildShop from '@/components/cabinet/ChildShop';
+import ChildBackground from '@/components/cabinet/ChildBackground';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, Assignment, Child, ShopItem } from '@/lib/api';
-import { topicByLabel } from '@/data/curriculum';
+import { questionsForMinutes, topicByLabel, Question } from '@/data/curriculum';
 import { toast } from '@/hooks/use-toast';
 
 const MODULE_HERO: Record<string, string> = {
@@ -29,6 +30,7 @@ const ChildGame = () => {
   const [tab, setTab] = useState<Tab>('quests');
 
   const [playing, setPlaying] = useState<Assignment | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [payMode, setPayMode] = useState<string>('');
   const [step, setStep] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -57,13 +59,12 @@ const ChildGame = () => {
     if (role === 'child') load();
   }, [role]);
 
-  const topic = playing ? topicByLabel(playing.topic) : null;
-  const questions = topic?.questions || [];
-
   const start = async (a: Assignment) => {
     setStarting(a.id);
     try {
       const res = await api.startTest();
+      const topic = topicByLabel(a.topic);
+      setQuestions(topic ? questionsForMinutes(topic, a.minutes) : []);
       setPayMode(res.paid_with);
       setPlaying(a);
       setStep(0);
@@ -138,7 +139,8 @@ const ChildGame = () => {
   const freeLeft = !child?.free_used;
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background px-4 py-6 md:px-[30px] md:py-[22px]">
+    <div className="relative min-h-screen overflow-x-hidden px-4 py-6 md:px-[30px] md:py-[22px]">
+      <ChildBackground />
       <CabinetHeader title={`Игрок · ${child?.name || ''}`} />
 
       <main className="mx-auto mt-8 max-w-5xl pb-16">
@@ -209,7 +211,15 @@ const ChildGame = () => {
                       </p>
                     )}
                   </div>
-                  <span className="animate-float text-4xl">{MODULE_HERO[playing.module]}</span>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="font-display text-xl">
+                        {step + 1}/{questions.length}
+                      </p>
+                      <p className="rubric text-muted-foreground">{playing.minutes} мин</p>
+                    </div>
+                    <span className="animate-float text-4xl">{MODULE_HERO[playing.module]}</span>
+                  </div>
                 </div>
 
                 <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-secondary">

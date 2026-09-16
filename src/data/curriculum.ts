@@ -1,3 +1,5 @@
+import { EXTRA } from './extraQuestions';
+
 export type Question = { q: string; options: string[]; right: number };
 
 export type Topic = {
@@ -298,6 +300,25 @@ export const TOPICS: Topic[] = [
   },
 ];
 
+TOPICS.forEach((topic) => {
+  const extra = EXTRA[topic.id];
+  if (extra) topic.questions = [...topic.questions, ...extra];
+});
+
 export const topicById = (id: string) => TOPICS.find((t) => t.id === id);
 export const topicByLabel = (label: string) => TOPICS.find((t) => t.label === label);
 export const topicsForGrade = (grade: string) => TOPICS.filter((t) => t.grades.includes(grade));
+
+export const questionsForMinutes = (topic: Topic, minutes: number): Question[] => {
+  const perMinute = 0.8;
+  const want = Math.max(5, Math.round(minutes * perMinute));
+  const pool = [...topic.questions];
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  if (pool.length >= want) return pool.slice(0, want);
+  const out = [...pool];
+  while (out.length < want) out.push(pool[out.length % pool.length]);
+  return out;
+};
