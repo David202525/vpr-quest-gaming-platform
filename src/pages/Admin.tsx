@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import CabinetHeader from '@/components/CabinetHeader';
 import ParentBackground from '@/components/cabinet/ParentBackground';
+import BulkUpload from '@/components/cabinet/BulkUpload';
 import { useAuth } from '@/contexts/AuthContext';
 import { adminApi, AdminQuestion, DbTopic } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
@@ -323,6 +324,14 @@ const Admin = () => {
                 Добавить задание
               </button>
             </form>
+
+            <BulkUpload
+              topic={active}
+              topicLabel={activeTopic?.label || ''}
+              onDone={async () => {
+                await Promise.all([loadOverview(), loadQuestions(active, search)]);
+              }}
+            />
 
             <div className="rounded-md border border-border bg-card">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">

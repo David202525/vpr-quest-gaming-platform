@@ -144,6 +144,60 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return respond(200, {'ok': True, 'id': new_id})
 
+    if method == 'POST' and action == 'bulk-add':
+        slug = (body.get('topic') or '').strip()
+        raw = body.get('text') or ''
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT 1 FROM {t('topics')} WHERE slug = {esc(slug)}")
+            if not cur.fetchone():
+                conn.close()
+                return respond(400, {'error': 'Сначала выберите тему'})
+            cur.execute(f"SELECT text FROM {t('questions')} WHERE topic_slug = {esc(slug)}")
+            existing = {r[0] for r in cur.fetchall()}
+
+        added, errors, skipped = 0, [], 0
+        values = []
+        for num, line in enumerate(raw.split('\n'), start=1):
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split('|')]
+            if len(parts) < 4:
+                errors.append(f'Строка {num}: нужен текст, минимум 2 варианта и номер ответа')
+                continue
+            try:
+                right = int(parts[-1]) - 1
+            except ValueError:
+                errors.append(f'Строка {num}: последним должен быть номер правильного ответа')
+                continue
+            text = parts[0]
+            options = [p for p in parts[1:-1] if p]
+            if len(text) < 3 or len(options) < 2:
+                errors.append(f'Строка {num}: слишком короткий текст или мало вариантов')
+                continue
+            if right < 0 or right >= len(options):
+                errors.append(f'Строка {num}: номер ответа вне списка вариантов')
+                continue
+            if text in existing:
+                skipped += 1
+                continue
+            existing.add(text)
+            opts = json.dumps(options, ensure_ascii=False)
+            values.append(f"({esc(slug)}, {esc(text)}, {esc(opts)}, {right}, 'admin')")
+
+        if values:
+            with conn.cursor() as cur:
+                for i in range(0, len(values), 100):
+                    chunk = values[i:i + 100]
+                    cur.execute(
+                        f"INSERT INTO {t('questions')} (topic_slug, text, options, right_index, source) "
+                        f"VALUES " + ','.join(chunk)
+                    )
+                    added += len(chunk)
+            conn.commit()
+        conn.close()
+        return respond(200, {'ok': True, 'added': added, 'skipped': skipped, 'errors': errors[:10]})
+
     if method == 'POST' and action == 'toggle-question':
         qid = int(body.get('id') or 0)
         with conn.cursor() as cur:

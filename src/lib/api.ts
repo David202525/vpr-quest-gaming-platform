@@ -135,6 +135,8 @@ export const adminApi = {
     ),
   addQuestion: (body: { topic: string; text: string; options: string[]; right: number }) =>
     request(ADMIN_URL, 'add-question', { method: 'POST', body: JSON.stringify(body) }),
+  bulkAdd: (topic: string, text: string) =>
+    request(ADMIN_URL, 'bulk-add', { method: 'POST', body: JSON.stringify({ topic, text }) }),
   toggleQuestion: (id: number) =>
     request(ADMIN_URL, 'toggle-question', { method: 'POST', body: JSON.stringify({ id }) }),
   addTopic: (body: {
