@@ -7,7 +7,8 @@ import ParentShop from '@/components/cabinet/ParentShop';
 import ParentBackground from '@/components/cabinet/ParentBackground';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, Assignment, Child, Invite, Parent, ShopItem } from '@/lib/api';
-import { GRADES, SUBJECTS, TOPICS, topicsForGrade } from '@/data/curriculum';
+import { GRADES, SUBJECTS } from '@/data/curriculum';
+import { DbTopic } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 const AVATARS = ['🐼', '🤖', '🦊', '🐦‍⬛', '🐱', '🐲'];
@@ -22,6 +23,7 @@ const ParentCabinet = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [shop, setShop] = useState<ShopItem[]>([]);
+  const [allTopics, setAllTopics] = useState<DbTopic[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>('progress');
   const [dataLoading, setDataLoading] = useState(true);
@@ -51,6 +53,12 @@ const ParentCabinet = () => {
       setAssignments(data.assignments);
       setInvites(data.invites);
       setShop(data.shop);
+      try {
+        const tData = await api.topics();
+        setAllTopics(tData.topics);
+      } catch {
+        /* no-op */
+      }
       setActiveId((cur) => cur ?? (data.children.length ? data.children[0].id : null));
     } catch {
       /* no-op */
@@ -64,14 +72,20 @@ const ParentCabinet = () => {
 
   const active = children.find((c) => c.id === activeId) || null;
 
-  const availableTopics = active
-    ? topicsForGrade(active.grade).filter((t) => t.subject === subject)
-    : TOPICS.filter((t) => t.subject === subject);
-  const selectedTopic = availableTopics.find((t) => t.id === topicId) || availableTopics[0];
+  const gradeOf = (t: DbTopic) =>
+    Array.isArray(t.grades) ? t.grades : String(t.grades).split(',');
+
+  const availableTopics = allTopics.filter(
+    (t) =>
+      t.subject === subject &&
+      t.count > 0 &&
+      (!active || gradeOf(t).includes(String(active.grade))),
+  );
+  const selectedTopic = availableTopics.find((t) => t.slug === topicId) || availableTopics[0];
 
   useEffect(() => {
-    if (availableTopics.length && !availableTopics.some((t) => t.id === topicId)) {
-      setTopicId(availableTopics[0].id);
+    if (availableTopics.length && !availableTopics.some((t) => t.slug === topicId)) {
+      setTopicId(availableTopics[0].slug);
     }
   }, [subject, activeId, availableTopics.length]);
 
@@ -155,12 +169,23 @@ const ParentCabinet = () => {
               Дети и их прогресс
             </h1>
           </div>
-          <div className="rounded-md border border-border bg-card px-5 py-4">
+          <div className="flex items-center gap-3">
+            {parent?.is_admin && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-5 py-4 text-[0.68rem] font-medium uppercase tracking-[0.12em] transition-colors hover:bg-secondary"
+              >
+                <Icon name="Database" size={15} strokeWidth={1.5} />
+                Банк заданий
+              </button>
+            )}
+            <div className="rounded-md border border-border bg-card px-5 py-4">
             <p className="rubric text-muted-foreground">Попытки</p>
             <p className="mt-1 inline-flex items-center gap-2 font-display text-2xl">
               <Icon name="Zap" size={18} strokeWidth={1.4} className="text-primary" />
               {parent?.plan === 'unlimited' ? '∞' : (parent?.energy ?? 0)}
             </p>
+            </div>
           </div>
         </div>
 
@@ -364,13 +389,13 @@ const ParentCabinet = () => {
                           Тема для {active.grade} класса
                         </span>
                         <select
-                          value={selectedTopic?.id || ''}
+                          value={selectedTopic?.slug || ''}
                           onChange={(e) => setTopicId(e.target.value)}
                           className={inputClass}
                         >
                           {availableTopics.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.label}
+                            <option key={t.slug} value={t.slug}>
+                              {t.label} ({t.count})
                             </option>
                           ))}
                         </select>
@@ -414,7 +439,7 @@ const ParentCabinet = () => {
                         <p className="mt-5 rounded-md border border-border bg-background px-4 py-3 text-sm">
                           <span className="text-muted-foreground">Модуль: </span>
                           {selectedTopic.module} · в капсуле {Math.max(5, Math.round(minutes * 0.8))}{' '}
-                          заданий из {selectedTopic.questions.length}
+                          заданий из {selectedTopic.count}
                         </p>
                       )}
                       {assignError && (

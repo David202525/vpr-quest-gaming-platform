@@ -6,7 +6,7 @@ import ChildShop from '@/components/cabinet/ChildShop';
 import ChildBackground from '@/components/cabinet/ChildBackground';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, Assignment, Child, ShopItem } from '@/lib/api';
-import { questionsForMinutes, topicByLabel, Question } from '@/data/curriculum';
+import { Question } from '@/data/curriculum';
 import { toast } from '@/hooks/use-toast';
 
 const MODULE_HERO: Record<string, string> = {
@@ -62,9 +62,18 @@ const ChildGame = () => {
   const start = async (a: Assignment) => {
     setStarting(a.id);
     try {
+      const quiz = await api.quiz(a.topic, a.minutes || 15);
+      if (!quiz.questions?.length) {
+        toast({
+          title: 'Заданий пока нет',
+          description: 'По этой теме в банке нет активных заданий.',
+          variant: 'destructive',
+        });
+        setStarting(0);
+        return;
+      }
       const res = await api.startTest();
-      const topic = topicByLabel(a.topic);
-      setQuestions(topic ? questionsForMinutes(topic, a.minutes) : []);
+      setQuestions(quiz.questions);
       setPayMode(res.paid_with);
       setPlaying(a);
       setStep(0);
@@ -308,7 +317,7 @@ const ChildGame = () => {
                             </div>
                             <button
                               onClick={() => start(a)}
-                              disabled={!topicByLabel(a.topic) || starting === a.id}
+                              disabled={starting === a.id}
                               className="rounded-md bg-primary px-5 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.12em] text-primary-foreground disabled:opacity-50"
                             >
                               {starting === a.id ? '…' : 'Играть'}

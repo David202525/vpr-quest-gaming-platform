@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS topics (
+    id SERIAL PRIMARY KEY,
+    slug VARCHAR(64) UNIQUE NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    subject VARCHAR(64) NOT NULL,
+    module VARCHAR(128) NOT NULL,
+    grades VARCHAR(64) NOT NULL DEFAULT '5',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS questions (
+    id SERIAL PRIMARY KEY,
+    topic_slug VARCHAR(64) NOT NULL,
+    text TEXT NOT NULL,
+    options TEXT NOT NULL,
+    right_index INTEGER NOT NULL DEFAULT 0,
+    hint TEXT,
+    source VARCHAR(64) NOT NULL DEFAULT 'base',
+    difficulty INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic_slug);

@@ -102,12 +102,12 @@ def handler(event: dict, context) -> dict:
             return respond(200, {'authorized': False})
         with conn.cursor() as cur:
             if session['role'] == 'parent':
-                cur.execute(f"SELECT id, name, email FROM {t('parents')} WHERE id = {session['user_id']}")
+                cur.execute(f"SELECT id, name, email, is_admin FROM {t('parents')} WHERE id = {session['user_id']}")
                 row = cur.fetchone()
                 conn.close()
                 if not row:
                     return respond(200, {'authorized': False})
-                return respond(200, {'authorized': True, 'role': 'parent', 'user': {'id': row[0], 'name': row[1], 'email': row[2]}})
+                return respond(200, {'authorized': True, 'role': 'parent', 'user': {'id': row[0], 'name': row[1], 'email': row[2], 'is_admin': row[3]}})
             cur.execute(
                 f"SELECT id, name, grade, avatar, coins, xp, energy, login_code "
                 f"FROM {t('children')} WHERE id = {session['user_id']}"

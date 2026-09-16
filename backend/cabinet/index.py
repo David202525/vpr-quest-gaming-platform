@@ -166,10 +166,13 @@ def child_heatmap(conn, child_id: int):
 def parent_row(conn, parent_id: int):
     with conn.cursor() as cur:
         cur.execute(
-            f"SELECT id, name, email, energy, plan FROM {t('parents')} WHERE id = {parent_id}"
+            f"SELECT id, name, email, energy, plan, is_admin FROM {t('parents')} WHERE id = {parent_id}"
         )
         r = cur.fetchone()
-    return {'id': r[0], 'name': r[1], 'email': r[2], 'energy': r[3], 'plan': r[4]}
+    return {
+        'id': r[0], 'name': r[1], 'email': r[2],
+        'energy': r[3], 'plan': r[4], 'is_admin': r[5],
+    }
 
 
 def handler(event: dict, context) -> dict:
@@ -241,6 +244,45 @@ def handler(event: dict, context) -> dict:
         }
         conn.close()
         return respond(200, result)
+
+    if method == 'GET' and action == 'topics':
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT t.slug, t.label, t.subject, t.module, t.grades, "
+                f"COUNT(q.id) FILTER (WHERE q.is_active) "
+                f"FROM {t('topics')} t LEFT JOIN {t('questions')} q ON q.topic_slug = t.slug "
+                f"WHERE t.is_active GROUP BY t.id ORDER BY t.subject, t.label"
+            )
+            rows = cur.fetchall()
+        conn.close()
+        return respond(200, {'topics': [{
+            'slug': r[0], 'label': r[1], 'subject': r[2], 'module': r[3],
+            'grades': [g for g in r[4].split(',') if g], 'count': r[5],
+        } for r in rows]})
+
+    if method == 'GET' and action == 'quiz':
+        if session['role'] != 'child':
+            conn.close()
+            return respond(403, {'error': 'Задания выдаются ученику'})
+        label = (params.get('topic') or '').strip()
+        minutes = int(params.get('minutes') or 15)
+        need = max(5, round(minutes * 0.8))
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT slug FROM {t('topics')} WHERE label = {esc(label)}")
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return respond(404, {'error': 'Тема не найдена'})
+            cur.execute(
+                f"SELECT text, options, right_index FROM {t('questions')} "
+                f"WHERE topic_slug = {esc(row[0])} AND is_active "
+                f"ORDER BY RANDOM() LIMIT {need}"
+            )
+            qs = cur.fetchall()
+        conn.close()
+        return respond(200, {'questions': [{
+            'q': r[0], 'options': json.loads(r[1]), 'right': r[2],
+        } for r in qs]})
 
     if method == 'GET' and action == 'child-dashboard':
         if session['role'] != 'child':

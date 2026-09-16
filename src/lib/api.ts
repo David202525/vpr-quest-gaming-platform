@@ -1,5 +1,6 @@
 const AUTH_URL = 'https://functions.poehali.dev/f120bf85-e77e-4581-9432-a78236a9b1e1';
 const CABINET_URL = 'https://functions.poehali.dev/cba152f1-fc6e-4b5a-ba0f-a2535f354048';
+const ADMIN_URL = 'https://functions.poehali.dev/2f8ea274-a678-4f83-a4f3-9935b119e601';
 
 const TOKEN_KEY = 'vpr_token';
 
@@ -25,6 +26,7 @@ export type Parent = {
   id: number;
   name: string;
   email: string;
+  is_admin?: boolean;
   energy?: number;
   plan?: string;
 };
@@ -119,4 +121,46 @@ export const api = {
     request(CABINET_URL, 'parent-buy', { method: 'POST', body: JSON.stringify({ code }) }),
   invite: (email: string) =>
     request(CABINET_URL, 'invite', { method: 'POST', body: JSON.stringify({ email }) }),
+  topics: () => request(CABINET_URL, 'topics'),
+  quiz: (topic: string, minutes: number) =>
+    request(CABINET_URL, `quiz&topic=${encodeURIComponent(topic)}&minutes=${minutes}`),
+};
+
+export const adminApi = {
+  overview: () => request(ADMIN_URL, 'overview'),
+  questions: (topic: string, search = '') =>
+    request(
+      ADMIN_URL,
+      `questions&topic=${encodeURIComponent(topic)}&q=${encodeURIComponent(search)}`,
+    ),
+  addQuestion: (body: { topic: string; text: string; options: string[]; right: number }) =>
+    request(ADMIN_URL, 'add-question', { method: 'POST', body: JSON.stringify(body) }),
+  toggleQuestion: (id: number) =>
+    request(ADMIN_URL, 'toggle-question', { method: 'POST', body: JSON.stringify({ id }) }),
+  addTopic: (body: {
+    slug: string;
+    label: string;
+    subject: string;
+    module: string;
+    grades: string;
+  }) => request(ADMIN_URL, 'add-topic', { method: 'POST', body: JSON.stringify(body) }),
+};
+
+export type DbTopic = {
+  slug: string;
+  label: string;
+  subject: string;
+  module: string;
+  grades: string[] | string;
+  count: number;
+  is_active?: boolean;
+};
+export type AdminQuestion = {
+  id: number;
+  topic: string;
+  text: string;
+  options: string[];
+  right: number;
+  source: string;
+  is_active: boolean;
 };

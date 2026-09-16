@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Без токена доступа нет",
+      "method": "GET",
+      "path": "/?action=overview",
+      "expectedStatus": 403
+    },
+    {
+      "name": "Добавление без прав запрещено",
+      "method": "POST",
+      "path": "/?action=add-question",
+      "body": {"topic": "frac", "text": "test", "options": ["a", "b"], "right": 0},
+      "expectedStatus": 403
+    }
+  ]
+}
