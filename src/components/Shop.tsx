@@ -100,8 +100,8 @@ const Shop = () => {
             </h2>
           </div>
           <p className="max-w-[38ch] text-sm leading-relaxed text-muted-foreground">
-            Валюта капает за ежедневный вход, капсульные сессии и победы над боссами. Тратится
-            только внутри платформы — рекламы сторонних товаров нет вообще.
+            Луткоины ребёнок зарабатывает в игре и тратит в своём магазине. Энергия — это попытки
+            на тесты, ими управляет родитель: первый тест бесплатный.
           </p>
         </div>
 
@@ -140,14 +140,14 @@ const Shop = () => {
               ))}
             </div>
             <p className="mt-2 text-[0.72rem] uppercase tracking-[0.12em] text-muted-foreground">
-              Энергия: +1 каждые 10 минут
+              Попытки — в кабинете родителя
             </p>
             <button
               onClick={() => setEnergy((e) => Math.min(5, e + 1))}
               className="mt-3 inline-flex items-center gap-2 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-primary story-link"
             >
-              <Icon name="Play" size={12} strokeWidth={2} />
-              Видео от музея +1
+              <Icon name="UserPlus" size={12} strokeWidth={2} />
+              Пригласить друга +3
             </button>
           </div>
         </div>

@@ -1,0 +1,30 @@
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS energy INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS plan VARCHAR(32) NOT NULL DEFAULT 'free';
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS invite_code VARCHAR(32);
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS invited_by INTEGER;
+
+ALTER TABLE children ADD COLUMN IF NOT EXISTS free_used BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS purchases (
+    id SERIAL PRIMARY KEY,
+    child_id INTEGER REFERENCES children(id),
+    parent_id INTEGER REFERENCES parents(id),
+    item_code VARCHAR(64) NOT NULL,
+    item_title VARCHAR(255) NOT NULL,
+    price INTEGER NOT NULL DEFAULT 0,
+    kind VARCHAR(32) NOT NULL DEFAULT 'skin',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS invites (
+    id SERIAL PRIMARY KEY,
+    parent_id INTEGER NOT NULL REFERENCES parents(id),
+    code VARCHAR(32) NOT NULL,
+    friend_email VARCHAR(255),
+    status VARCHAR(32) NOT NULL DEFAULT 'sent',
+    reward_given BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchases_child ON purchases(child_id);
+CREATE INDEX IF NOT EXISTS idx_invites_parent ON invites(parent_id);

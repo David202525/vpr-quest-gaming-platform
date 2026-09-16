@@ -2,44 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import CabinetHeader from '@/components/CabinetHeader';
+import ChildShop from '@/components/cabinet/ChildShop';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, Assignment, Child } from '@/lib/api';
+import { api, Assignment, Child, ShopItem } from '@/lib/api';
+import { topicByLabel } from '@/data/curriculum';
 import { toast } from '@/hooks/use-toast';
-
-type Question = { q: string; options: string[]; right: number };
-
-const BANK: Record<string, Question[]> = {
-  'Действия с дробями': [
-    { q: '1/2 + 1/4 = ?', options: ['3/4', '2/6', '1/6', '2/4'], right: 0 },
-    { q: '3/5 − 1/5 = ?', options: ['2/10', '2/5', '4/5', '1/5'], right: 1 },
-    { q: '2/3 · 3 = ?', options: ['2/9', '6/9', '2', '5/3'], right: 2 },
-  ],
-  'Задачи на проценты': [
-    { q: '20% от 150 — это…', options: ['15', '30', '25', '35'], right: 1 },
-    { q: 'Цена 800 ₽ выросла на 10%. Стало:', options: ['880 ₽', '810 ₽', '900 ₽', '808 ₽'], right: 0 },
-    { q: 'Половина — это сколько процентов?', options: ['25%', '75%', '50%', '20%'], right: 2 },
-  ],
-  'Правописание -Н- и -НН-': [
-    { q: 'Ветре..ый день', options: ['ветреный', 'ветренный'], right: 0 },
-    { q: 'Кова..ый сундук', options: ['кованый', 'кованный'], right: 0 },
-    { q: 'Стекля..ая банка', options: ['стекляная', 'стеклянная'], right: 1 },
-  ],
-  'Запятая перед «что»': [
-    { q: 'Я знаю ( ) что ты придёшь.', options: ['запятая нужна', 'запятая не нужна'], right: 0 },
-    { q: 'Он сказал ( ) что-то тихо.', options: ['запятая нужна', 'запятая не нужна'], right: 1 },
-    { q: 'Мама видит ( ) что мы играем.', options: ['запятая нужна', 'запятая не нужна'], right: 0 },
-  ],
-  'Пищевые цепи': [
-    { q: 'Кто в цепи первый?', options: ['Волк', 'Растение', 'Заяц', 'Гриб'], right: 1 },
-    { q: 'Лиса — это…', options: ['Производитель', 'Хищник', 'Разлагатель'], right: 1 },
-    { q: 'Что вернёт вещества в почву?', options: ['Грибы и бактерии', 'Орёл', 'Кузнечик'], right: 0 },
-  ],
-  'Куликовская битва': [
-    { q: 'В каком году была Куликовская битва?', options: ['1380', '1242', '1480', '1147'], right: 0 },
-    { q: 'Кто вёл русское войско?', options: ['Иван Грозный', 'Дмитрий Донской', 'Пётр I'], right: 1 },
-    { q: 'Что решило исход боя?', options: ['Засадный полк', 'Осада', 'Флот'], right: 0 },
-  ],
-};
 
 const MODULE_HERO: Record<string, string> = {
   'Башня дробей': '🛡️',
@@ -48,19 +15,26 @@ const MODULE_HERO: Record<string, string> = {
   'Хроно-битва': '🗡️',
 };
 
+type Tab = 'quests' | 'shop';
+
 const ChildGame = () => {
   const { role, loading, refresh } = useAuth();
   const navigate = useNavigate();
 
   const [child, setChild] = useState<Child | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [shop, setShop] = useState<ShopItem[]>([]);
+  const [owned, setOwned] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>('quests');
 
   const [playing, setPlaying] = useState<Assignment | null>(null);
+  const [payMode, setPayMode] = useState<string>('');
   const [step, setStep] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [finished, setFinished] = useState<{ coins: number; xp: number } | null>(null);
+  const [starting, setStarting] = useState(0);
 
   useEffect(() => {
     if (!loading && role !== 'child') navigate('/login');
@@ -71,6 +45,8 @@ const ChildGame = () => {
       const data = await api.childDashboard();
       setChild(data.child);
       setAssignments(data.assignments);
+      setShop(data.shop);
+      setOwned((data.purchases || []).map((p: { code: string }) => p.code));
     } catch {
       /* no-op */
     }
@@ -81,14 +57,36 @@ const ChildGame = () => {
     if (role === 'child') load();
   }, [role]);
 
-  const questions = playing ? BANK[playing.topic] || [] : [];
+  const topic = playing ? topicByLabel(playing.topic) : null;
+  const questions = topic?.questions || [];
 
-  const start = (a: Assignment) => {
-    setPlaying(a);
-    setStep(0);
-    setCorrect(0);
-    setPicked(null);
-    setFinished(null);
+  const start = async (a: Assignment) => {
+    setStarting(a.id);
+    try {
+      const res = await api.startTest();
+      setPayMode(res.paid_with);
+      setPlaying(a);
+      setStep(0);
+      setCorrect(0);
+      setPicked(null);
+      setFinished(null);
+      await load();
+      if (res.paid_with === 'free') {
+        toast({ title: 'Первый тест бесплатный', description: 'Дальше попытки тратят энергию.' });
+      } else if (res.paid_with === 'energy') {
+        toast({ title: 'Попытка потрачена', description: `Осталось: ${res.energy_left}` });
+      }
+    } catch (err) {
+      toast({
+        title: 'Попытки закончились',
+        description:
+          err instanceof Error
+            ? err.message
+            : 'Попроси родителей пополнить энергию или пригласить друга',
+        variant: 'destructive',
+      });
+    }
+    setStarting(0);
   };
 
   const pick = (i: number) => {
@@ -135,6 +133,9 @@ const ChildGame = () => {
 
   const open = assignments.filter((a) => a.status !== 'done');
   const done = assignments.filter((a) => a.status === 'done');
+  const unlimited = child?.plan === 'unlimited';
+  const attemptsLeft = unlimited ? '∞' : (child?.parent_energy ?? 0);
+  const freeLeft = !child?.free_used;
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background px-4 py-6 md:px-[30px] md:py-[22px]">
@@ -149,7 +150,7 @@ const ChildGame = () => {
               {child?.name}, {child?.grade} класс
             </p>
           </div>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-6">
             <div>
               <p className="inline-flex items-center gap-2 font-display text-2xl text-primary">
                 <Icon name="Coins" size={18} strokeWidth={1.5} />
@@ -163,6 +164,15 @@ const ChildGame = () => {
                 {child?.xp}
               </p>
               <p className="rubric mt-1 text-muted-foreground">Опыт</p>
+            </div>
+            <div>
+              <p className="inline-flex items-center gap-2 font-display text-2xl">
+                <Icon name="BatteryCharging" size={18} strokeWidth={1.5} />
+                {freeLeft ? '1' : attemptsLeft}
+              </p>
+              <p className="rubric mt-1 text-muted-foreground">
+                {freeLeft ? 'бесплатно' : 'попыток'}
+              </p>
             </div>
           </div>
         </div>
@@ -193,6 +203,11 @@ const ChildGame = () => {
                     <p className="mt-2 font-display text-xl uppercase tracking-[0.04em]">
                       {playing.topic}
                     </p>
+                    {payMode === 'free' && (
+                      <p className="mt-1 text-[0.7rem] text-muted-foreground">
+                        Бесплатная попытка
+                      </p>
+                    )}
                   </div>
                   <span className="animate-float text-4xl">{MODULE_HERO[playing.module]}</span>
                 </div>
@@ -241,81 +256,130 @@ const ChildGame = () => {
             )}
           </div>
         ) : (
-          <div className="mt-6 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-md border border-border bg-card p-6">
-              <p className="rubric text-muted-foreground">Задания от родителей</p>
-              {open.length ? (
-                <ul className="mt-5 space-y-3">
-                  {open.map((a) => (
-                    <li
-                      key={a.id}
-                      className="rounded-md border border-border bg-background p-5 transition-transform hover:-translate-y-0.5"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="font-display text-lg uppercase tracking-[0.04em]">
-                            {a.topic}
-                          </p>
-                          <p className="mt-1 text-[0.72rem] text-muted-foreground">
-                            {a.module} · до {a.deadline} · {a.minutes} мин
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => start(a)}
-                          disabled={!BANK[a.topic]}
-                          className="rounded-md bg-primary px-5 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.12em] text-primary-foreground disabled:opacity-50"
-                        >
-                          Играть
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                  Новых заданий нет. Отдыхай — или попроси родителей назначить тему.
-                </p>
-              )}
+          <>
+            <div className="mt-6 flex gap-2">
+              {([
+                { id: 'quests', label: 'Задания' },
+                { id: 'shop', label: 'Магазин' },
+              ] as { id: Tab; label: string }[]).map((tItem) => (
+                <button
+                  key={tItem.id}
+                  onClick={() => setTab(tItem.id)}
+                  className={`flex-1 rounded-md border px-4 py-3 text-[0.68rem] font-medium uppercase tracking-[0.12em] transition-colors ${
+                    tab === tItem.id
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card hover:bg-secondary'
+                  }`}
+                >
+                  {tItem.label}
+                </button>
+              ))}
             </div>
 
-            <div className="rounded-md border border-border bg-card p-6">
-              <p className="rubric text-muted-foreground">Уже пройдено</p>
-              {done.length ? (
-                <ul className="mt-5 space-y-3">
-                  {done.map((a) => (
-                    <li
-                      key={a.id}
-                      className="flex items-center gap-3 border-b border-border pb-3 text-sm last:border-b-0"
-                    >
-                      <Icon
-                        name="Check"
-                        size={16}
-                        strokeWidth={1.8}
-                        className="shrink-0 text-primary"
-                      />
-                      {a.topic}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                  Пока ничего не пройдено. Первая капсула — 15 минут, это быстро.
-                </p>
-              )}
-              <div className="mt-6 flex items-start gap-3 rounded-md border border-primary/40 bg-primary/5 p-4">
-                <Icon
-                  name="Sparkles"
-                  size={17}
-                  strokeWidth={1.4}
-                  className="mt-0.5 shrink-0 text-primary"
-                />
-                <p className="text-sm leading-relaxed">
-                  За каждый верный ответ — 20 луткоинов и 35 опыта. На них в магазине берут скины и
-                  питомцев.
-                </p>
+            {tab === 'quests' ? (
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <div className="rounded-md border border-border bg-card p-6">
+                  <p className="rubric text-muted-foreground">Задания от родителей</p>
+                  {open.length ? (
+                    <ul className="mt-5 space-y-3">
+                      {open.map((a) => (
+                        <li
+                          key={a.id}
+                          className="rounded-md border border-border bg-background p-5 transition-transform hover:-translate-y-0.5"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="font-display text-lg uppercase tracking-[0.04em]">
+                                {a.topic}
+                              </p>
+                              <p className="mt-1 text-[0.72rem] text-muted-foreground">
+                                {a.module} · до {a.deadline} · {a.minutes} мин
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => start(a)}
+                              disabled={!topicByLabel(a.topic) || starting === a.id}
+                              className="rounded-md bg-primary px-5 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.12em] text-primary-foreground disabled:opacity-50"
+                            >
+                              {starting === a.id ? '…' : 'Играть'}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                      Новых заданий нет. Отдыхай — или попроси родителей назначить тему.
+                    </p>
+                  )}
+
+                  <div className="mt-6 flex items-start gap-3 rounded-md border border-primary/40 bg-primary/5 p-4">
+                    <Icon
+                      name="BatteryCharging"
+                      size={17}
+                      strokeWidth={1.4}
+                      className="mt-0.5 shrink-0 text-primary"
+                    />
+                    <p className="text-sm leading-relaxed">
+                      {freeLeft
+                        ? 'Первый тест бесплатный. Дальше каждая попытка тратит энергию — её пополняют родители или получают за приглашение друга.'
+                        : `Осталось попыток: ${attemptsLeft}. Пополнить их может родитель в своём кабинете.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border bg-card p-6">
+                  <p className="rubric text-muted-foreground">Уже пройдено</p>
+                  {done.length ? (
+                    <ul className="mt-5 space-y-3">
+                      {done.map((a) => (
+                        <li
+                          key={a.id}
+                          className="flex items-center gap-3 border-b border-border pb-3 text-sm last:border-b-0"
+                        >
+                          <Icon
+                            name="Check"
+                            size={16}
+                            strokeWidth={1.8}
+                            className="shrink-0 text-primary"
+                          />
+                          {a.topic}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                      Пока ничего не пройдено. Первая капсула — 15 минут, это быстро.
+                    </p>
+                  )}
+                  <div className="mt-6 flex items-start gap-3 rounded-md border border-border bg-background p-4">
+                    <Icon
+                      name="Sparkles"
+                      size={17}
+                      strokeWidth={1.4}
+                      className="mt-0.5 shrink-0 text-primary"
+                    />
+                    <p className="text-sm leading-relaxed">
+                      За каждый верный ответ — 20 луткоинов и 35 опыта. Трать их в магазине на скины
+                      и питомцев.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            ) : (
+              <div className="mt-6">
+                <ChildShop
+                  shop={shop}
+                  owned={owned}
+                  coins={child?.coins || 0}
+                  onChange={async () => {
+                    await load();
+                    await refresh();
+                  }}
+                />
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

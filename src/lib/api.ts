@@ -21,7 +21,13 @@ const request = async (base: string, action: string, options: RequestInit = {}) 
   return data;
 };
 
-export type Parent = { id: number; name: string; email: string };
+export type Parent = {
+  id: number;
+  name: string;
+  email: string;
+  energy?: number;
+  plan?: string;
+};
 export type Child = {
   id: number;
   name: string;
@@ -29,11 +35,39 @@ export type Child = {
   avatar: string;
   coins: number;
   xp: number;
-  energy: number;
+  energy?: number;
   code: string;
   pin?: string;
+  free_used?: boolean;
+  parent_energy?: number;
+  plan?: string;
   stats?: TopicStat[];
+  heatmap?: Heatmap;
 };
+export type HeatCell = { errors: number; date: string; correct: number; total: number };
+export type HeatTopic = {
+  topic: string;
+  module: string;
+  cells: HeatCell[];
+  avg_errors: number;
+  trend: number;
+  attempts: number;
+};
+export type Insight = {
+  level: 'alert' | 'warn' | 'good' | 'info';
+  title: string;
+  text: string;
+  topic: string | null;
+};
+export type Heatmap = { topics: HeatTopic[]; insights: Insight[] };
+export type ShopItem = {
+  code: string;
+  title: string;
+  price: number;
+  kind: string;
+  energy?: number;
+};
+export type Invite = { id: number; code: string; email: string; status: string };
 export type TopicStat = {
   topic: string;
   module: string;
@@ -78,4 +112,11 @@ export const api = {
     total: number;
     assignment_id?: number | null;
   }) => request(CABINET_URL, 'submit-result', { method: 'POST', body: JSON.stringify(body) }),
+  startTest: () => request(CABINET_URL, 'start-test', { method: 'POST', body: '{}' }),
+  buy: (code: string) =>
+    request(CABINET_URL, 'buy', { method: 'POST', body: JSON.stringify({ code }) }),
+  parentBuy: (code: string) =>
+    request(CABINET_URL, 'parent-buy', { method: 'POST', body: JSON.stringify({ code }) }),
+  invite: (email: string) =>
+    request(CABINET_URL, 'invite', { method: 'POST', body: JSON.stringify({ email }) }),
 };
