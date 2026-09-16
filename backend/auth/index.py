@@ -149,14 +149,18 @@ def handler(event: dict, context) -> dict:
         email = (body.get('email') or '').strip().lower()
         password = body.get('password') or ''
         with conn.cursor() as cur:
-            cur.execute(f"SELECT id, name, password_hash FROM {t('parents')} WHERE email = {esc(email)}")
+            cur.execute(
+                f"SELECT id, name, password_hash, is_admin FROM {t('parents')} WHERE email = {esc(email)}"
+            )
             row = cur.fetchone()
         if not row or not check_password(password, row[2]):
             conn.close()
             return respond(401, {'error': 'Неверная почта или пароль'})
         session_token = make_session(conn, 'parent', row[0])
         conn.close()
-        return respond(200, {'token': session_token, 'role': 'parent', 'user': {'id': row[0], 'name': row[1], 'email': email}})
+        return respond(200, {'token': session_token, 'role': 'parent', 'user': {
+            'id': row[0], 'name': row[1], 'email': email, 'is_admin': row[3],
+        }})
 
     if method == 'POST' and action == 'child-login':
         code = (body.get('code') or '').strip().upper()

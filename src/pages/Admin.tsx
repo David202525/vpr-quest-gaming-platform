@@ -11,7 +11,7 @@ import { toast } from '@/hooks/use-toast';
 const SUBJECTS = ['Математика', 'Русский язык', 'Окружающий мир', 'История'];
 
 const Admin = () => {
-  const { role, parent, loading } = useAuth();
+  const { role, loading } = useAuth();
   const navigate = useNavigate();
 
   const [topics, setTopics] = useState<DbTopic[]>([]);
@@ -45,6 +45,7 @@ const Admin = () => {
       const data = await adminApi.overview();
       setTopics(data.topics);
       setTotal(data.total);
+      setDenied(false);
       setActive((cur) => cur || (data.topics[0]?.slug ?? ''));
     } catch {
       setDenied(true);
@@ -136,7 +137,7 @@ const Admin = () => {
     );
   }
 
-  if (denied || !parent?.is_admin) {
+  if (denied) {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center px-4 text-center">
         <ParentBackground />
