@@ -35,6 +35,11 @@ function flat(ax, ay, bx, by) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
+function speedNow() {
+    if (!outbreak) return 1.0;
+    return wave > 5 ? 1.45 : 1.25;
+}
+
 function inSafe(x, y, pad) {
     let hit = false;
     safe.forEach(function (s) {
@@ -104,37 +109,47 @@ function initGroups() {
     });
 }
 
-function attack(h, hard) {
+function chase(z, d) {
     const me = mp.players.local.handle;
-    const p = mp.players.local.position;
-    if (hard) {
+    const speed = speedNow();
+
+    if (d < 14) {
+        if (z.mode === 'fight') return;
+        z.mode = 'fight';
         safeCall(function () {
-            mp.game.ped.clearPedTasksImmediately(h);
+            mp.game.ped.setPedMoveRateOverride(z.h, speed);
         });
+        safeCall(function () {
+            mp.game.task.combatPed(z.h, me, 0, 16);
+        });
+        return;
     }
+
+    if (z.mode === 'run') return;
+    z.mode = 'run';
     safeCall(function () {
-        mp.game.entity.setEntityAsMissionEntity(h, true, true);
+        mp.game.ped.setPedMoveRateOverride(z.h, speed);
     });
     safeCall(function () {
-        mp.game.entity.freezeEntityPosition(h, false);
+        mp.game.task.goToEntity(z.h, me, -1, 1.0, 2.0, 1073741824.0, 0);
+    });
+}
+
+function reset(z) {
+    z.mode = '';
+    safeCall(function () {
+        mp.game.ped.clearPedTasksImmediately(z.h);
     });
     safeCall(function () {
-        mp.game.ped.setBlockingOfNonTemporaryEvents(h, true);
-    });
-    safeCall(function () {
-        mp.game.ped.setPedKeepTask(h, true);
-    });
-    safeCall(function () {
-        mp.game.task.combatPed(h, me, 0, 16);
-    });
-    safeCall(function () {
-        mp.game.task.goStraightToCoord(h, p.x, p.y, p.z, 2.0, -1, 0.0, 0.5);
+        mp.game.entity.freezeEntityPosition(z.h, false);
     });
 }
 
 function tune(h, hp) {
-    const speed = outbreak ? 1.25 : 0.9;
     const ped = mp.game.ped;
+    safeCall(function () {
+        mp.game.entity.setEntityAsMissionEntity(h, true, true);
+    });
     safeCall(function () {
         mp.game.entity.setEntityHealth(h, hp);
     });
@@ -143,6 +158,15 @@ function tune(h, hp) {
     });
     safeCall(function () {
         ped.setPedRelationshipGroupHash(h, relGroup);
+    });
+    safeCall(function () {
+        ped.setPedAsEnemy(h, true);
+    });
+    safeCall(function () {
+        ped.setBlockingOfNonTemporaryEvents(h, true);
+    });
+    safeCall(function () {
+        ped.setPedFleeAttributes(h, 0, false);
     });
     safeCall(function () {
         ped.setPedCombatAbility(h, 100);
@@ -154,9 +178,6 @@ function tune(h, hp) {
         ped.setPedCombatMovement(h, 3);
     });
     safeCall(function () {
-        ped.setPedFleeAttributes(h, 0, false);
-    });
-    safeCall(function () {
         ped.setPedCombatAttributes(h, 46, true);
     });
     safeCall(function () {
@@ -166,25 +187,40 @@ function tune(h, hp) {
         ped.setPedCombatAttributes(h, 1, true);
     });
     safeCall(function () {
+        ped.setPedCombatAttributes(h, 16, true);
+    });
+    safeCall(function () {
+        ped.setPedCombatAttributes(h, 17, false);
+    });
+    safeCall(function () {
         ped.setPedCombatAttributes(h, 0, false);
     });
     safeCall(function () {
-        ped.setPedSeeingRange(h, 300.0);
+        ped.setPedSeeingRange(h, 400.0);
     });
     safeCall(function () {
-        ped.setPedHearingRange(h, 350.0);
+        ped.setPedHearingRange(h, 400.0);
     });
     safeCall(function () {
         ped.setPedAlertness(h, 3);
     });
     safeCall(function () {
-        ped.setPedCanRagdoll(h, true);
+        ped.setPedCanRagdoll(h, false);
     });
     safeCall(function () {
         ped.setPedSuffersCriticalHits(h, true);
     });
     safeCall(function () {
-        ped.setPedMoveRateOverride(h, speed);
+        ped.setPedCanEvasiveDive(h, false);
+    });
+    safeCall(function () {
+        ped.setPedPathCanUseClimbovers(h, true);
+    });
+    safeCall(function () {
+        ped.setPedPathCanDropFromHeight(h, true);
+    });
+    safeCall(function () {
+        mp.game.entity.freezeEntityPosition(h, false);
     });
 }
 
@@ -205,7 +241,7 @@ function spawn() {
     }
     const p = mp.players.local.position;
     const ang = Math.random() * Math.PI * 2;
-    const r = outbreak ? rnd(45, 140) : rnd(80, 180);
+    const r = outbreak ? rnd(40, 120) : rnd(70, 160);
     const x = p.x + Math.cos(ang) * r;
     const y = p.y + Math.sin(ang) * r;
     if (inSafe(x, y, 25)) return;
@@ -217,8 +253,9 @@ function spawn() {
     });
     if (!h) return;
     tune(h, outbreak ? 120 + wave * 25 : 90);
-    attack(h, true);
-    list.push({ h: h, last: 0, dead: false, retask: 0, chk: 0, px: x, py: y });
+    const item = { h: h, last: 0, dead: false, chk: 0, px: x, py: y, mode: '', stuck: 0 };
+    list.push(item);
+    chase(item, r);
 }
 
 function remove(h) {
@@ -248,15 +285,18 @@ function update() {
     const burst = outbreak ? 3 : 1;
     const now = Date.now();
     const alive = [];
+
     list.forEach(function (z) {
         const exists = safeCall(function () {
             return mp.game.entity.doesEntityExist(z.h);
         });
         if (!exists) return;
+
         const c = safeCall(function () {
             return mp.game.entity.getEntityCoords(z.h, true);
         });
         if (!c) return;
+
         const dead = safeCall(function () {
             return mp.game.entity.isEntityDead(z.h);
         });
@@ -271,32 +311,47 @@ function update() {
             alive.push(z);
             return;
         }
+
         const d = flat(c.x, c.y, pos.x, pos.y);
+
         if (d > 400 || inSafe(c.x, c.y, 0)) {
             remove(z.h);
             return;
         }
-        if (d < 2.5 && now - z.last > 1400) {
+
+        if (d < 2.6 && now - z.last > 1400) {
             z.last = now;
             mp.events.callRemote('srv:zombieHit', outbreak ? 6 + Math.floor(wave / 2) : 4);
             safeCall(function () {
                 mp.game.cam.shakeGameplayCam('SMALL_EXPLOSION_SHAKE', 0.15);
             });
         }
-        if (now - z.chk > 3000) {
+
+        chase(z, d);
+
+        if (now - z.chk > 2500) {
             const moved = flat(c.x, c.y, z.px, z.py);
             z.px = c.x;
             z.py = c.y;
             z.chk = now;
-            if (moved < 0.7 && d > 3) attack(z.h, true);
+            if (moved < 0.8 && d > 3) {
+                z.stuck++;
+                reset(z);
+                chase(z, d);
+                if (z.stuck > 3) {
+                    remove(z.h);
+                    return;
+                }
+            } else {
+                z.stuck = 0;
+            }
         }
-        if (now - z.retask > 2000) {
-            z.retask = now;
-            attack(z.h, false);
-        }
+
         alive.push(z);
     });
+
     list = alive;
+
     if (list.length < limit && tick % rate === 0) {
         let b = 0;
         while (b < burst && list.length < limit) {
@@ -320,11 +375,13 @@ mp.events.add('render', function () {
     if (!on) return;
     tick++;
     safeCall(update);
+
     const pos = mp.players.local.position;
     const left = Math.max(0, phaseLeft - (Date.now() - phaseSync));
     const m = Math.floor(left / 60000);
     const s = Math.floor((left % 60000) / 1000);
     const timer = m + ':' + (s < 10 ? '0' + s : s);
+
     if (inSafe(pos.x, pos.y, 0)) {
         label('~g~БЕЗОПАСНАЯ ЗОНА~w~   ' + (outbreak ? 'прорыв' : 'затишье') + ' ' + timer, 0.035, 0.42, 215);
     } else if (outbreak) {
@@ -332,6 +389,7 @@ mp.events.add('render', function () {
     } else {
         label('~y~затишье~w~   до прорыва ' + timer + '   убито: ' + kills, 0.035, 0.4, 180);
     }
+
     safe.forEach(function (s2) {
         if (flat(s2.x, s2.y, pos.x, pos.y) > s2.r + 60) return;
         const size = s2.r * 2;
@@ -339,6 +397,7 @@ mp.events.add('render', function () {
             mp.game.graphics.drawMarker(1, s2.x, s2.y, s2.z - 1, 0, 0, 0, 0, 0, 0, size, size, 2.0, 80, 220, 90, 40, false, false, 2, false, null, null, false);
         });
     });
+
     if (fxText && Date.now() - fxTime < 2200) {
         mp.game.graphics.drawText(fxText, [0.5, 0.78], {
             font: 4,
@@ -357,6 +416,7 @@ mp.events.add('srv:zombieState', function (state, ob, w, safeJson, left) {
     wave = Number(w) || 1;
     phaseLeft = Number(left) || 0;
     phaseSync = Date.now();
+
     let parsed = [];
     try {
         parsed = JSON.parse(safeJson);
@@ -367,6 +427,7 @@ mp.events.add('srv:zombieState', function (state, ob, w, safeJson, left) {
         return { x: s.x, y: s.y, z: s.z || 30, r: s.r || 120 };
     });
     drawZones();
+
     if (!on) {
         clearAll();
         return;
@@ -385,6 +446,13 @@ mp.events.add('srv:zombieKillFx', function (reward, total) {
 mp.events.add('srv:zombieDebug', function () {
     debug = !debug;
     const p = mp.players.local.position;
-    mp.gui.chat.push('!{#8fd14f}Отладка: ' + (debug ? 'вкл' : 'выкл') + ' | фаза: ' + (outbreak ? 'прорыв' : 'затишье') + ' | рядом: ' + list.length);
+    let run = 0;
+    let fight = 0;
+    list.forEach(function (z) {
+        if (z.mode === 'run') run++;
+        if (z.mode === 'fight') fight++;
+    });
+    mp.gui.chat.push('!{#8fd14f}Отладка: ' + (debug ? 'вкл' : 'выкл') + ' | фаза: ' + (outbreak ? 'прорыв' : 'затишье'));
+    mp.gui.chat.push('!{#8fd14f}Рядом: ' + list.length + ' | бегут: ' + run + ' | дерутся: ' + fight);
     mp.gui.chat.push('!{#8fd14f}Координаты: ' + p.x.toFixed(0) + ', ' + p.y.toFixed(0) + ', ' + p.z.toFixed(0));
 });
