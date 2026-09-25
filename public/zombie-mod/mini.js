@@ -1,82 +1,76 @@
 const MODEL = 'a_m_m_hillbilly_01';
-let zs = [], last = 0, info = 'F7 - спавн, F6 - очистка';
+let zs = [];
 
 function T(f, a, b, c, d, e, g, h, i, j, k, l) {
   try { return f(a, b, c, d, e, g, h, i, j, k, l); } catch (x) { return null; }
-}
-
-function clean() {
-  zs.forEach(function (z) { T(mp.game.ped.deletePed, z.h); T(mp.game.entity.deleteEntity, z.h); });
-  zs = [];
-  try { mp.peds.forEach(function (p) { try { p.destroy(); } catch (e) {} }); } catch (e) {}
-  info = 'Очищено';
 }
 
 function born() {
   const hash = mp.game.joaat(MODEL);
   T(mp.game.streaming.requestModel, hash);
   const me = mp.players.local.position;
-  const h = T(mp.game.ped.createPed, 26, hash, me.x + 10, me.y + 10, me.z, 0, false, false);
-  if (!h) { info = 'createPed = 0'; return; }
+  const a = Math.random() * 6.283;
+  const x = me.x + Math.cos(a) * 25;
+  const y = me.y + Math.sin(a) * 25;
+  const h = T(mp.game.ped.createPed, 26, hash, x, y, me.z, 0, false, false);
+  if (!h) return;
   T(mp.game.entity.setEntityAsMissionEntity, h, true, true);
-  T(mp.game.entity.setEntityHealth, h, 200);
-  T(mp.game.entity.freezeEntityPosition, h, false);
+  T(mp.game.entity.setEntityHealth, h, 150);
   T(mp.game.ped.setPedCanRagdoll, h, false);
   T(mp.game.ped.setBlockingOfNonTemporaryEvents, h, true);
+  T(mp.game.ped.setPedFleeAttributes, h, 0, false);
+  T(mp.game.ped.setPedCombatAttributes, h, 46, true);
+  T(mp.game.ped.setPedCombatAttributes, h, 5, true);
+  T(mp.game.ped.setPedCombatAbility, h, 100);
+  T(mp.game.ped.setPedMoveRateOverride, h, 1.2);
   T(mp.game.task.clearPedTasksImmediately, h);
-  zs.push({ h: h, ox: 0, oy: 0, way: 0, hit: 0, born: Date.now() });
-  info = 'Создан ' + h + ', всего ' + zs.length;
+  T(mp.game.task.goToCoordAnyMeans, h, me.x, me.y, me.z, 4.0, 0, false, 786603, 0);
+  T(mp.game.ped.setPedKeepTask, h, true);
+  zs.push({ h: h, hit: 0, task: 0, dead: false });
 }
 
 mp.events.add('render', function () {
   const now = Date.now();
-  const dt = Math.min(0.1, (now - last) / 1000) || 0.016;
-  last = now;
-
-  mp.game.graphics.drawText(info, [0.5, 0.05], { font: 4, color: [255, 255, 255, 230], scale: [0.45, 0.45], outline: true, centre: true });
-
-  if (!zs.length) return;
   const me = mp.players.local.position;
+  const keep = [];
 
-  zs.forEach(function (z, idx) {
+  zs.forEach(function (z) {
     const c = T(mp.game.entity.getEntityCoords, z.h, true);
-    if (!c) { if (idx === 0) info = 'getEntityCoords не работает'; return; }
+    if (!c) { keep.push(z); return; }
 
-    const dx = me.x - c.x, dy = me.y - c.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    let hd = Math.atan2(dy, dx) * 180 / Math.PI - 90;
-    if (hd < 0) hd = hd + 360;
-    T(mp.game.entity.setEntityHeading, z.h, hd);
-
-    if (d < 2.0) {
-      T(mp.game.task.playAnim, z.h, 'melee@unarmed@streamed_core', 'ground_attack_on_spot', 8.0, -8.0, 800, 0, 0.0, false, false, false);
-      if (now - z.hit > 1200) { z.hit = now; mp.events.callRemote('srv:zombieHit', 5); }
-      if (idx === 0) info = 'БЬЁТ | дист ' + d.toFixed(1);
+    const hp = T(mp.game.entity.getEntityHealth, z.h);
+    if (hp !== null && hp <= 0) {
+      if (!z.dead) { z.dead = true; mp.events.callRemote('srv:zombieKill'); }
       return;
     }
 
-    const moved = Math.sqrt((c.x - z.ox) * (c.x - z.ox) + (c.y - z.oy) * (c.y - z.oy));
-    if (moved < 0.03 && now - z.born > 1000) z.way = z.way + 1; else z.way = 0;
-    z.ox = c.x; z.oy = c.y;
+    const dx = me.x - c.x, dy = me.y - c.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
 
-    const mv = Math.min(3.0 * dt, d - 1.6);
-    const nx = c.x + dx / d * mv, ny = c.y + dy / d * mv;
-    let way = 1;
-
-    if (z.way < 40) {
-      T(mp.game.entity.setEntityCoordsNoOffset, z.h, nx, ny, c.z, false, false, false);
-    } else if (z.way < 80) {
-      way = 2;
-      T(mp.game.entity.setEntityCoords, z.h, nx, ny, c.z, false, false, false, false);
-    } else {
-      way = 3;
-      T(mp.game.task.goToCoordAnyMeans, z.h, me.x, me.y, me.z, 3.0, 0, false, 786603, 0);
+    if (d < 2.2) {
+      if (now - z.hit > 1300) {
+        z.hit = now;
+        mp.events.callRemote('srv:zombieHit', 5);
+        T(mp.game.task.playAnim, z.h, 'melee@unarmed@streamed_core', 'ground_attack_on_spot', 8.0, -8.0, 900, 0, 0.0, false, false, false);
+        T(mp.game.cam.shakeGameplayCam, 'SMALL_EXPLOSION_SHAKE', 0.3);
+      }
+    } else if (now - z.task > 1500) {
+      z.task = now;
+      T(mp.game.task.goToCoordAnyMeans, z.h, me.x, me.y, me.z, 4.0, 0, false, 786603, 0);
       T(mp.game.ped.setPedKeepTask, z.h, true);
     }
 
-    if (idx === 0) info = 'дист ' + d.toFixed(1) + ' | способ ' + way + ' | стоит ' + z.way + ' | всего ' + zs.length;
+    if (d > 200) { T(mp.game.ped.deletePed, z.h); return; }
+    keep.push(z);
   });
+
+  zs = keep;
+  if (zs.length < 6 && now % 3000 < 20) born();
 });
 
 mp.keys.bind(0x76, true, function () { born(); });
-mp.keys.bind(0x75, true, function () { clean(); });
+mp.keys.bind(0x75, true, function () {
+  zs.forEach(function (z) { T(mp.game.ped.deletePed, z.h); });
+  zs = [];
+  try { mp.peds.forEach(function (p) { try { p.destroy(); } catch (e) {} }); } catch (e) {}
+});
