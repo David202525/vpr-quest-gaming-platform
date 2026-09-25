@@ -1,6 +1,7 @@
 const M = ['a_m_m_hillbilly_01', 'a_m_m_tramp_01', 'a_m_y_methhead_01', 'a_m_m_farmer_01'];
 const WD = 'move_m@generic';
-const AD = 'melee@unarmed@streamed_core';
+const AD = 'melee@unarmed@streamed_core_fps';
+const AD2 = 'anim@melee@machete@streamed_core';
 const N_SETPOS = '0x06843DA7060A026B';
 const N_HEAD = '0x8E2530AA8ADA980E';
 const N_ANIM = '0xEA47FE3719165B94';
@@ -29,12 +30,12 @@ function isSafe(x, y, pad) {
   return false;
 }
 function groundAt(x, y, z) {
-  const tries = [z + 1.0, z + 5.0, z + 15.0, z + 40.0];
+  const tries = [z + 2.0, z + 10.0, z - 5.0, z + 30.0];
   for (let i = 0; i < tries.length; i++) {
     try {
       const r = mp.game.gameplay.getGroundZFor3dCoord(x, y, tries[i], 0.0, false, false);
       const g = r && typeof r === 'object' ? r.groundZ : r;
-      if (typeof g === 'number' && g > 1 && Math.abs(g - z) < 25) return g;
+      if (typeof g === 'number' && g > 1 && Math.abs(g - z) < 20) return g;
     } catch (e) {}
   }
   return null;
@@ -67,7 +68,7 @@ function born() {
   iv(N_REQANIM, AD);
   const me = mp.players.local.position;
   const ang = Math.random() * 6.283;
-  const r = ob ? 25 + Math.random() * 30 : 30 + Math.random() * 30;
+  const r = ob ? 60 + Math.random() * 60 : 80 + Math.random() * 70;
   const x = me.x + Math.cos(ang) * r;
   const y = me.y + Math.sin(ang) * r;
   if (isSafe(x, y, 20)) return;
@@ -126,7 +127,9 @@ function brain() {
         z.hit = now;
         z.mode = 'hit';
         mp.events.callRemote('srv:zombieHit', ob ? 6 + Math.floor(wv / 2) : 4);
-        iv(N_ANIM, z.h, AD, 'ground_attack_on_spot', 8.0, -8.0, 1000, 0, 0.0, false, false, false);
+        iv(N_CLEAR, z.h);
+        let done = iv(N_ANIM, z.h, 'melee@unarmed@streamed_core', 'ground_attack_on_spot', 8.0, -8.0, 1000, 0, 0.0, false, false, false);
+        iv(N_ANIM, z.h, 'melee@unarmed@streamed_variations', 'plyr_takedown_front_slap', 8.0, -8.0, 1200, 0, 0.0, false, false, false);
         try { mp.game.cam.shakeGameplayCam('SMALL_EXPLOSION_SHAKE', 0.3); } catch (e) {}
       }
       keep.push(z);
@@ -139,12 +142,13 @@ function brain() {
     z.x = z.x + dx / d * mv;
     z.y = z.y + dy / d * mv;
 
-    const rz = realZ(z);
-    const base = rz === null ? z.z : rz;
-    const g = groundAt(z.x, z.y, base);
+    const g = groundAt(z.x, z.y, me.z);
     if (g !== null) z.z = g;
-    else if (rz !== null) z.z = rz;
-    if (Math.abs(z.z - me.z) > 30) z.z = me.z;
+    else {
+      const rz = realZ(z);
+      z.z = rz === null ? me.z : rz;
+    }
+    if (Math.abs(z.z - me.z) > 20) z.z = me.z;
     moves = moves + 1;
 
     iv(N_SETPOS, z.h, z.x, z.y, z.z, false, false, false, false);
