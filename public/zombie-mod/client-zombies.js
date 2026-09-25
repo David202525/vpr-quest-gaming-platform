@@ -1,23 +1,21 @@
 const M = ['a_m_m_hillbilly_01', 'a_m_m_tramp_01', 'a_m_y_methhead_01', 'a_m_m_farmer_01'];
 const WD = 'move_m@generic';
-const AD = 'melee@unarmed@streamed_core_fps';
-const AD2 = 'anim@melee@machete@streamed_core';
-const N_SETPOS = '0x06843DA7060A026B';
+const AD = 'melee@unarmed@streamed_core';
+const N_SETPOS = '0x239A3351AC1DA385';
 const N_HEAD = '0x8E2530AA8ADA980E';
 const N_ANIM = '0xEA47FE3719165B94';
-const N_ISANIM = '0x1F0B79228E461EC9';
 const N_CLEAR = '0xAAA34F8A7CB32098';
 const N_HP = '0xEEF059FAD016D209';
 const N_SETHP = '0x6B76DC1F3AE6E6A3';
 const N_BLOCK = '0x9F8AA94D6D97DBF4';
 const N_FREEZE = '0x428CA6DBD1094446';
 const N_RAGD = '0xB128377056A54E2A';
-const N_GROUND = '0xC906A7DAB05C8D2B';
+const N_INVINC = '0x3882114BDE571AD4';
 const N_REQANIM = '0xD3BD40951412FEF6';
-const N_HASANIM = '0xD031A9162D01088C';
+const N_DEAD = '0x5F9532F3B5CC2551';
 
 let zs = [], ob = false, wv = 1, zones = [], blips = [];
-let pLeft = 0, pAt = 0, kills = 0, spawnAt = 0, err = '', moves = 0, tickAt = 0, cleaned = false;
+let pLeft = 0, pAt = 0, kills = 0, spawnAt = 0, err = '', tickAt = 0, cleaned = false;
 
 function iv(hash, a, b, c, d, e, f, g, h, i, j, k) {
   try { return mp.game.invoke(hash, a, b, c, d, e, f, g, h, i, j, k); } catch (x) { err = String(x).slice(0, 30); return null; }
@@ -29,24 +27,23 @@ function isSafe(x, y, pad) {
   }
   return false;
 }
-function groundAt(x, y, z) {
-  const tries = [z + 2.0, z + 10.0, z - 5.0, z + 30.0];
+function groundAt(x, y, from) {
+  const tries = [from + 2.0, from + 10.0, from - 4.0, from + 30.0];
   for (let i = 0; i < tries.length; i++) {
     try {
       const r = mp.game.gameplay.getGroundZFor3dCoord(x, y, tries[i], 0.0, false, false);
       const g = r && typeof r === 'object' ? r.groundZ : r;
-      if (typeof g === 'number' && g > 1 && Math.abs(g - z) < 20) return g;
+      if (typeof g === 'number' && g > 1 && Math.abs(g - from) < 20) return g;
     } catch (e) {}
   }
   return null;
 }
-
-function realZ(z) {
-  try {
-    const v = z.p.position;
-    if (v && typeof v.z === 'number' && v.z > 1) return v.z;
-  } catch (e) {}
-  return null;
+function hpOf(z) {
+  const a = iv(N_HP, z.h);
+  if (typeof a === 'number' && a > 0) return a;
+  try { const b = z.p.getHealth(); if (typeof b === 'number') return b; } catch (e) {}
+  try { const c = z.p.health; if (typeof c === 'number') return c; } catch (e) {}
+  return -1;
 }
 
 function wipeAll() {
@@ -68,12 +65,12 @@ function born() {
   iv(N_REQANIM, AD);
   const me = mp.players.local.position;
   const ang = Math.random() * 6.283;
-  const r = ob ? 60 + Math.random() * 60 : 80 + Math.random() * 70;
+  const r = ob ? 70 + Math.random() * 60 : 90 + Math.random() * 70;
   const x = me.x + Math.cos(ang) * r;
   const y = me.y + Math.sin(ang) * r;
   if (isSafe(x, y, 20)) return;
   const g = groundAt(x, y, me.z);
-  const z0 = g === null ? me.z : g;
+  const z0 = (g === null ? me.z : g) + 1.0;
 
   let ped = null;
   try { ped = mp.peds.new(hash, new mp.Vector3(x, y, z0), 0, 0); } catch (e) { err = 'new ' + String(e).slice(0, 20); return; }
@@ -82,11 +79,13 @@ function born() {
   const h = ped.handle;
   const hp = ob ? 120 + wv * 20 : 100;
   iv(N_SETHP, h, hp);
+  iv(N_INVINC, h, false);
   iv(N_BLOCK, h, true);
   iv(N_FREEZE, h, false);
   iv(N_RAGD, h, false);
   iv(N_CLEAR, h);
-  const z = { p: ped, h: h, x: x, y: y, z: z0, hit: 0, dead: false, animAt: 0, mode: '' };
+  try { ped.setHealth(hp); } catch (e) {}
+  const z = { p: ped, h: h, x: x, y: y, z: z0, hit: 0, dead: false, animAt: 0, mode: '', hp0: hp };
   playWalk(z);
   zs.push(z);
 }
@@ -103,10 +102,11 @@ function brain() {
   for (let i = 0; i < zs.length; i++) {
     const z = zs[i];
 
-    const hp = iv(N_HP, z.h);
-    if (typeof hp === 'number' && hp < 5) {
+    const isDead = iv(N_DEAD, z.h, false);
+    const hp = hpOf(z);
+    if (isDead === true || (hp >= 0 && hp < 101 && hp <= z.hp0 * 0.05)) {
       if (!z.dead) { z.dead = true; mp.events.callRemote('srv:zombieKill'); }
-      try { z.p.destroy(); } catch (e) {}
+      setTimeout(function () { try { z.p.destroy(); } catch (e) {} }, 4000);
       continue;
     }
 
@@ -122,15 +122,15 @@ function brain() {
     if (hd < 0) hd = hd + 360;
     iv(N_HEAD, z.h, hd);
 
-    if (d < 2.0) {
-      if (now - z.hit > 1300) {
+    if (d < 2.2) {
+      if (now - z.hit > 1400) {
         z.hit = now;
         z.mode = 'hit';
         mp.events.callRemote('srv:zombieHit', ob ? 6 + Math.floor(wv / 2) : 4);
         iv(N_CLEAR, z.h);
-        let done = iv(N_ANIM, z.h, 'melee@unarmed@streamed_core', 'ground_attack_on_spot', 8.0, -8.0, 1000, 0, 0.0, false, false, false);
-        iv(N_ANIM, z.h, 'melee@unarmed@streamed_variations', 'plyr_takedown_front_slap', 8.0, -8.0, 1200, 0, 0.0, false, false, false);
-        try { mp.game.cam.shakeGameplayCam('SMALL_EXPLOSION_SHAKE', 0.3); } catch (e) {}
+        iv(N_ANIM, z.h, AD, 'ground_attack_on_spot', 8.0, -8.0, 1100, 0, 0.0, false, false, false);
+        iv(N_ANIM, z.h, 'melee@unarmed@streamed_variations', 'plyr_takedown_front_slap', 8.0, -8.0, 1100, 0, 0.0, false, false, false);
+        try { mp.game.cam.shakeGameplayCam('SMALL_EXPLOSION_SHAKE', 0.35); } catch (e) {}
       }
       keep.push(z);
       continue;
@@ -138,20 +138,15 @@ function brain() {
 
     if (z.mode !== 'walk' || now - z.animAt > 900) playWalk(z);
 
-    const mv = Math.min(speed * dt, d - 1.6);
+    const mv = Math.min(speed * dt, d - 1.8);
     z.x = z.x + dx / d * mv;
     z.y = z.y + dy / d * mv;
 
     const g = groundAt(z.x, z.y, me.z);
-    if (g !== null) z.z = g;
-    else {
-      const rz = realZ(z);
-      z.z = rz === null ? me.z : rz;
-    }
-    if (Math.abs(z.z - me.z) > 20) z.z = me.z;
-    moves = moves + 1;
+    z.z = (g === null ? me.z : g) + 1.0;
+    if (Math.abs(z.z - me.z) > 20) z.z = me.z + 1.0;
 
-    iv(N_SETPOS, z.h, z.x, z.y, z.z, false, false, false, false);
+    iv(N_SETPOS, z.h, z.x, z.y, z.z, false, false, false);
     try { z.p.position = new mp.Vector3(z.x, z.y, z.z); } catch (e) {}
     keep.push(z);
   }
@@ -214,7 +209,8 @@ mp.events.add('srv:zombieKillFx', function (cash, total) {
 });
 
 mp.events.add('srv:zombieDebug', function () {
-  mp.gui.chat.push('Зомби ' + zs.length + ' | шагов ' + moves + ' | ' + (err || 'ок'));
+  let s = 'нет';
+  if (zs.length) s = String(hpOf(zs[0]));
+  mp.gui.chat.push('Зомби ' + zs.length + ' | hp первого ' + s + ' | ' + (err || 'ок'));
   wipeAll();
-  mp.gui.chat.push('Карта очищена');
 });
