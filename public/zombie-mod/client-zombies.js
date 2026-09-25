@@ -13,6 +13,8 @@ const N_RAGD = '0xB128377056A54E2A';
 const N_INVINC = '0x3882114BDE571AD4';
 const N_REQANIM = '0xD3BD40951412FEF6';
 const N_DEAD = '0x5F9532F3B5CC2551';
+const N_ONGROUND = '0x58A850EAEE20FAA3';
+const N_GRAV = '0x4A4722448F18EEF5';
 
 let zs = [], ob = false, wv = 1, zones = [], blips = [];
 let pLeft = 0, pAt = 0, kills = 0, spawnAt = 0, err = '', tickAt = 0, cleaned = false;
@@ -85,6 +87,8 @@ function born() {
   iv(N_RAGD, h, false);
   iv(N_CLEAR, h);
   try { ped.setHealth(hp); } catch (e) {}
+  iv(N_GRAV, h, true);
+  iv(N_ONGROUND, h);
   const z = { p: ped, h: h, x: x, y: y, z: z0, hit: 0, dead: false, animAt: 0, mode: '', hp0: hp };
   playWalk(z);
   zs.push(z);
@@ -106,7 +110,7 @@ function brain() {
     const hp = hpOf(z);
     if (isDead === true || (hp >= 0 && hp < 101 && hp <= z.hp0 * 0.05)) {
       if (!z.dead) { z.dead = true; mp.events.callRemote('srv:zombieKill'); }
-      setTimeout(function () { try { z.p.destroy(); } catch (e) {} }, 4000);
+      try { z.p.destroy(); } catch (e) {}
       continue;
     }
 
@@ -143,11 +147,15 @@ function brain() {
     z.y = z.y + dy / d * mv;
 
     const g = groundAt(z.x, z.y, me.z);
-    z.z = (g === null ? me.z : g) + 1.0;
-    if (Math.abs(z.z - me.z) > 20) z.z = me.z + 1.0;
+    z.z = g === null ? me.z : g + 1.0;
 
     iv(N_SETPOS, z.h, z.x, z.y, z.z, false, false, false);
     try { z.p.position = new mp.Vector3(z.x, z.y, z.z); } catch (e) {}
+    iv(N_ONGROUND, z.h);
+    try {
+      const back = z.p.position;
+      if (back && typeof back.z === 'number' && back.z > 1) z.z = back.z;
+    } catch (e) {}
     keep.push(z);
   }
 
