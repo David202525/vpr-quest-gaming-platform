@@ -16,229 +16,121 @@ let tick = 0;
 let ready = [];
 let debug = false;
 
-function safeCall(fn) {
-    try {
-        return fn();
-    } catch (e) {
-        if (debug) mp.gui.chat.push('!{#e05555}' + e);
-        return null;
-    }
+const G = function () { return mp.game; };
+
+function T(fn, a, b, c, d, e, f, g, h2, i2) {
+    try { return fn(a, b, c, d, e, f, g, h2, i2); } catch (err) { if (debug) mp.gui.chat.push('!{#e05555}' + err); return null; }
 }
 
-function rnd(a, b) {
-    return a + Math.random() * (b - a);
-}
+function rnd(a, b) { return a + Math.random() * (b - a); }
 
-function flat(ax, ay, bx, by) {
-    const dx = ax - bx;
-    const dy = ay - by;
-    return Math.sqrt(dx * dx + dy * dy);
-}
+function flat(ax, ay, bx, by) { return Math.sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by)); }
 
-function speedNow() {
-    if (!outbreak) return 1.0;
-    return wave > 5 ? 1.45 : 1.25;
-}
+function speedNow() { return outbreak ? (wave > 5 ? 1.45 : 1.25) : 1.0; }
 
 function inSafe(x, y, pad) {
     let hit = false;
-    safe.forEach(function (s) {
-        if (flat(x, y, s.x, s.y) < s.r + pad) hit = true;
-    });
+    safe.forEach(function (s) { if (flat(x, y, s.x, s.y) < s.r + pad) hit = true; });
     return hit;
 }
 
 function drawZones() {
-    blips.forEach(function (b) {
-        safeCall(function () {
-            mp.game.ui.removeBlip(b);
-        });
-    });
+    const ui = G().ui;
+    blips.forEach(function (b) { T(ui.removeBlip, b); });
     blips = [];
     safe.forEach(function (s) {
-        const b = safeCall(function () {
-            return mp.game.ui.addBlipForRadius(s.x, s.y, s.z, s.r);
-        });
+        const b = T(ui.addBlipForRadius, s.x, s.y, s.z, s.r);
         if (!b) return;
-        safeCall(function () {
-            mp.game.ui.setBlipColour(b, 2);
-        });
-        safeCall(function () {
-            mp.game.ui.setBlipAlpha(b, 90);
-        });
+        T(ui.setBlipColour, b, 2);
+        T(ui.setBlipAlpha, b, 90);
         blips.push(b);
     });
 }
 
 function groundZ(x, y, z) {
-    const r = safeCall(function () {
-        return mp.game.gameplay.getGroundZFor3dCoord(x, y, z, 0.0, false, false);
-    });
+    const r = T(G().gameplay.getGroundZFor3dCoord, x, y, z, 0.0, false, false);
     if (r === null) return null;
     const v = r && typeof r === 'object' ? r.groundZ : r;
-    if (typeof v === 'number' && v > 1) return v;
-    return null;
+    return typeof v === 'number' && v > 1 ? v : null;
 }
 
 function loadModels() {
     ready = [];
     MODELS.forEach(function (name) {
-        const hash = mp.game.joaat(name);
-        safeCall(function () {
-            mp.game.streaming.requestModel(hash);
-        });
+        const hash = G().joaat(name);
+        T(G().streaming.requestModel, hash);
         ready.push(hash);
     });
 }
 
 function initGroups() {
     if (relGroup) return;
-    relGroup = mp.game.joaat('ZOMBIES');
-    const pl = mp.game.joaat('PLAYER');
-    safeCall(function () {
-        mp.game.ped.addRelationshipGroup('ZOMBIES', relGroup);
-    });
-    safeCall(function () {
-        mp.game.ped.setRelationshipBetweenGroups(5, relGroup, pl);
-    });
-    safeCall(function () {
-        mp.game.ped.setRelationshipBetweenGroups(5, pl, relGroup);
-    });
-    safeCall(function () {
-        mp.game.ped.setRelationshipBetweenGroups(0, relGroup, relGroup);
-    });
+    const ped = G().ped;
+    relGroup = G().joaat('ZOMBIES');
+    const pl = G().joaat('PLAYER');
+    T(ped.addRelationshipGroup, 'ZOMBIES', relGroup);
+    T(ped.setRelationshipBetweenGroups, 5, relGroup, pl);
+    T(ped.setRelationshipBetweenGroups, 5, pl, relGroup);
+    T(ped.setRelationshipBetweenGroups, 0, relGroup, relGroup);
 }
 
 function chase(z, d) {
     const me = mp.players.local.handle;
-    const speed = speedNow();
-
+    const sp = speedNow();
     if (d < 14) {
         if (z.mode === 'fight') return;
         z.mode = 'fight';
-        safeCall(function () {
-            mp.game.ped.setPedMoveRateOverride(z.h, speed);
-        });
-        safeCall(function () {
-            mp.game.task.combatPed(z.h, me, 0, 16);
-        });
+        T(G().ped.setPedMoveRateOverride, z.h, sp);
+        T(G().task.combatPed, z.h, me, 0, 16);
         return;
     }
-
     if (z.mode === 'run') return;
     z.mode = 'run';
-    safeCall(function () {
-        mp.game.ped.setPedMoveRateOverride(z.h, speed);
-    });
-    safeCall(function () {
-        mp.game.task.goToEntity(z.h, me, -1, 1.0, 2.0, 1073741824.0, 0);
-    });
+    T(G().ped.setPedMoveRateOverride, z.h, sp);
+    T(G().task.goToEntity, z.h, me, -1, 1.0, 2.0, 1073741824.0, 0);
 }
 
 function reset(z) {
     z.mode = '';
-    safeCall(function () {
-        mp.game.ped.clearPedTasksImmediately(z.h);
-    });
-    safeCall(function () {
-        mp.game.entity.freezeEntityPosition(z.h, false);
-    });
+    T(G().ped.clearPedTasksImmediately, z.h);
+    T(G().entity.freezeEntityPosition, z.h, false);
 }
 
 function tune(h, hp) {
-    const ped = mp.game.ped;
-    safeCall(function () {
-        mp.game.entity.setEntityAsMissionEntity(h, true, true);
-    });
-    safeCall(function () {
-        mp.game.entity.setEntityHealth(h, hp);
-    });
-    safeCall(function () {
-        ped.setPedMaxHealth(h, hp);
-    });
-    safeCall(function () {
-        ped.setPedRelationshipGroupHash(h, relGroup);
-    });
-    safeCall(function () {
-        ped.setPedAsEnemy(h, true);
-    });
-    safeCall(function () {
-        ped.setBlockingOfNonTemporaryEvents(h, true);
-    });
-    safeCall(function () {
-        ped.setPedFleeAttributes(h, 0, false);
-    });
-    safeCall(function () {
-        ped.setPedCombatAbility(h, 100);
-    });
-    safeCall(function () {
-        ped.setPedCombatRange(h, 2);
-    });
-    safeCall(function () {
-        ped.setPedCombatMovement(h, 3);
-    });
-    safeCall(function () {
-        ped.setPedCombatAttributes(h, 46, true);
-    });
-    safeCall(function () {
-        ped.setPedCombatAttributes(h, 5, true);
-    });
-    safeCall(function () {
-        ped.setPedCombatAttributes(h, 1, true);
-    });
-    safeCall(function () {
-        ped.setPedCombatAttributes(h, 16, true);
-    });
-    safeCall(function () {
-        ped.setPedCombatAttributes(h, 17, false);
-    });
-    safeCall(function () {
-        ped.setPedCombatAttributes(h, 0, false);
-    });
-    safeCall(function () {
-        ped.setPedSeeingRange(h, 400.0);
-    });
-    safeCall(function () {
-        ped.setPedHearingRange(h, 400.0);
-    });
-    safeCall(function () {
-        ped.setPedAlertness(h, 3);
-    });
-    safeCall(function () {
-        ped.setPedCanRagdoll(h, false);
-    });
-    safeCall(function () {
-        ped.setPedSuffersCriticalHits(h, true);
-    });
-    safeCall(function () {
-        ped.setPedCanEvasiveDive(h, false);
-    });
-    safeCall(function () {
-        ped.setPedPathCanUseClimbovers(h, true);
-    });
-    safeCall(function () {
-        ped.setPedPathCanDropFromHeight(h, true);
-    });
-    safeCall(function () {
-        mp.game.entity.freezeEntityPosition(h, false);
-    });
+    const ped = G().ped;
+    const ent = G().entity;
+    T(ent.setEntityAsMissionEntity, h, true, true);
+    T(ent.setEntityHealth, h, hp);
+    T(ent.freezeEntityPosition, h, false);
+    T(ped.setPedMaxHealth, h, hp);
+    T(ped.setPedRelationshipGroupHash, h, relGroup);
+    T(ped.setPedAsEnemy, h, true);
+    T(ped.setBlockingOfNonTemporaryEvents, h, true);
+    T(ped.setPedFleeAttributes, h, 0, false);
+    T(ped.setPedCombatAbility, h, 100);
+    T(ped.setPedCombatRange, h, 2);
+    T(ped.setPedCombatMovement, h, 3);
+    T(ped.setPedCombatAttributes, h, 46, true);
+    T(ped.setPedCombatAttributes, h, 5, true);
+    T(ped.setPedCombatAttributes, h, 1, true);
+    T(ped.setPedCombatAttributes, h, 16, true);
+    T(ped.setPedCombatAttributes, h, 17, false);
+    T(ped.setPedCombatAttributes, h, 0, false);
+    T(ped.setPedSeeingRange, h, 400.0);
+    T(ped.setPedHearingRange, h, 400.0);
+    T(ped.setPedAlertness, h, 3);
+    T(ped.setPedCanRagdoll, h, false);
+    T(ped.setPedSuffersCriticalHits, h, true);
+    T(ped.setPedCanEvasiveDive, h, false);
+    T(ped.setPedPathCanUseClimbovers, h, true);
+    T(ped.setPedPathCanDropFromHeight, h, true);
 }
 
 function spawn() {
-    if (!ready.length) {
-        loadModels();
-        return;
-    }
+    if (!ready.length) { loadModels(); return; }
     const hash = ready[Math.floor(Math.random() * ready.length)];
-    const loaded = safeCall(function () {
-        return mp.game.streaming.hasModelLoaded(hash);
-    });
-    if (!loaded) {
-        safeCall(function () {
-            mp.game.streaming.requestModel(hash);
-        });
-        return;
-    }
+    const loaded = T(G().streaming.hasModelLoaded, hash);
+    if (!loaded) { T(G().streaming.requestModel, hash); return; }
     const p = mp.players.local.position;
     const ang = Math.random() * Math.PI * 2;
     const r = outbreak ? rnd(40, 120) : rnd(70, 160);
@@ -247,10 +139,7 @@ function spawn() {
     if (inSafe(x, y, 25)) return;
     const g = groundZ(x, y, p.z + 80);
     const z = (g === null ? p.z : g) + 1;
-    const head = Math.random() * 360;
-    const h = safeCall(function () {
-        return mp.game.ped.createPed(26, hash, x, y, z, head, false, true);
-    });
+    const h = T(G().ped.createPed, 26, hash, x, y, z, Math.random() * 360, false, true);
     if (!h) return;
     tune(h, outbreak ? 120 + wave * 25 : 90);
     const item = { h: h, last: 0, dead: false, chk: 0, px: x, py: y, mode: '', stuck: 0 };
@@ -259,72 +148,47 @@ function spawn() {
 }
 
 function remove(h) {
-    safeCall(function () {
-        mp.game.ped.deletePed(h);
-    });
-    safeCall(function () {
-        mp.game.entity.deleteEntity(h);
-    });
+    T(G().ped.deletePed, h);
+    T(G().entity.deleteEntity, h);
 }
 
 function clearAll() {
-    list.forEach(function (z) {
-        remove(z.h);
-    });
+    list.forEach(function (z) { remove(z.h); });
     list = [];
 }
 
 function update() {
     const pos = mp.players.local.position;
-    if (inSafe(pos.x, pos.y, 0)) {
-        if (list.length) clearAll();
-        return;
-    }
+    if (inSafe(pos.x, pos.y, 0)) { if (list.length) clearAll(); return; }
     const limit = outbreak ? Math.min(28, 10 + wave * 2) : 4;
     const rate = outbreak ? 25 : 300;
     const burst = outbreak ? 3 : 1;
     const now = Date.now();
     const alive = [];
+    const ent = G().entity;
 
     list.forEach(function (z) {
-        const exists = safeCall(function () {
-            return mp.game.entity.doesEntityExist(z.h);
-        });
-        if (!exists) return;
-
-        const c = safeCall(function () {
-            return mp.game.entity.getEntityCoords(z.h, true);
-        });
+        if (!T(ent.doesEntityExist, z.h)) return;
+        const c = T(ent.getEntityCoords, z.h, true);
         if (!c) return;
 
-        const dead = safeCall(function () {
-            return mp.game.entity.isEntityDead(z.h);
-        });
-        if (dead) {
+        if (T(ent.isEntityDead, z.h)) {
             if (!z.dead) {
                 z.dead = true;
                 mp.events.callRemote('srv:zombieKill');
-                setTimeout(function () {
-                    remove(z.h);
-                }, 8000);
+                setTimeout(function () { remove(z.h); }, 8000);
             }
             alive.push(z);
             return;
         }
 
         const d = flat(c.x, c.y, pos.x, pos.y);
-
-        if (d > 400 || inSafe(c.x, c.y, 0)) {
-            remove(z.h);
-            return;
-        }
+        if (d > 400 || inSafe(c.x, c.y, 0)) { remove(z.h); return; }
 
         if (d < 2.6 && now - z.last > 1400) {
             z.last = now;
             mp.events.callRemote('srv:zombieHit', outbreak ? 6 + Math.floor(wave / 2) : 4);
-            safeCall(function () {
-                mp.game.cam.shakeGameplayCam('SMALL_EXPLOSION_SHAKE', 0.15);
-            });
+            T(G().cam.shakeGameplayCam, 'SMALL_EXPLOSION_SHAKE', 0.15);
         }
 
         chase(z, d);
@@ -338,15 +202,11 @@ function update() {
                 z.stuck++;
                 reset(z);
                 chase(z, d);
-                if (z.stuck > 3) {
-                    remove(z.h);
-                    return;
-                }
+                if (z.stuck > 3) { remove(z.h); return; }
             } else {
                 z.stuck = 0;
             }
         }
-
         alive.push(z);
     });
 
@@ -354,27 +214,19 @@ function update() {
 
     if (list.length < limit && tick % rate === 0) {
         let b = 0;
-        while (b < burst && list.length < limit) {
-            spawn();
-            b++;
-        }
+        while (b < burst && list.length < limit) { spawn(); b++; }
     }
 }
 
 function label(text, y, scale, alpha) {
-    mp.game.graphics.drawText(text, [0.5, y], {
-        font: 4,
-        color: [255, 255, 255, alpha],
-        scale: [scale, scale],
-        outline: true,
-        centre: true
-    });
+    const opt = { font: 4, color: [255, 255, 255, alpha], scale: [scale, scale], outline: true, centre: true };
+    G().graphics.drawText(text, [0.5, y], opt);
 }
 
 mp.events.add('render', function () {
     if (!on) return;
     tick++;
-    safeCall(update);
+    T(update);
 
     const pos = mp.players.local.position;
     const left = Math.max(0, phaseLeft - (Date.now() - phaseSync));
@@ -390,23 +242,16 @@ mp.events.add('render', function () {
         label('~y~затишье~w~   до прорыва ' + timer + '   убито: ' + kills, 0.035, 0.4, 180);
     }
 
+    const gfx = G().graphics;
     safe.forEach(function (s2) {
         if (flat(s2.x, s2.y, pos.x, pos.y) > s2.r + 60) return;
-        const size = s2.r * 2;
-        safeCall(function () {
-            mp.game.graphics.drawMarker(1, s2.x, s2.y, s2.z - 1, 0, 0, 0, 0, 0, 0, size, size, 2.0, 80, 220, 90, 40, false, false, 2, false, null, null, false);
-        });
+        const w2 = s2.r * 2;
+        try {
+            gfx.drawMarker(1, s2.x, s2.y, s2.z - 1, 0, 0, 0, 0, 0, 0, w2, w2, 2.0, 80, 220, 90, 40, false, false, 2, false, null, null, false);
+        } catch (e) {}
     });
 
-    if (fxText && Date.now() - fxTime < 2200) {
-        mp.game.graphics.drawText(fxText, [0.5, 0.78], {
-            font: 4,
-            color: [143, 209, 79, 230],
-            scale: [0.52, 0.52],
-            outline: true,
-            centre: true
-        });
-    }
+    if (fxText && Date.now() - fxTime < 2200) label(fxText, 0.78, 0.52, 230);
 });
 
 mp.events.add('srv:zombieState', function (state, ob, w, safeJson, left) {
@@ -418,20 +263,11 @@ mp.events.add('srv:zombieState', function (state, ob, w, safeJson, left) {
     phaseSync = Date.now();
 
     let parsed = [];
-    try {
-        parsed = JSON.parse(safeJson);
-    } catch (e) {
-        parsed = [];
-    }
-    safe = parsed.map(function (s) {
-        return { x: s.x, y: s.y, z: s.z || 30, r: s.r || 120 };
-    });
+    try { parsed = JSON.parse(safeJson); } catch (e) { parsed = []; }
+    safe = parsed.map(function (s) { return { x: s.x, y: s.y, z: s.z || 30, r: s.r || 120 }; });
     drawZones();
 
-    if (!on) {
-        clearAll();
-        return;
-    }
+    if (!on) { clearAll(); return; }
     initGroups();
     loadModels();
     if (was !== outbreak) clearAll();
