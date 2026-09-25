@@ -1,0 +1,154 @@
+const db = require('./database');
+const admin = require('./admin');
+
+const BLEED_MS = 120000;
+const HOSPITAL_FEE = 500;
+
+const HOSPITALS = [
+    { x: 355.3, y: -596.7, z: 43.3, h: 160 },
+    { x: -449.5, y: -340.8, z: 34.5, h: 80 },
+    { x: 1839.6, y: 3672.9, z: 34.3, h: 210 },
+    { x: -247.7, y: 6331.2, z: 32.4, h: 220 }
+];
+
+function nearest(pos) {
+    let best = HOSPITALS[0];
+    let bd = 1e9;
+    HOSPITALS.forEach(function (h) {
+        const dx = h.x - pos.x;
+        const dy = h.y - pos.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < bd) {
+            bd = d;
+            best = h;
+        }
+    });
+    return best;
+}
+
+function clearTimer(player) {
+    if (player && player.account && player.account.downTimer) {
+        clearTimeout(player.account.downTimer);
+        player.account.downTimer = null;
+    }
+}
+
+function down(player, reason) {
+    if (!player.account || player.account.downed) return;
+
+    player.account.downed = true;
+    player.account.downReason = reason || 'Ранение';
+    player.account.downAt = Date.now();
+    player.health = 5;
+
+    player.call('srv:death', [player.account.downReason, BLEED_MS]);
+    player.outputChatBox('!{#e05555}Вы тяжело ранены. Ждите медика или введите /respawn');
+
+    mp.players.forEach(function (p) {
+        if (p === player || !p.account) return;
+        const dx = p.position.x - player.position.x;
+        const dy = p.position.y - player.position.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 40) {
+            p.outputChatBox('!{#ffcc66}Рядом тяжелораненый: ' + player.name + ' (ID ' + player.id + ')');
+        }
+    });
+
+    player.account.downTimer = setTimeout(function () {
+        if (player && player.account && player.account.downed) respawn(player);
+    }, BLEED_MS);
+}
+
+async function respawn(player) {
+    if (!player.account) return;
+
+    clearTimer(player);
+
+    player.account.downed = false;
+    player.account.deaths = (player.account.deaths || 0) + 1;
+
+    const fee = Math.min(player.account.money, HOSPITAL_FEE);
+    player.account.money -= fee;
+
+    const h = nearest(player.position);
+
+    player.spawn(new mp.Vector3(h.x, h.y, h.z));
+    player.heading = h.h;
+    player.health = 70;
+    player.removeAllWeapons();
+
+    player.call('srv:deathEnd');
+    player.outputChatBox('!{#8fd14f}Вас доставили в больницу. Счёт за лечение: !{#ffffff}' + fee + '$');
+
+    await db.query('UPDATE accounts SET deaths = ?, money = ? WHERE id = ?', [
+        player.account.deaths, player.account.money, player.account.id
+    ]);
+}
+
+function revive(target, medic) {
+    if (!target.account || !target.account.downed) return false;
+
+    clearTimer(target);
+
+    target.account.downed = false;
+    target.health = 60;
+    target.call('srv:deathEnd');
+    target.outputChatBox('!{#8fd14f}Вас подняли на ноги');
+
+    if (medic) {
+        medic.outputChatBox('!{#8fd14f}Вы стабилизировали ' + target.name);
+        if (medic.account) medic.account.money += 300;
+    }
+    return true;
+}
+
+mp.events.addCommand('respawn', function (player) {
+    if (!player.account || !player.account.downed) {
+        player.outputChatBox('!{#ffcc66}Вы не ранены');
+        return;
+    }
+    const waited = Date.now() - player.account.downAt;
+    if (waited < 15000) {
+        player.outputChatBox('!{#ffcc66}Подождите ещё ' + Math.ceil((15000 - waited) / 1000) + ' сек');
+        return;
+    }
+    respawn(player);
+});
+
+mp.events.addCommand('revive', function (player, arg) {
+    const id = String(arg || '').trim();
+    if (!id) {
+        player.outputChatBox('!{#ffcc66}/revive [id]');
+        return;
+    }
+
+    const target = mp.players.at(Number(id));
+    if (!target) {
+        player.outputChatBox('!{#e05555}Игрок не найден');
+        return;
+    }
+
+    const isMedic = admin.lvl(player) >= 2 || (player.account && player.account.job === 'medic');
+    if (!isMedic) {
+        player.outputChatBox('!{#e05555}Только медики и администраторы');
+        return;
+    }
+
+    const dx = player.position.x - target.position.x;
+    const dy = player.position.y - target.position.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 5) {
+        player.outputChatBox('!{#e05555}Подойдите ближе');
+        return;
+    }
+
+    if (!revive(target, player)) player.outputChatBox('!{#ffcc66}Игрок не ранен');
+});
+
+mp.events.add('playerDeath', function (player) {
+    if (player.account && !player.account.downed) down(player, 'Смертельное ранение');
+});
+
+mp.events.add('playerQuit', function (player) {
+    clearTimer(player);
+});
+
+module.exports = { down: down, respawn: respawn, revive: revive };
