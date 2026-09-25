@@ -29,10 +29,21 @@ function isSafe(x, y, pad) {
   return false;
 }
 function groundAt(x, y, z) {
+  const tries = [z + 1.0, z + 5.0, z + 15.0, z + 40.0];
+  for (let i = 0; i < tries.length; i++) {
+    try {
+      const r = mp.game.gameplay.getGroundZFor3dCoord(x, y, tries[i], 0.0, false, false);
+      const g = r && typeof r === 'object' ? r.groundZ : r;
+      if (typeof g === 'number' && g > 1 && Math.abs(g - z) < 25) return g;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function realZ(z) {
   try {
-    const r = mp.game.gameplay.getGroundZFor3dCoord(x, y, z + 3.0, 0.0, false, false);
-    const g = r && typeof r === 'object' ? r.groundZ : r;
-    if (typeof g === 'number' && g > 1) return g;
+    const v = z.p.position;
+    if (v && typeof v.z === 'number' && v.z > 1) return v.z;
   } catch (e) {}
   return null;
 }
@@ -127,8 +138,13 @@ function brain() {
     const mv = Math.min(speed * dt, d - 1.6);
     z.x = z.x + dx / d * mv;
     z.y = z.y + dy / d * mv;
-    const g = groundAt(z.x, z.y, z.z);
+
+    const rz = realZ(z);
+    const base = rz === null ? z.z : rz;
+    const g = groundAt(z.x, z.y, base);
     if (g !== null) z.z = g;
+    else if (rz !== null) z.z = rz;
+    if (Math.abs(z.z - me.z) > 30) z.z = me.z;
     moves = moves + 1;
 
     iv(N_SETPOS, z.h, z.x, z.y, z.z, false, false, false, false);
