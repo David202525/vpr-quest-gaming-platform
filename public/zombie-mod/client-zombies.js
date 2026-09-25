@@ -16,11 +16,14 @@ function spd() { return ob ? (wv > 5 ? 3.2 : 2.7) : 1.7; }
 function mapZones() {
   const u = mp.game.ui;
   blips.forEach(function (b) { T(u.removeBlip, b); });
-  blips = zones.map(function (s) {
+  blips = [];
+  zones.forEach(function (s) {
     const b = T(u.addBlipForRadius, s.x, s.y, s.z, s.r);
-    if (b) { T(u.setBlipColour, b, 2); T(u.setBlipAlpha, b, 90); }
-    return b;
-  }).filter(Boolean);
+    if (!b) return;
+    T(u.setBlipColour, b, 2);
+    T(u.setBlipAlpha, b, 90);
+    blips.push(b);
+  });
 }
 
 function ground(x, y, z) {
