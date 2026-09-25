@@ -11,7 +11,7 @@ function T(f, a, b, c, d, e, g, h, i, j, k, l) {
 }
 function dist2(ax, ay, bx, by) { return Math.sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by)); }
 function isSafe(x, y, pad) { return zones.some(function (s) { return dist2(x, y, s.x, s.y) < s.r + pad; }); }
-function spd() { return ob ? (wv > 5 ? 3.4 : 2.9) : 1.8; }
+function spd() { return ob ? (wv > 5 ? 3.2 : 2.7) : 1.7; }
 
 function mapZones() {
   const u = mp.game.ui;
@@ -31,10 +31,8 @@ function ground(x, y, z) {
 
 function prep(h, hp) {
   const p = mp.game.ped, en = mp.game.entity;
-  T(en.setEntityAsMissionEntity, h, true, true);
   T(en.setEntityHealth, h, hp);
   T(en.setEntityInvincible, h, false);
-  T(en.setEntityCollision, h, true, true);
   T(p.setPedMaxHealth, h, hp);
   T(p.setPedRelationshipGroupHash, h, grp);
   T(p.setPedAsEnemy, h, true);
@@ -44,54 +42,35 @@ function prep(h, hp) {
   T(p.setPedCanEvasiveDive, h, false);
   T(p.setPedSuffersCriticalHits, h, true);
   T(p.setPedDiesWhenInjured, h, false);
-  T(mp.game.task.setPedPathCanUseLadders, h, true);
   T(mp.game.task.clearPedTasksImmediately, h);
 }
 
-function anim(z, dict, name, flag) {
+function anim(z, dict, name) {
   if (z.anim === name) return;
   z.anim = name;
-  T(mp.game.task.playAnim, z.h, dict, name, 8.0, -8.0, -1, flag, 0.0, false, false, false);
+  T(mp.game.task.playAnim, z.ped.handle, dict, name, 8.0, -8.0, -1, 1, 0.0, false, false, false);
 }
 
-function step(z, me, dt) {
-  const c = T(mp.game.entity.getEntityCoords, z.h, true);
-  if (!c) return null;
-  const dx = me.x - c.x, dy = me.y - c.y;
-  const d = Math.sqrt(dx * dx + dy * dy);
-  const hd = Math.atan2(dy, dx) * 180 / Math.PI - 90;
-  T(mp.game.entity.setEntityHeading, z.h, hd < 0 ? hd + 360 : hd);
-
-  if (d < 1.9) {
-    anim(z, ADICT, AANIM, 1);
-    return d;
-  }
-
-  anim(z, WDICT, WANIM, 1);
-  const move = Math.min(spd() * dt, d - 1.5);
-  const nx = c.x + dx / d * move, ny = c.y + dy / d * move;
-  const gz = ground(nx, ny, c.z + 2);
-  const nz = gz === null ? c.z : gz + 1.0;
-  T(mp.game.entity.setEntityCoordsNoOffset, z.h, nx, ny, nz, false, false, false);
-  return d;
+function drop(z) {
+  try { if (z.ped && z.ped.destroy) z.ped.destroy(); } catch (e) {}
 }
 
-function kill(h) { T(mp.game.ped.deletePed, h); T(mp.game.entity.deleteEntity, h); }
-function wipe() { zs.forEach(function (z) { kill(z.h); }); zs = []; }
+function wipe() { zs.forEach(drop); zs = []; }
 
 function born() {
   const hash = mp.game.joaat(M[Math.floor(Math.random() * M.length)]);
   if (!T(mp.game.streaming.hasModelLoaded, hash)) { T(mp.game.streaming.requestModel, hash); return; }
   const me = mp.players.local.position, a = Math.random() * 6.283;
-  const r = ob ? 35 + Math.random() * 55 : 55 + Math.random() * 60;
+  const r = ob ? 35 + Math.random() * 55 : 50 + Math.random() * 55;
   const x = me.x + Math.cos(a) * r, y = me.y + Math.sin(a) * r;
   if (isSafe(x, y, 25)) return;
   const gz = ground(x, y, me.z + 80);
   const z = (gz === null ? me.z : gz) + 1;
-  const h = T(mp.game.ped.createPed, 26, hash, x, y, z, Math.random() * 360, false, true);
-  if (!h) return;
-  prep(h, ob ? 120 + wv * 25 : 90);
-  zs.push({ h: h, hit: 0, gone: false, anim: '' });
+  let ped = null;
+  try { ped = mp.peds.new(hash, new mp.Vector3(x, y, z), Math.random() * 360, 0); } catch (e) { return; }
+  if (!ped) return;
+  const item = { ped: ped, hp: ob ? 120 + wv * 25 : 90, hit: 0, gone: false, anim: '', set: false };
+  zs.push(item);
 }
 
 function loop(dt) {
@@ -99,32 +78,47 @@ function loop(dt) {
   if (isSafe(me.x, me.y, 0)) { if (zs.length) wipe(); return; }
   const cap = ob ? Math.min(20, 8 + wv * 2) : 4;
   const every = ob ? 20 : 240;
-  const now = Date.now(), en = mp.game.entity, keep = [];
+  const now = Date.now(), keep = [];
 
   zs.forEach(function (z) {
-    if (!T(en.doesEntityExist, z.h)) return;
+    const h = z.ped ? z.ped.handle : 0;
+    if (!h) { keep.push(z); return; }
 
-    if (T(en.isEntityDead, z.h)) {
+    if (!z.set) { z.set = true; prep(h, z.hp); }
+
+    const hp = T(mp.game.entity.getEntityHealth, h);
+    if (hp !== null && hp <= 0) {
       if (!z.gone) {
         z.gone = true;
         mp.events.callRemote('srv:zombieKill');
-        setTimeout(function () { kill(z.h); }, 6000);
+        setTimeout(function () { drop(z); }, 6000);
       }
       keep.push(z);
       return;
     }
 
-    const d = step(z, me, dt);
-    if (d === null) return;
-    if (d > 300) { kill(z.h); return; }
+    const c = z.ped.position;
+    const dx = me.x - c.x, dy = me.y - c.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
 
-    const c = T(en.getEntityCoords, z.h, true);
-    if (c && isSafe(c.x, c.y, 0)) { kill(z.h); return; }
+    if (d > 300 || isSafe(c.x, c.y, 0)) { drop(z); return; }
 
-    if (d < 2.2 && now - z.hit > 1200) {
-      z.hit = now;
-      mp.events.callRemote('srv:zombieHit', ob ? 6 + Math.floor(wv / 2) : 4);
-      T(mp.game.cam.shakeGameplayCam, 'SMALL_EXPLOSION_SHAKE', 0.3);
+    const hd = Math.atan2(dy, dx) * 180 / Math.PI - 90;
+    try { z.ped.heading = hd < 0 ? hd + 360 : hd; } catch (e) {}
+
+    if (d < 1.9) {
+      anim(z, ADICT, AANIM);
+      if (now - z.hit > 1200) {
+        z.hit = now;
+        mp.events.callRemote('srv:zombieHit', ob ? 6 + Math.floor(wv / 2) : 4);
+        T(mp.game.cam.shakeGameplayCam, 'SMALL_EXPLOSION_SHAKE', 0.3);
+      }
+    } else {
+      anim(z, WDICT, WANIM);
+      const mv = Math.min(spd() * dt, d - 1.5);
+      const nx = c.x + dx / d * mv, ny = c.y + dy / d * mv;
+      const gz = ground(nx, ny, c.z + 2);
+      try { z.ped.position = new mp.Vector3(nx, ny, gz === null ? c.z : gz + 1.0); } catch (e) {}
     }
     keep.push(z);
   });
@@ -163,15 +157,7 @@ mp.events.add('render', function () {
   if (fx && now - fxAt < 2200) hud(fx, 0.78, 0.52, 230);
 });
 
-mp.events.add('srv:zombieState', function (st, out, w, json, left) {
-  const was = ob;
-  on = !!st; ob = !!out; wv = Number(w) || 1;
-  pLeft = Number(left) || 0; pAt = Date.now();
-  let arr = [];
-  try { arr = JSON.parse(json); } catch (e) { arr = []; }
-  zones = arr.map(function (s) { return { x: s.x, y: s.y, z: s.z || 30, r: s.r || 120 }; });
-  mapZones();
-  if (!on) { wipe(); return; }
+function ensure() {
   if (!grp) {
     grp = mp.game.joaat('ZOMBIES');
     const pl = mp.game.joaat('PLAYER');
@@ -183,6 +169,18 @@ mp.events.add('srv:zombieState', function (st, out, w, json, left) {
   T(mp.game.streaming.requestAnimDict, WDICT);
   T(mp.game.streaming.requestAnimDict, ADICT);
   M.forEach(function (n) { T(mp.game.streaming.requestModel, mp.game.joaat(n)); });
+}
+
+mp.events.add('srv:zombieState', function (st, out, w, json, left) {
+  const was = ob;
+  on = !!st; ob = !!out; wv = Number(w) || 1;
+  pLeft = Number(left) || 0; pAt = Date.now();
+  let arr = [];
+  try { arr = JSON.parse(json); } catch (e) { arr = []; }
+  zones = arr.map(function (s) { return { x: s.x, y: s.y, z: s.z || 30, r: s.r || 120 }; });
+  mapZones();
+  if (!on) { wipe(); return; }
+  ensure();
   if (was !== ob) wipe();
 });
 
@@ -200,17 +198,15 @@ mp.events.add('srv:zombieDebug', function () {
 });
 
 mp.keys.bind(0x76, true, function () {
-  if (!grp) {
-    grp = mp.game.joaat('ZOMBIES');
-    const pl = mp.game.joaat('PLAYER');
-    T(mp.game.ped.addRelationshipGroup, 'ZOMBIES', grp);
-    T(mp.game.ped.setRelationshipBetweenGroups, 5, grp, pl);
-    T(mp.game.ped.setRelationshipBetweenGroups, 5, pl, grp);
-  }
-  T(mp.game.streaming.requestAnimDict, WDICT);
-  T(mp.game.streaming.requestAnimDict, ADICT);
-  M.forEach(function (n) { T(mp.game.streaming.requestModel, mp.game.joaat(n)); });
+  ensure();
   on = true;
   born();
   mp.gui.chat.push('!{#8fd14f}Тест: зомби на карте ' + zs.length);
+});
+
+mp.keys.bind(0x75, true, function () {
+  const n = zs.length;
+  wipe();
+  mp.peds.forEach(function (p) { try { p.destroy(); } catch (e) {} });
+  mp.gui.chat.push('!{#8fd14f}Карта очищена, убрано ' + n);
 });
