@@ -198,3 +198,19 @@ mp.events.add('srv:zombieDebug', function () {
   mp.gui.chat.push('!{#8fd14f}Отладка ' + (dbg ? 'вкл' : 'выкл') + ' | ' + (ob ? 'прорыв' : 'затишье') + ' | всего ' + zs.length);
   mp.gui.chat.push('!{#8fd14f}Тут: ' + p.x.toFixed(0) + ' ' + p.y.toFixed(0) + ' ' + p.z.toFixed(0));
 });
+
+mp.keys.bind(0x76, true, function () {
+  if (!grp) {
+    grp = mp.game.joaat('ZOMBIES');
+    const pl = mp.game.joaat('PLAYER');
+    T(mp.game.ped.addRelationshipGroup, 'ZOMBIES', grp);
+    T(mp.game.ped.setRelationshipBetweenGroups, 5, grp, pl);
+    T(mp.game.ped.setRelationshipBetweenGroups, 5, pl, grp);
+  }
+  T(mp.game.streaming.requestAnimDict, WDICT);
+  T(mp.game.streaming.requestAnimDict, ADICT);
+  M.forEach(function (n) { T(mp.game.streaming.requestModel, mp.game.joaat(n)); });
+  on = true;
+  born();
+  mp.gui.chat.push('!{#8fd14f}Тест: зомби на карте ' + zs.length);
+});
