@@ -1,10 +1,11 @@
 const M = ['a_m_m_hillbilly_01', 'a_m_m_tramp_01', 'a_m_y_methhead_01', 'a_m_m_farmer_01'];
-const PED = 46351984;
+const ADICT = 'melee@unarmed@streamed_core';
+const ANIM = 'ground_attack_on_spot';
 let on = false, ob = false, wv = 1, zones = [], blips = [], pLeft = 0, pAt = 0;
 let zs = [], kills = 0, fx = '', fxAt = 0, grp = 0, tk = 0, dbg = false;
 
-function T(f, a, b, c, d, e, g, h, i, j) {
-  try { return f(a, b, c, d, e, g, h, i, j); } catch (x) { if (dbg) mp.gui.chat.push('!{#e05555}' + x); return null; }
+function T(f, a, b, c, d, e, g, h, i, j, k, l) {
+  try { return f(a, b, c, d, e, g, h, i, j, k, l); } catch (x) { if (dbg) mp.gui.chat.push('!{#e05555}' + x); return null; }
 }
 function dist2(ax, ay, bx, by) { return Math.sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by)); }
 function isSafe(x, y, pad) { return zones.some(function (s) { return dist2(x, y, s.x, s.y) < s.r + pad; }); }
@@ -30,11 +31,8 @@ function prep(h, hp) {
   T(p.setPedAsEnemy, h, true);
   T(p.setBlockingOfNonTemporaryEvents, h, true);
   T(p.setPedFleeAttributes, h, 0, false);
-  T(p.setPedCombatAbility, h, 100);
-  T(p.setPedCombatRange, h, 2);
-  T(p.setPedCombatMovement, h, 3);
-  [46, 5, 1, 16].forEach(function (k) { T(p.setPedCombatAttributes, h, k, true); });
-  [17, 0].forEach(function (k) { T(p.setPedCombatAttributes, h, k, false); });
+  T(p.setPedCombatAttributes, h, 46, true);
+  T(p.setPedCombatAttributes, h, 5, true);
   T(p.setPedSeeingRange, h, 400.0);
   T(p.setPedHearingRange, h, 400.0);
   T(p.setPedAlertness, h, 3);
@@ -42,15 +40,24 @@ function prep(h, hp) {
   T(p.setPedCanEvasiveDive, h, false);
   T(p.setPedPathCanUseClimbovers, h, true);
   T(p.setPedPathCanDropFromHeight, h, true);
+  T(p.setPedMoveRateOverride, h, spd());
+  T(p.setPedStealthMovement, h, false, '');
 }
 
-function hunt(z, d) {
-  const me = mp.players.local.handle, mode = d < 14 ? 'fight' : 'run';
-  if (z.mode === mode) return;
-  z.mode = mode;
-  T(mp.game.ped.setPedMoveRateOverride, z.h, spd());
-  if (mode === 'fight') T(mp.game.task.combatPed, z.h, me, 0, 16);
-  else T(mp.game.task.goToEntity, z.h, me, -1, 1.0, 2.0, 1073741824.0, 0);
+function runTo(z, force) {
+  if (z.mode === 'run' && !force) return;
+  z.mode = 'run';
+  T(mp.game.task.goToEntity, z.h, mp.players.local.handle, -1, 0.8, 3.0, 1073741824.0, 0);
+}
+
+function swing(z) {
+  z.mode = 'hit';
+  const me = mp.players.local.position;
+  T(mp.game.task.clearPedTasks, z.h);
+  T(mp.game.task.turnPedToFaceCoord, z.h, me.x, me.y, me.z, 600);
+  T(mp.game.task.playAnim, z.h, ADICT, ANIM, 8.0, -8.0, 900, 0, 0.0, false, false, false);
+  mp.events.callRemote('srv:zombieHit', ob ? 6 + Math.floor(wv / 2) : 4);
+  T(mp.game.cam.shakeGameplayCam, 'SMALL_EXPLOSION_SHAKE', 0.25);
 }
 
 function kill(h) { T(mp.game.ped.deletePed, h); T(mp.game.entity.deleteEntity, h); }
@@ -69,9 +76,9 @@ function born() {
   const h = T(mp.game.ped.createPed, 26, hash, x, y, z, Math.random() * 360, false, true);
   if (!h) return;
   prep(h, ob ? 120 + wv * 25 : 90);
-  const item = { h: h, hit: 0, gone: false, at: 0, px: x, py: y, mode: '', bad: 0 };
+  const item = { h: h, hit: 0, gone: false, at: 0, px: x, py: y, mode: '', bad: 0, re: 0 };
   zs.push(item);
-  hunt(item, r);
+  runTo(item, true);
 }
 
 function loop() {
@@ -84,6 +91,7 @@ function loop() {
     if (!T(en.doesEntityExist, z.h)) return;
     const c = T(en.getEntityCoords, z.h, true);
     if (!c) return;
+
     if (T(en.isEntityDead, z.h)) {
       if (!z.gone) {
         z.gone = true;
@@ -93,22 +101,25 @@ function loop() {
       keep.push(z);
       return;
     }
+
     const d = dist2(c.x, c.y, me.x, me.y);
     if (d > 400 || isSafe(c.x, c.y, 0)) { kill(z.h); return; }
-    if (d < 2.6 && now - z.hit > 1400) {
-      z.hit = now;
-      mp.events.callRemote('srv:zombieHit', ob ? 6 + Math.floor(wv / 2) : 4);
-      T(mp.game.cam.shakeGameplayCam, 'SMALL_EXPLOSION_SHAKE', 0.15);
+
+    if (d < 3.4) {
+      if (now - z.hit > 1300) { z.hit = now; swing(z); }
+      else if (z.mode === 'hit' && now - z.hit > 950) runTo(z, true);
+    } else if (z.mode !== 'run' || now - z.re > 4000) {
+      z.re = now;
+      runTo(z, true);
     }
-    hunt(z, d);
+
     if (now - z.at > 2500) {
       const moved = dist2(c.x, c.y, z.px, z.py);
       z.px = c.x; z.py = c.y; z.at = now;
-      if (moved < 0.8 && d > 3) {
+      if (moved < 0.8 && d > 3.4) {
         z.bad++;
-        z.mode = '';
-        T(mp.game.ped.clearPedTasksImmediately, z.h);
-        hunt(z, d);
+        T(mp.game.task.clearPedTasksImmediately, z.h);
+        runTo(z, true);
         if (z.bad > 3) { kill(z.h); return; }
       } else z.bad = 0;
     }
@@ -162,6 +173,7 @@ mp.events.add('srv:zombieState', function (st, out, w, json, left) {
     T(mp.game.ped.setRelationshipBetweenGroups, 5, pl, grp);
     T(mp.game.ped.setRelationshipBetweenGroups, 0, grp, grp);
   }
+  T(mp.game.streaming.requestAnimDict, ADICT);
   M.forEach(function (n) { T(mp.game.streaming.requestModel, mp.game.joaat(n)); });
   if (was !== ob) wipe();
 });
@@ -176,6 +188,7 @@ mp.events.add('srv:zombieDebug', function () {
   dbg = !dbg;
   const p = mp.players.local.position;
   const run = zs.filter(function (z) { return z.mode === 'run'; }).length;
-  mp.gui.chat.push('!{#8fd14f}Отладка ' + (dbg ? 'вкл' : 'выкл') + ' | ' + (ob ? 'прорыв' : 'затишье') + ' | всего ' + zs.length + ' | бегут ' + run);
+  const hit = zs.filter(function (z) { return z.mode === 'hit'; }).length;
+  mp.gui.chat.push('!{#8fd14f}Отладка ' + (dbg ? 'вкл' : 'выкл') + ' | ' + (ob ? 'прорыв' : 'затишье') + ' | всего ' + zs.length + ' | бегут ' + run + ' | бьют ' + hit);
   mp.gui.chat.push('!{#8fd14f}Тут: ' + p.x.toFixed(0) + ' ' + p.y.toFixed(0) + ' ' + p.z.toFixed(0));
 });
