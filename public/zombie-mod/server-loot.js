@@ -204,12 +204,71 @@ mp.events.addCommand('drop', function (player, arg) {
     if (remove(player, key, 1)) player.outputChatBox('!{#ffcc66}Выброшено: ' + ITEMS[key].name);
 });
 
+const radarOn = {};
+
+function sendRadar(player) {
+    if (!radarOn[player.id]) { player.call('srv:lootRadar', ['[]']); return; }
+    const now = Date.now();
+    const all = spots.filter(function (s) {
+        return !safeSpot(s) && (s.taken === 0 || now - s.taken > RESPAWN_MS);
+    }).map(function (s) {
+        return { x: s.x, y: s.y, z: s.z, n: ITEMS[s.item].name };
+    });
+    player.call('srv:lootRadar', [JSON.stringify(all)]);
+}
+
+mp.events.addCommand('lootmap', function (player) {
+    if (admin.lvl(player) < 2) {
+        player.outputChatBox('!{#e05555}Недостаточно прав');
+        return;
+    }
+    radarOn[player.id] = !radarOn[player.id];
+    sendRadar(player);
+    player.outputChatBox(radarOn[player.id]
+        ? '!{#8fd14f}Радар лута ВКЛ — метки на карте'
+        : '!{#ffcc66}Радар лута ВЫКЛ');
+});
+
+mp.events.addCommand('loottp', function (player, arg) {
+    if (admin.lvl(player) < 2) {
+        player.outputChatBox('!{#e05555}Недостаточно прав');
+        return;
+    }
+    const now = Date.now();
+    const live = spots.filter(function (s) {
+        return !safeSpot(s) && (s.taken === 0 || now - s.taken > RESPAWN_MS);
+    });
+    if (!live.length) { player.outputChatBox('!{#ffcc66}Точек нет'); return; }
+    const n = Number(arg);
+    const s = (!isNaN(n) && live[n - 1]) ? live[n - 1] : live[Math.floor(Math.random() * live.length)];
+    player.position = new mp.Vector3(s.x, s.y, s.z + 1);
+    player.outputChatBox('!{#8fd14f}Телепорт к луту: ' + ITEMS[s.item].name);
+});
+
+mp.events.addCommand('lootrespawn', function (player) {
+    if (admin.lvl(player) < 3) {
+        player.outputChatBox('!{#e05555}Недостаточно прав');
+        return;
+    }
+    spots.forEach(function (s) { s.taken = 0; s.item = roll(); });
+    mp.players.forEach(function (pl) { if (pl.account) { sendSpots(pl); sendRadar(pl); } });
+    mp.players.broadcast('!{#8fd14f}[ЛУТ] !{#ffffff}Весь лут обновлён');
+});
+
+mp.events.add('playerQuit', function (player) {
+    delete radarOn[player.id];
+});
+
 mp.events.add('playerJoin', function (player) {
     setTimeout(function () { sendSpots(player); sendInv(player); }, 4000);
 });
 
 setInterval(function () {
-    mp.players.forEach(function (p) { if (p.account) sendSpots(p); });
+    mp.players.forEach(function (p) {
+        if (!p.account) return;
+        sendSpots(p);
+        if (radarOn[p.id]) sendRadar(p);
+    });
 }, 60000);
 
 module.exports = { ITEMS: ITEMS, add: add, remove: remove, inv: inv, sendInv: sendInv };

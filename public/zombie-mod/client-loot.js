@@ -114,3 +114,30 @@ mp.keys.bind(0x0D, false, function () {
   if (!invList[sel]) return;
   mp.events.callRemote('srv:invUse', invList[sel].k);
 });
+
+let radarBlips = [];
+
+mp.events.add('srv:lootRadar', function (json) {
+  for (let i = 0; i < radarBlips.length; i++) {
+    try { mp.game.ui.removeBlip(radarBlips[i]); } catch (e) {}
+  }
+  radarBlips = [];
+
+  let arr = [];
+  try { arr = JSON.parse(json); } catch (e) { arr = []; }
+
+  for (let i = 0; i < arr.length; i++) {
+    const s = arr[i];
+    try {
+      const b = mp.game.ui.addBlipForCoord(s.x, s.y, s.z);
+      mp.game.ui.setBlipSprite(b, 478);
+      mp.game.ui.setBlipColour(b, 5);
+      mp.game.ui.setBlipScale(b, 0.7);
+      mp.game.ui.setBlipAsShortRange(b, false);
+      mp.game.ui.beginTextCommandSetBlipName('STRING');
+      mp.game.ui.addTextComponentSubstringPlayerName(s.n);
+      mp.game.ui.endTextCommandSetBlipName(b);
+      radarBlips.push(b);
+    } catch (e) {}
+  }
+});
