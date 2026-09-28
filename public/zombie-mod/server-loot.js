@@ -1,6 +1,17 @@
-const db = require('./database');
-const zombies = require('./zombies');
-const admin = require('./admin');
+let db = null;
+try { db = require('./database'); } catch (e) { db = null; }
+
+let zombies = null;
+try { zombies = require('./zombies'); } catch (e) { zombies = null; }
+
+let admin = null;
+try { admin = require('./admin'); } catch (e) { admin = null; }
+
+function adminLvl(player) {
+    if (admin && typeof admin.lvl === 'function') return admin.lvl(player);
+    if (player.account && player.account.admin) return Number(player.account.admin) || 0;
+    return 0;
+}
 
 const RESPAWN_MS = 6 * 60 * 1000;
 const MAX_SLOTS = 20;
@@ -56,7 +67,8 @@ const spots = SPOTS.map(function (c, i) {
 });
 
 function safeSpot(s) {
-    const zones = zombies.safeZones();
+    if (!zombies || typeof zombies.safeZones !== 'function') return false;
+    const zones = zombies.safeZones() || [];
     for (let i = 0; i < zones.length; i++) {
         const dx = s.x - zones[i].x, dy = s.y - zones[i].y;
         if (Math.sqrt(dx * dx + dy * dy) < zones[i].r + 15) return true;
@@ -132,6 +144,7 @@ async function save(player) {
     if (!player.account) return;
     const json = JSON.stringify(inv(player));
     player.account.inventory = json;
+    if (!db || typeof db.query !== 'function') return;
     try { await db.query('UPDATE accounts SET inventory = ? WHERE id = ?', [json, player.account.id]); } catch (e) {}
 }
 
@@ -219,7 +232,7 @@ function sendRadar(player) {
 }
 
 mp.events.addCommand('lootmap', function (player) {
-    if (admin.lvl(player) < 2) {
+    if (adminLvl(player) < 2) {
         player.outputChatBox('!{#e05555}Недостаточно прав');
         return;
     }
@@ -231,7 +244,7 @@ mp.events.addCommand('lootmap', function (player) {
 });
 
 mp.events.addCommand('loottp', function (player, arg) {
-    if (admin.lvl(player) < 2) {
+    if (adminLvl(player) < 2) {
         player.outputChatBox('!{#e05555}Недостаточно прав');
         return;
     }
@@ -247,7 +260,7 @@ mp.events.addCommand('loottp', function (player, arg) {
 });
 
 mp.events.addCommand('lootrespawn', function (player) {
-    if (admin.lvl(player) < 3) {
+    if (adminLvl(player) < 3) {
         player.outputChatBox('!{#e05555}Недостаточно прав');
         return;
     }
@@ -261,7 +274,7 @@ mp.events.add('playerQuit', function (player) {
 });
 
 mp.events.add('srv:adminLoot', function (player, cmd, arg) {
-    if (admin.lvl(player) < 2) return;
+    if (adminLvl(player) < 2) return;
     if (cmd === 'map') {
         radarOn[player.id] = !radarOn[player.id];
         sendRadar(player);
@@ -279,7 +292,7 @@ mp.events.add('srv:adminLoot', function (player, cmd, arg) {
         player.position = new mp.Vector3(s.x, s.y, s.z + 1);
         player.outputChatBox('!{#8fd14f}Телепорт к луту: ' + ITEMS[s.item].name);
     } else if (cmd === 'respawn') {
-        if (admin.lvl(player) < 3) return;
+        if (adminLvl(player) < 3) return;
         spots.forEach(function (s) { s.taken = 0; s.item = roll(); });
         mp.players.forEach(function (pl) { if (pl.account) { sendSpots(pl); sendRadar(pl); } });
         mp.players.broadcast('!{#8fd14f}[ЛУТ] !{#ffffff}Весь лут обновлён');
