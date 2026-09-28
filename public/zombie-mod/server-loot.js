@@ -1,5 +1,6 @@
 const db = require('./database');
 const zombies = require('./zombies');
+const admin = require('./admin');
 
 const RESPAWN_MS = 6 * 60 * 1000;
 const MAX_SLOTS = 20;
@@ -257,6 +258,32 @@ mp.events.addCommand('lootrespawn', function (player) {
 
 mp.events.add('playerQuit', function (player) {
     delete radarOn[player.id];
+});
+
+mp.events.add('srv:adminLoot', function (player, cmd, arg) {
+    if (admin.lvl(player) < 2) return;
+    if (cmd === 'map') {
+        radarOn[player.id] = !radarOn[player.id];
+        sendRadar(player);
+        player.outputChatBox(radarOn[player.id]
+            ? '!{#8fd14f}Радар лута ВКЛ'
+            : '!{#ffcc66}Радар лута ВЫКЛ');
+    } else if (cmd === 'tp') {
+        const now = Date.now();
+        const live = spots.filter(function (s) {
+            return !safeSpot(s) && (s.taken === 0 || now - s.taken > RESPAWN_MS);
+        });
+        if (!live.length) { player.outputChatBox('!{#ffcc66}Точек нет'); return; }
+        const n = Number(arg);
+        const s = (!isNaN(n) && live[n - 1]) ? live[n - 1] : live[Math.floor(Math.random() * live.length)];
+        player.position = new mp.Vector3(s.x, s.y, s.z + 1);
+        player.outputChatBox('!{#8fd14f}Телепорт к луту: ' + ITEMS[s.item].name);
+    } else if (cmd === 'respawn') {
+        if (admin.lvl(player) < 3) return;
+        spots.forEach(function (s) { s.taken = 0; s.item = roll(); });
+        mp.players.forEach(function (pl) { if (pl.account) { sendSpots(pl); sendRadar(pl); } });
+        mp.players.broadcast('!{#8fd14f}[ЛУТ] !{#ffffff}Весь лут обновлён');
+    }
 });
 
 mp.events.add('playerJoin', function (player) {
