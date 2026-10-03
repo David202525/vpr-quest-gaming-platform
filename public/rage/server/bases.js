@@ -177,7 +177,7 @@ mp.events.addCommand('basehelp', function (p) {
     if (isAdmin(p)) {
         msg(p, 'Админ: /basecreate [family|army] [цена] [радиус] [название]');
         msg(p, '/basegive [база] [игрок] /basefree [база] /basedel [база] /basewipe [база]');
-        msg(p, '/baselist /basetp [база] /basesetarmy [база]');
+        msg(p, '/baselist /basetp /basesetarmy /baseprice [база] [цена] /basename [база] [имя]');
         msg(p, '/setarmy [игрок] [ранг 1-7] /unarmy [игрок] /paydaynow');
     }
 });
@@ -279,6 +279,31 @@ mp.events.addCommand('basewipe', function (p, arg) {
         save();
     }
     msg(p, 'Снесено объектов: ' + n + (b ? '. База "' + b.name + '" удалена.' : ' (вокруг тебя, радиус 60 м)'));
+});
+
+mp.events.addCommand('baseprice', function (p, args) {
+    if (!isAdmin(p)) return;
+    const a = String(args || '').trim().split(' ');
+    const base = byId(a[0]) || data.bases.find(function (x) { return inside(p, x, 15); });
+    const sum = parseInt(a[1], 10);
+    if (!base) return msg(p, 'Использование: /baseprice [номер базы] [цена]. Список: /baselist');
+    if (isNaN(sum) || sum < 0) return msg(p, 'Цена базы "' + base.name + '": $' + base.price + '. Изменить: /baseprice ' + base.id + ' 500000');
+    base.price = sum;
+    save();
+    draw(base);
+    msg(p, 'Цена базы "' + base.name + '" теперь $' + sum);
+});
+
+mp.events.addCommand('basename', function (p, args) {
+    if (!isAdmin(p)) return;
+    const a = String(args || '').trim().split(' ');
+    const base = byId(a[0]);
+    const name = a.slice(1).join(' ');
+    if (!base || !name) return msg(p, 'Использование: /basename [номер] [новое название]');
+    base.name = name;
+    save();
+    draw(base);
+    msg(p, 'База переименована: ' + name);
 });
 
 mp.events.addCommand('baseinfo', function (p) {

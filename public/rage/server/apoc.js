@@ -23,7 +23,14 @@ const TYPES = {
     gate: ['prop_sec_barrier_ld_01a'],
     milgate: ['prop_gate_military_01'],
     flag: ['prop_flag_us'],
-    sat: ['prop_satdish_l_02']
+    sat: ['prop_satdish_l_02'],
+    cabin: ['prop_portacabin01'],
+    container: ['prop_container_01a', 'prop_container_05a'],
+    tent: ['prop_skid_tent_01', 'prop_skid_tent_03'],
+    gen: ['prop_generator_03a'],
+    tank: ['prop_fueltank_02a'],
+    chair: ['prop_table_03b_cs'],
+    tower: ['prop_watertower02']
 };
 
 const VEHS = {
@@ -206,7 +213,7 @@ mp.events.addCommand('proplist', function (p) {
     msg(p, '/prop [тип] [поворот] - поставить перед собой');
     msg(p, 'Техника: /pveh [' + Object.keys(VEHS).join(', ') + '] [поворот]');
     msg(p, '/fire [1-3] /smoke /apoc /overgrow [кол-во] /wreckzone [кол-во]');
-    msg(p, 'Готовое: /blockpost /milpost /milbase [20-90]');
+    msg(p, 'Готовое: /blockpost /milpost /milbase [20-90] /milhouse');
     msg(p, '/propdel /propundo [кол-во] /propclear [радиус]');
 });
 
@@ -297,6 +304,13 @@ mp.events.addCommand('milpost', function (p) {
     msg(p, 'Военный блокпост построен');
 });
 
+function houseBlock(list, f, side) {
+    list.push(['obj', 'cabin', f, side, 90]);
+    list.push(['obj', 'cabin', f + 6, side, 90]);
+    list.push(['obj', 'tent', f + 12, side, 90]);
+    list.push(['obj', 'container', f, side + 7, 90]);
+}
+
 mp.events.addCommand('milbase', function (p, arg) {
     if (!isAdmin(p)) return;
     let size = parseInt(arg, 10);
@@ -304,6 +318,7 @@ mp.events.addCommand('milbase', function (p, arg) {
     const half = Math.round(size / 2);
     const front = 8;
     const back = front + size;
+    const mid = (front + back) / 2;
     const list = [];
     for (let i = -half; i <= half; i += 3) {
         if (Math.abs(i) > 4) list.push(['obj', 'hesco', front, i]);
@@ -316,21 +331,34 @@ mp.events.addCommand('milbase', function (p, arg) {
     list.push(['obj', 'milgate', front, 0]);
     list.push(['obj', 'light', front + 2, -5, 180], ['obj', 'light', front + 2, 5, 180]);
     list.push(['obj', 'light', back - 2, -half + 2, 45], ['obj', 'light', back - 2, half - 2, -45]);
-    list.push(['obj', 'light', (front + back) / 2, -half + 2, 90], ['obj', 'light', (front + back) / 2, half - 2, -90]);
+    list.push(['obj', 'light', mid, -half + 2, 90], ['obj', 'light', mid, half - 2, -90]);
     list.push(['obj', 'sandbag', front + 5, -5], ['obj', 'sandbag', front + 5, 5]);
     list.push(['obj', 'sandbag', front + 7, -7], ['obj', 'sandbag', front + 7, 7]);
-    list.push(['obj', 'flag', back - 3, 0], ['obj', 'sat', back - 4, -half + 5]);
+    list.push(['obj', 'flag', back - 3, 0], ['obj', 'sat', back - 5, -half + 5]);
+    list.push(['obj', 'tower', back - 5, half - 5]);
+    list.push(['obj', 'gen', back - 8, -half + 8], ['obj', 'tank', back - 8, half - 8]);
+    houseBlock(list, mid - 4, -half + 6);
+    if (size >= 40) houseBlock(list, mid - 4, half - 12);
+    if (size >= 70) houseBlock(list, back - 20, 0);
     for (let c = 0; c < 6; c++) {
-        list.push(['obj', 'milcrate', back - 6 - (c % 3) * 2, half - 5 - Math.floor(c / 3) * 2]);
+        list.push(['obj', 'milcrate', back - 6 - (c % 3) * 2, half - 14 - Math.floor(c / 3) * 2]);
     }
-    list.push(['obj', 'barrier', front + 12, -half + 4, 90], ['obj', 'barrier', front + 12, half - 4, 90]);
-    const row = (front + back) / 2;
-    list.push(['veh', 'barracks', row + 6, -half + 6, 90], ['veh', 'barracks3', row + 6, -half + 12, 90]);
-    list.push(['veh', 'crusader', row, -half + 6, 90], ['veh', 'crusader', row, -half + 12, 90]);
-    list.push(['veh', 'insurgent2', row, half - 6, 90], ['veh', 'apc', row + 6, half - 6, 90]);
-    list.push(['veh', 'rhino', front + 10, half - 8, 0], ['veh', 'rhino', front + 10, -half + 8, 0]);
+    list.push(['veh', 'barracks', front + 14, -half + 5, 0], ['veh', 'barracks3', front + 14, -half + 10, 0]);
+    list.push(['veh', 'crusader', front + 20, -half + 5, 0], ['veh', 'crusader', front + 20, -half + 10, 0]);
+    list.push(['veh', 'insurgent2', front + 14, half - 5, 0], ['veh', 'apc', front + 20, half - 5, 0]);
+    list.push(['veh', 'rhino', front + 10, half - 10, 0], ['veh', 'rhino', front + 10, -half + 15, 0]);
     batch(p, list);
-    msg(p, 'Военная база ' + size + 'x' + size + ' м построена (' + list.length + ' объектов)');
+    msg(p, 'База ' + size + 'x' + size + ' м готова: казармы, палатки, вышка, генератор (' + list.length + ' объектов)');
+});
+
+mp.events.addCommand('milhouse', function (p) {
+    if (!isAdmin(p)) return;
+    const list = [];
+    houseBlock(list, 6, 0);
+    list.push(['obj', 'light', 4, -4, 180], ['obj', 'light', 4, 4, 180]);
+    list.push(['obj', 'gen', 6, -6], ['obj', 'milcrate', 10, -6]);
+    batch(p, list);
+    msg(p, 'Жилой блок построен: 2 казармы, палатка, контейнер');
 });
 
 mp.events.addCommand('wreckzone', function (p, arg) {
