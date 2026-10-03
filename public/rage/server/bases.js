@@ -173,6 +173,7 @@ setInterval(payday, CFG.payMinutes * 60 * 1000);
 
 mp.events.addCommand('basehelp', function (p) {
     msg(p, '/baseinfo /baseinvite [id] /basekick [id] /baseleave /basemembers /basegps');
+    msg(p, '/gate - открыть ворота, /baselock - пускать гостей, /basegate [gate|bar|fence] /basegatedel');
     if (isAdmin(p)) {
         msg(p, 'Админ: /basecreate [family|army] [цена] [радиус] [название]');
         msg(p, '/basegive [база] [игрок] /basefree [база] /basedel [база] /baselist /basetp [база]');
@@ -255,6 +256,7 @@ mp.events.addCommand('basedel', function (p, arg) {
     const b = byId(arg);
     if (!b) return msg(p, 'Нет такой базы');
     clear(b);
+    removeGates(b);
     data.bases = data.bases.filter(function (x) { return x.id !== b.id; });
     save();
     msg(p, 'База удалена. Постройки убери через /propclear');
@@ -347,6 +349,164 @@ mp.events.addCommand('paydaynow', function (p) {
     if (!isAdmin(p)) return;
     payday();
     msg(p, 'Зарплата выдана всем');
+});
+
+const gateObjs = {};
+const GATE_MODELS = { gate: 'prop_gate_military_01', bar: 'prop_sec_barrier_ld_01a', fence: 'prop_facgate_07b' };
+
+function canEnter(p, b) {
+    if (lvl(p) >= 2) return true;
+    if (b.type === 'army') return isArmy(p);
+    if (!b.owner || b.open) return true;
+    const id = accId(p);
+    return b.owner === id || b.members.some(function (m) { return m.id === id; });
+}
+
+function gateKey(b, i) {
+    return b.id + '_' + i;
+}
+
+function spawnGate(b, i) {
+    const g = b.gates[i];
+    const k = gateKey(b, i);
+    try { if (gateObjs[k]) gateObjs[k].destroy(); } catch (e) {}
+    try {
+        gateObjs[k] = mp.objects.new(mp.joaat(g.m), new mp.Vector3(g.x, g.y, g.z), {
+            rotation: new mp.Vector3(0, 0, g.h),
+            dimension: 0
+        });
+    } catch (e) {
+        console.log('[bases] gate: ' + e.message);
+    }
+}
+
+function spawnGates(b) {
+    if (!b.gates) b.gates = [];
+    b.gates.forEach(function (g, i) { spawnGate(b, i); });
+}
+
+function removeGates(b) {
+    (b.gates || []).forEach(function (g, i) {
+        const k = gateKey(b, i);
+        try { if (gateObjs[k]) gateObjs[k].destroy(); } catch (e) {}
+        delete gateObjs[k];
+    });
+}
+
+data.bases.forEach(spawnGates);
+
+function inside(p, b, extra) {
+    const pos = p.vehicle ? p.vehicle.position : p.position;
+    const dx = pos.x - b.x;
+    const dy = pos.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy) <= b.r + (extra || 0) && Math.abs(pos.z - b.z) < 40;
+}
+
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        if (!p.account || p.dimension !== 0) return;
+        if (p.account.downed) return;
+        const bad = data.bases.find(function (b) {
+            return inside(p, b) && !canEnter(p, b);
+        });
+        if (!bad) {
+            const pos = p.vehicle ? p.vehicle.position : p.position;
+            p.baseSafe = { x: pos.x, y: pos.y, z: pos.z };
+            return;
+        }
+        let s = p.baseSafe;
+        if (!s) {
+            const dx = p.position.x - bad.x;
+            const dy = p.position.y - bad.y;
+            const d = Math.sqrt(dx * dx + dy * dy) || 1;
+            s = { x: bad.x + dx / d * (bad.r + 5), y: bad.y + dy / d * (bad.r + 5), z: p.position.z + 1 };
+        }
+        const v = new mp.Vector3(s.x, s.y, s.z + 0.3);
+        if (p.vehicle && p.seat === 0) {
+            p.vehicle.position = v;
+            p.vehicle.velocity = new mp.Vector3(0, 0, 0);
+        } else {
+            p.position = v;
+        }
+        const now = Date.now();
+        if (!p.baseWarn || now - p.baseWarn > 4000) {
+            p.baseWarn = now;
+            msg(p, bad.type === 'army' ? '!{#ff5c5c}Военная территория. Проход закрыт!' : '!{#ff5c5c}Частная территория семьи ' + bad.name + '. Вход только для своих!');
+        }
+    });
+}, 1000);
+
+mp.events.addCommand('basegate', function (p, arg) {
+    const b = isAdmin(p) ? data.bases.find(function (x) { return inside(p, x, 10); }) : ownedBy(p);
+    if (!b) return msg(p, 'Встань у своей базы');
+    if (!inside(p, b, 10)) return msg(p, 'Ты слишком далеко от базы');
+    if (!b.gates) b.gates = [];
+    if (b.gates.length >= 4) return msg(p, 'Максимум 4 ворот');
+    const m = GATE_MODELS[String(arg || '').trim()] || GATE_MODELS.gate;
+    const r = p.heading * Math.PI / 180;
+    b.gates.push({
+        m: m,
+        x: Number((p.position.x - Math.sin(r) * 3).toFixed(2)),
+        y: Number((p.position.y + Math.cos(r) * 3).toFixed(2)),
+        z: Number((p.position.z - 1).toFixed(2)),
+        h: Number(p.heading.toFixed(1))
+    });
+    spawnGate(b, b.gates.length - 1);
+    save();
+    msg(p, 'Ворота поставлены. Открыть: /gate. Убрать: /basegatedel');
+});
+
+mp.events.addCommand('basegatedel', function (p) {
+    const b = isAdmin(p) ? data.bases.find(function (x) { return inside(p, x, 10); }) : ownedBy(p);
+    if (!b || !b.gates || !b.gates.length) return msg(p, 'Ворот нет');
+    removeGates(b);
+    b.gates.pop();
+    spawnGates(b);
+    save();
+    msg(p, 'Последние ворота убраны');
+});
+
+mp.events.addCommand('gate', function (p) {
+    let found = null;
+    data.bases.forEach(function (b) {
+        (b.gates || []).forEach(function (g, i) {
+            const dx = p.position.x - g.x;
+            const dy = p.position.y - g.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 15) found = { b: b, g: g, i: i };
+        });
+    });
+    if (!found) return msg(p, 'Рядом нет ворот');
+    if (!canEnter(p, found.b)) return msg(p, '!{#ff5c5c}Ворота открываются только для своих');
+    const k = gateKey(found.b, found.i);
+    const o = gateObjs[k];
+    if (!o || o.baseOpen) return;
+    o.baseOpen = true;
+    o.position = new mp.Vector3(found.g.x, found.g.y, found.g.z - 6);
+    msg(p, 'Ворота открыты на 10 секунд');
+    setTimeout(function () {
+        try {
+            o.position = new mp.Vector3(found.g.x, found.g.y, found.g.z);
+            o.baseOpen = false;
+        } catch (e) {}
+    }, 10000);
+});
+
+mp.events.addCommand('baselock', function (p) {
+    const b = ownedBy(p);
+    if (!b) return msg(p, 'Только для владельца базы');
+    b.open = !b.open;
+    save();
+    msg(p, b.open ? 'База открыта для всех (гости могут заходить)' : 'База закрыта: вход только для семьи');
+});
+
+mp.events.addCommand('basesetarmy', function (p, arg) {
+    if (!isAdmin(p)) return;
+    const b = byId(arg);
+    if (!b) return msg(p, 'Нет такой базы');
+    b.type = b.type === 'army' ? 'family' : 'army';
+    save();
+    draw(b);
+    msg(p, 'Тип базы: ' + b.type);
 });
 
 global.BaseSystem = { ownedBy: ownedBy, memberOf: memberOf, isArmy: isArmy };
