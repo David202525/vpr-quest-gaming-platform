@@ -70,3 +70,8 @@ mp.events.add('render', function () {
         font: 4, color: [255, 255, 255, 235], scale: [0.55, 0.55], outline: true
     });
 });
+
+mp.game.streaming.removeIpl('RC12B_Destroyed');
+['RC12B_Default', 'RC12B_Fixed', 'RC12B_HospitalInterior'].forEach(function (n) {
+    mp.game.streaming.requestIpl(n);
+});
