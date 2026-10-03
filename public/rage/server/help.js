@@ -167,6 +167,13 @@ const ADMIN = [
     ]]
 ];
 
+const RANKS = ['Игрок', 'Модератор', 'Админ', 'Ст. админ', 'Гл. админ', 'Куратор', 'Владелец'];
+
+function rankName(n) {
+    n = Number(n) || 0;
+    return RANKS[n] || ('Уровень ' + n);
+}
+
 function show(p, title, rows) {
     p.outputChatBox('!{#ffd24d}--- ' + title + ' ---');
     rows.forEach(function (r) {
@@ -196,10 +203,11 @@ mp.events.addCommand('ahelp', function (p, arg) {
     const list = ADMIN.filter(function (s) { return my >= s[0]; });
     const n = parseInt(arg, 10);
     if (!isNaN(n) && list[n - 1]) return show(p, list[n - 1][1], list[n - 1][2]);
-    p.outputChatBox('!{#ff8080}=== Админ-команды (твой уровень: ' + my + ') ===');
+    p.outputChatBox('!{#ff8080}=== Админ-команды: ' + rankName(my) + ' (уровень ' + my + ') ===');
     list.forEach(function (s, i) {
         p.outputChatBox('!{#7fd4ff}/ahelp ' + (i + 1) + ' !{#ffffff}- ' + s[1]);
     });
+    p.outputChatBox('!{#cccccc}Тебе доступны все команды уровня ' + my + ' и ниже');
     if (!list.length) p.outputChatBox('!{#cccccc}Для твоего уровня команд пока нет');
 });
 
