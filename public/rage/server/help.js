@@ -1,34 +1,107 @@
-const PLAYER = [
-    ['Основное', [
-        ['/911 [причина]', 'вызвать медиков'],
-        ['/respawn', 'очнуться в больнице, если ранен (после ожидания)'],
-        ['/medics', 'список врачей в сети']
-    ]],
-    ['Семья и база', [
-        ['/baseinfo', 'информация о твоей базе'],
-        ['/basegps', 'метка на базу'],
-        ['/basemembers', 'список семьи'],
-        ['/gate', 'открыть ворота базы'],
-        ['/baseleave', 'выйти из семьи']
-    ]],
-    ['Владелец базы', [
-        ['/baseinvite [id]', 'принять в семью'],
-        ['/basekick [id]', 'выгнать из семьи'],
-        ['/baselock', 'пускать гостей / закрыть базу'],
-        ['/basegate [gate|bar|fence]', 'поставить ворота'],
-        ['/basegatedel', 'убрать последние ворота']
-    ]],
-    ['Медики (EMS)', [
-        ['E', 'действие рядом: смена, койка, гараж'],
-        ['/duty', 'начать / закончить смену'],
-        ['/calls', 'список вызовов'],
-        ['/accept [номер]', 'принять вызов'],
-        ['/heal [id]', 'вылечить игрока'],
-        ['/revive [id]', 'поднять раненого'],
-        ['/m [текст]', 'рация медиков'],
-        ['/invite /uninvite [id]', 'принять / уволить (зав. отд.+)'],
-        ['/setrank [id] [ранг]', 'изменить ранг (главврач)']
-    ]]
+function lvl(p) {
+    const d = global.DeathSystem;
+    if (d && typeof d.adminLvl === 'function') return d.adminLvl(p);
+    return p && p.account ? Number(p.account.admin) || 0 : 0;
+}
+
+function job(p) {
+    return p && p.account ? p.account.job || '' : '';
+}
+
+function jobRank(p) {
+    return p && p.account ? Number(p.account.job_rank) || 0 : 0;
+}
+
+function BS() {
+    return global.BaseSystem || null;
+}
+
+function isOwner(p) {
+    const b = BS();
+    return !!(b && b.ownedBy(p));
+}
+
+function isFamily(p) {
+    const b = BS();
+    return !!(b && (b.ownedBy(p) || b.memberOf(p)));
+}
+
+function isMedic(p) {
+    return job(p) === 'medic';
+}
+
+function isArmy(p) {
+    return job(p) === 'army';
+}
+
+const SECTIONS = [
+    {
+        title: 'Основное',
+        can: function () { return true; },
+        rows: [
+            ['/911 [причина]', 'вызвать медиков'],
+            ['/respawn', 'очнуться в больнице, если ранен (после ожидания)'],
+            ['/medics', 'список врачей в сети']
+        ]
+    },
+    {
+        title: 'Моя семья',
+        can: isFamily,
+        rows: [
+            ['/baseinfo', 'информация о базе'],
+            ['/basegps', 'метка на базу'],
+            ['/basemembers', 'список семьи'],
+            ['/gate', 'открыть ворота базы'],
+            ['/baseleave', 'выйти из семьи']
+        ]
+    },
+    {
+        title: 'Лидер семьи',
+        can: isOwner,
+        rows: [
+            ['/baseinvite [id]', 'принять в семью'],
+            ['/basekick [id]', 'выгнать из семьи'],
+            ['/baselock', 'пускать гостей / закрыть базу'],
+            ['/basegate [gate|bar|fence]', 'поставить ворота'],
+            ['/basegatedel', 'убрать последние ворота']
+        ]
+    },
+    {
+        title: 'Медики (EMS)',
+        can: isMedic,
+        rows: [
+            ['E', 'действие рядом: смена, койка, гараж'],
+            ['/duty', 'начать / закончить смену'],
+            ['/calls', 'список вызовов'],
+            ['/accept [номер]', 'принять вызов'],
+            ['/heal [id]', 'вылечить игрока'],
+            ['/revive [id]', 'поднять раненого'],
+            ['/m [текст]', 'рация медиков']
+        ]
+    },
+    {
+        title: 'Руководство EMS',
+        can: function (p) { return isMedic(p) && jobRank(p) >= 4; },
+        rows: [
+            ['/invite [id]', 'принять во фракцию'],
+            ['/uninvite [id]', 'уволить из фракции']
+        ]
+    },
+    {
+        title: 'Главврач',
+        can: function (p) { return isMedic(p) && jobRank(p) >= 5; },
+        rows: [
+            ['/setrank [id] [1-5]', 'изменить ранг сотрудника']
+        ]
+    },
+    {
+        title: 'Армия (САФ)',
+        can: isArmy,
+        rows: [
+            ['/gate', 'открыть ворота военной базы'],
+            ['', 'зарплата каждый час, зависит от звания']
+        ]
+    }
 ];
 
 const ADMIN = [
@@ -65,32 +138,26 @@ const ADMIN = [
     ]]
 ];
 
-function lvl(p) {
-    const d = global.DeathSystem;
-    if (d && typeof d.adminLvl === 'function') return d.adminLvl(p);
-    return p && p.account ? Number(p.account.admin) || 0 : 0;
-}
-
 function show(p, title, rows) {
     p.outputChatBox('!{#ffd24d}--- ' + title + ' ---');
     rows.forEach(function (r) {
-        p.outputChatBox('!{#7fd4ff}' + r[0] + ' !{#cccccc}- ' + r[1]);
+        if (!r[0]) p.outputChatBox('!{#cccccc}' + r[1]);
+        else p.outputChatBox('!{#7fd4ff}' + r[0] + ' !{#cccccc}- ' + r[1]);
     });
-}
-
-function find(list, arg) {
-    const n = parseInt(arg, 10);
-    if (!isNaN(n) && list[n - 1]) return list[n - 1];
-    return null;
 }
 
 mp.events.addCommand('help', function (p, arg) {
-    const sec = find(PLAYER, arg);
-    if (sec) return show(p, sec[0], sec[1]);
-    p.outputChatBox('!{#ffd24d}=== Помощь по серверу ===');
-    PLAYER.forEach(function (s, i) {
-        p.outputChatBox('!{#7fd4ff}/help ' + (i + 1) + ' !{#ffffff}- ' + s[0]);
-    });
+    const list = SECTIONS.filter(function (s) { return s.can(p); });
+    const n = parseInt(arg, 10);
+    if (!isNaN(n) && list[n - 1]) return show(p, list[n - 1].title, list[n - 1].rows);
+    if (list.length === 1) {
+        show(p, list[0].title, list[0].rows);
+    } else {
+        p.outputChatBox('!{#ffd24d}=== Помощь по серверу ===');
+        list.forEach(function (s, i) {
+            p.outputChatBox('!{#7fd4ff}/help ' + (i + 1) + ' !{#ffffff}- ' + s.title);
+        });
+    }
     if (lvl(p) >= 1) p.outputChatBox('!{#ff8080}/ahelp !{#ffffff}- команды администратора');
 });
 
@@ -98,8 +165,8 @@ mp.events.addCommand('ahelp', function (p, arg) {
     const my = lvl(p);
     if (my < 1) return;
     const list = ADMIN.filter(function (s) { return my >= s[0]; });
-    const sec = find(list, arg);
-    if (sec) return show(p, sec[1], sec[2]);
+    const n = parseInt(arg, 10);
+    if (!isNaN(n) && list[n - 1]) return show(p, list[n - 1][1], list[n - 1][2]);
     p.outputChatBox('!{#ff8080}=== Админ-команды (твой уровень: ' + my + ') ===');
     list.forEach(function (s, i) {
         p.outputChatBox('!{#7fd4ff}/ahelp ' + (i + 1) + ' !{#ffffff}- ' + s[1]);
