@@ -614,3 +614,76 @@ mp.events.addCommand('medpos', function (p) {
 console.log('[EMS] \u0444\u0440\u0430\u043a\u0446\u0438\u044f \u043c\u0435\u0434\u0438\u043a\u043e\u0432 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u0430');
 
 module.exports = { isMedic: isMedic, onDuty: onDuty };
+
+const fs = require('fs');
+const path = require('path');
+const DOOR_FILE = path.join(__dirname, 'hospital_doors.json');
+
+let DOORS = {
+    out: { x: 298.67, y: -584.43, z: 43.26, h: 70.0 },
+    in: { x: 307.0, y: -595.0, z: 43.28, h: 250.0 }
+};
+
+try {
+    DOORS = JSON.parse(fs.readFileSync(DOOR_FILE, 'utf8'));
+} catch (e) {}
+
+const doorObjs = [];
+
+function buildDoors() {
+    doorObjs.forEach(function (o) {
+        try { o.destroy(); } catch (e) {}
+    });
+    doorObjs.length = 0;
+    ['out', 'in'].forEach(function (k) {
+        const d = DOORS[k];
+        const v = new mp.Vector3(d.x, d.y, d.z - 1.0);
+        const opt = { color: [255, 255, 255, 120], dimension: 0 };
+        doorObjs.push(mp.markers.new(1, v, 1.0, opt));
+        const s = mp.colshapes.newSphere(d.x, d.y, d.z, 1.3, 0);
+        s.hospDoor = k;
+        doorObjs.push(s);
+    });
+}
+
+buildDoors();
+
+mp.events.add('playerEnterColshape', function (p, s) {
+    if (!s.hospDoor) return;
+    p.hospDoor = s.hospDoor;
+    let t = 'E - выйти на улицу';
+    if (s.hospDoor === 'out') t = 'E - войти в больницу';
+    p.call('medic:hint', [t]);
+});
+
+mp.events.add('playerExitColshape', function (p, s) {
+    if (!s.hospDoor) return;
+    if (p.hospDoor === s.hospDoor) p.hospDoor = null;
+});
+
+mp.events.add('medic:interact', function (p) {
+    if (!p.hospDoor || !p.account) return;
+    if (p.account.downed || p.vehicle) return;
+    const key = p.hospDoor === 'out' ? 'in' : 'out';
+    const to = DOORS[key];
+    p.hospDoor = null;
+    p.position = new mp.Vector3(to.x, to.y, to.z);
+    p.heading = to.h;
+});
+
+mp.events.addCommand('hospdoor', function (p, arg) {
+    if (!isAdmin(p)) return;
+    const k = String(arg || '').trim();
+    if (k !== 'in' && k !== 'out') {
+        return msg(p, 'Пиши: /hospdoor out или /hospdoor in');
+    }
+    DOORS[k] = {
+        x: Number(p.position.x.toFixed(2)),
+        y: Number(p.position.y.toFixed(2)),
+        z: Number(p.position.z.toFixed(2)),
+        h: Number(p.heading.toFixed(1))
+    };
+    fs.writeFileSync(DOOR_FILE, JSON.stringify(DOORS, null, 2));
+    buildDoors();
+    msg(p, 'Точка двери сохранена: ' + k);
+});
