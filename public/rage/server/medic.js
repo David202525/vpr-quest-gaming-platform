@@ -4,7 +4,7 @@ const CFG = {
     adminLevel: 2,
     leaderAdminLevel: 4,
     hospitalName: 'Pillbox Hill Medical Center',
-    hospitalArea: 'центр города, район Пиллбокс-Хилл',
+    hospitalArea: '\u0446\u0435\u043d\u0442\u0440 \u0433\u043e\u0440\u043e\u0434\u0430, \u0440\u0430\u0439\u043e\u043d \u041f\u0438\u043b\u043b\u0431\u043e\u043a\u0441-\u0425\u0438\u043b\u043b',
     locker: { x: 311.5, y: -593.5, z: 43.28 },
     garage: { x: 294.5, y: -609.5, z: 43.3, h: 70.0 },
     beds: [
@@ -20,7 +20,7 @@ const CFG = {
     revivePay: 400,
     bedTime: 10000,
     reviveTime: 7000,
-    ranks: ['', 'Интерн', 'Фельдшер', 'Врач', 'Зав. отделением', 'Главврач'],
+    ranks: ['', '\u0418\u043d\u0442\u0435\u0440\u043d', '\u0424\u0435\u043b\u044c\u0434\u0448\u0435\u0440', '\u0412\u0440\u0430\u0447', '\u0417\u0430\u0432. \u043e\u0442\u0434\u0435\u043b\u0435\u043d\u0438\u0435\u043c', '\u0413\u043b\u0430\u0432\u0432\u0440\u0430\u0447'],
     uniformMale: [[3, 85, 0], [4, 96, 0], [6, 51, 0], [8, 15, 0], [11, 250, 0]],
     uniformFemale: [[3, 109, 0], [4, 99, 0], [6, 52, 0], [8, 14, 0], [11, 258, 0]]
 };
@@ -82,7 +82,7 @@ function isAdmin(p) {
 function doReviveCore(t) {
     const d = DS();
     if (!d) {
-        console.log('[EMS] DeathSystem не найден');
+        console.log('[EMS] DeathSystem \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d');
         return false;
     }
     return d.revive(t);
@@ -177,25 +177,25 @@ function createCall(p, reason, urgent) {
     const list = medics();
     list.forEach(function (m) {
         const meters = Math.round(dist(m, p));
-        const tag = c.urgent ? '!{#ff3b3b}СРОЧНО' : '!{#ffcc00}Вызов';
+        const tag = c.urgent ? '!{#ff3b3b}\u0421\u0420\u041e\u0427\u041d\u041e' : '!{#ffcc00}\u0412\u044b\u0437\u043e\u0432';
         m.outputChatBox(tag + ' #' + c.id + ' !{#ffffff}' + c.name + ' (ID ' + p.id + ') - ' + reason);
-        m.outputChatBox('!{#aaaaaa}Расстояние: ' + meters + ' м, принять: !{#ffffff}/accept ' + c.id);
+        m.outputChatBox('!{#aaaaaa}\u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435: ' + meters + ' \u043c, \u043f\u0440\u0438\u043d\u044f\u0442\u044c: !{#ffffff}/accept ' + c.id);
         m.call('medic:alert', [payload(c)]);
     });
 
     if (!urgent) {
-        if (list.length > 0) msg(p, 'Вызов отправлен. Врачей на смене: ' + list.length);
-        else msg(p, 'Сейчас нет врачей на смене. Вызов сохранён.');
+        if (list.length > 0) msg(p, '\u0412\u044b\u0437\u043e\u0432 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d. \u0412\u0440\u0430\u0447\u0435\u0439 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435: ' + list.length);
+        else msg(p, '\u0421\u0435\u0439\u0447\u0430\u0441 \u043d\u0435\u0442 \u0432\u0440\u0430\u0447\u0435\u0439 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435. \u0412\u044b\u0437\u043e\u0432 \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d.');
     } else if (list.length > 0) {
-        p.outputChatBox('!{#8fd14f}Медиков на смене: ' + list.length + '. Помощь уже в пути.');
+        p.outputChatBox('!{#8fd14f}\u041c\u0435\u0434\u0438\u043a\u043e\u0432 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435: ' + list.length + '. \u041f\u043e\u043c\u043e\u0449\u044c \u0443\u0436\u0435 \u0432 \u043f\u0443\u0442\u0438.');
     } else {
-        p.outputChatBox('!{#ffcc66}Медиков на смене нет. Можно дождаться или ввести /respawn');
+        p.outputChatBox('!{#ffcc66}\u041c\u0435\u0434\u0438\u043a\u043e\u0432 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435 \u043d\u0435\u0442. \u041c\u043e\u0436\u043d\u043e \u0434\u043e\u0436\u0434\u0430\u0442\u044c\u0441\u044f \u0438\u043b\u0438 \u0432\u0432\u0435\u0441\u0442\u0438 /respawn');
     }
 }
 
 mp.events.add('medic:downed', function (player, reason) {
     if (!mp.players.exists(player)) return;
-    createCall(player, 'Тяжело ранен (' + reason + ')', true);
+    createCall(player, '\u0422\u044f\u0436\u0435\u043b\u043e \u0440\u0430\u043d\u0435\u043d (' + reason + ')', true);
 });
 
 mp.events.add('medic:resolved', function (player) {
@@ -204,16 +204,16 @@ mp.events.add('medic:resolved', function (player) {
 });
 
 function doRevive(medic, target) {
-    if (!isDown(target)) return msg(medic, 'Пациент не ранен.');
-    if (target.medicReviving) return msg(medic, 'Пациента уже реанимируют.');
+    if (!isDown(target)) return msg(medic, '\u041f\u0430\u0446\u0438\u0435\u043d\u0442 \u043d\u0435 \u0440\u0430\u043d\u0435\u043d.');
+    if (target.medicReviving) return msg(medic, '\u041f\u0430\u0446\u0438\u0435\u043d\u0442\u0430 \u0443\u0436\u0435 \u0440\u0435\u0430\u043d\u0438\u043c\u0438\u0440\u0443\u044e\u0442.');
 
     const range = dist(medic, target);
-    if (range > 3) return msg(medic, 'Подойдите ближе.');
+    if (range > 3) return msg(medic, '\u041f\u043e\u0434\u043e\u0439\u0434\u0438\u0442\u0435 \u0431\u043b\u0438\u0436\u0435.');
 
     target.medicReviving = true;
     medic.playAnimation('mini@cpr@char_a@cpr_str', 'cpr_pumpchest', 1, 1);
-    medic.call('medic:busy', [CFG.reviveTime, 'Реанимация']);
-    msg(target, medic.name + ' проводит реанимацию...');
+    medic.call('medic:busy', [CFG.reviveTime, '\u0420\u0435\u0430\u043d\u0438\u043c\u0430\u0446\u0438\u044f']);
+    msg(target, medic.name + ' \u043f\u0440\u043e\u0432\u043e\u0434\u0438\u0442 \u0440\u0435\u0430\u043d\u0438\u043c\u0430\u0446\u0438\u044e...');
 
     setTimeout(function () {
         if (!mp.players.exists(target)) return;
@@ -222,15 +222,15 @@ function doRevive(medic, target) {
         medic.stopAnimation();
 
         const range2 = dist(medic, target);
-        if (!isDown(target) || range2 > 4) return msg(medic, 'Реанимация прервана.');
-        if (!doReviveCore(target)) return msg(medic, 'Не удалось поднять пациента.');
+        if (!isDown(target) || range2 > 4) return msg(medic, '\u0420\u0435\u0430\u043d\u0438\u043c\u0430\u0446\u0438\u044f \u043f\u0440\u0435\u0440\u0432\u0430\u043d\u0430.');
+        if (!doReviveCore(target)) return msg(medic, '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u0434\u043d\u044f\u0442\u044c \u043f\u0430\u0446\u0438\u0435\u043d\u0442\u0430.');
 
         giveMoney(medic, CFG.revivePay);
-        msg(medic, 'Пациент спасён. Премия: $' + CFG.revivePay);
+        msg(medic, '\u041f\u0430\u0446\u0438\u0435\u043d\u0442 \u0441\u043f\u0430\u0441\u0451\u043d. \u041f\u0440\u0435\u043c\u0438\u044f: $' + CFG.revivePay);
 
         mp.players.forEach(function (m) {
             if (isMedic(m) && m !== medic) {
-                m.outputChatBox('!{#ff8a8a}[Рация] !{#ffffff}' + medic.name + ' спас ' + target.name);
+                m.outputChatBox('!{#ff8a8a}[\u0420\u0430\u0446\u0438\u044f] !{#ffffff}' + medic.name + ' \u0441\u043f\u0430\u0441 ' + target.name);
             }
         });
     }, CFG.reviveTime);
@@ -240,19 +240,19 @@ function doHeal(medic, target) {
     if (isDown(target)) return doRevive(medic, target);
 
     const range = dist(medic, target);
-    if (range > 3) return msg(medic, 'Подойдите ближе.');
-    if (target.health >= 100) return msg(medic, 'Пациент здоров.');
+    if (range > 3) return msg(medic, '\u041f\u043e\u0434\u043e\u0439\u0434\u0438\u0442\u0435 \u0431\u043b\u0438\u0436\u0435.');
+    if (target.health >= 100) return msg(medic, '\u041f\u0430\u0446\u0438\u0435\u043d\u0442 \u0437\u0434\u043e\u0440\u043e\u0432.');
 
     if (!takeMoney(target, CFG.healPrice)) {
-        msg(target, 'Не хватает денег на лечение: $' + CFG.healPrice);
-        return msg(medic, 'У пациента нет денег.');
+        msg(target, '\u041d\u0435 \u0445\u0432\u0430\u0442\u0430\u0435\u0442 \u0434\u0435\u043d\u0435\u0433 \u043d\u0430 \u043b\u0435\u0447\u0435\u043d\u0438\u0435: $' + CFG.healPrice);
+        return msg(medic, '\u0423 \u043f\u0430\u0446\u0438\u0435\u043d\u0442\u0430 \u043d\u0435\u0442 \u0434\u0435\u043d\u0435\u0433.');
     }
 
     target.health = 100;
     giveMoney(medic, CFG.healPay);
     medic.playAnimation('mp_common', 'givetake1_a', 1, 0);
-    msg(target, medic.name + ' вылечил вас. Оплата: $' + CFG.healPrice);
-    msg(medic, 'Пациент вылечен. Заработок: $' + CFG.healPay);
+    msg(target, medic.name + ' \u0432\u044b\u043b\u0435\u0447\u0438\u043b \u0432\u0430\u0441. \u041e\u043f\u043b\u0430\u0442\u0430: $' + CFG.healPrice);
+    msg(medic, '\u041f\u0430\u0446\u0438\u0435\u043d\u0442 \u0432\u044b\u043b\u0435\u0447\u0435\u043d. \u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a: $' + CFG.healPay);
 
     const c = callOf(target);
     if (c) closeCall(c);
@@ -262,23 +262,23 @@ const bedBusy = {};
 
 function useBed(p, i) {
     if (isDown(p)) return;
-    if (bedBusy[i]) return msg(p, 'Койка занята.');
-    if (p.health >= 100) return msg(p, 'Вы здоровы.');
-    if (!takeMoney(p, CFG.bedPrice)) return msg(p, 'Лечение стоит $' + CFG.bedPrice);
+    if (bedBusy[i]) return msg(p, '\u041a\u043e\u0439\u043a\u0430 \u0437\u0430\u043d\u044f\u0442\u0430.');
+    if (p.health >= 100) return msg(p, '\u0412\u044b \u0437\u0434\u043e\u0440\u043e\u0432\u044b.');
+    if (!takeMoney(p, CFG.bedPrice)) return msg(p, '\u041b\u0435\u0447\u0435\u043d\u0438\u0435 \u0441\u0442\u043e\u0438\u0442 $' + CFG.bedPrice);
 
     const b = CFG.beds[i];
     bedBusy[i] = p.id;
     p.position = new mp.Vector3(b.x, b.y, b.z);
     p.heading = b.h;
     p.playAnimation('amb@world_human_sunbathe@male@back@base', 'base', 1, 1);
-    p.call('medic:busy', [CFG.bedTime, 'Лечение']);
+    p.call('medic:busy', [CFG.bedTime, '\u041b\u0435\u0447\u0435\u043d\u0438\u0435']);
 
     setTimeout(function () {
         bedBusy[i] = null;
         if (!mp.players.exists(p)) return;
         p.stopAnimation();
         p.health = 100;
-        msg(p, 'Вы полностью вылечены. Оплата: $' + CFG.bedPrice);
+        msg(p, '\u0412\u044b \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u0432\u044b\u043b\u0435\u0447\u0435\u043d\u044b. \u041e\u043f\u043b\u0430\u0442\u0430: $' + CFG.bedPrice);
     }, CFG.bedTime);
 }
 
@@ -305,25 +305,25 @@ function removeCar(p) {
 }
 
 function toggleDuty(p) {
-    if (!isMedic(p)) return msg(p, 'Вы не состоите во фракции EMS.');
+    if (!isMedic(p)) return msg(p, '\u0412\u044b \u043d\u0435 \u0441\u043e\u0441\u0442\u043e\u0438\u0442\u0435 \u0432\u043e \u0444\u0440\u0430\u043a\u0446\u0438\u0438 EMS.');
 
     const now = !onDuty(p);
     p.account.medicDuty = now;
     applyUniform(p, now);
 
     if (now) {
-        msg(p, 'Вы заступили на смену. Ранг: ' + CFG.ranks[rank(p)]);
+        msg(p, '\u0412\u044b \u0437\u0430\u0441\u0442\u0443\u043f\u0438\u043b\u0438 \u043d\u0430 \u0441\u043c\u0435\u043d\u0443. \u0420\u0430\u043d\u0433: ' + CFG.ranks[rank(p)]);
         calls.forEach(function (c) { p.call('medic:alert', [payload(c)]); });
-        if (calls.length > 0) msg(p, 'Активных вызовов: ' + calls.length + '. Список: /calls');
+        if (calls.length > 0) msg(p, '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0445 \u0432\u044b\u0437\u043e\u0432\u043e\u0432: ' + calls.length + '. \u0421\u043f\u0438\u0441\u043e\u043a: /calls');
     } else {
         removeCar(p);
         p.call('medic:dutyOff');
-        msg(p, 'Смена окончена.');
+        msg(p, '\u0421\u043c\u0435\u043d\u0430 \u043e\u043a\u043e\u043d\u0447\u0435\u043d\u0430.');
     }
 }
 
 function spawnAmbulance(p) {
-    if (!onDuty(p)) return msg(p, 'Сначала заступите на смену.');
+    if (!onDuty(p)) return msg(p, '\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0437\u0430\u0441\u0442\u0443\u043f\u0438\u0442\u0435 \u043d\u0430 \u0441\u043c\u0435\u043d\u0443.');
     removeCar(p);
 
     const g = CFG.garage;
@@ -339,7 +339,7 @@ function spawnAmbulance(p) {
         }
     }, 300);
 
-    msg(p, 'Скорая подана.');
+    msg(p, '\u0421\u043a\u043e\u0440\u0430\u044f \u043f\u043e\u0434\u0430\u043d\u0430.');
 }
 
 function nearestDown(p, r) {
@@ -375,7 +375,7 @@ CFG.beds.forEach(function (b, i) {
 });
 
 mp.blips.new(61, new mp.Vector3(CFG.locker.x, CFG.locker.y, CFG.locker.z), {
-    name: 'Больница EMS',
+    name: '\u0411\u043e\u043b\u044c\u043d\u0438\u0446\u0430 EMS',
     color: 1,
     shortRange: true
 });
@@ -386,11 +386,11 @@ mp.events.add('playerEnterColshape', function (p, s) {
 
     let hint = '';
     if (s.medicZone === 'locker') {
-        if (isMedic(p)) hint = 'E - начать/закончить смену';
+        if (isMedic(p)) hint = 'E - \u043d\u0430\u0447\u0430\u0442\u044c/\u0437\u0430\u043a\u043e\u043d\u0447\u0438\u0442\u044c \u0441\u043c\u0435\u043d\u0443';
     } else if (s.medicZone === 'garage') {
-        if (onDuty(p)) hint = 'E - вызвать скорую';
+        if (onDuty(p)) hint = 'E - \u0432\u044b\u0437\u0432\u0430\u0442\u044c \u0441\u043a\u043e\u0440\u0443\u044e';
     } else {
-        hint = 'E - лечь на койку ($' + CFG.bedPrice + ')';
+        hint = 'E - \u043b\u0435\u0447\u044c \u043d\u0430 \u043a\u043e\u0439\u043a\u0443 ($' + CFG.bedPrice + ')';
     }
 
     if (hint) p.call('medic:hint', [hint]);
@@ -424,7 +424,7 @@ mp.events.add('playerQuit', function (p) {
 
 mp.events.addCommand('911', function (p, text) {
     if (!p.account) return;
-    const reason = text && text.trim() ? text.trim() : 'Нужна медпомощь';
+    const reason = text && text.trim() ? text.trim() : '\u041d\u0443\u0436\u043d\u0430 \u043c\u0435\u0434\u043f\u043e\u043c\u043e\u0449\u044c';
     createCall(p, reason, false);
 });
 
@@ -433,22 +433,22 @@ mp.events.addCommand('duty', function (p) {
 });
 
 mp.events.addCommand('calls', function (p) {
-    if (!onDuty(p)) return msg(p, 'Вы не на смене.');
-    if (calls.length === 0) return msg(p, 'Активных вызовов нет.');
+    if (!onDuty(p)) return msg(p, '\u0412\u044b \u043d\u0435 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435.');
+    if (calls.length === 0) return msg(p, '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0445 \u0432\u044b\u0437\u043e\u0432\u043e\u0432 \u043d\u0435\u0442.');
 
-    msg(p, 'Активные вызовы:');
+    msg(p, '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435 \u0432\u044b\u0437\u043e\u0432\u044b:');
     calls.forEach(function (c) {
         const t = mp.players.at(c.pid);
         let where = '?';
-        if (t && mp.players.exists(t)) where = Math.round(dist(p, t)) + ' м';
+        if (t && mp.players.exists(t)) where = Math.round(dist(p, t)) + ' \u043c';
         const col = c.urgent ? '!{#ff3b3b}' : '!{#ffcc00}';
-        const who = c.taken ? ', принял ' + c.taken : '';
+        const who = c.taken ? ', \u043f\u0440\u0438\u043d\u044f\u043b ' + c.taken : '';
         p.outputChatBox(col + '#' + c.id + ' !{#ffffff}' + c.name + ' - ' + c.reason + ' !{#aaaaaa}(' + where + ')' + who);
     });
 });
 
 mp.events.addCommand('accept', function (p, arg) {
-    if (!onDuty(p)) return msg(p, 'Вы не на смене.');
+    if (!onDuty(p)) return msg(p, '\u0412\u044b \u043d\u0435 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435.');
 
     const id = parseInt(arg, 10);
     let c = null;
@@ -456,8 +456,8 @@ mp.events.addCommand('accept', function (p, arg) {
         if (calls[i].id === id) c = calls[i];
     }
 
-    if (!c) return msg(p, 'Вызов не найден. Список: /calls');
-    if (c.taken) return msg(p, 'Вызов уже принял ' + c.taken);
+    if (!c) return msg(p, '\u0412\u044b\u0437\u043e\u0432 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043f\u0438\u0441\u043e\u043a: /calls');
+    if (c.taken) return msg(p, '\u0412\u044b\u0437\u043e\u0432 \u0443\u0436\u0435 \u043f\u0440\u0438\u043d\u044f\u043b ' + c.taken);
 
     c.taken = p.name;
     const t = mp.players.at(c.pid);
@@ -465,19 +465,19 @@ mp.events.addCommand('accept', function (p, arg) {
     const pos = alive ? t.position : c.pos;
 
     p.call('medic:route', [pos.x, pos.y]);
-    msg(p, 'Вы приняли вызов #' + c.id + '. Маршрут проложен.');
+    msg(p, '\u0412\u044b \u043f\u0440\u0438\u043d\u044f\u043b\u0438 \u0432\u044b\u0437\u043e\u0432 #' + c.id + '. \u041c\u0430\u0440\u0448\u0440\u0443\u0442 \u043f\u0440\u043e\u043b\u043e\u0436\u0435\u043d.');
 
     medics().forEach(function (m) {
-        if (m !== p) m.outputChatBox('!{#ff8a8a}[Рация] !{#ffffff}' + p.name + ' принял вызов #' + c.id);
+        if (m !== p) m.outputChatBox('!{#ff8a8a}[\u0420\u0430\u0446\u0438\u044f] !{#ffffff}' + p.name + ' \u043f\u0440\u0438\u043d\u044f\u043b \u0432\u044b\u0437\u043e\u0432 #' + c.id);
     });
 
-    if (alive) msg(t, 'Врач ' + p.name + ' едет к вам.');
+    if (alive) msg(t, '\u0412\u0440\u0430\u0447 ' + p.name + ' \u0435\u0434\u0435\u0442 \u043a \u0432\u0430\u043c.');
 });
 
 mp.events.addCommand('heal', function (p, arg) {
-    if (!onDuty(p)) return msg(p, 'Вы не на смене.');
+    if (!onDuty(p)) return msg(p, '\u0412\u044b \u043d\u0435 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435.');
     const t = findPlayer(arg);
-    if (!t || t === p) return msg(p, 'Использование: /heal [id]');
+    if (!t || t === p) return msg(p, '\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /heal [id]');
     doHeal(p, t);
 });
 
@@ -485,31 +485,31 @@ mp.events.addCommand('revive', function (p, arg) {
     const t = arg ? findPlayer(arg) : nearestDown(p, 3);
 
     if (isAdmin(p) && !onDuty(p)) {
-        if (!t) return msg(p, 'Использование: /revive [id]');
-        if (!doReviveCore(t)) return msg(p, 'Игрок не ранен.');
-        return msg(p, 'Вы подняли ' + t.name);
+        if (!t) return msg(p, '\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /revive [id]');
+        if (!doReviveCore(t)) return msg(p, '\u0418\u0433\u0440\u043e\u043a \u043d\u0435 \u0440\u0430\u043d\u0435\u043d.');
+        return msg(p, '\u0412\u044b \u043f\u043e\u0434\u043d\u044f\u043b\u0438 ' + t.name);
     }
 
-    if (!onDuty(p)) return msg(p, 'Только медики на смене.');
-    if (!t || t === p) return msg(p, 'Рядом нет раненых.');
+    if (!onDuty(p)) return msg(p, '\u0422\u043e\u043b\u044c\u043a\u043e \u043c\u0435\u0434\u0438\u043a\u0438 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435.');
+    if (!t || t === p) return msg(p, '\u0420\u044f\u0434\u043e\u043c \u043d\u0435\u0442 \u0440\u0430\u043d\u0435\u043d\u044b\u0445.');
     doRevive(p, t);
 });
 
 mp.events.addCommand('m', function (p, text) {
     if (!isMedic(p)) return;
-    if (!text) return msg(p, 'Использование: /m [текст]');
+    if (!text) return msg(p, '\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /m [\u0442\u0435\u043a\u0441\u0442]');
     mp.players.forEach(function (t) {
         if (isMedic(t)) {
-            t.outputChatBox('!{#ff8a8a}[Рация] ' + CFG.ranks[rank(p)] + ' ' + p.name + ': !{#ffffff}' + text);
+            t.outputChatBox('!{#ff8a8a}[\u0420\u0430\u0446\u0438\u044f] ' + CFG.ranks[rank(p)] + ' ' + p.name + ': !{#ffffff}' + text);
         }
     });
 });
 
 mp.events.addCommand('medics', function (p) {
     const list = mp.players.toArray().filter(isMedic);
-    if (list.length === 0) return msg(p, 'Врачей в сети нет.');
+    if (list.length === 0) return msg(p, '\u0412\u0440\u0430\u0447\u0435\u0439 \u0432 \u0441\u0435\u0442\u0438 \u043d\u0435\u0442.');
     list.forEach(function (t) {
-        const st = onDuty(t) ? ' !{#66ff66}[на смене]' : ' !{#888888}[не на смене]';
+        const st = onDuty(t) ? ' !{#66ff66}[\u043d\u0430 \u0441\u043c\u0435\u043d\u0435]' : ' !{#888888}[\u043d\u0435 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435]';
         p.outputChatBox('!{#ffffff}' + t.name + ' - ' + CFG.ranks[rank(t)] + st);
     });
 });
@@ -519,58 +519,58 @@ function canManage(p, need) {
 }
 
 mp.events.addCommand('invite', function (p, arg) {
-    if (!canManage(p, 4)) return msg(p, 'Недостаточно прав.');
+    if (!canManage(p, 4)) return msg(p, '\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u043f\u0440\u0430\u0432.');
     const t = findPlayer(arg);
-    if (!t) return msg(p, 'Использование: /invite [id]');
-    if (isMedic(t)) return msg(p, 'Игрок уже во фракции.');
+    if (!t) return msg(p, '\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /invite [id]');
+    if (isMedic(t)) return msg(p, '\u0418\u0433\u0440\u043e\u043a \u0443\u0436\u0435 \u0432\u043e \u0444\u0440\u0430\u043a\u0446\u0438\u0438.');
 
     t.account.job = 'medic';
     t.account.job_rank = 1;
     saveJob(t);
 
-    msg(p, t.name + ' принят во фракцию.');
-    msg(t, 'Вас приняли в EMS. Ранг: ' + CFG.ranks[1] + '. Смена: /duty');
+    msg(p, t.name + ' \u043f\u0440\u0438\u043d\u044f\u0442 \u0432\u043e \u0444\u0440\u0430\u043a\u0446\u0438\u044e.');
+    msg(t, '\u0412\u0430\u0441 \u043f\u0440\u0438\u043d\u044f\u043b\u0438 \u0432 EMS. \u0420\u0430\u043d\u0433: ' + CFG.ranks[1] + '. \u0421\u043c\u0435\u043d\u0430: /duty');
 });
 
 mp.events.addCommand('uninvite', function (p, arg) {
-    if (!canManage(p, 4)) return msg(p, 'Недостаточно прав.');
+    if (!canManage(p, 4)) return msg(p, '\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u043f\u0440\u0430\u0432.');
     const t = findPlayer(arg);
-    if (!t || !isMedic(t)) return msg(p, 'Игрок не во фракции.');
+    if (!t || !isMedic(t)) return msg(p, '\u0418\u0433\u0440\u043e\u043a \u043d\u0435 \u0432\u043e \u0444\u0440\u0430\u043a\u0446\u0438\u0438.');
 
     if (onDuty(t)) toggleDuty(t);
     t.account.job = null;
     t.account.job_rank = 0;
     saveJob(t);
 
-    msg(p, t.name + ' уволен.');
-    msg(t, 'Вас уволили из EMS.');
+    msg(p, t.name + ' \u0443\u0432\u043e\u043b\u0435\u043d.');
+    msg(t, '\u0412\u0430\u0441 \u0443\u0432\u043e\u043b\u0438\u043b\u0438 \u0438\u0437 EMS.');
 });
 
 mp.events.addCommand('setrank', function (p, args) {
-    if (!canManage(p, 5)) return msg(p, 'Недостаточно прав.');
+    if (!canManage(p, 5)) return msg(p, '\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u043f\u0440\u0430\u0432.');
 
     const parts = String(args || '').split(' ');
     const t = findPlayer(parts[0]);
     const r = parseInt(parts[1], 10);
 
     if (!t || !isMedic(t) || isNaN(r) || r < 1 || r > 5) {
-        return msg(p, 'Использование: /setrank [id] [1-5]');
+        return msg(p, '\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /setrank [id] [1-5]');
     }
 
     t.account.job_rank = r;
     saveJob(t);
 
-    msg(p, t.name + ' теперь ' + CFG.ranks[r]);
-    msg(t, 'Ваш новый ранг: ' + CFG.ranks[r]);
+    msg(p, t.name + ' \u0442\u0435\u043f\u0435\u0440\u044c ' + CFG.ranks[r]);
+    msg(t, '\u0412\u0430\u0448 \u043d\u043e\u0432\u044b\u0439 \u0440\u0430\u043d\u0433: ' + CFG.ranks[r]);
 });
 
 mp.events.addCommand('makeleader', function (p, arg) {
     if (adminLevelOf(p) < CFG.leaderAdminLevel) {
-        return msg(p, 'Выдавать лидерку может администратор ' + CFG.leaderAdminLevel + ' уровня и выше.');
+        return msg(p, '\u0412\u044b\u0434\u0430\u0432\u0430\u0442\u044c \u043b\u0438\u0434\u0435\u0440\u043a\u0443 \u043c\u043e\u0436\u0435\u0442 \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440 ' + CFG.leaderAdminLevel + ' \u0443\u0440\u043e\u0432\u043d\u044f \u0438 \u0432\u044b\u0448\u0435.');
     }
 
     const t = findPlayer(arg);
-    if (!t) return msg(p, 'Использование: /makeleader [id]');
+    if (!t) return msg(p, '\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /makeleader [id]');
 
     t.account.job = 'medic';
     t.account.job_rank = 5;
@@ -580,24 +580,24 @@ mp.events.addCommand('makeleader', function (p, arg) {
 
     t.outputChatBox(' ');
     t.outputChatBox('!{#ff5c5c}========== EMS ==========');
-    t.outputChatBox('!{#8fd14f}Вам выдали лидерку фракции EMS!');
-    t.outputChatBox('!{#ffffff}Должность: !{#ffcc00}' + CFG.ranks[5]);
-    t.outputChatBox('!{#ffffff}Выдал: !{#ffcc00}' + p.name);
-    t.outputChatBox('!{#ffffff}Больница: !{#ffcc00}' + CFG.hospitalName);
-    t.outputChatBox('!{#ffffff}Где: !{#aaaaaa}' + CFG.hospitalArea);
-    t.outputChatBox('!{#ffffff}Ищите !{#ff5c5c}красный маркер !{#ffffff}у входа - это раздевалка.');
-    t.outputChatBox('!{#ffffff}Встаньте на него и нажмите !{#ffcc00}E!{#ffffff}, чтобы заступить на смену.');
-    t.outputChatBox('!{#ffffff}Синий маркер рядом - выдача скорой.');
-    t.outputChatBox('!{#aaaaaa}Метка на карте. Команды: /duty /calls /accept /heal /revive /invite /setrank /m');
+    t.outputChatBox('!{#8fd14f}\u0412\u0430\u043c \u0432\u044b\u0434\u0430\u043b\u0438 \u043b\u0438\u0434\u0435\u0440\u043a\u0443 \u0444\u0440\u0430\u043a\u0446\u0438\u0438 EMS!');
+    t.outputChatBox('!{#ffffff}\u0414\u043e\u043b\u0436\u043d\u043e\u0441\u0442\u044c: !{#ffcc00}' + CFG.ranks[5]);
+    t.outputChatBox('!{#ffffff}\u0412\u044b\u0434\u0430\u043b: !{#ffcc00}' + p.name);
+    t.outputChatBox('!{#ffffff}\u0411\u043e\u043b\u044c\u043d\u0438\u0446\u0430: !{#ffcc00}' + CFG.hospitalName);
+    t.outputChatBox('!{#ffffff}\u0413\u0434\u0435: !{#aaaaaa}' + CFG.hospitalArea);
+    t.outputChatBox('!{#ffffff}\u0418\u0449\u0438\u0442\u0435 !{#ff5c5c}\u043a\u0440\u0430\u0441\u043d\u044b\u0439 \u043c\u0430\u0440\u043a\u0435\u0440 !{#ffffff}\u0443 \u0432\u0445\u043e\u0434\u0430 - \u044d\u0442\u043e \u0440\u0430\u0437\u0434\u0435\u0432\u0430\u043b\u043a\u0430.');
+    t.outputChatBox('!{#ffffff}\u0412\u0441\u0442\u0430\u043d\u044c\u0442\u0435 \u043d\u0430 \u043d\u0435\u0433\u043e \u0438 \u043d\u0430\u0436\u043c\u0438\u0442\u0435 !{#ffcc00}E!{#ffffff}, \u0447\u0442\u043e\u0431\u044b \u0437\u0430\u0441\u0442\u0443\u043f\u0438\u0442\u044c \u043d\u0430 \u0441\u043c\u0435\u043d\u0443.');
+    t.outputChatBox('!{#ffffff}\u0421\u0438\u043d\u0438\u0439 \u043c\u0430\u0440\u043a\u0435\u0440 \u0440\u044f\u0434\u043e\u043c - \u0432\u044b\u0434\u0430\u0447\u0430 \u0441\u043a\u043e\u0440\u043e\u0439.');
+    t.outputChatBox('!{#aaaaaa}\u041c\u0435\u0442\u043a\u0430 \u043d\u0430 \u043a\u0430\u0440\u0442\u0435. \u041a\u043e\u043c\u0430\u043d\u0434\u044b: /duty /calls /accept /heal /revive /invite /setrank /m');
     t.outputChatBox('!{#ff5c5c}=========================');
 
     t.call('medic:route', [L.x, L.y]);
 
-    if (t !== p) msg(p, t.name + ' назначен главврачом. Ему отправлена инструкция и маршрут.');
+    if (t !== p) msg(p, t.name + ' \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d \u0433\u043b\u0430\u0432\u0432\u0440\u0430\u0447\u043e\u043c. \u0415\u043c\u0443 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430 \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f \u0438 \u043c\u0430\u0440\u0448\u0440\u0443\u0442.');
 
     mp.players.forEach(function (a) {
         if (a !== p && a !== t && isAdmin(a)) {
-            a.outputChatBox('!{#aaaaaa}[A] ' + p.name + ' выдал лидерку EMS игроку ' + t.name + ' (ID ' + t.id + ')');
+            a.outputChatBox('!{#aaaaaa}[A] ' + p.name + ' \u0432\u044b\u0434\u0430\u043b \u043b\u0438\u0434\u0435\u0440\u043a\u0443 EMS \u0438\u0433\u0440\u043e\u043a\u0443 ' + t.name + ' (ID ' + t.id + ')');
         }
     });
 
@@ -611,6 +611,6 @@ mp.events.addCommand('medpos', function (p) {
     console.log('[medpos] ' + s);
 });
 
-console.log('[EMS] фракция медиков загружена');
+console.log('[EMS] \u0444\u0440\u0430\u043a\u0446\u0438\u044f \u043c\u0435\u0434\u0438\u043a\u043e\u0432 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u0430');
 
 module.exports = { isMedic: isMedic, onDuty: onDuty };

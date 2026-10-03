@@ -44,7 +44,7 @@ function down(player, reason) {
     const head = player.heading;
 
     player.account.downed = true;
-    player.account.downReason = reason || 'Ранение';
+    player.account.downReason = reason || '\u0420\u0430\u043d\u0435\u043d\u0438\u0435';
     player.account.downAt = Date.now();
 
     player.spawn(new mp.Vector3(pos.x, pos.y, pos.z));
@@ -53,7 +53,7 @@ function down(player, reason) {
     player.armour = 0;
 
     player.call('srv:death', [player.account.downReason, BLEED_MS]);
-    player.outputChatBox('!{#e05555}Вы тяжело ранены. Медики оповещены. Или введите /respawn');
+    player.outputChatBox('!{#e05555}\u0412\u044b \u0442\u044f\u0436\u0435\u043b\u043e \u0440\u0430\u043d\u0435\u043d\u044b. \u041c\u0435\u0434\u0438\u043a\u0438 \u043e\u043f\u043e\u0432\u0435\u0449\u0435\u043d\u044b. \u0418\u043b\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 /respawn');
 
     mp.players.forEach(function (p) {
         if (p === player || !p.account) return;
@@ -61,7 +61,7 @@ function down(player, reason) {
         const dx = p.position.x - pos.x;
         const dy = p.position.y - pos.y;
         if (Math.sqrt(dx * dx + dy * dy) < 40) {
-            p.outputChatBox('!{#ffcc66}Рядом тяжелораненый: ' + player.name + ' (ID ' + player.id + ')');
+            p.outputChatBox('!{#ffcc66}\u0420\u044f\u0434\u043e\u043c \u0442\u044f\u0436\u0435\u043b\u043e\u0440\u0430\u043d\u0435\u043d\u044b\u0439: ' + player.name + ' (ID ' + player.id + ')');
         }
     });
 
@@ -93,7 +93,7 @@ async function respawn(player) {
     player.removeAllWeapons();
 
     player.call('srv:deathEnd');
-    player.outputChatBox('!{#8fd14f}Вас доставили в больницу. Счёт за лечение: !{#ffffff}' + fee + '$');
+    player.outputChatBox('!{#8fd14f}\u0412\u0430\u0441 \u0434\u043e\u0441\u0442\u0430\u0432\u0438\u043b\u0438 \u0432 \u0431\u043e\u043b\u044c\u043d\u0438\u0446\u0443. \u0421\u0447\u0451\u0442 \u0437\u0430 \u043b\u0435\u0447\u0435\u043d\u0438\u0435: !{#ffffff}' + fee + '$');
 
     mp.events.call('medic:resolved', player);
 
@@ -114,7 +114,7 @@ function revive(target) {
     target.account.downed = false;
     target.health = 60;
     target.call('srv:deathEnd');
-    target.outputChatBox('!{#8fd14f}Вас подняли на ноги');
+    target.outputChatBox('!{#8fd14f}\u0412\u0430\u0441 \u043f\u043e\u0434\u043d\u044f\u043b\u0438 \u043d\u0430 \u043d\u043e\u0433\u0438');
 
     mp.events.call('medic:resolved', target);
     return true;
@@ -122,12 +122,12 @@ function revive(target) {
 
 mp.events.addCommand('respawn', function (player) {
     if (!player.account || !player.account.downed) {
-        player.outputChatBox('!{#ffcc66}Вы не ранены');
+        player.outputChatBox('!{#ffcc66}\u0412\u044b \u043d\u0435 \u0440\u0430\u043d\u0435\u043d\u044b');
         return;
     }
     const waited = Date.now() - player.account.downAt;
     if (waited < 15000) {
-        player.outputChatBox('!{#ffcc66}Подождите ещё ' + Math.ceil((15000 - waited) / 1000) + ' сек');
+        player.outputChatBox('!{#ffcc66}\u041f\u043e\u0434\u043e\u0436\u0434\u0438\u0442\u0435 \u0435\u0449\u0451 ' + Math.ceil((15000 - waited) / 1000) + ' \u0441\u0435\u043a');
         return;
     }
     respawn(player);
@@ -141,7 +141,7 @@ mp.events.add('playerDeath', function (player) {
         player.health = 12;
         return;
     }
-    down(player, 'Смертельное ранение');
+    down(player, '\u0421\u043c\u0435\u0440\u0442\u0435\u043b\u044c\u043d\u043e\u0435 \u0440\u0430\u043d\u0435\u043d\u0438\u0435');
 });
 
 mp.events.add('playerQuit', function (player) {

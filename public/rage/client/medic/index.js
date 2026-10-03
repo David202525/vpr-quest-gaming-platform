@@ -29,13 +29,13 @@ mp.events.add('medic:alert', function (raw) {
     if (CALL_BLIPS[c.id]) return;
     try {
         CALL_BLIPS[c.id] = mp.blips.new(153, new mp.Vector3(c.x, c.y, c.z), {
-            name: 'Вызов #' + c.id + ' ' + c.name,
+            name: '\u0412\u044b\u0437\u043e\u0432 #' + c.id + ' ' + c.name,
             color: 1,
             shortRange: false
         });
         CALL_BLIPS[c.id].setFlashes(true);
     } catch (e) {}
-    notify('~r~EMS~w~ вызов #' + c.id + '~n~' + c.name + ': ' + c.reason + '~n~~y~/accept ' + c.id);
+    notify('~r~EMS~w~ \u0432\u044b\u0437\u043e\u0432 #' + c.id + '~n~' + c.name + ': ' + c.reason + '~n~~y~/accept ' + c.id);
     try { mp.game.audio.playSoundFrontend(-1, 'Event_Message_Purple', 'GTAO_FM_Events_Soundset', true); } catch (e) {}
 });
 
@@ -66,7 +66,7 @@ mp.events.add('render', function () {
     mp.game.controls.disableControlAction(0, 21, true);
     mp.game.controls.disableControlAction(0, 22, true);
     mp.game.controls.disableControlAction(0, 24, true);
-    mp.game.graphics.drawText(busyLabel + ': ' + Math.ceil((busyEnd - now) / 1000) + ' сек', [0.5, 0.86], {
+    mp.game.graphics.drawText(busyLabel + ': ' + Math.ceil((busyEnd - now) / 1000) + ' \u0441\u0435\u043a', [0.5, 0.86], {
         font: 4, color: [255, 255, 255, 235], scale: [0.55, 0.55], outline: true
     });
 });
