@@ -15,8 +15,28 @@ const TYPES = {
     barrel: ['prop_barrel_02a'],
     tyres: ['prop_rub_tyre_01'],
     trash: ['prop_rub_binbag_01', 'prop_rub_binbag_03'],
-    crate: ['prop_box_wood02a']
+    crate: ['prop_box_wood02a'],
+    bush: ['prop_bush_lrg_04b', 'prop_bush_med_03', 'prop_bush_lrg_02'],
+    grass: ['prop_grass_dry_02', 'prop_grass_dry_03'],
+    milcrate: ['prop_mil_crate_01', 'prop_mil_crate_02'],
+    light: ['prop_worklight_03b', 'prop_worklight_04c'],
+    gate: ['prop_sec_barrier_ld_01a'],
+    milgate: ['prop_gate_military_01'],
+    flag: ['prop_flag_us'],
+    sat: ['prop_satdish_l_02']
 };
+
+const VEHS = {
+    tank: 'rhino',
+    apc: 'apc',
+    truck: 'barracks',
+    truck2: 'barracks3',
+    jeep: 'crusader',
+    armored: 'insurgent2',
+    halftrack: 'halftrack'
+};
+
+const STATIC = ['obj', 'veh'];
 
 let data = { on: false, items: [] };
 let seq = 1;
@@ -45,6 +65,21 @@ function save() {
 }
 
 function spawn(it) {
+    if (it.k === 'veh') {
+        try {
+            const v = mp.vehicles.new(mp.joaat(it.m), new mp.Vector3(it.x, it.y, it.z + 1.0), {
+                heading: it.h,
+                locked: true,
+                engine: false,
+                dimension: 0
+            });
+            v.apocStatic = true;
+            ents[it.id] = v;
+        } catch (e) {
+            console.log('[apoc] veh ' + it.m + ': ' + e.message);
+        }
+        return;
+    }
     if (it.k !== 'obj') return;
     try {
         const pos = new mp.Vector3(it.x, it.y, it.z);
@@ -59,13 +94,15 @@ function spawn(it) {
 
 function unspawn(it) {
     const o = ents[it.id];
-    if (o && mp.objects.exists(o)) o.destroy();
+    try {
+        if (o) o.destroy();
+    } catch (e) {}
     delete ents[it.id];
 }
 
 function fxList() {
     return data.items.filter(function (it) {
-        return it.k !== 'obj';
+        return STATIC.indexOf(it.k) === -1;
     });
 }
 
@@ -167,8 +204,10 @@ mp.events.addCommand('proplist', function (p) {
     if (!isAdmin(p)) return;
     msg(p, 'Объекты: ' + Object.keys(TYPES).join(', '));
     msg(p, '/prop [тип] [поворот] - поставить перед собой');
-    msg(p, '/fire [1-3] /smoke /blockpost /apoc');
-    msg(p, '/propdel /propundo /propclear [радиус]');
+    msg(p, 'Техника: /pveh [' + Object.keys(VEHS).join(', ') + '] [поворот]');
+    msg(p, '/fire [1-3] /smoke /apoc /overgrow [кол-во] /wreckzone [кол-во]');
+    msg(p, 'Готовое: /blockpost /milpost /milbase');
+    msg(p, '/propdel /propundo [кол-во] /propclear [радиус]');
 });
 
 mp.events.addCommand('prop', function (p, args) {
@@ -218,28 +257,135 @@ mp.events.addCommand('blockpost', function (p) {
     msg(p, 'Блокпост построен. Убрать по одному: /propundo');
 });
 
+function batch(p, list) {
+    list.forEach(function (e) {
+        const pos = at(p, e[2], e[3], e[4] || 0);
+        if (e[0] === 'veh') add(p, 'veh', e[1], pos);
+        else if (e[0] === 'fire') add(p, 'fire', '', pos, e[1]);
+        else add(p, 'obj', TYPES[e[1]] ? pick(TYPES[e[1]]) : e[1], pos);
+    });
+    save();
+    broadcast();
+}
+
+mp.events.addCommand('pveh', function (p, arg) {
+    if (!isAdmin(p)) return;
+    const parts = String(arg || '').trim().split(' ');
+    const model = VEHS[parts[0]] || parts[0];
+    if (!model) return msg(p, 'Пиши: /pveh tank. Типы: ' + Object.keys(VEHS).join(', '));
+    const turn = parseFloat(parts[1]) || 0;
+    add(p, 'veh', model, at(p, 6, 0, turn));
+    save();
+    msg(p, 'Техника поставлена: ' + model);
+});
+
+mp.events.addCommand('milpost', function (p) {
+    if (!isAdmin(p)) return;
+    batch(p, [
+        ['obj', 'milgate', 10, 0],
+        ['obj', 'concrete', 10, -5], ['obj', 'concrete', 10, 5],
+        ['obj', 'concrete', 10, -8], ['obj', 'concrete', 10, 8],
+        ['obj', 'sandbag', 13, -6], ['obj', 'sandbag', 13, 6],
+        ['obj', 'hesco', 14, -10, 90], ['obj', 'hesco', 14, 10, 90],
+        ['obj', 'light', 12, -7, 180], ['obj', 'light', 12, 7, 180],
+        ['obj', 'flag', 15, -9],
+        ['obj', 'milcrate', 15, 7], ['obj', 'milcrate', 16, 8],
+        ['veh', 'apc', 18, -6, 0],
+        ['veh', 'rhino', 20, 6, 0],
+        ['veh', 'barracks', 26, 0, 90]
+    ]);
+    msg(p, 'Военный блокпост построен');
+});
+
+mp.events.addCommand('milbase', function (p) {
+    if (!isAdmin(p)) return;
+    const list = [];
+    for (let i = -12; i <= 12; i += 3) {
+        if (Math.abs(i) > 3) list.push(['obj', 'hesco', 8, i]);
+        list.push(['obj', 'hesco', 32, i]);
+    }
+    for (let f = 11; f <= 29; f += 3) {
+        list.push(['obj', 'hesco', f, -13, 90]);
+        list.push(['obj', 'hesco', f, 13, 90]);
+    }
+    list.push(['obj', 'milgate', 8, 0]);
+    list.push(['obj', 'light', 9, -5, 180], ['obj', 'light', 9, 5, 180]);
+    list.push(['obj', 'light', 31, -11, 45], ['obj', 'light', 31, 11, -45]);
+    list.push(['obj', 'sandbag', 12, -4], ['obj', 'sandbag', 12, 4]);
+    list.push(['obj', 'flag', 30, 0], ['obj', 'sat', 29, -10]);
+    list.push(['obj', 'milcrate', 28, 9], ['obj', 'milcrate', 27, 10], ['obj', 'milcrate', 29, 10]);
+    list.push(['veh', 'barracks', 22, -8, 90], ['veh', 'barracks3', 22, 8, 90]);
+    list.push(['veh', 'crusader', 16, -9, 0], ['veh', 'insurgent2', 16, 9, 0]);
+    batch(p, list);
+    msg(p, 'Военная база построена (' + list.length + ' объектов)');
+});
+
+mp.events.addCommand('wreckzone', function (p, arg) {
+    if (!isAdmin(p)) return;
+    let n = parseInt(arg, 10);
+    if (isNaN(n) || n < 1 || n > 40) n = 12;
+    const list = [];
+    for (let i = 0; i < n; i++) {
+        const fwd = 4 + Math.random() * 40;
+        const side = (Math.random() - 0.5) * 12;
+        const rot = Math.random() * 360;
+        const r = Math.random();
+        const t = r < 0.55 ? 'wreck' : r < 0.65 ? 'bus' : r < 0.8 ? 'tyres' : 'trash';
+        list.push(['obj', t, fwd, side, rot]);
+    }
+    for (let j = 0; j < Math.ceil(n / 2); j++) {
+        list.push(['obj', Math.random() < 0.6 ? 'bush' : 'grass', 4 + Math.random() * 40, (Math.random() - 0.5) * 16, Math.random() * 360]);
+    }
+    if (Math.random() < 0.5) list.push(['fire', 1, 10 + Math.random() * 25, (Math.random() - 0.5) * 8]);
+    batch(p, list);
+    msg(p, 'Заброшенная улица: ' + list.length + ' объектов впереди тебя');
+});
+
+mp.events.addCommand('overgrow', function (p, arg) {
+    if (!isAdmin(p)) return;
+    let n = parseInt(arg, 10);
+    if (isNaN(n) || n < 1 || n > 40) n = 15;
+    const list = [];
+    for (let i = 0; i < n; i++) {
+        const a = Math.random() * 360;
+        const d = 2 + Math.random() * 18;
+        const rad = a * Math.PI / 180;
+        list.push(['obj', Math.random() < 0.6 ? 'bush' : 'grass', Math.cos(rad) * d, Math.sin(rad) * d, Math.random() * 360]);
+    }
+    batch(p, list);
+    msg(p, 'Заросли вокруг: ' + n);
+});
+
 mp.events.addCommand('propdel', function (p) {
     if (!isAdmin(p)) return;
     const it = near(p, 5);
     if (!it) return msg(p, 'Рядом ничего нет (5 м)');
     remove(it);
     save();
-    if (it.k !== 'obj') broadcast();
+    if (STATIC.indexOf(it.k) === -1) broadcast();
     msg(p, 'Удалено');
 });
 
-mp.events.addCommand('propundo', function (p) {
+mp.events.addCommand('propundo', function (p, arg) {
     if (!isAdmin(p)) return;
+    let n = parseInt(arg, 10);
+    if (isNaN(n) || n < 1) n = 1;
     const list = p.apocLast || [];
-    const id = list.pop();
-    const it = data.items.find(function (x) {
-        return x.id === id;
-    });
-    if (!it) return msg(p, 'Нечего отменять');
-    remove(it);
+    let done = 0;
+    while (done < n && list.length) {
+        const id = list.pop();
+        const it = data.items.find(function (x) {
+            return x.id === id;
+        });
+        if (it) {
+            remove(it);
+            done++;
+        }
+    }
+    if (!done) return msg(p, 'Нечего отменять');
     save();
-    if (it.k !== 'obj') broadcast();
-    msg(p, 'Последний объект убран');
+    broadcast();
+    msg(p, 'Убрано объектов: ' + done);
 });
 
 mp.events.addCommand('propclear', function (p, arg) {
