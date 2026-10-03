@@ -206,7 +206,7 @@ mp.events.addCommand('proplist', function (p) {
     msg(p, '/prop [тип] [поворот] - поставить перед собой');
     msg(p, 'Техника: /pveh [' + Object.keys(VEHS).join(', ') + '] [поворот]');
     msg(p, '/fire [1-3] /smoke /apoc /overgrow [кол-во] /wreckzone [кол-во]');
-    msg(p, 'Готовое: /blockpost /milpost /milbase');
+    msg(p, 'Готовое: /blockpost /milpost /milbase [20-90]');
     msg(p, '/propdel /propundo [кол-во] /propclear [радиус]');
 });
 
@@ -297,27 +297,40 @@ mp.events.addCommand('milpost', function (p) {
     msg(p, 'Военный блокпост построен');
 });
 
-mp.events.addCommand('milbase', function (p) {
+mp.events.addCommand('milbase', function (p, arg) {
     if (!isAdmin(p)) return;
+    let size = parseInt(arg, 10);
+    if (isNaN(size) || size < 20 || size > 90) size = 50;
+    const half = Math.round(size / 2);
+    const front = 8;
+    const back = front + size;
     const list = [];
-    for (let i = -12; i <= 12; i += 3) {
-        if (Math.abs(i) > 3) list.push(['obj', 'hesco', 8, i]);
-        list.push(['obj', 'hesco', 32, i]);
+    for (let i = -half; i <= half; i += 3) {
+        if (Math.abs(i) > 4) list.push(['obj', 'hesco', front, i]);
+        list.push(['obj', 'hesco', back, i]);
     }
-    for (let f = 11; f <= 29; f += 3) {
-        list.push(['obj', 'hesco', f, -13, 90]);
-        list.push(['obj', 'hesco', f, 13, 90]);
+    for (let f = front + 3; f <= back - 3; f += 3) {
+        list.push(['obj', 'hesco', f, -half, 90]);
+        list.push(['obj', 'hesco', f, half, 90]);
     }
-    list.push(['obj', 'milgate', 8, 0]);
-    list.push(['obj', 'light', 9, -5, 180], ['obj', 'light', 9, 5, 180]);
-    list.push(['obj', 'light', 31, -11, 45], ['obj', 'light', 31, 11, -45]);
-    list.push(['obj', 'sandbag', 12, -4], ['obj', 'sandbag', 12, 4]);
-    list.push(['obj', 'flag', 30, 0], ['obj', 'sat', 29, -10]);
-    list.push(['obj', 'milcrate', 28, 9], ['obj', 'milcrate', 27, 10], ['obj', 'milcrate', 29, 10]);
-    list.push(['veh', 'barracks', 22, -8, 90], ['veh', 'barracks3', 22, 8, 90]);
-    list.push(['veh', 'crusader', 16, -9, 0], ['veh', 'insurgent2', 16, 9, 0]);
+    list.push(['obj', 'milgate', front, 0]);
+    list.push(['obj', 'light', front + 2, -5, 180], ['obj', 'light', front + 2, 5, 180]);
+    list.push(['obj', 'light', back - 2, -half + 2, 45], ['obj', 'light', back - 2, half - 2, -45]);
+    list.push(['obj', 'light', (front + back) / 2, -half + 2, 90], ['obj', 'light', (front + back) / 2, half - 2, -90]);
+    list.push(['obj', 'sandbag', front + 5, -5], ['obj', 'sandbag', front + 5, 5]);
+    list.push(['obj', 'sandbag', front + 7, -7], ['obj', 'sandbag', front + 7, 7]);
+    list.push(['obj', 'flag', back - 3, 0], ['obj', 'sat', back - 4, -half + 5]);
+    for (let c = 0; c < 6; c++) {
+        list.push(['obj', 'milcrate', back - 6 - (c % 3) * 2, half - 5 - Math.floor(c / 3) * 2]);
+    }
+    list.push(['obj', 'barrier', front + 12, -half + 4, 90], ['obj', 'barrier', front + 12, half - 4, 90]);
+    const row = (front + back) / 2;
+    list.push(['veh', 'barracks', row + 6, -half + 6, 90], ['veh', 'barracks3', row + 6, -half + 12, 90]);
+    list.push(['veh', 'crusader', row, -half + 6, 90], ['veh', 'crusader', row, -half + 12, 90]);
+    list.push(['veh', 'insurgent2', row, half - 6, 90], ['veh', 'apc', row + 6, half - 6, 90]);
+    list.push(['veh', 'rhino', front + 10, half - 8, 0], ['veh', 'rhino', front + 10, -half + 8, 0]);
     batch(p, list);
-    msg(p, 'Военная база построена (' + list.length + ' объектов)');
+    msg(p, 'Военная база ' + size + 'x' + size + ' м построена (' + list.length + ' объектов)');
 });
 
 mp.events.addCommand('wreckzone', function (p, arg) {
@@ -413,3 +426,19 @@ mp.events.addCommand('apoc', function (p) {
 });
 
 console.log('[apoc] загружено объектов: ' + data.items.length);
+
+global.ApocSystem = {
+    clearArea: function (x, y, r) {
+        const del = data.items.filter(function (it) {
+            const dx = it.x - x;
+            const dy = it.y - y;
+            return Math.sqrt(dx * dx + dy * dy) <= r;
+        });
+        del.forEach(remove);
+        if (del.length) {
+            save();
+            broadcast();
+        }
+        return del.length;
+    }
+};

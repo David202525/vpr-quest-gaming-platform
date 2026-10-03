@@ -176,7 +176,8 @@ mp.events.addCommand('basehelp', function (p) {
     msg(p, '/gate - открыть ворота, /baselock - пускать гостей, /basegate [gate|bar|fence] /basegatedel');
     if (isAdmin(p)) {
         msg(p, 'Админ: /basecreate [family|army] [цена] [радиус] [название]');
-        msg(p, '/basegive [база] [игрок] /basefree [база] /basedel [база] /baselist /basetp [база]');
+        msg(p, '/basegive [база] [игрок] /basefree [база] /basedel [база] /basewipe [база]');
+        msg(p, '/baselist /basetp [база] /basesetarmy [база]');
         msg(p, '/setarmy [игрок] [ранг 1-7] /unarmy [игрок] /paydaynow');
     }
 });
@@ -254,12 +255,30 @@ mp.events.addCommand('basefree', function (p, arg) {
 mp.events.addCommand('basedel', function (p, arg) {
     if (!isAdmin(p)) return;
     const b = byId(arg);
-    if (!b) return msg(p, 'Нет такой базы');
+    if (!b) return msg(p, 'Нет такой базы. Список: /baselist');
     clear(b);
     removeGates(b);
     data.bases = data.bases.filter(function (x) { return x.id !== b.id; });
     save();
-    msg(p, 'База удалена. Постройки убери через /propclear');
+    msg(p, 'База "' + b.name + '" удалена. Постройки остались, снести: /basewipe');
+});
+
+mp.events.addCommand('basewipe', function (p, arg) {
+    if (!isAdmin(p)) return;
+    const b = byId(arg);
+    const x = b ? b.x : p.position.x;
+    const y = b ? b.y : p.position.y;
+    const r = b ? b.r + 10 : 60;
+    const a = global.ApocSystem;
+    if (!a) return msg(p, 'Модуль построек не загружен');
+    const n = a.clearArea(x, y, r);
+    if (b) {
+        clear(b);
+        removeGates(b);
+        data.bases = data.bases.filter(function (z) { return z.id !== b.id; });
+        save();
+    }
+    msg(p, 'Снесено объектов: ' + n + (b ? '. База "' + b.name + '" удалена.' : ' (вокруг тебя, радиус 60 м)'));
 });
 
 mp.events.addCommand('baseinfo', function (p) {
