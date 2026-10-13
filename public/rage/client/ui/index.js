@@ -76,6 +76,7 @@ function openUi(name, opt) {
 
 function closeUi(silent) {
     if (!uiOpen) return;
+    if (uiOpen === 'atm') mp.events.callRemote('srv:atm:close');
     uiOpen = null;
     uiTyping = false;
     if (!silent) uiCall('uiClose', '');
@@ -292,3 +293,43 @@ setTimeout(function () { mp.events.callRemote('srv:death:sync'); }, 4000);
 mp.events.add('ui:fuelOpen', function () { if (!uiOpen) openUi('fuel', { fromUi: true }); });
 mp.events.add('ui:fuelDone', function () { if (uiOpen === 'fuel') closeUi(); });
 mp.events.add('cef:fuel:buy', function (t, l, pay) { mp.events.callRemote('srv:fuel:buy', t, Number(l), pay); });
+
+/* ================= ATM ================= */
+var ATM_LIST = [];
+var atmNear = -1;
+var atmHinted = -1;
+mp.events.add('atm:list', function (json) { try { ATM_LIST = JSON.parse(json); } catch (e) {} });
+setTimeout(function () { mp.events.callRemote('srv:atm:list'); }, 5000);
+setInterval(function () {
+    var p = mp.players.local, pos = p.position, best = -1, bd = 2.6;
+    if (!p.vehicle) for (var i = 0; i < ATM_LIST.length; i++) {
+        var a = ATM_LIST[i];
+        var d = mp.game.system.vdist(pos.x, pos.y, pos.z, a[1], a[2], a[3]);
+        if (d < bd) { bd = d; best = a[0]; }
+    }
+    atmNear = best;
+    if (best >= 0 && atmHinted !== best && !uiOpen) { atmHinted = best; mp.events.call('hud:notify', 'ok', 'Банкомат: нажмите E', 3000); }
+    if (best < 0) atmHinted = -1;
+}, 400);
+mp.events.add('render', function () {
+    if (atmNear < 0 || uiOpen) return;
+    for (var i = 0; i < ATM_LIST.length; i++) if (ATM_LIST[i][0] === atmNear) {
+        var a = ATM_LIST[i];
+        mp.game.graphics.drawMarker(29, a[1], a[2], a[3] + 0.2, 0, 0, 0, 0, 0, 0, 0.45, 0.45, 0.45, 47, 200, 120, 170, true, true, 2, false, null, null, false);
+    }
+});
+mp.keys.bind(0x45, false, function () {
+    if (atmNear < 0 || busy() || uiOpen) return;
+    mp.events.callRemote('srv:atm:open', atmNear);
+});
+mp.events.add('ui:atmOpen', function () { if (!uiOpen) openUi('atm', { fromUi: true }); });
+mp.events.add('ui:openCard', function (json) {
+    if (uiOpen && uiOpen !== 'card') closeUi(true);
+    if (uiOpen !== 'card') { uiOpen = 'card'; uiCall('uiOpen', 'card', {}); mp.gui.chat.activate(false); cursorSync(); }
+    uiExec('window.uiData && window.uiData("card",' + json + ');');
+});
+mp.events.add('cef:atm:getcard', function () { mp.events.callRemote('srv:atm:getcard'); });
+mp.events.add('cef:atm:pin', function (pin) { mp.events.callRemote('srv:atm:pin', String(pin)); });
+mp.events.add('cef:atm:op', function (op, sum, to) { mp.events.callRemote('srv:atm:op', op, Number(sum), String(to || '')); });
+mp.events.add('cef:atm:pinchange', function (a, b) { mp.events.callRemote('srv:atm:pinchange', String(a), String(b)); });
+mp.events.add('cef:atm:biz', function (act, val) { mp.events.callRemote('srv:atm:biz', act, String(val === undefined ? '' : val)); });

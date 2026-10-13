@@ -20,6 +20,7 @@ window.hudUpdate = function (d) {
     if (d.online !== undefined) $('online').textContent = d.online;
     if (d.dt) $('dt').textContent = d.dt;
     if (d.money !== undefined) $('money').textContent = fmtMoney(d.money);
+    if (d.bank !== undefined) $('bank').textContent = fmtMoney(d.bank);
     if (d.zone !== undefined) $('zone').textContent = d.zone || '—';
     if (d.street !== undefined) $('street').textContent = d.street || '—';
     if (d.ammo !== undefined) {

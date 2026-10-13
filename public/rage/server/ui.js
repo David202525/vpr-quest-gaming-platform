@@ -24,7 +24,7 @@ const ITEMS = {
     lockpick: { n: 'Отмычка', i: '🗝️', w: 0.1, s: 10, price: 500 },
     cash: { n: 'Пачка денег', i: '💵', w: 0.1, s: 100, use: 'cash', v: 1000 },
     docs: { n: 'Папка документов', i: '📂', w: 0.1, s: 1, use: 'docs' },
-    card: { n: 'Банковская карта', i: '💳', w: 0.05, s: 1 },
+    card: { n: 'Банковская карта', i: '💳', w: 0.05, s: 1, use: 'card' },
     phone: { n: 'Телефон', i: '📱', w: 0.2, s: 1, slot: 'phone', price: 1000 },
     cap: { n: 'Кепка', i: '🧢', w: 0.2, s: 1, slot: 'hat', cloth: { p: 0, d: 2 }, price: 300 },
     hat: { n: 'Шляпа', i: '🎩', w: 0.3, s: 1, slot: 'hat', cloth: { p: 0, d: 12 }, price: 600 },
@@ -160,23 +160,69 @@ function data(p) {
     return d;
 }
 
+/* ===== ДЕНЬГИ: единый источник — таблица accounts ===== */
+const MONEY = {};
+const moneyWriteAt = {};
+function syncObjs(p, m, b) {
+    if (p.account) { p.account.money = m; p.account.bank = b; }
+    if (p.admAcc) { p.admAcc.money = m; p.admAcc.bank = b; }
+    try { const v = p.getVariable('money'); if (v !== undefined && v !== null) p.setVariable('money', m); } catch (e) {}
+}
+async function refreshMoney(p) {
+    const id = accId(p);
+    if (!id || !db) return;
+    if (moneyWriteAt[id] && Date.now() - moneyWriteAt[id] < 2500) return;
+    const r = await q('SELECT money, bank FROM accounts WHERE id = ? LIMIT 1', [id]);
+    if (!r[0] || !mp.players.exists(p)) return;
+    const m = Number(r[0].money) || 0, b = Number(r[0].bank) || 0;
+    MONEY[id] = { money: m, bank: b };
+    syncObjs(p, m, b);
+}
 function getMoney(p) {
-    if (typeof global.hudMoney === 'function') return Number(global.hudMoney(p)) || 0;
-    const a = accOf(p); return a ? Number(a.money) || 0 : 0;
+    const id = accId(p);
+    if (id && MONEY[id]) return MONEY[id].money;
+    const a = accOf(p);
+    return a ? Number(a.money) || 0 : 0;
 }
 function getBank(p) {
+    const id = accId(p);
+    if (id && MONEY[id]) return MONEY[id].bank;
     if (p.account && p.account.bank !== undefined && p.account.bank !== null) return Number(p.account.bank) || 0;
     return Number(data(p).bank) || 0;
 }
 function setMB(p, money, bank) {
-    if (p.account) { p.account.money = money; p.account.bank = bank; }
-    if (p.admAcc) p.admAcc.money = money;
-    try { const v = p.getVariable('money'); if (v !== undefined && v !== null) p.setVariable('money', money); } catch (e) {}
-    data(p).bank = bank;
-    mark();
+    money = Math.max(0, Math.floor(money)); bank = Math.max(0, Math.floor(bank));
     const id = accId(p);
-    if (id) q('UPDATE accounts SET money = ?, bank = ? WHERE id = ?', [money, bank, id]);
+    syncObjs(p, money, bank);
+    if (id) {
+        MONEY[id] = { money: money, bank: bank };
+        moneyWriteAt[id] = Date.now();
+        q('UPDATE accounts SET money = ?, bank = ? WHERE id = ?', [money, bank, id]);
+    } else { data(p).bank = bank; mark(); }
+    pushMoney(p, true);
 }
+const lastMoneySent = {};
+function pushMoney(p, force) {
+    if (!mp.players.exists(p)) return;
+    const s = getMoney(p) + '|' + getBank(p);
+    if (!force && lastMoneySent[p.id] === s) return;
+    lastMoneySent[p.id] = s;
+    p.call('hud:money', [getMoney(p), getBank(p)]);
+}
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        refreshMoney(p).then(function () { pushMoney(p, false); }).catch(function () {});
+    });
+}, 3000);
+mp.events.add('playerQuit', function (p) { delete lastMoneySent[p.id]; });
+global.MoneySystem = {
+    get: getMoney, bank: getBank, set: setMB,
+    add: function (p, n) { setMB(p, getMoney(p) + n, getBank(p)); },
+    addBank: function (p, n) { setMB(p, getMoney(p), getBank(p) + n); },
+    refresh: refreshMoney
+};
+global.hudMoney = getMoney;
+
 function addMoney(p, n) { setMB(p, getMoney(p) + n, getBank(p)); }
 
 function itemW(x) { return x && ITEMS[x.k] ? ITEMS[x.k].w * x.c : 0; }
@@ -420,6 +466,10 @@ function useItem(p, r) {
         setFuel(best, f + it.v);
         consume(s);
         return notify(p, 'ok', 'Заправлено из канистры: ' + Math.round(fuelOf(best)) + ' л');
+    }
+    if (it.use === 'card') {
+        sendCard(p).catch(function (e) { console.log('[bank] ' + e.message); });
+        return;
     }
     if (it.use === 'docs') {
         p.call('ui:openDocs');
@@ -888,6 +938,361 @@ mp.events.add('playerQuit', function (p) {
         if (v && mp.vehicles.exists(v) && Number(v.getVariable('ownerId')) === Number(id)) { saveVeh(v); v.despawnAt = Date.now() + 5 * 60000; }
     });
 });
+
+/* ================= BANK: CARDS & ATM ================= */
+const ATM_SEED = [
+    [147.47, -1036.22, 29.37], [145.84, -1035.63, 29.35], [112.48, -819.81, 31.34], [-1827.23, 784.95, 138.30],
+    [-526.71, -1222.87, 18.45], [-821.69, -1081.89, 11.13], [155.89, 6642.86, 31.60], [174.14, 6637.91, 31.57],
+    [-283.04, 6226.07, 31.49], [-386.73, 6045.95, 31.50], [1171.52, 2702.56, 38.18], [1172.46, 2702.59, 38.17],
+    [-1091.46, 2708.64, 18.95], [24.59, -946.06, 29.36], [5.13, -919.95, 29.56], [-203.55, -861.59, 30.27],
+    [-301.70, -830.00, 32.42], [-254.40, -692.40, 33.60], [-1415.90, -212.00, 46.50], [-1205.00, -326.30, 37.85],
+    [-2072.40, -317.20, 13.32], [-2975.00, 380.10, 15.00], [-3044.00, 594.60, 7.74], [-3241.10, 997.60, 12.55],
+    [1686.70, 4815.80, 42.01], [1968.10, 3743.50, 32.34], [2683.00, 3286.50, 55.24], [540.00, 2671.00, 42.16],
+    [-717.60, -915.60, 19.22], [-56.90, -1752.10, 29.42], [289.00, -1256.80, 29.44], [1138.20, -468.90, 66.73],
+    [1077.70, -776.50, 58.24], [-165.00, 234.80, 94.92], [-1305.40, -706.40, 25.32], [-1570.10, -546.70, 34.96],
+    [-1109.80, -1690.80, 4.38], [236.00, 217.50, 106.29], [-866.70, -187.80, 37.84], [-1315.70, -834.70, 16.96]
+];
+let ATMS = [];
+const atmBlips = {};
+const CARD_FEE = 100;
+
+function cardNumber() { let s = '4276'; for (let i = 0; i < 12; i++) s += Math.floor(Math.random() * 10); return s.replace(/(\d{4})(?=\d)/g, '$1 '); }
+
+async function bankInit() {
+    if (!db) return console.log('[bank] нет базы — банкоматы отключены');
+    await q(`CREATE TABLE IF NOT EXISTS bank_cards (
+        owner_id INT PRIMARY KEY, number VARCHAR(24) NOT NULL UNIQUE, pin VARCHAR(4) NULL,
+        tries INT NOT NULL DEFAULT 0, blocked_until BIGINT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await q(`CREATE TABLE IF NOT EXISTS bank_tx (
+        id INT AUTO_INCREMENT PRIMARY KEY, account_id INT NOT NULL, type VARCHAR(16) NOT NULL,
+        amount INT NOT NULL, text VARCHAR(120) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_acc (account_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await q(`CREATE TABLE IF NOT EXISTS atms (
+        id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(48) NOT NULL DEFAULT 'Банкомат',
+        x FLOAT NOT NULL, y FLOAT NOT NULL, z FLOAT NOT NULL,
+        owner_id INT NULL, fee DECIMAL(4,2) NOT NULL DEFAULT 1.00, balance BIGINT NOT NULL DEFAULT 0,
+        price INT NOT NULL DEFAULT 150000, earned BIGINT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    const c = await q('SELECT COUNT(*) AS n FROM atms');
+    if (c[0] && Number(c[0].n) === 0) {
+        for (let i = 0; i < ATM_SEED.length; i++) await q('INSERT INTO atms (name, x, y, z) VALUES (?, ?, ?, ?)', ['Банкомат #' + (i + 1), ATM_SEED[i][0], ATM_SEED[i][1], ATM_SEED[i][2]]);
+        console.log('[bank] создано банкоматов: ' + ATM_SEED.length);
+    }
+    await loadAtms();
+}
+async function loadAtms() {
+    const rows = await q('SELECT a.*, acc.nick AS owner_nick, acc.login AS owner_login FROM atms a LEFT JOIN accounts acc ON acc.id = a.owner_id ORDER BY a.id');
+    ATMS = rows.map(function (r) {
+        return { id: r.id, name: r.name, x: Number(r.x), y: Number(r.y), z: Number(r.z), owner: r.owner_id ? Number(r.owner_id) : null,
+            ownerName: r.owner_nick || r.owner_login || null, fee: Number(r.fee) || 0, balance: Number(r.balance) || 0, price: Number(r.price) || 0, earned: Number(r.earned) || 0 };
+    });
+    Object.keys(atmBlips).forEach(function (k) { try { atmBlips[k].destroy(); } catch (e) {} delete atmBlips[k]; });
+    ATMS.forEach(function (a) {
+        atmBlips[a.id] = mp.blips.new(108, new mp.Vector3(a.x, a.y, a.z), { name: 'Банкомат', color: 2, shortRange: true, scale: 0.7 });
+    });
+    mp.players.forEach(sendAtmList);
+}
+function sendAtmList(p) {
+    if (!mp.players.exists(p)) return;
+    p.call('atm:list', [JSON.stringify(ATMS.map(function (a) { return [a.id, a.x, a.y, a.z]; }))]);
+}
+mp.events.add('playerReady', function (p) { setTimeout(function () { sendAtmList(p); }, 3000); });
+mp.events.add('srv:atm:list', function (p) { sendAtmList(p); });
+setTimeout(function () { bankInit().catch(function (e) { console.log('[bank] init: ' + e.message); }); }, 2500);
+
+function atmOf(id) { return ATMS.find(function (a) { return a.id === Number(id); }) || null; }
+function nearAtm(p, id) {
+    const a = atmOf(id);
+    if (!a) return null;
+    return dist(p.position, { x: a.x, y: a.y, z: a.z }) < 3.5 ? a : null;
+}
+async function cardOf(id) {
+    const r = await q('SELECT * FROM bank_cards WHERE owner_id = ? LIMIT 1', [id]);
+    return r[0] || null;
+}
+async function ensureCard(id) {
+    let c = await cardOf(id);
+    if (c) return c;
+    for (let i = 0; i < 5 && !c; i++) {
+        await q('INSERT IGNORE INTO bank_cards (owner_id, number) VALUES (?, ?)', [id, cardNumber()]);
+        c = await cardOf(id);
+    }
+    return c;
+}
+function tx(id, type, amount, text) { if (id) q('INSERT INTO bank_tx (account_id, type, amount, text) VALUES (?, ?, ?, ?)', [id, type, Math.floor(amount), String(text || '').slice(0, 120)]); }
+async function history(id) {
+    const r = await q('SELECT type, amount, text, created_at FROM bank_tx WHERE account_id = ? ORDER BY id DESC LIMIT 12', [id]);
+    return r.map(function (x) { return { t: x.type, a: Number(x.amount), text: x.text, d: new Date(x.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }; });
+}
+function holder(p) { const a = accOf(p); return String(a && a.nick ? a.nick : p.name).replace(/_/g, ' ').toUpperCase(); }
+
+async function atmState(p, a, extra) {
+    const id = accId(p);
+    const hasCardItem = countItem(data(p), 'card') > 0;
+    const c = id ? await cardOf(id) : null;
+    const st = {
+        atm: { id: a.id, name: a.name, fee: a.fee, own: !!(id && a.owner === id), balance: a.balance, earned: a.earned, ownerName: a.ownerName, forSale: !a.owner, price: a.price },
+        card: c && hasCardItem ? { number: c.number, holder: holder(p), hasPin: !!c.pin, blocked: Number(c.blocked_until) > Date.now() ? Math.ceil((Number(c.blocked_until) - Date.now()) / 60000) : 0 } : null,
+        noAcc: !id, needCard: !hasCardItem || !c, cardFee: CARD_FEE,
+        auth: p.atmAuth === a.id, money: getMoney(p), bank: getBank(p)
+    };
+    if (st.auth && id) st.history = await history(id);
+    return Object.assign(st, extra || {});
+}
+async function sendAtm(p, a, extra) {
+    if (!mp.players.exists(p)) return;
+    p.call('ui:data', ['atm', JSON.stringify(await atmState(p, a, extra))]);
+}
+async function sendCard(p) {
+    const id = accId(p);
+    if (!id) return notify(p, 'error', 'Карта недоступна: аккаунт не найден');
+    const c = await ensureCard(id);
+    p.call('ui:openCard', [JSON.stringify({ card: { number: c.number, holder: holder(p), hasPin: !!c.pin }, bank: getBank(p), money: getMoney(p), history: await history(id) })]);
+}
+
+mp.events.add('srv:atm:open', async function (p, aid) {
+    const a = nearAtm(p, aid);
+    if (!a) return;
+    p.atmAuth = null;
+    p.atmId = a.id;
+    p.call('ui:atmOpen');
+    await sendAtm(p, a);
+});
+
+mp.events.add('srv:atm:getcard', async function (p) {
+    const a = nearAtm(p, p.atmId);
+    const id = accId(p);
+    if (!a || !id) return;
+    const m = getMoney(p);
+    const has = countItem(data(p), 'card') > 0;
+    const existing = await cardOf(id);
+    if (!has || !existing) {
+        if (m < CARD_FEE) return sendAtm(p, a, { err: 'Выпуск карты стоит $' + CARD_FEE + ' наличными' });
+        setMB(p, m - CARD_FEE, getBank(p));
+        if (existing) await q('UPDATE bank_cards SET number = ?, pin = NULL, tries = 0, blocked_until = 0 WHERE owner_id = ?', [cardNumber(), id]);
+        else await ensureCard(id);
+        if (!has) addItem(p, 'card', 1);
+        tx(id, 'card', -CARD_FEE, 'Выпуск карты');
+    }
+    sendAtm(p, a, { ok: 'Карта выпущена. Придумайте PIN-код' });
+});
+
+mp.events.add('srv:atm:pin', async function (p, pin) {
+    const a = nearAtm(p, p.atmId);
+    const id = accId(p);
+    if (!a || !id) return;
+    pin = String(pin || '');
+    if (!/^\d{4}$/.test(pin)) return sendAtm(p, a, { err: 'PIN — 4 цифры' });
+    const c = await cardOf(id);
+    if (!c || countItem(data(p), 'card') <= 0) return sendAtm(p, a, { err: 'Вставьте карту' });
+    if (Number(c.blocked_until) > Date.now()) return sendAtm(p, a, { err: 'Карта заблокирована' });
+    if (!c.pin) {
+        await q('UPDATE bank_cards SET pin = ?, tries = 0 WHERE owner_id = ?', [pin, id]);
+        p.atmAuth = a.id;
+        return sendAtm(p, a, { ok: 'PIN-код установлен' });
+    }
+    if (c.pin !== pin) {
+        const t = Number(c.tries) + 1;
+        if (t >= 3) {
+            await q('UPDATE bank_cards SET tries = 0, blocked_until = ? WHERE owner_id = ?', [Date.now() + 10 * 60000, id]);
+            return sendAtm(p, a, { err: 'Карта заблокирована на 10 минут' });
+        }
+        await q('UPDATE bank_cards SET tries = ? WHERE owner_id = ?', [t, id]);
+        return sendAtm(p, a, { err: 'Неверный PIN. Осталось попыток: ' + (3 - t) });
+    }
+    await q('UPDATE bank_cards SET tries = 0 WHERE owner_id = ?', [id]);
+    p.atmAuth = a.id;
+    sendAtm(p, a);
+});
+
+async function payTo(target, sum, fromP, fromText) {
+    const online2 = mp.players.toArray().find(function (x) { return accId(x) === target; });
+    if (online2) {
+        setMB(online2, getMoney(online2), getBank(online2) + sum);
+        notify(online2, 'ok', 'Поступление на карту: +$' + sum + ' от ' + fromText);
+    } else {
+        await q('UPDATE accounts SET bank = bank + ? WHERE id = ?', [sum, target]);
+        if (MONEY[target]) MONEY[target].bank += sum;
+    }
+    tx(target, 'in', sum, 'Перевод от ' + fromText);
+}
+
+mp.events.add('srv:atm:op', async function (p, op, sum, target) {
+    const a = nearAtm(p, p.atmId);
+    const id = accId(p);
+    if (!a || !id || p.atmAuth !== a.id) return;
+    sum = Math.floor(Number(sum) || 0);
+    if (sum <= 0 || sum > 50000000) return sendAtm(p, a, { err: 'Неверная сумма' });
+    const m = getMoney(p), b = getBank(p);
+    const ownerCut = function (fee) {
+        if (!a.owner || fee <= 0) return;
+        a.balance += fee; a.earned += fee;
+        q('UPDATE atms SET balance = balance + ?, earned = earned + ? WHERE id = ?', [fee, fee, a.id]);
+    };
+    if (op === 'wd') {
+        const fee = a.owner && a.owner !== id ? Math.ceil(sum * a.fee / 100) : 0;
+        if (b < sum + fee) return sendAtm(p, a, { err: 'Недостаточно средств' + (fee ? ' (комиссия $' + fee + ')' : '') });
+        setMB(p, m + sum, b - sum - fee);
+        ownerCut(fee);
+        tx(id, 'wd', -(sum + fee), 'Снятие наличных' + (fee ? ', комиссия $' + fee : ''));
+        return sendAtm(p, a, { ok: 'Выдано $' + sum + (fee ? '. Комиссия $' + fee : ''), cash: sum });
+    }
+    if (op === 'dep') {
+        if (m < sum) return sendAtm(p, a, { err: 'Недостаточно наличных' });
+        setMB(p, m - sum, b + sum);
+        tx(id, 'dep', sum, 'Пополнение наличными');
+        return sendAtm(p, a, { ok: 'Зачислено $' + sum });
+    }
+    if (op === 'send') {
+        const num = String(target || '').replace(/\D/g, '');
+        if (num.length < 6) return sendAtm(p, a, { err: 'Введите номер карты или телефона' });
+        let to = null;
+        if (num.length === 16) {
+            const r = await q('SELECT owner_id FROM bank_cards WHERE REPLACE(number, " ", "") = ? LIMIT 1', [num]);
+            if (r[0]) to = Number(r[0].owner_id);
+        } else {
+            const ph = num.slice(0, 3) + '-' + num.slice(3, 6);
+            const tk = store._numbers[ph];
+            if (tk && tk[0] === 'a') to = Number(tk.slice(1));
+        }
+        if (!to) return sendAtm(p, a, { err: 'Получатель не найден' });
+        if (to === id) return sendAtm(p, a, { err: 'Нельзя перевести самому себе' });
+        if (b < sum) return sendAtm(p, a, { err: 'Недостаточно средств' });
+        setMB(p, m, b - sum);
+        const nm = holder(p);
+        await payTo(to, sum, p, nm);
+        tx(id, 'out', -sum, 'Перевод на ' + (num.length === 16 ? '*' + num.slice(-4) : String(target)));
+        return sendAtm(p, a, { ok: 'Переведено $' + sum });
+    }
+});
+
+mp.events.add('srv:atm:pinchange', async function (p, oldPin, newPin) {
+    const a = nearAtm(p, p.atmId);
+    const id = accId(p);
+    if (!a || !id || p.atmAuth !== a.id) return;
+    const c = await cardOf(id);
+    if (!c || c.pin !== String(oldPin)) return sendAtm(p, a, { err: 'Старый PIN неверный' });
+    if (!/^\d{4}$/.test(String(newPin))) return sendAtm(p, a, { err: 'Новый PIN — 4 цифры' });
+    await q('UPDATE bank_cards SET pin = ? WHERE owner_id = ?', [String(newPin), id]);
+    sendAtm(p, a, { ok: 'PIN-код изменён' });
+});
+
+mp.events.add('srv:atm:biz', async function (p, act, val) {
+    const a = nearAtm(p, p.atmId);
+    const id = accId(p);
+    if (!a || !id) return;
+    if (act === 'buy') {
+        if (a.owner) return sendAtm(p, a, { err: 'Банкомат уже принадлежит другому' });
+        const b = getBank(p);
+        if (b < a.price) return sendAtm(p, a, { err: 'Нужно $' + a.price + ' на карте' });
+        setMB(p, getMoney(p), b - a.price);
+        a.owner = id; a.ownerName = holder(p);
+        await q('UPDATE atms SET owner_id = ?, balance = 0 WHERE id = ?', [id, a.id]);
+        tx(id, 'biz', -a.price, 'Покупка: ' + a.name);
+        return sendAtm(p, a, { ok: 'Поздравляем! Банкомат ваш' });
+    }
+    if (a.owner !== id) return;
+    if (act === 'collect') {
+        const s = a.balance;
+        if (s <= 0) return sendAtm(p, a, { err: 'Касса пуста' });
+        a.balance = 0;
+        await q('UPDATE atms SET balance = 0 WHERE id = ?', [a.id]);
+        setMB(p, getMoney(p), getBank(p) + s);
+        tx(id, 'biz', s, 'Доход: ' + a.name);
+        return sendAtm(p, a, { ok: 'Доход $' + s + ' переведён на карту' });
+    }
+    if (act === 'fee') {
+        const f = Math.max(0, Math.min(5, Math.round(Number(val) * 2) / 2));
+        a.fee = f;
+        await q('UPDATE atms SET fee = ? WHERE id = ?', [f, a.id]);
+        return sendAtm(p, a, { ok: 'Комиссия: ' + f + '%' });
+    }
+    if (act === 'sell') {
+        const back = Math.floor(a.price * 0.6) + a.balance;
+        a.owner = null; a.ownerName = null; a.balance = 0;
+        await q('UPDATE atms SET owner_id = NULL, balance = 0 WHERE id = ?', [a.id]);
+        setMB(p, getMoney(p), getBank(p) + back);
+        tx(id, 'biz', back, 'Продажа: ' + a.name);
+        p.atmAuth = null;
+        return sendAtm(p, a, { ok: 'Банкомат продан государству за $' + back });
+    }
+});
+
+mp.events.add('srv:atm:close', function (p) { p.atmAuth = null; p.atmId = null; });
+
+function admCan(p, n) { if (adminLvl(p) >= n) return true; notify(p, 'error', 'Недостаточно прав'); return false; }
+mp.events.addCommand('atmadd', async function (p, full2) {
+    if (!admCan(p, 5)) return;
+    const pos = p.position;
+    await q('INSERT INTO atms (name, x, y, z) VALUES (?, ?, ?, ?)', [String(full2 || '').trim() || 'Банкомат', pos.x, pos.y, pos.z]);
+    await loadAtms();
+    notify(p, 'ok', 'Банкомат создан. Всего: ' + ATMS.length);
+});
+mp.events.addCommand('atmdel', async function (p, full2, id) {
+    if (!admCan(p, 5)) return;
+    let a = atmOf(id);
+    if (!a) { let bd = 4; ATMS.forEach(function (x) { const d = dist(p.position, x); if (d < bd) { bd = d; a = x; } }); }
+    if (!a) return notify(p, 'error', '/atmdel [id] или встаньте у банкомата');
+    await q('DELETE FROM atms WHERE id = ?', [a.id]);
+    await loadAtms();
+    notify(p, 'ok', 'Банкомат #' + a.id + ' удалён');
+});
+mp.events.addCommand('atmset', async function (p, full2, id, field, val) {
+    if (!admCan(p, 5)) return;
+    const a = atmOf(id);
+    const map = { price: 'price', fee: 'fee', name: 'name', balance: 'balance' };
+    if (!a || !map[field]) return p.outputChatBox('!{#ffc93c}/atmset [id] [price|fee|name|balance] [значение]');
+    await q('UPDATE atms SET ' + map[field] + ' = ? WHERE id = ?', [field === 'name' ? String(val) : Number(val) || 0, a.id]);
+    await loadAtms();
+    notify(p, 'ok', 'Банкомат #' + a.id + ': ' + field + ' = ' + val);
+});
+mp.events.addCommand('atmowner', async function (p, full2, id, pid) {
+    if (!admCan(p, 5)) return;
+    const a = atmOf(id);
+    if (!a) return p.outputChatBox('!{#ffc93c}/atmowner [id банкомата] [id игрока или 0]');
+    let owner = null;
+    if (pid && pid !== '0') { const t = mp.players.at(Number(pid)); if (!t || !accId(t)) return notify(p, 'error', 'Игрок не найден'); owner = accId(t); }
+    await q('UPDATE atms SET owner_id = ? WHERE id = ?', [owner, a.id]);
+    await loadAtms();
+    notify(p, 'ok', 'Владелец банкомата #' + a.id + ' изменён');
+});
+mp.events.addCommand('atmlist', function (p) {
+    if (!admCan(p, 3)) return;
+    ATMS.slice(0, 50).forEach(function (a) { p.outputChatBox('#' + a.id + ' ' + a.name + ' | ' + (a.ownerName || 'гос.') + ' | ' + a.fee + '% | касса $' + a.balance); });
+});
+mp.events.addCommand('cardunblock', async function (p, full2, pid) {
+    if (!admCan(p, 3)) return;
+    const t = mp.players.at(Number(pid));
+    if (!t || !accId(t)) return notify(p, 'error', '/cardunblock [id]');
+    await q('UPDATE bank_cards SET tries = 0, blocked_until = 0 WHERE owner_id = ?', [accId(t)]);
+    notify(p, 'ok', 'Карта разблокирована'); notify(t, 'ok', 'Ваша карта разблокирована');
+});
+
+global.AtmSystem = {
+    list: function () { return ATMS; }, reload: loadAtms,
+    admin: async function (p, d) {
+        const a = atmOf(d.atm);
+        if (d.op === 'add') {
+            const pos = p.position;
+            await q('INSERT INTO atms (name, x, y, z, price) VALUES (?, ?, ?, ?, ?)', [String(d.name || '').trim().slice(0, 48) || 'Банкомат', pos.x, pos.y, pos.z, Math.max(0, Number(d.price) || 150000)]);
+            await loadAtms();
+            return 'Банкомат создан';
+        }
+        if (!a) throw new Error('Банкомат не найден');
+        if (d.op === 'tp') { p.position = new mp.Vector3(a.x + 1, a.y, a.z); return 'Телепорт к #' + a.id; }
+        if (d.op === 'del') { await q('DELETE FROM atms WHERE id = ?', [a.id]); await loadAtms(); return 'Банкомат #' + a.id + ' удалён'; }
+        if (d.op === 'price') { await q('UPDATE atms SET price = ? WHERE id = ?', [Math.max(0, Number(d.value) || 0), a.id]); await loadAtms(); return 'Цена изменена'; }
+        if (d.op === 'owner') {
+            let owner = null;
+            if (Number(d.pid) >= 0) { const t = mp.players.at(Number(d.pid)); if (!t || !accId(t)) throw new Error('Игрок не найден'); owner = accId(t); }
+            await q('UPDATE atms SET owner_id = ?, balance = 0 WHERE id = ?', [owner, a.id]);
+            await loadAtms();
+            return owner ? 'Владелец назначен' : 'Банкомат изъят у владельца';
+        }
+        throw new Error('Неизвестное действие');
+    }
+};
 
 global.UiSystem = { setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 

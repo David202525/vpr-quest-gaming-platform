@@ -50,6 +50,7 @@ window.admData = function (json) {
     renderDlc();
     renderRanks();
     renderServer();
+    renderBiz();
 };
 
 function renderPlayers() {
@@ -289,3 +290,49 @@ document.addEventListener('keydown', function (e) {
 setInterval(function () {
     if (D && document.visibilityState !== 'hidden') trig('cef:adm:refresh');
 }, 5000);
+
+function renderBiz() {
+    var list = D.atms || [];
+    var f = ($('zSearch').value || '').trim().toLowerCase();
+    $('zCount').textContent = list.length;
+    var can5 = D.me.level >= 5;
+    $('zAdd').disabled = !can5;
+    $('zList').innerHTML = list.filter(function (a) { return !f || (a.name + ' ' + (a.ownerName || '')).toLowerCase().indexOf(f) >= 0; }).map(function (a) {
+        return '<div class="tr biz"><b>#' + a.id + ' ' + esc(a.name) + '</b>' +
+            '<span>' + (a.ownerName ? '👤 ' + esc(a.ownerName) : '<span class="mut">гос. (продаётся)</span>') + '</span>' +
+            '<span class="mut">цена $' + a.price + ' · ' + a.fee + '% · касса $' + a.balance + ' · всего $' + a.earned + '</span>' +
+            '<span class="biz-acts">' +
+            '<button class="btn" data-ztp="' + a.id + '">ТП</button>' +
+            '<button class="btn" data-zprice="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Цена</button>' +
+            '<button class="btn" data-zown="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Владелец</button>' +
+            '<button class="btn" data-zfree="' + a.id + '"' + (can5 && a.ownerName ? '' : ' disabled') + '>Изъять</button>' +
+            '<button class="btn danger" data-zdel="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Удалить</button>' +
+            '</span></div>';
+    }).join('') || '<div class="empty">Банкоматов нет</div>';
+}
+$('zSearch').oninput = renderBiz;
+$('zAdd').onclick = function () { act({ action: 'atm', op: 'add', name: $('zName').value, price: Number($('zPrice').value) || 150000 }); };
+$('zList').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    if (b.dataset.ztp) act({ action: 'atm', op: 'tp', atm: Number(b.dataset.ztp) });
+    if (b.dataset.zdel) act({ action: 'atm', op: 'del', atm: Number(b.dataset.zdel) });
+    if (b.dataset.zfree) act({ action: 'atm', op: 'owner', atm: Number(b.dataset.zfree), pid: -1 });
+    if (b.dataset.zprice) zAsk('Новая цена банкомата, $', function (v) { act({ action: 'atm', op: 'price', atm: Number(b.dataset.zprice), value: Number(v) }); });
+    if (b.dataset.zown) zAsk('ID игрока онлайн — новый владелец', function (v) { act({ action: 'atm', op: 'owner', atm: Number(b.dataset.zown), pid: Number(v) }); });
+});
+
+function zAsk(title, cb) {
+    var old = document.querySelector('.z-ask');
+    if (old) old.remove();
+    var m = document.createElement('div');
+    m.className = 'z-ask';
+    m.innerHTML = '<div class="z-box"><b>' + esc(title) + '</b><input id="zAskIn" inputmode="numeric"><div><button class="btn" id="zAskC">Отмена</button><button class="btn ok" id="zAskO">ОК</button></div></div>';
+    document.body.appendChild(m);
+    var inp = $('zAskIn');
+    inp.focus();
+    var go = function () { var v = inp.value.trim(); m.remove(); if (v !== '') cb(v); };
+    $('zAskO').onclick = go;
+    $('zAskC').onclick = function () { m.remove(); };
+    inp.onkeydown = function (e) { if (e.key === 'Enter') go(); if (e.key === 'Escape') { e.stopPropagation(); m.remove(); } };
+}

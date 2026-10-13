@@ -1,6 +1,6 @@
 var hudBrowser = mp.browsers.new('package://cef/hud/index.html');
 var hudOn = true;
-var hudSrv = { money: 0, online: 0, weather: 'CLEAR' };
+var hudSrv = { money: 0, bank: 0, online: 0, weather: 'CLEAR', locked: false };
 var UNARMED = 0xA2719263;
 
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -59,6 +59,7 @@ function hudTick() {
         id: p.remoteId,
         online: hudSrv.online || mp.players.length,
         money: hudSrv.money,
+        bank: hudSrv.bank,
         dt: pad(d) + '.' + pad(mo) + '.' + y + ' / ' + pad(h) + ':' + pad(mi),
         hour: h,
         weather: hudSrv.weather,
@@ -79,7 +80,7 @@ mp.events.add('render', function () {
 mp.events.add('hud:data', function (json) {
     var d;
     try { d = JSON.parse(json); } catch (e) { return; }
-    if (d.money !== undefined) hudSrv.money = d.money;
+    if (d.money !== undefined && !hudSrv.locked) hudSrv.money = d.money;
     if (d.online !== undefined) hudSrv.online = d.online;
     if (d.weather) hudSrv.weather = d.weather;
     hudTick();
@@ -210,4 +211,11 @@ mp.events.add('veh:lockFx', function (id, locked) {
         setTimeout(function () { try { v.setIndicatorLights(0, false); v.setIndicatorLights(1, false); } catch (e) {} }, 600);
         mp.game.audio.playSoundFromEntity(-1, locked ? 'Remote_Control_Close' : 'Remote_Control_Open', v.handle, 'PI_Menu_Sounds', true, 0);
     } catch (e) {}
+});
+
+mp.events.add('hud:money', function (m, b) {
+    hudSrv.locked = true;
+    hudSrv.money = Number(m) || 0;
+    hudSrv.bank = Number(b) || 0;
+    hudTick();
 });

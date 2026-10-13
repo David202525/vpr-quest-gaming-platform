@@ -55,16 +55,17 @@ function srvWarn(kind) {
 }
 
 window.uiOpen = function (name, opt) {
-    ['inv', 'phone', 'menu', 'docs', 'fuel'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
     current = name;
     hideCtx();
+    if (name === 'atm') { ATM.d = null; ATM.view = 'boot'; ATM.input = ''; renderAtm(); }
     if (name === 'docs') { docSel = 0; if (!(opt && opt.shown)) DATA.docs = DATA.docs && DATA.docs.own ? DATA.docs : null; renderDocs(); }
     if (name === 'inv') { if (!DATA.inv) { DATA.inv = emptyInv(); DATA.inv.offline = true; } renderInv(); srvWarn('inv'); }
     if (name === 'phone') { phoneHome(); srvWarn('phone'); }
     if (name === 'menu') { if (!DATA.menu) DATA.menu = emptyMenu(); renderMenu(); srvWarn('menu'); }
 };
 window.uiClose = function () {
-    ['inv', 'phone', 'menu', 'docs', 'fuel'].forEach(function (s) { $(s).classList.remove('show'); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card'].forEach(function (s) { $(s).classList.remove('show'); });
     current = null;
     hideCtx();
     closeModal();
@@ -86,6 +87,8 @@ window.uiData = function (kind, d) {
     if (kind === 'phone') phoneRefresh();
     if (kind === 'menu' && current === 'menu') renderMenu();
     if (kind === 'fuel') { fuelInit(d); }
+    if (kind === 'atm') { atmData(d); }
+    if (kind === 'card') { renderCard(d); }
     if (kind === 'docs') { if (typeof d.focus === 'number') docSel = d.focus; renderDocs(); }
 };
 function closeAll() { window.uiClose(); trig('cef:ui:close'); }
@@ -868,3 +871,136 @@ document.querySelectorAll('.fu-quick button').forEach(function (b) {
 document.querySelectorAll('.fu-pm').forEach(function (b) { b.onclick = function () { FU.pay = b.dataset.pay; renderFuel(); }; });
 $('fuGo').onclick = function () { if (!this.classList.contains('off')) trig('cef:fuel:buy', FU.t, FU.l, FU.pay); };
 $('fuClose').onclick = closeAll;
+
+/* ================= BANK CARD VISUAL ================= */
+function cardHtml(c, big) {
+    return '<div class="bc ' + (big ? 'big' : '') + '"><div class="bc-shine"></div><div class="bc-top"><b>FLEECA</b><span>PLATINUM</span></div>' +
+        '<div class="bc-chip"><i></i><i></i><i></i></div><div class="bc-nfc">)))</div>' +
+        '<div class="bc-num">' + esc(c.number) + '</div>' +
+        '<div class="bc-bot"><div><small>CARD HOLDER</small><b>' + esc(c.holder) + '</b></div><div><small>VALID</small><b>12/30</b></div><div class="bc-ps"><i></i><i></i></div></div></div>';
+}
+function txRow(x) {
+    var pos = x.a >= 0;
+    var ico = { dep: '⬇', wd: '⬆', in: '↙', out: '↗', card: '💳', biz: '🏧' }[x.t] || '•';
+    return '<div class="tx"><span class="tx-i ' + (pos ? 'p' : 'n') + '">' + ico + '</span><div><b>' + esc(x.text || '') + '</b><small>' + esc(x.d) + '</small></div><em class="' + (pos ? 'p' : 'n') + '">' + (pos ? '+' : '−') + money(Math.abs(x.a)) + '</em></div>';
+}
+function renderCard(d) {
+    $('bcard').innerHTML = cardHtml(d.card, true);
+    $('cvInfo').innerHTML = '<div class="cv-bal"><small>Баланс карты</small><b>' + money(d.bank) + '</b><span>Наличные: ' + money(d.money) + '</span></div>' +
+        '<div class="cv-pin ' + (d.card.hasPin ? 'ok' : '') + '">' + (d.card.hasPin ? '🔒 PIN-код установлен' : '⚠ PIN-код не задан — задайте в любом банкомате') + '</div>' +
+        '<div class="cv-h"><b>Последние операции</b>' + (d.history && d.history.length ? d.history.map(txRow).join('') : '<small class="cv-empty">Операций пока нет</small>') + '</div>';
+}
+$('cardClose').onclick = closeAll;
+
+/* ================= ATM ================= */
+var ATM = { d: null, view: 'boot', input: '', op: null, to: '', msg: null, pinOld: '' };
+function atmData(d) {
+    var first = !ATM.d;
+    ATM.d = d;
+    ATM.msg = d.err ? { e: 1, t: d.err } : d.ok ? { e: 0, t: d.ok } : null;
+    if (d.cash) { var c = $('atmCash'); c.classList.remove('go'); void c.offsetWidth; c.classList.add('go'); }
+    if (d.auth) {
+        if (ATM.view === 'pin' || ATM.view === 'boot' || ATM.view === 'insert' || ATM.view === 'newpin') ATM.view = 'menu';
+        if (d.ok && (ATM.view === 'amount' || ATM.view === 'send')) ATM.view = 'done';
+        if (d.ok && ATM.view === 'pinchange2') ATM.view = 'menu';
+    } else if (d.noAcc) ATM.view = 'noacc';
+    else if (d.needCard) ATM.view = 'nocard';
+    else if (d.card && d.card.blocked) ATM.view = 'blocked';
+    else if (first || ATM.view === 'nocard' || ATM.view === 'boot') ATM.view = d.card && !d.card.hasPin ? 'newpin' : 'insert';
+    if (d.err && ATM.view === 'pin') ATM.input = '';
+    $('atmName').textContent = d.atm.name + (d.atm.ownerName ? ' · владелец ' + d.atm.ownerName : '');
+    renderAtm();
+}
+function atmBtn(id, label, cls) { return '<button class="ab ' + (cls || '') + '" data-a="' + id + '">' + label + '</button>'; }
+function atmMsg() { return ATM.msg ? '<div class="am ' + (ATM.msg.e ? 'e' : 'o') + '">' + esc(ATM.msg.t) + '</div>' : ''; }
+function dots(n) { var s = ''; for (var i = 0; i < 4; i++) s += '<i class="' + (i < n ? 'on' : '') + '"></i>'; return '<div class="pin-dots">' + s + '</div>'; }
+function renderAtm() {
+    var d = ATM.d, v = ATM.view, h = '', pad = false;
+    $('atmCardIn').classList.toggle('in', !!(d && d.card && ['insert', 'nocard', 'noacc', 'boot'].indexOf(v) < 0));
+    if (!d || v === 'boot') h = '<div class="as-c"><div class="spin"></div><p>Соединение с банком...</p></div>';
+    else if (v === 'noacc') h = '<div class="as-c"><div class="as-ico">⚠</div><h3>Сервис недоступен</h3><p>Аккаунт не найден. Перезайдите на сервер.</p></div>';
+    else if (v === 'nocard') h = '<div class="as-c"><div class="as-ico">💳</div><h3>Нет банковской карты</h3><p>Выпустите именную карту Fleeca Platinum прямо сейчас.</p>' + atmMsg() + '<div class="as-row">' + atmBtn('getcard', 'Выпустить карту · $' + d.cardFee, 'pri') + '</div></div>';
+    else if (v === 'blocked') h = '<div class="as-c"><div class="as-ico">⛔</div><h3>Карта заблокирована</h3><p>Слишком много неверных попыток. Повторите через ' + d.card.blocked + ' мин.</p></div>';
+    else if (v === 'insert') h = '<div class="as-c"><div class="as-card">' + cardHtml(d.card) + '</div><h3>Добро пожаловать</h3><p>Вставьте карту, чтобы продолжить</p><div class="as-row">' + atmBtn('insert', 'Вставить карту', 'pri') + '</div>' + (d.atm.forSale ? '<p class="as-sale">Этот банкомат продаётся за ' + money(d.atm.price) + ' — ' + '<a data-a="bizinfo">подробнее</a></p>' : '') + '</div>';
+    else if (v === 'pin' || v === 'newpin' || v === 'pinchange1' || v === 'pinchange2') {
+        pad = true;
+        var t = { pin: 'Введите PIN-код', newpin: 'Придумайте PIN-код', pinchange1: 'Введите текущий PIN', pinchange2: 'Введите новый PIN' }[v];
+        h = '<div class="as-c"><h3>' + t + '</h3><p>' + (v === 'newpin' ? 'Запомните его — он понадобится при каждой операции' : '4 цифры') + '</p>' + dots(ATM.input.length) + atmMsg() + '</div>';
+    } else if (v === 'menu') {
+        h = '<div class="as-menu"><div class="as-bal"><small>Доступно на карте</small><b>' + money(d.bank) + '</b><span>Наличные при себе: ' + money(d.money) + '</span></div>' + atmMsg() +
+            '<div class="as-grid">' + atmBtn('wd', '<i>⬆</i>Снять наличные') + atmBtn('dep', '<i>⬇</i>Внести наличные') + atmBtn('send', '<i>↗</i>Перевод') + atmBtn('hist', '<i>🧾</i>История') + atmBtn('pinc', '<i>🔑</i>Сменить PIN') + atmBtn(d.atm.own || d.atm.forSale ? 'biz' : 'info', d.atm.own ? '<i>🏧</i>Мой бизнес' : d.atm.forSale ? '<i>🏷</i>Купить банкомат' : '<i>ℹ</i>О банкомате') + '</div>' +
+            (d.atm.fee && !d.atm.own && !d.atm.forSale ? '<p class="as-fee">Комиссия владельца за снятие: ' + d.atm.fee + '%</p>' : '') + '</div>';
+    } else if (v === 'amount') {
+        pad = true;
+        var quick = ATM.op === 'wd' ? [100, 500, 1000, 5000] : [100, 500, 1000, 'all'];
+        h = '<div class="as-c"><h3>' + (ATM.op === 'wd' ? 'Снятие наличных' : 'Внесение наличных') + '</h3><div class="as-amount">$' + (ATM.input || '0') + '</div>' +
+            '<div class="as-row q">' + quick.map(function (x) { return atmBtn('q:' + x, x === 'all' ? 'Всё' : '$' + x); }).join('') + '</div>' + atmMsg() +
+            '<div class="as-row">' + atmBtn('back', 'Назад') + atmBtn('confirm', 'Подтвердить', 'pri') + '</div></div>';
+    } else if (v === 'send') {
+        h = '<div class="as-c"><h3>Перевод</h3><p>По номеру карты (16 цифр) или телефона (123-456)</p><input class="as-in" id="atTo" placeholder="Номер карты или телефона" value="' + esc(ATM.to) + '" maxlength="19"><input class="as-in" id="atSum" placeholder="Сумма, $" value="' + esc(ATM.input) + '" maxlength="9">' + atmMsg() +
+            '<div class="as-row">' + atmBtn('back', 'Назад') + atmBtn('sendgo', 'Перевести', 'pri') + '</div></div>';
+    } else if (v === 'done') {
+        h = '<div class="as-c"><div class="as-ico ok">✓</div><h3>Операция выполнена</h3>' + atmMsg() + '<p>Баланс: <b>' + money(d.bank) + '</b></p><div class="as-row">' + atmBtn('back', 'В меню') + atmBtn('exit', 'Завершить', 'pri') + '</div></div>';
+    } else if (v === 'hist') {
+        h = '<div class="as-menu"><h3>История операций</h3><div class="as-hist">' + (d.history && d.history.length ? d.history.map(txRow).join('') : '<p>Операций пока нет</p>') + '</div><div class="as-row">' + atmBtn('back', 'Назад') + '</div></div>';
+    } else if (v === 'biz' || v === 'bizinfo' || v === 'info') {
+        var A = d.atm;
+        if (A.own) h = '<div class="as-menu"><h3>🏧 ' + esc(A.name) + '</h3><div class="biz-g"><div><small>Касса</small><b>' + money(A.balance) + '</b></div><div><small>Заработано всего</small><b>' + money(A.earned) + '</b></div><div><small>Комиссия</small><b>' + A.fee + '%</b></div></div>' + atmMsg() +
+            '<div class="as-row">' + atmBtn('fee-', '− 0.5%') + atmBtn('fee+', '+ 0.5%') + atmBtn('collect', 'Забрать доход', 'pri') + '</div><div class="as-row">' + atmBtn('back', 'Назад') + atmBtn('sell', 'Продать гос-ву (60%)', 'dan') + '</div></div>';
+        else if (A.forSale) h = '<div class="as-menu"><h3>🏷 Банкомат продаётся</h3><p class="as-p">Владелец получает комиссию с каждого снятия наличных (0–5%, настраивается). Деньги копятся в кассе, их можно забрать на карту.</p><div class="biz-g"><div><small>Цена</small><b>' + money(A.price) + '</b></div><div><small>Ваша карта</small><b>' + money(d.bank) + '</b></div></div>' + atmMsg() +
+            '<div class="as-row">' + atmBtn('back', 'Назад') + (d.auth ? atmBtn('buy', 'Купить', 'pri') : '') + '</div>' + (d.auth ? '' : '<p class="as-p">Вставьте карту и введите PIN, чтобы купить.</p>') + '</div>';
+        else h = '<div class="as-menu"><h3>ℹ ' + esc(A.name) + '</h3><p class="as-p">Владелец: <b>' + esc(A.ownerName || '—') + '</b><br>Комиссия за снятие: <b>' + A.fee + '%</b></p><div class="as-row">' + atmBtn('back', 'Назад') + '</div></div>';
+    }
+    $('atmScr').innerHTML = h;
+    $('atmPad').innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'].map(function (k) {
+        return '<button class="pk ' + (k === 'C' ? 'c' : k === 'OK' ? 'ok' : '') + '" data-k="' + k + '"' + (pad ? '' : ' disabled') + '>' + k + '</button>';
+    }).join('');
+    $('atmPad').querySelectorAll('[data-k]').forEach(function (b) { b.onclick = function () { atmKey(b.dataset.k); }; });
+    $('atmScr').querySelectorAll('[data-a]').forEach(function (b) { b.onclick = function () { atmAct(b.dataset.a); }; });
+    var to = $('atTo'), sm = $('atSum');
+    if (to) { to.oninput = function () { ATM.to = to.value; }; sm.oninput = function () { ATM.input = sm.value.replace(/\D/g, ''); sm.value = ATM.input; }; }
+}
+function atmKey(k) {
+    var v = ATM.view, pinMode = ['pin', 'newpin', 'pinchange1', 'pinchange2'].indexOf(v) >= 0;
+    if (k === 'C') { ATM.input = ATM.input.slice(0, -1); return renderAtm(); }
+    if (k === 'OK') {
+        if (pinMode) {
+            if (ATM.input.length !== 4) return;
+            if (v === 'pinchange1') { ATM.pinOld = ATM.input; ATM.input = ''; ATM.view = 'pinchange2'; ATM.msg = null; return renderAtm(); }
+            if (v === 'pinchange2') { trig('cef:atm:pinchange', ATM.pinOld, ATM.input); ATM.input = ''; return; }
+            trig('cef:atm:pin', ATM.input); ATM.input = ''; return renderAtm();
+        }
+        if (v === 'amount') return atmAct('confirm');
+        return;
+    }
+    if (pinMode && ATM.input.length >= 4) return;
+    if (v === 'amount' && ATM.input.length >= 8) return;
+    if (!ATM.input && k === '0' && v === 'amount') return;
+    ATM.input += k;
+    renderAtm();
+}
+function atmAct(a) {
+    var d = ATM.d;
+    ATM.msg = null;
+    if (a === 'getcard') return trig('cef:atm:getcard');
+    if (a === 'insert') { ATM.view = 'pin'; ATM.input = ''; return renderAtm(); }
+    if (a === 'wd' || a === 'dep') { ATM.op = a; ATM.view = 'amount'; ATM.input = ''; return renderAtm(); }
+    if (a === 'send') { ATM.view = 'send'; ATM.input = ''; ATM.to = ''; return renderAtm(); }
+    if (a === 'hist' || a === 'biz' || a === 'info') { ATM.view = a; return renderAtm(); }
+    if (a === 'bizinfo') { ATM.view = 'bizinfo'; return renderAtm(); }
+    if (a === 'pinc') { ATM.view = 'pinchange1'; ATM.input = ''; return renderAtm(); }
+    if (a === 'back') { ATM.view = d.auth ? 'menu' : 'insert'; ATM.input = ''; return renderAtm(); }
+    if (a === 'exit') return closeAll();
+    if (a.indexOf('q:') === 0) { var q = a.slice(2); ATM.input = String(q === 'all' ? Math.floor(d.money) : q); return renderAtm(); }
+    if (a === 'confirm') { if (Number(ATM.input) > 0) trig('cef:atm:op', ATM.op, Number(ATM.input), ''); return; }
+    if (a === 'sendgo') { if (Number(ATM.input) > 0 && ATM.to) trig('cef:atm:op', 'send', Number(ATM.input), ATM.to); return; }
+    if (a === 'buy' || a === 'collect' || a === 'sell') return trig('cef:atm:biz', a, '');
+    if (a === 'fee-' || a === 'fee+') return trig('cef:atm:biz', 'fee', d.atm.fee + (a === 'fee+' ? 0.5 : -0.5));
+}
+document.addEventListener('keydown', function (e) {
+    if (current !== 'atm' || /INPUT/.test(document.activeElement && document.activeElement.tagName)) return;
+    if (/^\d$/.test(e.key)) atmKey(e.key);
+    else if (e.key === 'Backspace') atmKey('C');
+    else if (e.key === 'Enter') atmKey('OK');
+});
+$('atmClose').onclick = closeAll;

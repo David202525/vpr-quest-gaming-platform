@@ -25,6 +25,7 @@
             <nav class="menu" id="menu">
                 <button class="m active" data-tab="players"><i>👥</i>Игроки</button>
                 <button class="m" data-tab="vehicles"><i>🚗</i>Транспорт</button>
+                <button class="m" data-tab="biz"><i>🏧</i>Бизнесы</button>
                 <button class="m" data-tab="bans"><i>⛔</i>Баны</button>
                 <button class="m" data-tab="server"><i>🌐</i>Сервер</button>
                 <button class="m" data-tab="staff"><i>⭐</i>Администрация</button>
@@ -85,6 +86,22 @@
                     </div>
                     <p class="hint">В чате: /veh [модель], /vehdlc [модель], /givecar [id] [модель], /dv, /fix</p>
                 </div>
+            </section>
+
+            <section class="tab" data-tab="biz">
+                <header class="head">
+                    <h2>Банкоматы <span class="badge" id="zCount">0</span></h2>
+                    <input class="search" id="zSearch" placeholder="Поиск по названию или владельцу">
+                </header>
+                <div class="card">
+                    <h3>Новый банкомат</h3>
+                    <div class="row3">
+                        <input id="zName" placeholder="Название (по умолчанию «Банкомат»)">
+                        <input id="zPrice" placeholder="Цена, $" value="150000">
+                        <button class="btn ok" id="zAdd">Создать на моей позиции</button>
+                    </div>
+                </div>
+                <div class="table" id="zList"></div>
             </section>
 
             <section class="tab" data-tab="bans">

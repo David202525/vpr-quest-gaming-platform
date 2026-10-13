@@ -377,3 +377,6 @@ body.hidden .hints {
 .sp-side.hp { left: 168px; top: 212px; color: #ffab5c; }
 .sp-side.low { animation: blink .8s infinite; }
 @keyframes blink { 50% { opacity: .3; } }
+
+.money.bank { color: #4fb6ff; font-size: 17px; margin-top: -6px; }
+.money.bank .m-ico { background: #2f6fff; font-size: 11px; }

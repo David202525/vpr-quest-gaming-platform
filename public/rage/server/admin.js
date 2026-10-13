@@ -431,12 +431,14 @@ function spawnVeh(admin, model, c1, c2, target, own) {
 }
 
 function moneyOf(p) {
+    if (global.MoneySystem) return global.MoneySystem.get(p);
     if (p.account && p.account.money !== undefined) return Number(p.account.money) || 0;
     if (typeof p.getVariable === 'function' && p.getVariable('money') !== undefined && p.getVariable('money') !== null) return Number(p.getVariable('money')) || 0;
     return acc(p) ? Number(acc(p).money) || 0 : 0;
 }
 
 function addMoney(p, sum) {
+    if (global.MoneySystem) { global.MoneySystem.add(p, sum); return global.MoneySystem.get(p); }
     const now = moneyOf(p) + sum;
     if (p.account && p.account.money !== undefined) p.account.money = now;
     if (typeof p.getVariable === 'function' && p.getVariable('money') !== undefined && p.getVariable('money') !== null) p.setVariable('money', now);
@@ -477,7 +479,8 @@ function panelData(p) {
         bans: bans.filter(activeBan).slice(0, 80),
         logs: logs.slice(0, 60),
         dlc: dlc,
-        weather: mp.world.weather
+        weather: mp.world.weather,
+        atms: global.AtmSystem ? global.AtmSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, fee: a.fee, balance: a.balance, earned: a.earned }; }) : []
     };
 }
 
@@ -510,6 +513,12 @@ mp.events.add('srv:adm:act', function (p, json) {
     const reason = String(d.reason || 'нарушение правил').slice(0, 100);
     const needT = ['tp', 'bring', 'heal', 'kick', 'slap', 'freeze', 'unfreeze', 'mute', 'unmute', 'warn', 'ban', 'goto', 'revive', 'givemoney', 'sethp'];
 
+    if (a === 'atm') {
+        if (!global.AtmSystem) return toast(p, 'Модуль банкоматов не загружен', false);
+        if (d.op !== 'tp' && lvl(p) < 5) return toast(p, 'Нужен 5 уровень админки', false);
+        if (lvl(p) < 3) return toast(p, 'Недостаточно прав', false);
+        return global.AtmSystem.admin(p, d).then(function (t) { toast(p, t, true); sendPanel(p); }).catch(function (e) { toast(p, e.message, false); });
+    }
     if (!can(p, a)) return toast(p, 'Недостаточно прав', false);
     if (needT.indexOf(a) >= 0 && !t) return toast(p, 'Игрок не найден', false);
     if (t && t !== p && ['kick', 'ban', 'mute', 'warn', 'freeze', 'slap'].indexOf(a) >= 0 && !canTouch(p, t)) {

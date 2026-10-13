@@ -32,6 +32,7 @@ async function syncFromDb(p) {
 }
 
 function moneyOf(p) {
+    if (global.MoneySystem) return global.MoneySystem.get(p);
     if (p.account && has(p.account.money)) return Number(p.account.money);
     if (p.admAcc && has(p.admAcc.money)) return Number(p.admAcc.money);
     if (has(p.money)) return Number(p.money);
@@ -85,7 +86,7 @@ function quest(p, title, tasks) {
 }
 
 global.hudNotify = notify;
-global.hudMoney = moneyOf;
+if (!global.hudMoney) global.hudMoney = moneyOf;
 global.hudQuest = quest;
 
 mp.events.add('hud:notify', notify);
