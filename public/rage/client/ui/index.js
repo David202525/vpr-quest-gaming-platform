@@ -1,3 +1,4 @@
+var deadState = null;
 var uiBrowser = mp.browsers.new('package://cef/ui/index.html');
 var uiOpen = null;
 var freeCursor = false;
@@ -15,7 +16,7 @@ function uiCall(fn, a, b) {
     uiExec('window.' + fn + ' && window.' + fn + '(' + JSON.stringify(a) + (b !== undefined ? ',' + JSON.stringify(b) : '') + ');');
 }
 
-var deadState = null;
+
 function busy() {
     if (!uiReady) return true;
     if (deadState) return true;
@@ -271,11 +272,12 @@ mp.keys.bind(0x0D, false, function () {
 });
 setInterval(function () {
     if (!deadState) return;
+    if (typeof admOpen !== 'undefined' && admOpen) return;
     if (!mp.gui.cursor.visible && !mp.players.local.isTypingInTextChat) mp.gui.cursor.show(true, true);
     deathPush();
 }, 1000);
 mp.events.add('render', function () {
-    if (!deadState) return;
+    if (!deadState || (typeof admOpen !== 'undefined' && admOpen)) return;
     for (var i = 0; i <= 360; i++) {
         if (i === 1 || i === 2 || i === 245 || i === 249) continue;
         mp.game.controls.disableControlAction(0, i, true);

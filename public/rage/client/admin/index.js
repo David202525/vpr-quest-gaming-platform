@@ -15,6 +15,8 @@ function admEnsure() {
 
 function admShow(on) {
     admEnsure();
+    if (on && typeof uiExec === 'function') uiExec('document.getElementById("death").style.visibility="hidden";');
+    if (!on && typeof uiExec === 'function') uiExec('document.getElementById("death").style.visibility="";');
     admOpen = on;
     admBrowser.active = on;
     mp.gui.cursor.show(on, on);
@@ -29,8 +31,10 @@ mp.keys.bind(0x73, false, function () {
     var now = Date.now();
     if (now - admLastToggle < 400) return;
     admLastToggle = now;
-    if (mp.gui.cursor.visible && !admOpen) return;
+    var dead = typeof deadState !== 'undefined' && !!deadState;
+    if (mp.gui.cursor.visible && !admOpen && !dead) return;
     admShow(!admOpen);
+    if (!admOpen && dead) mp.gui.cursor.show(true, true);
 });
 
 mp.events.add('adm:close', function () { if (admOpen) admShow(false); });

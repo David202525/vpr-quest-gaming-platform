@@ -763,6 +763,13 @@ cmd('aheal', 'heal', '/aheal [id]', function (p, a) {
     doHeal(p, find(a[0]) || p);
 });
 
+cmd('arevive', 'heal', '/arevive [id] — без id поднимет вас', function (p, a) {
+    const t = find(a[0]) || p;
+    doHeal(p, t);
+    msg(p, t === p ? 'Вы подняли себя' : 'Вы подняли ' + login(t), '#8fd14f');
+});
+cmd('selfrevive', 'heal', '/selfrevive', function (p) { doHeal(p, p); });
+
 cmd('slap', 'slap', '/slap [id]', function (p, a, u) {
     const t = find(a[0]);
     if (!need(p, t, u)) return;

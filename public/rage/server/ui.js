@@ -815,6 +815,76 @@ if (!global.DeathSystem) {
     try { require('./death.js'); console.log('[ui] система ранений подключена'); } catch (e) { console.log('[ui] death.js не найден: ' + e.message); }
 }
 
+/* ================= OWNED VEHICLES ================= */
+const ownedVeh = {};
+let vehColsOk = false;
+async function vehCols() {
+    if (vehColsOk) return;
+    vehColsOk = true;
+    try { await q('ALTER TABLE vehicles ADD COLUMN fuel_type VARCHAR(10) NULL'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN dimension INT NOT NULL DEFAULT 0'); } catch (e) {}
+}
+function saveVeh(v) {
+    if (!v || !mp.vehicles.exists(v) || !v.dbId) return;
+    const pos = v.position;
+    q('UPDATE vehicles SET pos_x = ?, pos_y = ?, pos_z = ?, heading = ?, fuel = ?, locked = ?, fuel_type = ? WHERE id = ?',
+        [pos.x, pos.y, pos.z, v.heading || 0, Math.round(fuelOf(v)), v.locked ? 1 : 0, v.getVariable('fuelType') || 'ai92', v.dbId]);
+}
+async function loadOwned(p) {
+    const id = accId(p);
+    if (!id || p.ownedLoaded) return;
+    p.ownedLoaded = true;
+    await vehCols();
+    const rows = await q('SELECT * FROM vehicles WHERE owner_id = ?', [id]);
+    rows.forEach(function (r) {
+        const cur = ownedVeh[r.id];
+        if (cur && mp.vehicles.exists(cur)) { if (cur.despawnAt) cur.despawnAt = 0; return; }
+        let exist = null;
+        mp.vehicles.forEach(function (v) { if (!exist && String(v.numberPlate || '').trim() === String(r.plate).trim()) exist = v; });
+        if (exist) { exist.dbId = r.id; exist.setVariable('ownerId', id); ownedVeh[r.id] = exist; return; }
+        if (r.pos_x === null || r.pos_x === undefined) return;
+        const v = mp.vehicles.new(mp.joaat(String(r.model)), new mp.Vector3(r.pos_x, r.pos_y, r.pos_z + 0.3), {
+            heading: Number(r.heading) || 0, numberPlate: r.plate, dimension: Number(r.dimension) || 0,
+            locked: !!Number(r.locked), engine: false
+        });
+        try { v.setColor(Number(r.color1) || 0, Number(r.color2) || 0); } catch (e) {}
+        v.dbId = r.id;
+        v.setVariable('ownerId', id);
+        v.setVariable('fuel', r.fuel === null || r.fuel === undefined ? 100 : Number(r.fuel));
+        if (r.fuel_type) v.setVariable('fuelType', r.fuel_type);
+        ownedVeh[r.id] = v;
+    });
+    if (rows.length) notify(p, 'ok', 'Ваш транспорт на месте: ' + rows.length + ' шт.');
+}
+setInterval(function () {
+    mp.players.forEach(function (p) { if (accId(p) && !p.ownedLoaded) loadOwned(p).catch(function (e) { console.log('[veh] ' + e.message); }); });
+    const now = Date.now();
+    Object.keys(ownedVeh).forEach(function (k) {
+        const v = ownedVeh[k];
+        if (!v || !mp.vehicles.exists(v)) { delete ownedVeh[k]; return; }
+        if (v.despawnAt && now > v.despawnAt && !(v.getOccupants && v.getOccupants().length)) {
+            saveVeh(v); v.destroy(); delete ownedVeh[k];
+        }
+    });
+}, 4000);
+setInterval(function () { Object.keys(ownedVeh).forEach(function (k) { saveVeh(ownedVeh[k]); }); }, 60000);
+mp.events.add('playerExitVehicle', function (p, v) {
+    if (!v.dbId) {
+        const id = accId(p);
+        if (id && ownsVeh(p, v)) q('SELECT id FROM vehicles WHERE plate = ? LIMIT 1', [String(v.numberPlate || '').trim()]).then(function (r) { if (r[0]) { v.dbId = r[0].id; ownedVeh[r[0].id] = v; saveVeh(v); } });
+        return;
+    }
+    saveVeh(v);
+});
+mp.events.add('playerQuit', function (p) {
+    const id = accId(p);
+    if (!id) return;
+    Object.keys(ownedVeh).forEach(function (k) {
+        const v = ownedVeh[k];
+        if (v && mp.vehicles.exists(v) && Number(v.getVariable('ownerId')) === Number(id)) { saveVeh(v); v.despawnAt = Date.now() + 5 * 60000; }
+    });
+});
+
 global.UiSystem = { setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
@@ -953,6 +1023,7 @@ mp.events.add('srv:veh:lock', async function (p, vid) {
     if (!own && !adm) { try { own = await ownsByPlate(p, v); } catch (e) { own = false; } }
     if (!own && !adm) return notify(p, 'error', 'Это не ваша машина');
     v.locked = !v.locked;
+    if (v.dbId) saveVeh(v);
     p.call('veh:lockFx', [v.remoteId !== undefined ? v.remoteId : v.id, v.locked]);
     notify(p, v.locked ? 'warn' : 'ok', (v.locked ? 'Машина закрыта' : 'Машина открыта') + (!own && adm ? ' (админ)' : ''));
 });
