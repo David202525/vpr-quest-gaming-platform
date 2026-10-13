@@ -764,3 +764,9 @@ label.check input {
 .z-kinds { display: inline-flex; gap: 4px; }
 .z-k { padding: 6px 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); color: rgba(255,255,255,.6); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .z-k.active { background: rgba(242,182,50,.15); border-color: #f2b632; color: #fff; }
+
+.gov-g { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.gov-g div { padding: 14px; background: rgba(242,182,50,.07); border: 1px solid rgba(242,182,50,.2); }
+.gov-g small { display: block; font-size: 11px; color: rgba(255,255,255,.5); }
+.gov-g b { font-size: 24px; color: #f2c25a; }
+.z-kinds { flex-wrap: wrap; }

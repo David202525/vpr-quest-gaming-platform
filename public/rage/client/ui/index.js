@@ -78,6 +78,7 @@ function closeUi(silent) {
     if (!uiOpen) return;
     if (uiOpen === 'atm') mp.events.callRemote('srv:atm:close');
     if (uiOpen === 'biz') mp.events.callRemote('srv:biz:close');
+    if (uiOpen === 'shop') mp.events.callRemote('srv:shop:close');
     uiOpen = null;
     uiTyping = false;
     if (!silent) uiCall('uiClose', '');
@@ -337,12 +338,13 @@ setInterval(function () {
     var p = mp.players.local, pos = p.position, best = null, bd = 2.2;
     if (!p.vehicle) for (var i = 0; i < BIZ_PTS.length; i++) {
         var b = BIZ_PTS[i];
+        if (b[0] === 'shop' || b[0] === 'gun') continue;
         var d = mp.game.system.vdist(pos.x, pos.y, pos.z, b[2], b[3], b[4]);
         if (d < bd) { bd = d; best = b; }
     }
     bizNear = best;
     var k = best ? best[0] + best[1] : '';
-    if (best && bizHinted !== k && !uiOpen) { bizHinted = k; mp.events.call('hud:notify', 'ok', best[5] + ': нажмите E — управление бизнесом', 3500); }
+    if (best && bizHinted !== k && !uiOpen) { bizHinted = k; mp.events.call('hud:notify', 'ok', best[5] + (best[6] ? ': продаётся! Нажмите E' : ': нажмите E — управление бизнесом'), 3500); }
     if (!best) bizHinted = '';
 }, 400);
 mp.keys.bind(0x45, false, function () {
@@ -356,3 +358,42 @@ mp.events.add('ui:bizOpen', function (json) {
 });
 mp.events.add('cef:biz:open', function (kind, id) { mp.events.callRemote('srv:biz:open', kind, Number(id)); });
 mp.events.add('cef:biz:act', function (act, val) { mp.events.callRemote('srv:biz:act', act, String(val === undefined ? '' : val)); });
+
+/* ================= SHOPS ================= */
+var SHOP_LIST = [];
+var shopNear = null;
+var shopHinted = 0;
+mp.events.add('shop:list', function (json) { try { SHOP_LIST = JSON.parse(json); } catch (e) {} });
+setTimeout(function () { mp.events.callRemote('srv:shop:list'); }, 5500);
+setInterval(function () {
+    var p = mp.players.local, pos = p.position, best = null, bd = 2.4;
+    if (!p.vehicle) for (var i = 0; i < SHOP_LIST.length; i++) {
+        var s = SHOP_LIST[i];
+        var d = mp.game.system.vdist(pos.x, pos.y, pos.z, s[2], s[3], s[4]);
+        if (d < bd) { bd = d; best = s; }
+    }
+    shopNear = best;
+    if (best && shopHinted !== best[1] && !uiOpen) { shopHinted = best[1]; mp.events.call('hud:notify', 'ok', best[5] + ': нажмите E — открыть магазин', 3000); }
+    if (!best) shopHinted = 0;
+}, 400);
+mp.keys.bind(0x45, false, function () {
+    if (!shopNear || busy() || uiOpen) return;
+    mp.events.callRemote('srv:shop:open', shopNear[1]);
+});
+mp.events.add('ui:shopOpen', function () { if (!uiOpen) openUi('shop', { fromUi: true }); });
+mp.events.add('cef:shop:buy', function (k, qn, pay) { mp.events.callRemote('srv:shop:buy', k, Number(qn), pay); });
+
+/* метка «продаётся»: маленький значок $ только у свободных бизнесов и только вблизи */
+mp.events.add('render', function () {
+    if (uiOpen) return;
+    var pos = mp.players.local.position;
+    for (var i = 0; i < BIZ_PTS.length; i++) {
+        var b = BIZ_PTS[i];
+        if (!b[6]) continue;
+        var dx = pos.x - b[2], dy = pos.y - b[3];
+        var d2 = dx * dx + dy * dy;
+        if (d2 > 400) continue;
+        var a = d2 < 16 ? 200 : 120;
+        mp.game.graphics.drawMarker(29, b[2], b[3], b[4] + 0.15, 0, 0, 0, 0, 0, 0, 0.32, 0.32, 0.32, 242, 182, 50, a, true, true, 2, false, null, null, false);
+    }
+});

@@ -55,7 +55,7 @@ function srvWarn(kind) {
 }
 
 window.uiOpen = function (name, opt) {
-    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card', 'biz'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card', 'biz', 'shop'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
     current = name;
     hideCtx();
     if (name === 'atm') { ATM.d = null; ATM.view = 'boot'; ATM.input = ''; renderAtm(); }
@@ -65,7 +65,7 @@ window.uiOpen = function (name, opt) {
     if (name === 'menu') { if (!DATA.menu) DATA.menu = emptyMenu(); renderMenu(); srvWarn('menu'); }
 };
 window.uiClose = function () {
-    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card', 'biz'].forEach(function (s) { $(s).classList.remove('show'); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card', 'biz', 'shop'].forEach(function (s) { $(s).classList.remove('show'); });
     current = null;
     hideCtx();
     closeModal();
@@ -90,6 +90,7 @@ window.uiData = function (kind, d) {
     if (kind === 'atm') { atmData(d); }
     if (kind === 'card') { renderCard(d); }
     if (kind === 'biz') { bizData(d); }
+    if (kind === 'shop') { shopData(d); }
     if (kind === 'docs') { if (typeof d.focus === 'number') docSel = d.focus; renderDocs(); }
 };
 function closeAll() { window.uiClose(); trig('cef:ui:close'); }
@@ -1027,7 +1028,8 @@ function bizData(d) {
 function bzTabs(d) {
     var t = [['main', '📊', 'Обзор']];
     if (d.own) {
-        if (d.kind === 'fuel') t.push(['stock', '🛢', 'Склад']);
+        if (d.stock) t.push(['stock', d.kind === 'fuel' ? '🛢' : '📦', 'Склад']);
+        if (d.assort) t.push(['assort', '🏷', 'Ассортимент']);
         t.push(['set', '⚙', 'Настройки'], ['log', '🧾', 'Журнал']);
     }
     return '<nav class="bz-tabs">' + t.map(function (x) { return '<button class="' + (BZ.tab === x[0] ? 'active' : '') + '" data-bt="' + x[0] + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('') + '</nav>';
@@ -1047,19 +1049,24 @@ function renderBiz() {
         body = '<div class="bz-tiles">' + tiles.map(function (x) { return '<div class="bz-tile ' + (x.big ? 'big' : '') + (x.warn ? ' warn' : '') + '"><small>' + esc(x.l) + '</small><b>' + esc(x.v) + '</b></div>'; }).join('') + '</div>';
         if (d.own) body += '<div class="bz-acts"><button class="bz-btn pri" data-ba="collect">💰 Забрать выручку на карту</button></div>';
         else if (d.forSale) body += '<div class="bz-buy"><div><small>Цена бизнеса</small><b>' + money(d.price) + '</b><span>На вашей карте: ' + money(d.myBank) + '</span></div>' +
-            '<p>' + (d.kind === 'fuel' ? 'Вы получаете всю выручку с продажи топлива, сами ставите цены и заказываете поставки. Если топливо закончится — АЗС перестанет продавать.' : 'Вы получаете комиссию с каждого снятия наличных другими игроками. Размер комиссии ставите сами.') + '</p>' +
+            '<p>' + (d.kind === 'fuel' ? 'Вы получаете всю выручку с продажи топлива, сами ставите цены и заказываете поставки. Если топливо закончится — АЗС перестанет продавать.' : d.kind === 'atm' ? 'Вы получаете комиссию с каждого снятия наличных другими игроками. Размер комиссии ставите сами.' : 'Вся выручка магазина — ваша. Вы ставите наценку, выбираете ассортимент и заказываете поставки товара. Пустой склад — нет продаж.') + '</p>' +
             '<button class="bz-btn pri" data-ba="buy"' + (d.myBank < d.price ? ' disabled' : '') + '>Купить за ' + money(d.price) + '</button></div>';
         else body += '<p class="bz-p">Этот бизнес принадлежит игроку <b>' + esc(d.ownerName) + '</b>.</p>';
     } else if (BZ.tab === 'stock' && d.stock) {
         var S = d.stock, pc = Math.round(S.cur / S.max * 100);
+        var mn = S.unit === 'л' ? 100 : 10, ov = Math.max(mn, Math.min(BZ.order, Math.max(mn, S.max - S.cur)));
         body = '<div class="bz-tank"><div class="bz-tank-v"><i style="height:' + pc + '%" class="' + (S.deficit ? 'low' : '') + '"></i><span>' + pc + '%</span></div>' +
-            '<div><small>Запас топлива</small><b>' + S.cur + ' / ' + S.max + ' л</b>' + (S.deficit ? '<em>Дефицит! Закажите поставку</em>' : '') +
-            '<div class="bz-order"><label>Заказать у поставщика · $' + S.wholesale + ' за литр</label><div class="bz-row"><input type="range" min="100" max="' + Math.max(100, S.max - S.cur) + '" step="100" value="' + Math.min(BZ.order, Math.max(100, S.max - S.cur)) + '" id="bzOrd"><b id="bzOrdV">' + Math.min(BZ.order, Math.max(100, S.max - S.cur)) + ' л</b></div>' +
-            '<button class="bz-btn pri" data-ba="order">Оформить заказ · <span id="bzOrdC">' + money(Math.min(BZ.order, Math.max(100, S.max - S.cur)) * S.wholesale) + '</span></button><small class="bz-note">Списывается из кассы, если не хватает — с карты. Скоро поставки будут возить дальнобойщики.</small></div></div></div>' +
+            '<div><small>' + (S.title || 'Запас') + '</small><b>' + S.cur + ' / ' + S.max + ' ' + (S.unit || 'л') + '</b>' + (S.deficit ? '<em>Дефицит! Закажите поставку</em>' : '') +
+            '<div class="bz-order"><label>Заказать у поставщика · $' + S.wholesale + ' за ' + (S.unit === 'л' ? 'литр' : 'единицу') + '</label><div class="bz-row"><input type="range" min="' + mn + '" max="' + Math.max(mn, S.max - S.cur) + '" step="' + mn + '" value="' + ov + '" id="bzOrd"><b id="bzOrdV">' + ov + ' ' + S.unit + '</b></div>' +
+            '<button class="bz-btn pri" data-ba="order">Оформить заказ · <span id="bzOrdC">' + money(ov * S.wholesale) + '</span></button><small class="bz-note">Списывается из кассы, если не хватает — с карты. Скоро поставки будут возить дальнобойщики.</small></div></div></div>' +
             '<h4 class="bz-h4">Заказы</h4><div class="bz-list">' + (S.orders.length ? S.orders.map(function (o) {
                 var st = { pending: ['Ожидает', 'w'], taken: ['В пути', 'b'], done: ['Доставлен', 'o'], cancel: ['Отменён', 'e'] }[o.s] || [o.s, ''];
-                return '<div class="bz-li"><span>🛢 ' + o.l + ' л</span><small>' + esc(o.d) + '</small><em class="' + st[1] + '">' + st[0] + '</em></div>';
+                return '<div class="bz-li"><span>' + (S.unit === 'л' ? '🛢 ' : '📦 ') + o.l + ' ' + S.unit + '</span><small>' + esc(o.d) + '</small><em class="' + st[1] + '">' + st[0] + '</em></div>';
             }).join('') : '<p class="bz-p">Заказов пока не было</p>') + '</div>';
+    } else if (BZ.tab === 'assort' && d.assort) {
+        body = '<p class="bz-p" style="margin-bottom:12px">Выключите товар, чтобы убрать его с витрины. Цены задаются наценкой в «Настройках».</p><div class="bz-assort">' + d.assort.map(function (x) {
+            return '<div class="bz-as ' + (x.on ? '' : 'off') + '"><span class="i">' + x.i + '</span><div><b>' + esc(x.n) + '</b><small>' + money(x.price) + '</small></div><button class="bz-sw ' + (x.on ? 'on' : '') + '" data-tg="' + x.k + '"><i></i></button></div>';
+        }).join('') + '</div>';
     } else if (BZ.tab === 'set') {
         body = d.settings.map(function (s) {
             return '<div class="bz-set"><div class="bz-set-top"><label>' + esc(s.l) + '</label><b id="bzv_' + s.k + '">' + s.v + s.unit + '</b></div>' +
@@ -1067,7 +1074,9 @@ function renderBiz() {
                 (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '<button class="bz-btn" data-save="' + s.k + '">Сохранить</button></div>';
         }).join('') +
             '<div class="bz-set"><label>Название бизнеса</label><div class="bz-row"><input class="bz-in" id="bzName" value="' + esc(d.name) + '" maxlength="32"><button class="bz-btn" data-ba="rename">Переименовать</button></div></div>' +
-            '<div class="bz-set danger"><label>Продать государству</label><small>Вы получите ' + money(d.sellBack) + ' + деньги из кассы. Действие необратимо.</small><button class="bz-btn dan" data-ba="sell">Продать бизнес</button></div>';
+            '<div class="bz-set danger"><label>Продать государству</label>' +
+            '<div class="bz-sell"><div><small>Гос. стоимость</small><b>' + money(d.sell.price) + '</b></div><div class="neg"><small>Налог в казну ' + d.sell.rate + '%</small><b>−' + money(d.sell.tax) + '</b></div><div><small>Касса</small><b>+' + money(d.balance) + '</b></div><div class="tot"><small>Вы получите</small><b>' + money(d.sell.get) + '</b></div></div>' +
+            '<small>Деньги придут на банковскую карту. Действие необратимо.</small><button class="bz-btn dan" data-ba="sell">Продать бизнес</button></div>';
     } else if (BZ.tab === 'log') {
         body = '<div class="bz-list">' + (d.log && d.log.length ? d.log.map(function (x) {
             return '<div class="bz-li"><span>' + esc(x.text) + '</span><small>' + esc(x.d) + '</small>' + (x.a ? '<em class="' + (x.a > 0 ? 'o' : 'e') + '">' + (x.a > 0 ? '+' : '−') + money(Math.abs(x.a)) + '</em>' : '<em></em>') + '</div>';
@@ -1078,8 +1087,9 @@ function renderBiz() {
     $('bzBox').querySelectorAll('[data-bt]').forEach(function (b) { b.onclick = function () { BZ.tab = b.dataset.bt; BZ.msg = null; renderBiz(); }; });
     $('bzBox').querySelectorAll('[data-set]').forEach(function (r) { r.oninput = function () { $('bzv_' + r.dataset.set).textContent = r.value + r.dataset.unit; }; });
     $('bzBox').querySelectorAll('[data-save]').forEach(function (b) { b.onclick = function () { var r = $('bzBox').querySelector('[data-set="' + b.dataset.save + '"]'); trig('cef:biz:act', 'set', b.dataset.save + ':' + r.value); }; });
+    $('bzBox').querySelectorAll('[data-tg]').forEach(function (b) { b.onclick = function () { trig('cef:biz:act', 'toggle', b.dataset.tg); }; });
     var ord = $('bzOrd');
-    if (ord) ord.oninput = function () { BZ.order = Number(ord.value); $('bzOrdV').textContent = ord.value + ' л'; $('bzOrdC').textContent = money(ord.value * d.stock.wholesale); };
+    if (ord) ord.oninput = function () { BZ.order = Number(ord.value); $('bzOrdV').textContent = ord.value + ' ' + d.stock.unit; $('bzOrdC').textContent = money(ord.value * d.stock.wholesale); };
     $('bzBox').querySelectorAll('[data-ba]').forEach(function (b) {
         b.onclick = function () {
             var a = b.dataset.ba;
@@ -1089,4 +1099,38 @@ function renderBiz() {
             trig('cef:biz:act', a, '');
         };
     });
+}
+
+/* ================= SHOP WINDOW ================= */
+var SH = { d: null, pay: 'cash', qty: {} };
+function shopData(d) { SH.d = d; renderShop(); }
+function renderShop() {
+    var d = SH.d;
+    if (!d) return;
+    var gun = d.kind === 'gun';
+    var pc = Math.round(d.stock / d.max * 100);
+    var msg = d.err ? '<div class="bz-msg e">' + esc(d.err) + '</div>' : d.ok ? '<div class="bz-msg o">' + esc(d.ok) + '</div>' : '';
+    var h = '<header class="sh-head ' + (gun ? 'gun' : '') + '"><div class="sh-logo">' + (gun ? '🔫' : '🛒') + '</div><div><small>' + esc(d.title) + '</small><h2>' + esc(d.name) + '</h2>' +
+        '<span class="sh-own">' + (d.own ? 'Ваш магазин' : d.owner ? 'Владелец: ' + esc(d.owner) : 'Государственный') + '</span></div>' +
+        '<div class="sh-stock ' + (d.deficit ? 'low' : '') + '"><small>Товар на складе</small><div class="fs-bar"><i style="width:' + pc + '%"></i></div><b>' + d.stock + ' шт.' + (d.deficit ? ' · дефицит' : '') + '</b></div>' +
+        '<div class="m-close" id="shClose">Закрыть <span>ESC</span></div></header>';
+    if (gun) h += '<div class="sh-lic ' + (d.lic ? 'ok' : '') + '">' + (d.lic ? '✓ Лицензия на оружие проверена' : '⚠ Нет лицензии на оружие — огнестрел недоступен. Холодное оружие, патроны и броня — без лицензии') + '</div>';
+    h += msg + '<div class="sh-grid">' + d.items.map(function (x) {
+        var block = x.off || (x.lic && !d.lic) || d.stock <= 0;
+        var q = SH.qty[x.k] || 1, single = /^(pistol|smg|knife|bat|armour|phone|gloves)$/.test(x.k);
+        return '<div class="sh-it ' + (block ? 'dis' : '') + '"><div class="sh-ico">' + x.i + '</div><b>' + esc(x.n) + (x.pack > 1 ? ' <em>x' + x.pack + '</em>' : '') + '</b>' +
+            '<span class="sh-pr">' + money(x.price) + '</span>' + (x.lic ? '<span class="sh-tag">Лицензия</span>' : '') +
+            (x.off ? '<span class="sh-na">Нет в продаже</span>' : '<div class="sh-buy">' + (single ? '' : '<div class="sh-q"><button data-qm="' + x.k + '">−</button><span>' + q + '</span><button data-qp="' + x.k + '">+</button></div>') +
+                '<button class="sh-b" data-buy="' + x.k + '"' + (block ? ' disabled' : '') + '>Купить' + (q > 1 && !single ? ' · ' + money(x.price * q) : '') + '</button></div>') + '</div>';
+    }).join('') + '</div>' +
+        '<footer class="sh-foot"><div class="fu-pay sh-pay"><button class="fu-pm ' + (SH.pay === 'cash' ? 'active' : '') + '" data-spay="cash"><span>💵 Наличные</span><b>' + money(d.money) + '</b></button>' +
+        '<button class="fu-pm ' + (SH.pay === 'card' ? 'active' : '') + '" data-spay="card"><span>💳 Карта</span><b>' + money(d.bank) + '</b></button></div>' +
+        ((d.own || d.forSale) ? '<button class="bz-btn ' + (d.forSale ? 'pri' : '') + '" id="shBiz">' + (d.own ? '⚙ Управление бизнесом' : '🏷 Купить этот бизнес') + '</button>' : '') + '</footer>';
+    $('shBox').innerHTML = h;
+    $('shClose').onclick = closeAll;
+    if ($('shBiz')) $('shBiz').onclick = function () { trig('cef:biz:open', d.kind, d.id); };
+    $('shBox').querySelectorAll('[data-spay]').forEach(function (b) { b.onclick = function () { SH.pay = b.dataset.spay; renderShop(); }; });
+    $('shBox').querySelectorAll('[data-qp]').forEach(function (b) { b.onclick = function () { SH.qty[b.dataset.qp] = Math.min(10, (SH.qty[b.dataset.qp] || 1) + 1); renderShop(); }; });
+    $('shBox').querySelectorAll('[data-qm]').forEach(function (b) { b.onclick = function () { SH.qty[b.dataset.qm] = Math.max(1, (SH.qty[b.dataset.qm] || 1) - 1); renderShop(); }; });
+    $('shBox').querySelectorAll('[data-buy]').forEach(function (b) { b.onclick = function () { trig('cef:shop:buy', b.dataset.buy, SH.qty[b.dataset.buy] || 1, SH.pay); }; });
 }

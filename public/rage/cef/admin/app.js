@@ -296,13 +296,23 @@ document.querySelectorAll('[data-zk]').forEach(function (b) {
     b.onclick = function () {
         ZK = b.dataset.zk;
         document.querySelectorAll('[data-zk]').forEach(function (x) { x.classList.toggle('active', x === b); });
-        $('zNewT').textContent = ZK === 'fuel' ? 'Новая АЗС' : 'Новый банкомат';
-        $('zPrice').value = ZK === 'fuel' ? 250000 : 150000;
+        $('zNewT').textContent = { fuel: 'Новая АЗС', atm: 'Новый банкомат', shop: 'Новый магазин 24/7 (встаньте у прилавка)', gun: 'Новый оружейный (встаньте у прилавка)' }[ZK] || '';
+        $('zPrice').value = { fuel: 250000, atm: 150000, shop: 120000, gun: 400000 }[ZK] || 0;
         renderBiz();
     };
 });
 function renderBiz() {
-    var list = (ZK === 'fuel' ? D.stations : D.atms) || [];
+    var isGov = ZK === 'gov';
+    $('zGov').style.display = isGov ? '' : 'none';
+    $('zNew').style.display = isGov ? 'none' : '';
+    if (isGov) {
+        $('govBal').textContent = '$' + String((D.gov && D.gov.balance) || 0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        $('govTax').textContent = ((D.gov && D.gov.tax) || 0) + '%';
+        $('zCount').textContent = '';
+        $('zList').innerHTML = '';
+        return;
+    }
+    var list = (ZK === 'fuel' ? D.stations : ZK === 'atm' ? D.atms : (D.shops || []).filter(function (s) { return s.kind === ZK; })) || [];
     var f = ($('zSearch').value || '').trim().toLowerCase();
     $('zCount').textContent = list.length;
     var can5 = D.me.level >= 5;
@@ -310,13 +320,13 @@ function renderBiz() {
     $('zList').innerHTML = list.filter(function (a) { return !f || (a.name + ' ' + (a.ownerName || '')).toLowerCase().indexOf(f) >= 0; }).map(function (a) {
         return '<div class="tr biz"><b>#' + a.id + ' ' + esc(a.name) + '</b>' +
             '<span>' + (a.ownerName ? '👤 ' + esc(a.ownerName) : '<span class="mut">гос. (продаётся)</span>') + '</span>' +
-            '<span class="mut">цена $' + a.price + ' · ' + (ZK === 'fuel' ? 'запас ' + a.stock + '/' + a.max + ' л · ' + a.markup + '%' : a.fee + '%') + ' · касса $' + a.balance + ' · всего $' + a.earned + '</span>' +
+            '<span class="mut">цена $' + a.price + ' · ' + (ZK === 'fuel' ? 'запас ' + a.stock + '/' + a.max + ' л · ' + a.markup + '%' : ZK === 'atm' ? a.fee + '%' : 'склад ' + a.stock + '/' + a.max + ' шт. · ' + a.markup + '%') + ' · касса $' + a.balance + ' · всего $' + a.earned + '</span>' +
             '<span class="biz-acts">' +
             '<button class="btn" data-ztp="' + a.id + '">ТП</button>' +
             '<button class="btn" data-zprice="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Цена</button>' +
             '<button class="btn" data-zown="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Владелец</button>' +
             '<button class="btn" data-zfree="' + a.id + '"' + (can5 && a.ownerName ? '' : ' disabled') + '>Изъять</button>' +
-            (ZK === 'fuel' ? '<button class="btn" data-zstock="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Запас</button><button class="btn" data-zpos="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Точка сюда</button>' : '') +
+            (ZK !== 'atm' ? '<button class="btn" data-zstock="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Запас</button><button class="btn" data-zpos="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Точка сюда</button>' : '') +
             '<button class="btn danger" data-zdel=""' + a.id + '"' + (can5 ? '' : ' disabled') + '>Удалить</button>' +
             '</span></div>';
     }).join('') || '<div class="empty">Банкоматов нет</div>';
@@ -329,8 +339,8 @@ $('zList').addEventListener('click', function (e) {
     if (b.dataset.ztp) act({ action: 'atm', kind: ZK, op: 'tp', atm: Number(b.dataset.ztp) });
     if (b.dataset.zdel) act({ action: 'atm', kind: ZK, op: 'del', atm: Number(b.dataset.zdel) });
     if (b.dataset.zfree) act({ action: 'atm', kind: ZK, op: 'owner', atm: Number(b.dataset.zfree), pid: -1 });
-    if (b.dataset.zstock) zAsk('Запас топлива на АЗС, литров', function (v) { act({ action: 'atm', kind: 'fuel', op: 'stock', atm: Number(b.dataset.zstock), value: Number(v) }); });
-    if (b.dataset.zpos) act({ action: 'atm', kind: 'fuel', op: 'bizpos', atm: Number(b.dataset.zpos) });
+    if (b.dataset.zstock) zAsk(ZK === 'fuel' ? 'Запас топлива на АЗС, литров' : 'Товара на складе, шт.', function (v) { act({ action: 'atm', kind: ZK, op: 'stock', atm: Number(b.dataset.zstock), value: Number(v) }); });
+    if (b.dataset.zpos) act({ action: 'atm', kind: ZK, op: 'bizpos', atm: Number(b.dataset.zpos) });
     if (b.dataset.zprice) zAsk('Новая цена банкомата, $', function (v) { act({ action: 'atm', kind: ZK, op: 'price', atm: Number(b.dataset.zprice), value: Number(v) }); });
     if (b.dataset.zown) zAsk('ID игрока онлайн — новый владелец', function (v) { act({ action: 'atm', kind: ZK, op: 'owner', atm: Number(b.dataset.zown), pid: Number(v) }); });
 });
@@ -349,3 +359,6 @@ function zAsk(title, cb) {
     $('zAskC').onclick = function () { m.remove(); };
     inp.onkeydown = function (e) { if (e.key === 'Enter') go(); if (e.key === 'Escape') { e.stopPropagation(); m.remove(); } };
 }
+
+$('govTaxBtn').onclick = function () { var v = $('govTaxIn').value; if (v !== '') act({ action: 'gov', op: 'tax', value: Number(v) }); };
+$('govWdBtn').onclick = function () { var v = Number($('govWdIn').value); if (v > 0) act({ action: 'gov', op: 'withdraw', value: v }); };

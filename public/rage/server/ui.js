@@ -672,7 +672,7 @@ async function menuPayload(p) {
         { n: 'Гонщик', d: 'Прокачать вождение до 5 уровня', i: '🏁', done: d.skills.drive >= 500 },
         { n: 'Коллекционер', d: 'Собрать 20 предметов', i: '🎒', done: itemsCount >= 20 }
     ];
-    const shop = Object.keys(ITEMS).filter(function (k) { return ITEMS[k].price; }).map(function (k) {
+    const shop = Object.keys(ITEMS).filter(function (k) { return ITEMS[k].price && !ITEMS[k].wp && k.indexOf('ammo_') !== 0 && k !== 'armour'; }).map(function (k) {
         const it = ITEMS[k];
         const pack = it.pack || 1;
         return { k: k, n: it.n + (pack > 1 ? ' x' + pack : ''), i: it.i, price: it.price * pack, cat: it.wp ? 'Оружие' : it.cloth || it.slot ? 'Одежда' : k.indexOf('ammo_') === 0 ? 'Оружие' : 'Разное' };
@@ -706,6 +706,7 @@ mp.events.add('srv:menu:get', function (p) { sendMenu(p).catch(function (e) { co
 mp.events.add('srv:menu:buy', function (p, k) {
     const it = ITEMS[k];
     if (!it || !it.price) return;
+    if (it.wp || k.indexOf('ammo_') === 0 || k === 'armour') return notify(p, 'error', 'Оружие продаётся только в Ammu-Nation');
     const pack = it.pack || 1;
     const price = it.price * pack;
     const m = getMoney(p);
@@ -1188,6 +1189,7 @@ mp.events.add('srv:atm:biz', async function (p, act, val) {
         const b = getBank(p);
         if (b < a.price) return sendAtm(p, a, { err: 'Нужно $' + a.price + ' на карте' });
         setMB(p, getMoney(p), b - a.price);
+        govAdd(a.price, 'Продажа бизнеса: ' + a.name + ' → ' + holder(p));
         a.owner = id; a.ownerName = holder(p);
         await q('UPDATE atms SET owner_id = ?, balance = 0 WHERE id = ?', [id, a.id]);
         tx(id, 'biz', -a.price, 'Покупка: ' + a.name);
@@ -1210,13 +1212,14 @@ mp.events.add('srv:atm:biz', async function (p, act, val) {
         return sendAtm(p, a, { ok: 'Комиссия: ' + f + '%' });
     }
     if (act === 'sell') {
-        const back = Math.floor(a.price * 0.6) + a.balance;
+        const qt = sellQuote(a);
         a.owner = null; a.ownerName = null; a.balance = 0;
         await q('UPDATE atms SET owner_id = NULL, balance = 0 WHERE id = ?', [a.id]);
-        setMB(p, getMoney(p), getBank(p) + back);
-        tx(id, 'biz', back, 'Продажа: ' + a.name);
+        setMB(p, getMoney(p), getBank(p) + qt.get);
+        tx(id, 'biz', qt.get, 'Продажа гос-ву: ' + a.name);
+        govAdd(qt.tax, 'Налог с продажи: ' + a.name + ' (' + qt.rate + '%)');
         p.atmAuth = null;
-        return sendAtm(p, a, { ok: 'Банкомат продан государству за $' + back });
+        return sendAtm(p, a, { ok: 'Продано за $' + qt.get + '. Налог $' + qt.tax + ' — в казну' });
     }
 });
 
@@ -1274,6 +1277,7 @@ global.AtmSystem = {
     list: function () { return ATMS; }, reload: loadAtms,
     admin: async function (p, d) {
         if (d.kind === 'fuel') return global.FuelSystem.admin(p, d);
+        if (d.kind === 'shop' || d.kind === 'gun') return global.ShopSystem.admin(p, d);
         const a = atmOf(d.atm);
         if (d.op === 'add') {
             const pos = p.position;
@@ -1304,6 +1308,40 @@ module.exports = global.UiSystem;
 
 mp.events.addCommand('uicheck', function (p) {
     p.outputChatBox('!{#8fd14f}[UI] Серверный модуль работает. Аккаунт: ' + (accId(p) ? '#' + accId(p) : 'не найден, данные по нику'));
+});
+
+/* ================= GOV TREASURY ================= */
+const GOV = { balance: 0, tax: 30, ready: false };
+async function govInit() {
+    if (!db) return;
+    await q(`CREATE TABLE IF NOT EXISTS gov_treasury (id INT PRIMARY KEY, balance BIGINT NOT NULL DEFAULT 0, sell_tax INT NOT NULL DEFAULT 30) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await q(`CREATE TABLE IF NOT EXISTS gov_tx (id INT AUTO_INCREMENT PRIMARY KEY, amount BIGINT NOT NULL, text VARCHAR(140) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await q('INSERT IGNORE INTO gov_treasury (id, balance, sell_tax) VALUES (1, 0, 30)');
+    const r = await q('SELECT balance, sell_tax FROM gov_treasury WHERE id = 1');
+    if (r[0]) { GOV.balance = Number(r[0].balance) || 0; GOV.tax = Number(r[0].sell_tax); }
+    GOV.ready = true;
+}
+setTimeout(function () { govInit().catch(function (e) { console.log('[gov] ' + e.message); }); }, 1500);
+function govAdd(amount, text) {
+    amount = Math.floor(amount);
+    if (!amount) return;
+    GOV.balance += amount;
+    q('UPDATE gov_treasury SET balance = balance + ? WHERE id = 1', [amount]);
+    q('INSERT INTO gov_tx (amount, text) VALUES (?, ?)', [amount, String(text).slice(0, 140)]);
+}
+function sellQuote(b) {
+    const tax = Math.floor(b.price * GOV.tax / 100);
+    return { price: b.price, tax: tax, rate: GOV.tax, get: b.price - tax + (b.balance || 0) };
+}
+global.GovSystem = {
+    get: function () { return { balance: GOV.balance, tax: GOV.tax }; },
+    add: govAdd,
+    setTax: function (t) { GOV.tax = Math.max(0, Math.min(90, Math.round(Number(t) || 0))); q('UPDATE gov_treasury SET sell_tax = ? WHERE id = 1', [GOV.tax]); return GOV.tax; },
+    history: function () { return q('SELECT amount, text, created_at FROM gov_tx ORDER BY id DESC LIMIT 40'); },
+    withdraw: function (n, who) { n = Math.floor(Number(n) || 0); if (n <= 0 || n > GOV.balance) return false; govAdd(-n, 'Списание: ' + who); return true; }
+};
+mp.events.addCommand('treasury', function (p) {
+    p.outputChatBox('!{#f2c25a}[Казна] Бюджет штата: $' + GOV.balance.toLocaleString('ru-RU') + ' · налог при продаже бизнеса: ' + GOV.tax + '%');
 });
 
 /* ================= FUEL ================= */
@@ -1365,23 +1403,48 @@ async function loadStations() {
     } else if (rows.length) {
         STATIONS = rows.map(function (r) {
             return { id: r.id, name: r.name, x: Number(r.x), y: Number(r.y), z: Number(r.z),
-                bx: r.bx !== null ? Number(r.bx) : Number(r.x), by: r.by_ !== null ? Number(r.by_) : Number(r.y), bz: r.bz !== null ? Number(r.bz) : Number(r.z),
+                bx: r.bx !== null ? Number(r.bx) : null, by: r.by_ !== null ? Number(r.by_) : null, bz: r.bz !== null ? Number(r.bz) : null,
                 owner: r.owner_id ? Number(r.owner_id) : null, ownerName: r.owner_nick || r.owner_login || null,
                 price: Number(r.price) || 0, markup: Number(r.markup) || 100, stock: Number(r.stock) || 0, max: Number(r.max_stock) || 5000,
                 balance: Number(r.balance) || 0, earned: Number(r.earned) || 0, sold: Number(r.sold) || 0 };
         });
     }
+    STATIONS.forEach(function (st) {
+        if (st.bx !== null && st.bx !== undefined) return;
+        const pt = fuelBizPoint(st);
+        st.bx = pt.x; st.by = pt.y; st.bz = pt.z;
+        if (!st.nodb) q('UPDATE fuel_stations SET bx = ?, by_ = ?, bz = ? WHERE id = ?', [pt.x, pt.y, pt.z, st.id]);
+    });
     Object.keys(stBlips).forEach(function (k) { try { stBlips[k].destroy(); } catch (e) {} delete stBlips[k]; });
     STATIONS.forEach(function (st) {
         stBlips[st.id] = mp.blips.new(361, new mp.Vector3(st.x, st.y, st.z), { name: st.name, color: st.stock <= 0 ? 40 : 1, shortRange: true, scale: 0.8 });
     });
     mp.players.forEach(sendBizPoints);
 }
+/* кассы магазинов при заправках — точка бизнеса АЗС ставится у входа в здание */
+const STATION_STORES = [
+    [1163.37, -323.80, 69.21], [-48.52, -1757.51, 29.42], [-707.50, -914.26, 19.22], [-1820.52, 792.52, 138.12],
+    [1698.39, 4924.40, 42.06], [1729.22, 6414.13, 35.04], [2678.92, 3280.67, 55.24], [2557.46, 382.28, 108.62],
+    [1961.46, 3740.67, 32.34], [547.43, 2671.71, 42.16], [1166.02, 2708.93, 38.16], [-3038.94, 585.95, 7.91],
+    [25.72, -1346.97, 29.50], [373.88, 325.90, 103.57], [-3241.93, 1001.46, 12.83], [1135.81, -982.28, 46.42]
+];
+function fuelBizPoint(st) {
+    let best = null, bd = 75;
+    STATION_STORES.forEach(function (s) { const d = dist({ x: s[0], y: s[1], z: s[2] }, st); if (d < bd) { bd = d; best = s; } });
+    if (!best) return { x: st.x + 6, y: st.y + 6, z: st.z };
+    const dx = st.x - best[0], dy = st.y - best[1], len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x: best[0] + dx / len * 6.5, y: best[1] + dy / len * 6.5, z: best[2] };
+}
 function stationOf(id) { return STATIONS.find(function (s) { return s.id === Number(id); }) || null; }
+function allBizPoints() {
+    const out = STATIONS.map(function (s) { return ['fuel', s.id, s.bx, s.by, s.bz, s.name, s.owner ? 0 : 1]; });
+    (typeof SHOPS !== 'undefined' ? SHOPS : []).forEach(function (s) { out.push([s.kind, s.id, s.x, s.y, s.z, s.name, s.owner ? 0 : 1]); });
+    return out;
+}
 function sendBizPoints(p) {
     if (!mp.players.exists(p)) return;
     p.call('fuel:list', [JSON.stringify(STATIONS.map(function (s) { return [s.id, s.x, s.y, s.z]; }))]);
-    p.call('biz:points', [JSON.stringify(STATIONS.map(function (s) { return ['fuel', s.id, s.bx, s.by, s.bz, s.name]; }))]);
+    p.call('biz:points', [JSON.stringify(allBizPoints())]);
 }
 mp.events.add('playerReady', function (p) { setTimeout(function () { sendBizPoints(p); }, 3200); });
 mp.events.add('srv:biz:points', function (p) { sendBizPoints(p); });
@@ -1511,6 +1574,7 @@ mp.events.add('srv:fuel:buy', function (p, type, liters, pay) {
     if (st.owner) { st.balance += cost; st.earned += cost; }
     saveStation(st, st.owner ? ['stock', 'sold', 'balance', 'earned'] : ['stock', 'sold']);
     if (st.owner) bizLog('fuel', st.id, ft.n + ' ' + l + ' л — ' + holder(p), cost);
+    else govAdd(cost, 'Продажа топлива: ' + st.name);
     v.engine = false;
     setFuel(v, f + l);
     v.setVariable('fuelType', type);
@@ -1527,10 +1591,210 @@ mp.events.add('srv:fuel:refill', function (p) {
     p.call('ui:fuelOpen');
 });
 
+/* ================= SHOPS: 24/7 и ОРУЖЕЙНЫЕ ================= */
+const SHOP_CFG = {
+    shop: { n: 'Магазин 24/7', blip: 52, color: 2, price: 120000, unitCost: 40, max: 2000, items: ['medkit', 'bandage', 'pills', 'canister', 'repair', 'lockpick', 'phone', 'gloves'] },
+    gun: { n: 'Оружейный магазин', blip: 110, color: 1, price: 400000, unitCost: 300, max: 600, items: ['pistol', 'smg', 'knife', 'bat', 'ammo_pistol', 'ammo_smg', 'armour'] }
+};
+const SHOP_SEED = {
+    shop: [[373.88, 325.90, 103.57], [2557.46, 382.28, 108.62], [-3038.94, 585.95, 7.91], [-3241.93, 1001.46, 12.83], [547.43, 2671.71, 42.16],
+        [1961.46, 3740.67, 32.34], [2678.92, 3280.67, 55.24], [1729.22, 6414.13, 35.04], [25.72, -1346.97, 29.50], [1135.81, -982.28, 46.42],
+        [-1222.92, -906.98, 12.33], [-1487.55, -379.11, 40.16], [-2968.24, 390.91, 15.04], [1166.02, 2708.93, 38.16], [1392.56, 3604.68, 34.98],
+        [-48.52, -1757.51, 29.42], [1163.37, -323.80, 69.21], [-707.50, -914.26, 19.22], [-1820.52, 792.52, 138.12], [1698.39, 4924.40, 42.06]],
+    gun: [[-662.18, -934.96, 21.83], [810.25, -2157.60, 29.62], [1693.44, 3760.16, 34.71], [-330.24, 6083.88, 31.45], [252.63, -50.00, 69.94],
+        [22.09, -1107.28, 29.80], [2567.69, 294.38, 108.73], [-1117.58, 2698.61, 18.55], [842.44, -1033.42, 28.19]]
+};
+const GUN_NEEDS_LIC = ['pistol', 'smg'];
+let SHOPS = [];
+const shopBlips = {};
+
+async function shopsInit() {
+    if (!db) return console.log('[shops] нет базы');
+    await q(`CREATE TABLE IF NOT EXISTS shops (
+        id INT AUTO_INCREMENT PRIMARY KEY, kind VARCHAR(8) NOT NULL, name VARCHAR(48) NOT NULL,
+        x FLOAT NOT NULL, y FLOAT NOT NULL, z FLOAT NOT NULL,
+        owner_id INT NULL, price INT NOT NULL DEFAULT 120000, markup INT NOT NULL DEFAULT 100,
+        stock INT NOT NULL DEFAULT 1000, max_stock INT NOT NULL DEFAULT 2000,
+        balance BIGINT NOT NULL DEFAULT 0, earned BIGINT NOT NULL DEFAULT 0, sold BIGINT NOT NULL DEFAULT 0,
+        disabled TEXT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_kind (kind)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await q(`CREATE TABLE IF NOT EXISTS shop_orders (
+        id INT AUTO_INCREMENT PRIMARY KEY, shop_id INT NOT NULL, units INT NOT NULL, cost INT NOT NULL,
+        status VARCHAR(12) NOT NULL DEFAULT 'pending', driver_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, done_at TIMESTAMP NULL, INDEX idx_shop (shop_id), INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    for (const kind of Object.keys(SHOP_CFG)) {
+        const c = await q('SELECT COUNT(*) AS n FROM shops WHERE kind = ?', [kind]);
+        if (c[0] && Number(c[0].n) === 0) {
+            const C = SHOP_CFG[kind];
+            for (let i = 0; i < SHOP_SEED[kind].length; i++) {
+                const s = SHOP_SEED[kind][i];
+                await q('INSERT INTO shops (kind, name, x, y, z, price, stock, max_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [kind, (kind === 'gun' ? 'Ammu-Nation #' : '24/7 #') + (i + 1), s[0], s[1], s[2], C.price, Math.floor(C.max * 0.6), C.max]);
+            }
+            console.log('[shops] создано ' + C.n + ': ' + SHOP_SEED[kind].length);
+        }
+    }
+    await loadShops();
+}
+async function loadShops() {
+    const rows = await q('SELECT s.*, a.nick AS owner_nick, a.login AS owner_login FROM shops s LEFT JOIN accounts a ON a.id = s.owner_id ORDER BY s.id');
+    SHOPS = rows.map(function (r) {
+        let dis = [];
+        try { dis = JSON.parse(r.disabled || '[]'); } catch (e) {}
+        return { id: r.id, kind: r.kind, name: r.name, x: Number(r.x), y: Number(r.y), z: Number(r.z),
+            owner: r.owner_id ? Number(r.owner_id) : null, ownerName: r.owner_nick || r.owner_login || null,
+            price: Number(r.price) || 0, markup: Number(r.markup) || 100, stock: Number(r.stock) || 0, max: Number(r.max_stock) || 1000,
+            balance: Number(r.balance) || 0, earned: Number(r.earned) || 0, sold: Number(r.sold) || 0, disabled: dis };
+    });
+    Object.keys(shopBlips).forEach(function (k) { try { shopBlips[k].destroy(); } catch (e) {} delete shopBlips[k]; });
+    SHOPS.forEach(function (s) {
+        const C = SHOP_CFG[s.kind];
+        if (!C) return;
+        shopBlips[s.id] = mp.blips.new(C.blip, new mp.Vector3(s.x, s.y, s.z), { name: s.owner ? s.name : s.name + ' (продаётся)', color: s.stock <= 0 ? 40 : C.color, shortRange: true, scale: 0.75 });
+    });
+    mp.players.forEach(function (p) { sendShopList(p); sendBizPoints(p); });
+}
+function shopOf(id, kind) { return SHOPS.find(function (s) { return s.id === Number(id) && (!kind || s.kind === kind); }) || null; }
+function saveShop(s, fields) {
+    const map = { stock: 'stock', balance: 'balance', earned: 'earned', sold: 'sold', markup: 'markup', owner: 'owner_id', name: 'name', price: 'price', max: 'max_stock', disabled: 'disabled' };
+    q('UPDATE shops SET ' + fields.map(function (f) { return map[f] + ' = ?'; }).join(', ') + ' WHERE id = ?',
+        fields.map(function (f) { return f === 'disabled' ? JSON.stringify(s.disabled) : s[f]; }).concat([s.id]));
+}
+function sendShopList(p) {
+    if (!mp.players.exists(p)) return;
+    p.call('shop:list', [JSON.stringify(SHOPS.map(function (s) { return [s.kind, s.id, s.x, s.y, s.z, s.name, s.owner ? 0 : 1]; }))]);
+}
+mp.events.add('playerReady', function (p) { setTimeout(function () { sendShopList(p); }, 3400); });
+mp.events.add('srv:shop:list', function (p) { sendShopList(p); });
+setTimeout(function () { shopsInit().catch(function (e) { console.log('[shops] init: ' + e.message); }); }, 2800);
+
+function shopDeficit(s) { return s.stock <= s.max * 0.15; }
+function shopPrice(s, k) {
+    const it = ITEMS[k];
+    const k2 = s.owner ? s.markup / 100 : (shopDeficit(s) ? 1.3 : 1);
+    return Math.ceil(it.price * (it.pack || 1) * k2);
+}
+function shopNear(p, id) {
+    const s = shopOf(id);
+    return s && dist(p.position, s) < 4 ? s : null;
+}
+function shopState(p, s, extra) {
+    const C = SHOP_CFG[s.kind];
+    const d = data(p);
+    return Object.assign({
+        kind: s.kind, id: s.id, name: s.name, title: C.n, owner: s.ownerName, own: s.owner === accId(p), forSale: !s.owner,
+        stock: s.stock, max: s.max, deficit: shopDeficit(s), money: getMoney(p), bank: getBank(p),
+        lic: hasDoc(d, 'gun'),
+        items: C.items.filter(function (k) { return ITEMS[k] && ITEMS[k].price; }).map(function (k) {
+            const it = ITEMS[k];
+            return { k: k, n: it.n, i: it.i, pack: it.pack || 1, price: shopPrice(s, k), off: s.disabled.indexOf(k) >= 0, lic: GUN_NEEDS_LIC.indexOf(k) >= 0, w: it.w * (it.pack || 1) };
+        })
+    }, extra || {});
+}
+function sendShop(p, s, extra) { if (mp.players.exists(p)) p.call('ui:data', ['shop', JSON.stringify(shopState(p, s, extra))]); }
+
+mp.events.add('srv:shop:open', function (p, id) {
+    const s = shopNear(p, id);
+    if (!s) return;
+    p.shopId = s.id;
+    p.call('ui:shopOpen');
+    sendShop(p, s);
+});
+mp.events.add('srv:shop:buy', function (p, k, qty, pay) {
+    const s = shopNear(p, p.shopId);
+    if (!s) return notify(p, 'error', 'Вы отошли от прилавка');
+    const C = SHOP_CFG[s.kind];
+    const it = ITEMS[k];
+    if (!it || C.items.indexOf(k) < 0 || s.disabled.indexOf(k) >= 0) return sendShop(p, s, { err: 'Товар недоступен' });
+    qty = Math.max(1, Math.min(10, Math.floor(Number(qty) || 1)));
+    if (it.wp || it.slot) qty = 1;
+    if (s.stock < qty) return sendShop(p, s, { err: s.stock <= 0 ? 'Товар закончился — ждите поставку' : 'На складе осталось ' + s.stock + ' шт.' });
+    if (GUN_NEEDS_LIC.indexOf(k) >= 0 && !hasDoc(data(p), 'gun')) return sendShop(p, s, { err: 'Нужна лицензия на оружие' });
+    const pack = it.pack || 1;
+    const d = data(p);
+    if (weight(d.inv) + it.w * pack * qty > invCap(d) + 0.001) return sendShop(p, s, { err: 'В инвентаре нет места' });
+    const cost = shopPrice(s, k) * qty;
+    if (pay === 'card') {
+        const b = getBank(p);
+        if (b < cost) return sendShop(p, s, { err: 'На карте недостаточно средств' });
+        setMB(p, getMoney(p), b - cost);
+        tx(accId(p), 'out', -cost, 'Покупка: ' + s.name);
+    } else {
+        const m = getMoney(p);
+        if (m < cost) return sendShop(p, s, { err: 'Недостаточно наличных' });
+        setMB(p, m - cost, getBank(p));
+    }
+    addItem(p, k, pack * qty);
+    s.stock -= qty; s.sold += qty;
+    if (s.owner) { s.balance += cost; s.earned += cost; bizLog(s.kind, s.id, it.n + ' x' + qty + ' — ' + holder(p), cost); }
+    else govAdd(cost, 'Выручка гос. магазина: ' + s.name);
+    saveShop(s, s.owner ? ['stock', 'sold', 'balance', 'earned'] : ['stock', 'sold']);
+    if (s.stock <= 0 && shopBlips[s.id]) try { shopBlips[s.id].color = 40; } catch (e) {}
+    sendShop(p, s, { ok: 'Куплено: ' + it.n + (qty > 1 ? ' x' + qty : '') + ' за $' + cost });
+});
+mp.events.add('srv:shop:close', function (p) { p.shopId = null; });
+
+setInterval(function () {
+    SHOPS.forEach(function (s) {
+        if (s.owner || s.stock >= s.max * 0.4) return;
+        s.stock = Math.min(s.max, s.stock + Math.ceil(s.max * 0.08));
+        saveShop(s, ['stock']);
+    });
+}, 10 * 60000);
+setInterval(async function () {
+    if (global.TruckerSystem && global.TruckerSystem.active) return;
+    const rows = await q("SELECT * FROM shop_orders WHERE status = 'pending' AND created_at < (NOW() - INTERVAL 6 MINUTE) LIMIT 20");
+    for (const r of rows) await deliverShopOrder(r.id, null);
+}, 60000);
+async function deliverShopOrder(orderId, driverAcc) {
+    const r = (await q('SELECT * FROM shop_orders WHERE id = ? LIMIT 1', [orderId]))[0];
+    if (!r || r.status === 'done' || r.status === 'cancel') return false;
+    const s = shopOf(r.shop_id);
+    if (!s) { await q("UPDATE shop_orders SET status = 'cancel' WHERE id = ?", [orderId]); return false; }
+    const add = Math.max(0, Math.min(Number(r.units), s.max - s.stock));
+    s.stock += add;
+    saveShop(s, ['stock']);
+    await q("UPDATE shop_orders SET status = 'done', driver_id = ?, done_at = NOW() WHERE id = ?", [driverAcc, orderId]);
+    bizLog(s.kind, s.id, 'Поставка товара: +' + add + ' шт.', 0);
+    if (shopBlips[s.id]) try { shopBlips[s.id].color = SHOP_CFG[s.kind].color; } catch (e) {}
+    const op = s.owner && mp.players.toArray().find(function (x) { return accId(x) === s.owner; });
+    if (op) notify(op, 'ok', s.name + ': доставлено ' + add + ' шт. товара');
+    return true;
+}
+global.ShopSystem = {
+    list: function () { return SHOPS; }, reload: loadShops, deliver: deliverShopOrder, CFG: SHOP_CFG,
+    pendingOrders: function () { return q("SELECT o.*, s.name, s.kind, s.x, s.y, s.z FROM shop_orders o JOIN shops s ON s.id = o.shop_id WHERE o.status = 'pending' ORDER BY o.id"); },
+    admin: async function (p, d) {
+        const s = shopOf(d.atm);
+        if (d.op === 'add') {
+            const C = SHOP_CFG[d.kind], pos = p.position;
+            await q('INSERT INTO shops (kind, name, x, y, z, price, stock, max_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [d.kind, String(d.name || '').trim().slice(0, 48) || C.n, pos.x, pos.y, pos.z, Math.max(0, Number(d.price) || C.price), Math.floor(C.max * 0.6), C.max]);
+            await loadShops();
+            return C.n + ' создан';
+        }
+        if (!s) throw new Error('Магазин не найден');
+        if (d.op === 'tp') { p.position = new mp.Vector3(s.x, s.y, s.z + 0.5); return 'Телепорт к ' + s.name; }
+        if (d.op === 'del') { await q('DELETE FROM shops WHERE id = ?', [s.id]); await loadShops(); return s.name + ' удалён'; }
+        if (d.op === 'price') { await q('UPDATE shops SET price = ? WHERE id = ?', [Math.max(0, Number(d.value) || 0), s.id]); await loadShops(); return 'Цена изменена'; }
+        if (d.op === 'stock') { s.stock = Math.max(0, Math.min(s.max, Number(d.value) || 0)); saveShop(s, ['stock']); return 'Запас: ' + s.stock + ' шт.'; }
+        if (d.op === 'bizpos') { const pos = p.position; await q('UPDATE shops SET x = ?, y = ?, z = ? WHERE id = ?', [pos.x, pos.y, pos.z, s.id]); await loadShops(); return 'Прилавок перенесён сюда'; }
+        if (d.op === 'owner') {
+            let owner = null;
+            if (Number(d.pid) >= 0) { const t = mp.players.at(Number(d.pid)); if (!t || !accId(t)) throw new Error('Игрок не найден'); owner = accId(t); }
+            await q('UPDATE shops SET owner_id = ?, balance = 0 WHERE id = ?', [owner, s.id]);
+            await loadShops();
+            return owner ? 'Владелец назначен' : 'Магазин изъят у владельца';
+        }
+        throw new Error('Неизвестное действие');
+    }
+};
+
 /* ================= BUSINESS (общее меню) ================= */
 const BIZ_KINDS = {
-    fuel: { n: 'АЗС', i: '⛽', list: function () { return STATIONS; }, table: 'fuel_stations', of: stationOf, pt: function (b) { return { x: b.bx, y: b.by, z: b.bz }; } },
-    atm: { n: 'Банкомат', i: '🏧', list: function () { return ATMS; }, table: 'atms', of: function (id) { return atmOf(id); }, pt: function (b) { return b; } }
+    fuel: { n: 'АЗС', i: '⛽', list: function () { return STATIONS; }, of: stationOf, pt: function (b) { return { x: b.bx, y: b.by, z: b.bz }; }, reload: function () { return loadStations(); } },
+    atm: { n: 'Банкомат', i: '🏧', list: function () { return ATMS; }, of: function (id) { return atmOf(id); }, pt: function (b) { return b; }, reload: function () { return loadAtms(); } },
+    shop: { n: 'Магазин 24/7', i: '🛒', list: function () { return SHOPS.filter(function (s) { return s.kind === 'shop'; }); }, of: function (id) { return shopOf(id, 'shop'); }, pt: function (b) { return b; }, reload: function () { return loadShops(); } },
+    gun: { n: 'Оружейный магазин', i: '🔫', list: function () { return SHOPS.filter(function (s) { return s.kind === 'gun'; }); }, of: function (id) { return shopOf(id, 'gun'); }, pt: function (b) { return b; }, reload: function () { return loadShops(); } }
 };
 function bizNear(p, kind, id) {
     const K = BIZ_KINDS[kind];
@@ -1544,14 +1808,26 @@ async function bizState(p, kind, b, extra) {
     const id = accId(p), K = BIZ_KINDS[kind];
     const own = !!(id && b.owner === id);
     const st = { kind: kind, id: b.id, n: K.n, i: K.i, name: b.name, own: own, forSale: !b.owner, ownerName: b.ownerName, price: b.price,
-        balance: b.balance, earned: b.earned, myBank: getBank(p), myMoney: getMoney(p), sellBack: Math.floor(b.price * 0.6), settings: [], stats: [] };
+        balance: b.balance, earned: b.earned, myBank: getBank(p), myMoney: getMoney(p), sell: sellQuote(b), settings: [], stats: [] };
     if (kind === 'fuel') {
         st.stats = [{ l: 'Запас топлива', v: b.stock + ' / ' + b.max + ' л', warn: deficit(b) }, { l: 'Продано всего', v: b.sold + ' л' }, { l: 'Наценка', v: b.markup + '%' }];
         st.settings = [{ k: 'markup', l: 'Цена топлива (% от базовой)', v: b.markup, min: 50, max: 250, step: 5, unit: '%',
             hint: Object.keys(FUEL_TYPES).map(function (k) { return FUEL_TYPES[k].n + ': $' + (Math.round(FUEL_TYPES[k].price * b.markup) / 100); }).join(' · ') }];
         const ord = own ? await q('SELECT liters, status, created_at FROM fuel_orders WHERE station_id = ? ORDER BY id DESC LIMIT 6', [b.id]) : [];
-        st.stock = { cur: b.stock, max: b.max, wholesale: WHOLESALE, deficit: deficit(b),
+        st.stock = { cur: b.stock, max: b.max, wholesale: WHOLESALE, deficit: deficit(b), unit: 'л', title: 'Запас топлива',
             orders: ord.map(function (o) { return { l: Number(o.liters), s: o.status, d: new Date(o.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }; }) };
+    } else if (kind === 'shop' || kind === 'gun') {
+        const C = SHOP_CFG[kind];
+        st.stats = [{ l: 'Товар на складе', v: b.stock + ' / ' + b.max + ' шт.', warn: shopDeficit(b) }, { l: 'Продано всего', v: b.sold + ' шт.' }, { l: 'Наценка', v: b.markup + '%' }];
+        st.settings = [{ k: 'markup', l: 'Цены в магазине (% от базовой)', v: b.markup, min: 50, max: 200, step: 5, unit: '%',
+            hint: C.items.slice(0, 4).map(function (k) { return ITEMS[k].n + ': $' + Math.ceil(ITEMS[k].price * (ITEMS[k].pack || 1) * b.markup / 100); }).join(' · ') }];
+        const ord = own ? await q('SELECT units, status, created_at FROM shop_orders WHERE shop_id = ? ORDER BY id DESC LIMIT 6', [b.id]) : [];
+        st.stock = { cur: b.stock, max: b.max, wholesale: C.unitCost, deficit: shopDeficit(b), unit: 'шт.', title: 'Товар на складе',
+            orders: ord.map(function (o) { return { l: Number(o.units), s: o.status, d: new Date(o.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }; }) };
+        st.assort = C.items.filter(function (k) { return ITEMS[k] && ITEMS[k].price; }).map(function (k) {
+            return { k: k, n: ITEMS[k].n, i: ITEMS[k].i, on: b.disabled.indexOf(k) < 0, price: Math.ceil(ITEMS[k].price * (ITEMS[k].pack || 1) * b.markup / 100) };
+        });
+        if (kind === 'gun') st.stats.push({ l: 'Проверка лицензии', v: 'Обязательна' });
     } else if (kind === 'atm') {
         st.stats = [{ l: 'Комиссия за снятие', v: b.fee + '%' }];
         st.settings = [{ k: 'fee', l: 'Комиссия за снятие наличных', v: b.fee, min: 0, max: 5, step: 0.5, unit: '%', hint: 'Берётся с игроков, кроме вас' }];
@@ -1581,6 +1857,7 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
     const reply = function (o) { return sendBiz(p, kind, b, o); };
     const save = async function (cols) {
         if (kind === 'fuel') return saveStation(b, cols);
+        if (kind === 'shop' || kind === 'gun') return saveShop(b, cols);
         const map = { owner: 'owner_id', balance: 'balance', earned: 'earned', fee: 'fee', name: 'name' };
         await q('UPDATE atms SET ' + cols.map(function (c) { return map[c] + ' = ?'; }).join(', ') + ' WHERE id = ?', cols.map(function (c) { return b[c]; }).concat([b.id]));
     };
@@ -1592,8 +1869,9 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
         b.owner = id; b.ownerName = holder(p); b.balance = 0;
         await save(['owner', 'balance']);
         tx(id, 'biz', -b.price, 'Покупка: ' + b.name);
+        govAdd(b.price, 'Продажа бизнеса: ' + b.name + ' → ' + holder(p));
         bizLog(kind, b.id, 'Куплен игроком ' + holder(p), -b.price);
-        if (kind === 'fuel') loadStations(); else loadAtms();
+        K.reload();
         return reply({ ok: 'Поздравляем! ' + K.n + ' теперь ваш бизнес' });
     }
     if (b.owner !== id) return reply({ err: 'Это не ваш бизнес' });
@@ -1610,6 +1888,7 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
     if (act === 'set') {
         const sp = (val || '').split(':'), k = sp[0], v = Number(sp[1]);
         if (kind === 'fuel' && k === 'markup') { b.markup = Math.max(50, Math.min(250, Math.round(v / 5) * 5)); await save(['markup']); return reply({ ok: 'Цена топлива: ' + b.markup + '%' }); }
+        if ((kind === 'shop' || kind === 'gun') && k === 'markup') { b.markup = Math.max(50, Math.min(200, Math.round(v / 5) * 5)); await save(['markup']); return reply({ ok: 'Наценка: ' + b.markup + '%' }); }
         if (kind === 'atm' && k === 'fee') { b.fee = Math.max(0, Math.min(5, Math.round(v * 2) / 2)); await save(['fee']); return reply({ ok: 'Комиссия: ' + b.fee + '%' }); }
         return;
     }
@@ -1618,8 +1897,30 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
         if (nm.length < 3) return reply({ err: 'Название от 3 символов' });
         b.name = nm;
         await save(['name']);
-        if (kind === 'fuel') loadStations(); else loadAtms();
+        K.reload();
         return reply({ ok: 'Название изменено' });
+    }
+    if (act === 'toggle' && (kind === 'shop' || kind === 'gun')) {
+        const k = String(val);
+        if (SHOP_CFG[kind].items.indexOf(k) < 0) return;
+        const i = b.disabled.indexOf(k);
+        if (i >= 0) b.disabled.splice(i, 1); else b.disabled.push(k);
+        await save(['disabled']);
+        return reply({ ok: ITEMS[k].n + (i >= 0 ? ' снова в продаже' : ' снят с продажи') });
+    }
+    if (act === 'order' && (kind === 'shop' || kind === 'gun')) {
+        const n = Math.floor(Number(val) || 0);
+        const pend = await q("SELECT COALESCE(SUM(units),0) AS s FROM shop_orders WHERE shop_id = ? AND status IN ('pending','taken')", [b.id]);
+        const free = b.max - b.stock - Number(pend[0] ? pend[0].s : 0);
+        if (n < 10) return reply({ err: 'Минимальный заказ — 10 шт.' });
+        if (n > free) return reply({ err: 'На складе есть место только для ' + Math.max(0, free) + ' шт. (с учётом заказов в пути)' });
+        const cost = n * SHOP_CFG[kind].unitCost;
+        let from = 'касса';
+        if (b.balance >= cost) { b.balance -= cost; await save(['balance']); }
+        else { const bank = getBank(p); if (bank < cost) return reply({ err: 'Нужно $' + cost + ' (в кассе или на карте)' }); setMB(p, getMoney(p), bank - cost); from = 'карта'; tx(id, 'biz', -cost, 'Закупка товара: ' + b.name); }
+        await q('INSERT INTO shop_orders (shop_id, units, cost) VALUES (?, ?, ?)', [b.id, n, cost]);
+        bizLog(kind, b.id, 'Заказ товара ' + n + ' шт. (' + from + ')', -cost);
+        return reply({ ok: 'Заказ ' + n + ' шт. оформлен. Доставка до 6 минут' });
     }
     if (act === 'order' && kind === 'fuel') {
         const l = Math.floor(Number(val) || 0);
@@ -1636,15 +1937,16 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
         return reply({ ok: 'Заказ ' + l + ' л оформлен. Доставка до 6 минут' });
     }
     if (act === 'sell') {
-        const back = Math.floor(b.price * 0.6) + b.balance;
+        const qt = sellQuote(b);
         b.owner = null; b.ownerName = null; b.balance = 0;
         await save(['owner', 'balance']);
-        if (kind === 'fuel') { b.markup = 100; await save(['markup']); }
-        setMB(p, getMoney(p), getBank(p) + back);
-        tx(id, 'biz', back, 'Продажа: ' + b.name);
-        bizLog(kind, b.id, 'Продан государству', back);
-        if (kind === 'fuel') loadStations(); else loadAtms();
-        return reply({ ok: 'Бизнес продан государству за $' + back });
+        if (b.markup !== undefined) { b.markup = 100; await save(['markup']); }
+        setMB(p, getMoney(p), getBank(p) + qt.get);
+        tx(id, 'biz', qt.get, 'Продажа гос-ву: ' + b.name + ' (налог ' + qt.rate + '%)');
+        govAdd(qt.tax, 'Налог с продажи: ' + b.name + ' (' + qt.rate + '%)');
+        bizLog(kind, b.id, 'Продан государству, налог $' + qt.tax, qt.get);
+        K.reload();
+        return reply({ ok: 'Продано за $' + qt.get + '. Налог $' + qt.tax + ' ушёл в казну' });
     }
 });
 mp.events.addCommand('fuelstock', function (p, full2, n) {

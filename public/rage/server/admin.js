@@ -480,6 +480,8 @@ function panelData(p) {
         logs: logs.slice(0, 60),
         dlc: dlc,
         weather: mp.world.weather,
+        shops: global.ShopSystem ? global.ShopSystem.list().map(function (a) { return { id: a.id, kind: a.kind, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
+        gov: global.GovSystem ? global.GovSystem.get() : null,
         stations: global.FuelSystem ? global.FuelSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
         atms: global.AtmSystem ? global.AtmSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, fee: a.fee, balance: a.balance, earned: a.earned }; }) : []
     };
@@ -514,6 +516,13 @@ mp.events.add('srv:adm:act', function (p, json) {
     const reason = String(d.reason || 'нарушение правил').slice(0, 100);
     const needT = ['tp', 'bring', 'heal', 'kick', 'slap', 'freeze', 'unfreeze', 'mute', 'unmute', 'warn', 'ban', 'goto', 'revive', 'givemoney', 'sethp'];
 
+    if (a === 'gov') {
+        if (!global.GovSystem) return toast(p, 'Казна не загружена', false);
+        if (lvl(p) < 6) return toast(p, 'Казной управляет только руководство (6+)', false);
+        if (d.op === 'tax') { const t = global.GovSystem.setTax(d.value); toast(p, 'Налог при продаже бизнеса: ' + t + '%', true); return sendPanel(p); }
+        if (d.op === 'withdraw') { const ok = global.GovSystem.withdraw(d.value, login(p)); toast(p, ok ? 'Списано из казны $' + d.value : 'Неверная сумма', ok); return sendPanel(p); }
+        return;
+    }
     if (a === 'atm') {
         if (!global.AtmSystem) return toast(p, 'Модуль банкоматов не загружен', false);
         if (d.op !== 'tp' && lvl(p) < 5) return toast(p, 'Нужен 5 уровень админки', false);

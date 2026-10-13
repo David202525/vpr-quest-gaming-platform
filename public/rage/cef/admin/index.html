@@ -90,10 +90,24 @@
 
             <section class="tab" data-tab="biz">
                 <header class="head">
-                    <h2><span class="z-kinds"><button class="z-k active" data-zk="atm">🏧 Банкоматы</button><button class="z-k" data-zk="fuel">⛽ АЗС</button></span> <span class="badge" id="zCount">0</span></h2>
+                    <h2><span class="z-kinds"><button class="z-k active" data-zk="atm">🏧 Банкоматы</button><button class="z-k" data-zk="fuel">⛽ АЗС</button><button class="z-k" data-zk="shop">🛒 24/7</button><button class="z-k" data-zk="gun">🔫 Оружейные</button><button class="z-k" data-zk="gov">🏛 Казна</button></span> <span class="badge" id="zCount">0</span></h2>
                     <input class="search" id="zSearch" placeholder="Поиск по названию или владельцу">
                 </header>
-                <div class="card">
+                <div class="card" id="zGov" style="display:none">
+                    <h3>Казна штата</h3>
+                    <div class="gov-g"><div><small>Бюджет</small><b id="govBal">$0</b></div><div><small>Налог при продаже бизнеса гос-ву</small><b id="govTax">0%</b></div></div>
+                    <div class="row3">
+                        <input id="govTaxIn" placeholder="Новый налог, % (0–90)">
+                        <button class="btn" id="govTaxBtn">Установить налог</button>
+                        <span></span>
+                    </div>
+                    <div class="row3">
+                        <input id="govWdIn" placeholder="Сумма списания, $">
+                        <button class="btn danger" id="govWdBtn">Списать из казны</button>
+                        <span class="mut">Доступно с 6 уровня</span>
+                    </div>
+                </div>
+                <div class="card" id="zNew">
                     <h3 id="zNewT">Новый банкомат</h3>
                     <div class="row3">
                         <input id="zName" placeholder="Название (по умолчанию «Банкомат»)">
