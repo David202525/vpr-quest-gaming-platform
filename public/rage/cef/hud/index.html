@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="right">
+    <div class="info">
+        <div class="info-rows">
+            <div class="row">
+                <span class="it"><span class="ico id">ID</span><b id="pid">0</b></span>
+                <span class="it"><svg class="ico-svg" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c0-4.6 3.8-7.6 8.5-7.6s8.5 3 8.5 7.6z"/></svg><b id="online">0</b></span>
+            </div>
+            <div class="row">
+                <span class="it"><svg class="ico-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 6.5V12l3.6 2.3" stroke="#14141a" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg><b id="dt">01.01.2022 / 00:00</b></span>
+            </div>
+            <div class="row weapon" id="weapon">
+                <svg class="gun" viewBox="0 0 64 20"><path d="M2 7h34l2-3h6l1 3h15v4H47l-3 2H33l-3 6h-7l2-6H11l-3 3H2z"/></svg>
+                <b id="ammo">0 / 0</b>
+            </div>
+        </div>
+        <div class="logo">R</div>
+    </div>
+
+    <div class="stats">
+        <div class="money"><span class="m-ico">$</span><span id="money">0$</span></div>
+        <div class="weather"><span class="w-ico" id="wico">☀️</span><span id="temp">+15 C°</span></div>
+        <div class="loc">
+            <svg class="pin" viewBox="0 0 24 24"><path d="M12 1.8a7.4 7.4 0 0 0-7.4 7.4c0 5.4 7.4 13 7.4 13s7.4-7.6 7.4-13A7.4 7.4 0 0 0 12 1.8zm0 10.2a2.8 2.8 0 1 1 0-5.6 2.8 2.8 0 0 1 0 5.6z"/></svg>
+            <div><div class="zone" id="zone">—</div><div class="street" id="street">—</div></div>
+        </div>
+    </div>
+
+    <div class="quest" id="quest">
+        <div class="q-title" id="qtitle">ПРОЛОГ</div>
+        <div id="qtasks"></div>
+    </div>
+</div>
+
+<div class="notes" id="notes"></div>
+
+<div class="hints">
+    <div class="hint"><span class="key accent">M</span>Меню</div>
+    <div class="hint"><span class="key">F3</span>Телефон</div>
+    <div class="hint"><span class="key">Ё</span>Предметы рядом</div>
+    <div class="hint"><span class="key">N</span>Голос</div>
+    <div class="hint"><span class="key">F2</span>Курсор</div>
+    <div class="hint"><span class="key">I</span>Инвентарь</div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
