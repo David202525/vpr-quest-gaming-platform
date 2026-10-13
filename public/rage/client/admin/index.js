@@ -19,7 +19,7 @@ function admShow(on) {
     if (!on && typeof uiExec === 'function') uiExec('document.getElementById("death").style.visibility="";');
     admOpen = on;
     admBrowser.active = on;
-    mp.gui.cursor.show(on, on);
+    if (on || typeof cursorSync !== 'function') mp.gui.cursor.show(on, on); else cursorSync();
     mp.gui.chat.activate(!on);
     if (on) mp.events.callRemote('srv:adm:open');
 }

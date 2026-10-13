@@ -27,8 +27,9 @@ function busy() {
     return false;
 }
 
+var jobMenuOpen = false;
 function cursorSync() {
-    var need = !!uiOpen || freeCursor || !!deadState;
+    var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (typeof admOpen !== 'undefined' && admOpen);
     mp.gui.cursor.show(need, need);
 }
 
@@ -92,10 +93,17 @@ mp.keys.bind(0x72, false, function () { openUi('phone'); });
 mp.keys.bind(0x4D, false, function () { openUi('menu'); });
 mp.keys.bind(0x71, false, function () {
     if (!uiReady || uiTyping || mp.players.local.isTypingInTextChat) return;
-    if (uiOpen) return;
-    if (!freeCursor && mp.gui.cursor.visible) return;
+    if (uiOpen || deadState) return;
+    if (jobMenuOpen) { jobMenuClose(); return; }
+    if (!freeCursor && mp.gui.cursor.visible) { mp.gui.cursor.show(false, false); mp.gui.chat.activate(true); return; }
     freeCursor = !freeCursor;
     cursorSync();
+});
+mp.keys.bind(0x1B, false, function () {
+    if (!uiReady || uiOpen || deadState || mp.players.local.isTypingInTextChat) return;
+    if (typeof admOpen !== 'undefined' && admOpen) return;
+    if (jobMenuOpen) { jobMenuClose(); return; }
+    if (freeCursor) { freeCursor = false; cursorSync(); }
 });
 
 mp.events.add('render', function () {
@@ -531,11 +539,13 @@ mp.events.add('render', function () {
 mp.events.add('job:menu', function (json) {
     if (typeof uiExec !== 'function') return;
     uiExec('window.jobMenu && window.jobMenu(' + JSON.stringify(json) + ');');
+    jobMenuOpen = true;
     mp.gui.cursor.show(true, true);
     mp.gui.chat.activate(false);
 });
 function jobMenuClose() {
     if (typeof uiExec === 'function') uiExec('window.jobMenu && window.jobMenu(null);');
+    jobMenuOpen = false;
     if (typeof cursorSync === 'function') cursorSync(); else mp.gui.cursor.show(false, false);
     mp.gui.chat.activate(true);
 }
