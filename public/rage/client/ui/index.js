@@ -92,18 +92,25 @@ mp.keys.bind(0xC0, false, function () { openUi('inv', { trunk: !!(mp.players.loc
 mp.keys.bind(0x72, false, function () { openUi('phone'); });
 mp.keys.bind(0x4D, false, function () { openUi('menu'); });
 mp.keys.bind(0x71, false, function () {
-    if (!uiReady || uiTyping || mp.players.local.isTypingInTextChat) return;
-    if (uiOpen || deadState) return;
+    if (mp.players.local.isTypingInTextChat || deadState) return;
+    if (uiOpen) { closeUi(); return; }
+    if (typeof admOpen !== 'undefined' && admOpen) return;
     if (jobMenuOpen) { jobMenuClose(); return; }
-    if (!freeCursor && mp.gui.cursor.visible) { mp.gui.cursor.show(false, false); mp.gui.chat.activate(true); return; }
-    freeCursor = !freeCursor;
+    if (mp.gui.cursor.visible) {
+        freeCursor = false; uiTyping = false;
+        mp.gui.cursor.show(false, false);
+        mp.gui.chat.activate(true);
+        return;
+    }
+    if (!uiReady) return;
+    freeCursor = true;
     cursorSync();
 });
 mp.keys.bind(0x1B, false, function () {
-    if (!uiReady || uiOpen || deadState || mp.players.local.isTypingInTextChat) return;
+    if (uiOpen || deadState || mp.players.local.isTypingInTextChat) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (jobMenuOpen) { jobMenuClose(); return; }
-    if (freeCursor) { freeCursor = false; cursorSync(); }
+    if (mp.gui.cursor.visible) { freeCursor = false; uiTyping = false; mp.gui.cursor.show(false, false); mp.gui.chat.activate(true); }
 });
 
 mp.events.add('render', function () {
