@@ -284,7 +284,6 @@ document.addEventListener('keydown', function (e) {
         if ($('modal').classList.contains('show')) $('modal').classList.remove('show');
         else trig('cef:adm:close');
     }
-    if (e.key === 'F4') trig('cef:adm:close');
 });
 
 setInterval(function () {

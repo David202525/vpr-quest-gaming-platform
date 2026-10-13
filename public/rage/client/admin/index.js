@@ -22,8 +22,13 @@ function admShow(on) {
     if (on) mp.events.callRemote('srv:adm:open');
 }
 
+var admLastToggle = 0;
+
 mp.keys.bind(0x73, false, function () {
     if (banBrowser) return;
+    var now = Date.now();
+    if (now - admLastToggle < 400) return;
+    admLastToggle = now;
     if (mp.gui.cursor.visible && !admOpen) return;
     admShow(!admOpen);
 });
@@ -40,7 +45,7 @@ mp.events.add('adm:toast', function (text, ok) {
     else mp.gui.chat.push(text);
 });
 
-mp.events.add('cef:adm:close', function () { admShow(false); });
+mp.events.add('cef:adm:close', function () { admLastToggle = Date.now(); if (admOpen) admShow(false); });
 mp.events.add('cef:adm:refresh', function () { if (admOpen) mp.events.callRemote('srv:adm:refresh'); });
 mp.events.add('cef:adm:act', function (json) { mp.events.callRemote('srv:adm:act', json); });
 mp.events.add('cef:adm:veh', function (json) { mp.events.call('adm:vehCheck', json); });
