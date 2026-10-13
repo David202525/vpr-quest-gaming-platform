@@ -609,7 +609,7 @@ mp.events.add('srv:adm:veh', function (p, json) {
 });
 
 mp.events.add('srv:adm:vehBad', function (p, model) {
-    toast(p, 'Модель "' + model + '" не найдена. Проверь, что DLC установлен в dlcpacks', false);
+    toast(p, 'Модель "' + model + '" не найдена в игре. Проверь название в vehicles.meta (<modelName>) и что папка DLC есть в dlcpacks', false);
     msg(p, 'Модель ' + model + ' не найдена в игре', '#e05555');
 });
 

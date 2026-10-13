@@ -55,13 +55,23 @@ mp.events.add('adm:vehCheck', function (json) {
     var d;
     try { d = JSON.parse(json); } catch (e) { return; }
     var hash = mp.game.joaat(d.model);
-    var ok = false;
-    try { ok = mp.game.streaming.isModelInCdimage(hash) && mp.game.streaming.isModelAVehicle(hash); } catch (e) { ok = true; }
-    if (!ok) {
+    var inImage = false;
+    try { inImage = mp.game.streaming.isModelInCdimage(hash) || mp.game.streaming.isModelValid(hash); } catch (e) { inImage = true; }
+    if (!inImage) {
         mp.events.callRemote('srv:adm:vehBad', d.model);
         return;
     }
-    mp.events.callRemote('srv:adm:veh', JSON.stringify(d));
+    try { mp.game.streaming.requestModel(hash); } catch (e) {}
+    var tries = 0;
+    var timer = setInterval(function () {
+        tries++;
+        var loaded = false;
+        try { loaded = mp.game.streaming.hasModelLoaded(hash); } catch (e) { loaded = true; }
+        if (loaded || tries >= 30) {
+            clearInterval(timer);
+            mp.events.callRemote('srv:adm:veh', JSON.stringify(d));
+        }
+    }, 100);
 });
 
 mp.events.add('adm:freeze', function (on) {
