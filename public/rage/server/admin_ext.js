@@ -1088,12 +1088,19 @@ mp.events.addCommand('unstuck', function (p) {
     p.call('adm:unstuck');
 });
 
+function isDev(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) >= 9 : false; }
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        const d = isDev(p);
+        if (p._dbg !== d) { p._dbg = d; p.call('adm:dbg', [d]); }
+    });
+}, 3000);
 mp.events.addCommand('intcheck', function (p, full) {
+    if (!isDev(p)) return;
     p.call('adm:intcheck', [String(full || '').trim()]);
 });
 mp.events.addCommand('ipl', function (p, full) {
-    const lv = global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0;
-    if (lv < 5) return msg(p, 'Доступно с уровня 5', '#e05555');
+    if (!isDev(p)) return;
     const n = String(full || '').trim();
     if (!n) return msg(p, '/ipl [название] — загрузить IPL у всех игроков', '#ffcc66');
     if (!global.__ipls) global.__ipls = [];

@@ -372,7 +372,8 @@ setInterval(function () {
     if (!noclip && specId < 0 && !watchCam) clearFocus();
 }, 2000);
 
-var admFrozen = false;
+var admFrozen = false, dbgOn = false;
+mp.events.add('adm:dbg', function (v) { dbgOn = !!v; });
 mp.events.add('adm:freeze', function (on) { admFrozen = !!on; });
 
 function N(hash) { try { return mp.game.invoke.apply(mp.game, arguments); } catch (e) { return null; } }
@@ -419,11 +420,11 @@ setInterval(function () {
     lastFix = Date.now(); fixCount++;
     try { ent.setVelocity(0, 0, 0); } catch (e) {}
     ent.setCoordsNoOffset(pos.x, pos.y, ground + 1, false, false, false);
-    mp.events.call('hud:notify', 'warn', 'Вы провалились под текстуры — подняты на поверхность', 3000);
+    if (dbgOn) mp.events.call('hud:notify', 'warn', '[dbg] провал под текстуры — поднят на поверхность', 3000);
 }, 250);
 
 mp.events.add('render', function () {
-    if (!holdEnt) return;
+    if (!holdEnt || !dbgOn) return;
     mp.game.graphics.drawText('Загрузка карты…', [0.5, 0.86], { font: 4, color: [255, 255, 255, 220], scale: [0.45, 0.45], outline: true });
 });
 
@@ -440,6 +441,7 @@ mp.events.add('adm:unstuck', function () {
 
 mp.events.add('adm:ipl', function (n) { try { mp.game.streaming.requestIpl(n); } catch (e) {} });
 mp.events.add('adm:intcheck', function (arg) {
+    if (!dbgOn) return;
     var pos = mp.players.local.position, out = [];
     if (arg) {
         var h = mp.game.joaat(arg);
