@@ -1082,4 +1082,10 @@ if (CONSOLE_CFG.enabled) {
     } catch (e) { console.log('[admin] консоль: ' + e.message); }
 }
 
+mp.events.addCommand('unstuck', function (p) {
+    if (p.unstuckAt && Date.now() - p.unstuckAt < 10000) return msg(p, 'Подождите несколько секунд', '#ffcc66');
+    p.unstuckAt = Date.now();
+    p.call('adm:unstuck');
+});
+
 console.log('[admin_ext] загружено: репорты, тюрьма, МП, фракции, мир, консоль');

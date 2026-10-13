@@ -427,7 +427,7 @@ mp.events.add('render', function () {
     mp.game.graphics.drawText('Загрузка карты…', [0.5, 0.86], { font: 4, color: [255, 255, 255, 220], scale: [0.45, 0.45], outline: true });
 });
 
-mp.events.addCommand('unstuck', function () {
+mp.events.add('adm:unstuck', function () {
     var p = mp.players.local, ent = p.vehicle || p, pos = ent.position;
     var src = safePos || pos;
     reqColl(src.x, src.y, src.z);
