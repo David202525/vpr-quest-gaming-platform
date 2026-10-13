@@ -160,7 +160,10 @@ function data(p) {
     return d;
 }
 
-function getMoney(p) { const a = accOf(p); return a ? Number(a.money) || 0 : 0; }
+function getMoney(p) {
+    if (typeof global.hudMoney === 'function') return Number(global.hudMoney(p)) || 0;
+    const a = accOf(p); return a ? Number(a.money) || 0 : 0;
+}
 function getBank(p) {
     if (p.account && p.account.bank !== undefined && p.account.bank !== null) return Number(p.account.bank) || 0;
     return Number(data(p).bank) || 0;
@@ -168,6 +171,7 @@ function getBank(p) {
 function setMB(p, money, bank) {
     if (p.account) { p.account.money = money; p.account.bank = bank; }
     if (p.admAcc) p.admAcc.money = money;
+    try { const v = p.getVariable('money'); if (v !== undefined && v !== null) p.setVariable('money', money); } catch (e) {}
     data(p).bank = bank;
     mark();
     const id = accId(p);

@@ -1,8 +1,45 @@
+let db = null;
+try { db = require('../database'); } catch (e) {
+    try { db = require('./database'); } catch (e2) { db = null; }
+}
+
+function has(v) { return v !== undefined && v !== null && v !== '' && !isNaN(Number(v)); }
+function accIdOf(p) {
+    const a = p.account || p.admAcc;
+    return a && a.id ? a.id : null;
+}
+
+async function syncFromDb(p) {
+    const id = accIdOf(p);
+    if (!db || !id || p.hudMoneySynced) return;
+    p.hudMoneySynced = true;
+    try {
+        const res = await db.query('SELECT money, bank FROM accounts WHERE id = ? LIMIT 1', [id]);
+        const rows = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : res;
+        const r = rows && rows[0];
+        if (!r || !mp.players.exists(p)) return;
+        const m = Number(r.money) || 0;
+        if (p.account && !has(p.account.money)) p.account.money = m;
+        if (p.account && !has(p.account.bank)) p.account.bank = Number(r.bank) || 0;
+        if (p.admAcc && !has(p.admAcc.money)) p.admAcc.money = m;
+        if (p.account && Number(p.account.money) === 0 && m > 0) p.account.money = m;
+        if (p.admAcc && Number(p.admAcc.money) === 0 && m > 0) p.admAcc.money = m;
+        send(p, true);
+    } catch (e) {
+        p.hudMoneySynced = false;
+        console.log('[hud] money: ' + e.message);
+    }
+}
+
 function moneyOf(p) {
-    if (p.account && p.account.money !== undefined) return Number(p.account.money) || 0;
-    if (p.admAcc && p.admAcc.money !== undefined) return Number(p.admAcc.money) || 0;
+    if (p.account && has(p.account.money)) return Number(p.account.money);
+    if (p.admAcc && has(p.admAcc.money)) return Number(p.admAcc.money);
+    if (has(p.money)) return Number(p.money);
+    if (p.data && has(p.data.money)) return Number(p.data.money);
     const v = p.getVariable('money');
-    return v !== undefined && v !== null ? Number(v) || 0 : 0;
+    if (has(v)) return Number(v);
+    const c = p.getVariable('cash');
+    return has(c) ? Number(c) : 0;
 }
 
 const last = {};
@@ -17,8 +54,23 @@ function send(p, force) {
 }
 
 setInterval(function () {
-    mp.players.forEach(function (p) { send(p, false); });
+    mp.players.forEach(function (p) {
+        if (!p.hudMoneySynced && accIdOf(p)) syncFromDb(p);
+        send(p, false);
+    });
 }, 1000);
+
+mp.events.addCommand('mymoney', function (p) {
+    const id = accIdOf(p);
+    p.outputChatBox('!{#ffc93c}[Деньги] аккаунт: ' + (id || 'не найден') +
+        ' | account: ' + (p.account ? p.account.money : '—') +
+        ' | admAcc: ' + (p.admAcc ? p.admAcc.money : '—') +
+        ' | var: ' + p.getVariable('money') + ' | HUD: ' + moneyOf(p));
+    if (db && id) db.query('SELECT money, bank FROM accounts WHERE id = ? LIMIT 1', [id]).then(function (res) {
+        const rows = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : res;
+        if (rows && rows[0]) p.outputChatBox('!{#ffc93c}[Деньги] в базе: наличные ' + rows[0].money + ', банк ' + rows[0].bank);
+    }).catch(function () {});
+});
 
 mp.events.add('srv:hud:sync', function (p) { send(p, true); });
 mp.events.add('playerReady', function (p) { setTimeout(function () { send(p, true); }, 1500); });
@@ -33,6 +85,7 @@ function quest(p, title, tasks) {
 }
 
 global.hudNotify = notify;
+global.hudMoney = moneyOf;
 global.hudQuest = quest;
 
 mp.events.add('hud:notify', notify);
