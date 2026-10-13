@@ -2,7 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 let db = null;
-try { db = require('./database'); } catch (e) { db = null; }
+try { db = require('../database'); } catch (e) {
+    try { db = require('./database'); } catch (e2) { db = null; }
+}
 
 const RANKS = ['Игрок', 'Хелпер', 'Модератор', 'Ст. модератор', 'Администратор', 'Ст. администратор', 'Гл. администратор', 'Основатель'];
 const COLORS = ['#ffffff', '#7fd4ff', '#8fd14f', '#4fd1a5', '#ffcc66', '#ff9f43', '#ff6b6b', '#c13dff'];
