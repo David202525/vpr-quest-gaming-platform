@@ -421,6 +421,7 @@ function spawnVeh(admin, model, c1, c2, target, own) {
         }, 200);
     }
     if (own && acc(who)) {
+        try { v.setVariable('ownerId', acc(who).id); } catch (e) {}
         q('INSERT INTO vehicles (owner_id, model, plate, color1, color2, pos_x, pos_y, pos_z, heading) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [acc(who).id, String(model), plate, Number(c1) || 0, Number(c2) || 0, spot.x, spot.y, spot.z, heading]);
         msg(who, 'Вам выдан автомобиль ' + model + ' (номер ' + plate + ')', '#8fd14f');

@@ -162,7 +162,7 @@ setInterval(function () {
     var p = mp.players.local;
     var v = p.vehicle;
     var now = !!v && nearFuel();
-    if (now && !atStation) mp.events.call('hud:notify', 'ok', 'Заправка: заглушите мотор и нажмите E. Литр — $3', 5000);
+    if (now && !atStation) mp.events.call('hud:notify', 'ok', 'Заправка: нажмите E, чтобы выбрать топливо', 5000);
     atStation = now;
 }, 700);
 mp.events.add('render', function () {
@@ -186,4 +186,28 @@ mp.keys.bind(0x5A, false, function () {
     if (!v || mp.gui.cursor.visible || p.isTypingInTextChat) return;
     if (v.getPedInSeat(-1) !== p.handle) return;
     mp.events.callRemote('srv:veh:engine');
+});
+
+mp.keys.bind(0x4C, false, function () {
+    var p = mp.players.local;
+    if (mp.gui.cursor.visible || p.isTypingInTextChat) return;
+    var v = p.vehicle, best = -1;
+    if (!v) {
+        var bd = 8;
+        mp.vehicles.forEachInStreamRange(function (x) {
+            var d = mp.game.system.vdist(p.position.x, p.position.y, p.position.z, x.position.x, x.position.y, x.position.z);
+            if (d < bd) { bd = d; best = x.remoteId; }
+        });
+        if (best < 0) return;
+    }
+    mp.events.callRemote('srv:veh:lock', v ? -1 : best);
+});
+mp.events.add('veh:lockFx', function (id, locked) {
+    var v = mp.vehicles.atRemoteId(id);
+    if (!v) return;
+    try {
+        v.setIndicatorLights(0, true); v.setIndicatorLights(1, true);
+        setTimeout(function () { try { v.setIndicatorLights(0, false); v.setIndicatorLights(1, false); } catch (e) {} }, 600);
+        mp.game.audio.playSoundFromEntity(-1, locked ? 'Remote_Control_Close' : 'Remote_Control_Open', v.handle, 'PI_Menu_Sounds', true, 0);
+    } catch (e) {}
 });

@@ -1764,3 +1764,39 @@ textarea {
 .dt-b:hover { filter: brightness(1.12); }
 .dt-b.off { background: rgba(255,255,255,.07); color: rgba(255,255,255,.35); cursor: not-allowed; filter: none; }
 .dt-b.off .k { background: rgba(255,255,255,.07); }
+
+/* ===== FUEL ===== */
+.fuel-screen { align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(20,10,25,.55), rgba(5,3,8,.85)); }
+.fuel { width: 520px; padding: 26px 30px 28px; background: linear-gradient(160deg, rgba(42,22,48,.97), rgba(20,10,26,.98)); box-shadow: 0 30px 70px rgba(0,0,0,.6); border-top: 2px solid #f2b632; }
+.fu-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.fu-head h2 { font-size: 20px; font-weight: 800; letter-spacing: 1px; }
+.fu-head small { font-size: 11.5px; color: rgba(255,255,255,.5); }
+.fu-head .m-close { margin-left: auto; }
+.fu-logo { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: linear-gradient(135deg, #f2b632, #e0731b); }
+.fu-tank { margin-bottom: 18px; }
+.fu-tank-bar { height: 14px; display: flex; background: rgba(255,255,255,.07); overflow: hidden; }
+.fu-cur { background: rgba(255,255,255,.55); transition: width .2s; }
+.fu-add { opacity: .85; transition: width .15s; }
+.fu-tank-txt { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11.5px; color: rgba(255,255,255,.6); }
+.fu-tank-txt b { color: #fff; }
+.fu-types { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+.fu-t { padding: 12px 6px; text-align: center; cursor: pointer; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-bottom: 3px solid var(--fc); transition: all .15s; }
+.fu-t b { display: block; font-size: 14px; }
+.fu-t small { font-size: 11px; color: rgba(255,255,255,.55); }
+.fu-t:hover { background: rgba(255,255,255,.08); }
+.fu-t.active { background: color-mix(in srgb, var(--fc) 25%, transparent); border-color: var(--fc); }
+.fu-lit { margin-bottom: 18px; }
+.fu-lit-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: rgba(255,255,255,.6); margin-bottom: 6px; }
+.fu-lit-top b { font-size: 26px; font-weight: 800; color: #fff; }
+.fu-lit input { width: 100%; accent-color: #f2b632; }
+.fu-quick { display: flex; gap: 6px; margin-top: 8px; }
+.fu-quick button { flex: 1; padding: 8px 0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.fu-quick button:hover { background: rgba(255,255,255,.12); }
+.fu-pay { display: flex; gap: 8px; margin-bottom: 16px; }
+.fu-pm { flex: 1; display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff; font-family: inherit; font-size: 12.5px; cursor: pointer; }
+.fu-pm b { color: #8fd14f; }
+.fu-pm.active { border-color: #f2b632; background: rgba(242,182,50,.12); }
+.fu-go { width: 100%; padding: 14px; border: 0; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 700; color: #1a1205; background: linear-gradient(90deg, #f2b632, #e0731b); }
+.fu-go:hover { filter: brightness(1.1); }
+.fu-go.off { background: rgba(255,255,255,.08); color: rgba(255,255,255,.35); cursor: not-allowed; filter: none; }
+.docs-screen.show, .fuel-screen.show { display: flex; }

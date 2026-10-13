@@ -55,7 +55,7 @@ function srvWarn(kind) {
 }
 
 window.uiOpen = function (name, opt) {
-    ['inv', 'phone', 'menu', 'docs'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
     current = name;
     hideCtx();
     if (name === 'docs') { docSel = 0; if (!(opt && opt.shown)) DATA.docs = DATA.docs && DATA.docs.own ? DATA.docs : null; renderDocs(); }
@@ -64,7 +64,7 @@ window.uiOpen = function (name, opt) {
     if (name === 'menu') { if (!DATA.menu) DATA.menu = emptyMenu(); renderMenu(); srvWarn('menu'); }
 };
 window.uiClose = function () {
-    ['inv', 'phone', 'menu', 'docs'].forEach(function (s) { $(s).classList.remove('show'); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel'].forEach(function (s) { $(s).classList.remove('show'); });
     current = null;
     hideCtx();
     closeModal();
@@ -85,6 +85,7 @@ window.uiData = function (kind, d) {
     if (kind === 'inv') renderInv();
     if (kind === 'phone') phoneRefresh();
     if (kind === 'menu' && current === 'menu') renderMenu();
+    if (kind === 'fuel') { fuelInit(d); }
     if (kind === 'docs') { if (typeof d.focus === 'number') docSel = d.focus; renderDocs(); }
 };
 function closeAll() { window.uiClose(); trig('cef:ui:close'); }
@@ -826,3 +827,44 @@ window.deathShow = function (d) {
 window.deathHide = function () { $('death').classList.remove('show'); };
 $('dtCall').onclick = function () { trig('cef:death:call'); };
 $('dtHosp').onclick = function () { if (!this.classList.contains('off')) trig('cef:death:hospital'); };
+
+/* ================= FUEL ================= */
+var FU = { d: null, t: 'ai92', l: 0, pay: 'cash' };
+function fuelInit(d) {
+    FU.d = d; FU.t = d.cur || 'ai92';
+    var free = Math.max(0, d.max - d.fuel);
+    FU.l = free;
+    $('fuRange').max = free;
+    renderFuel();
+}
+function renderFuel() {
+    var d = FU.d;
+    if (!d) return;
+    var free = Math.max(0, d.max - d.fuel);
+    FU.l = Math.max(0, Math.min(free, FU.l));
+    var t = d.types.find(function (x) { return x.k === FU.t; }) || d.types[0];
+    var sum = Math.ceil(FU.l * t.price);
+    $('fuNow').textContent = d.fuel; $('fuFree').textContent = free;
+    $('fuCur').style.width = (d.fuel / d.max * 100) + '%';
+    $('fuAdd').style.width = (FU.l / d.max * 100) + '%';
+    $('fuAdd').style.background = t.c;
+    $('fuL').textContent = FU.l;
+    $('fuRange').value = FU.l;
+    $('fuCash').textContent = money(d.money);
+    $('fuCard').textContent = money(d.bank);
+    $('fuSum').textContent = money(sum);
+    var have = FU.pay === 'card' ? d.bank : d.money;
+    $('fuGo').classList.toggle('off', FU.l <= 0 || have < sum);
+    $('fuTypes').innerHTML = d.types.map(function (x) {
+        return '<div class="fu-t ' + (x.k === FU.t ? 'active' : '') + '" data-ft="' + x.k + '" style="--fc:' + x.c + '"><b>' + esc(x.n) + '</b><small>$' + x.price + ' / л</small></div>';
+    }).join('');
+    $('fuTypes').querySelectorAll('[data-ft]').forEach(function (el) { el.onclick = function () { FU.t = el.dataset.ft; renderFuel(); }; });
+    document.querySelectorAll('.fu-pm').forEach(function (b) { b.classList.toggle('active', b.dataset.pay === FU.pay); });
+}
+$('fuRange').oninput = function () { FU.l = Number(this.value); renderFuel(); };
+document.querySelectorAll('.fu-quick button').forEach(function (b) {
+    b.onclick = function () { FU.l = b.dataset.q === 'full' ? 999 : Number(b.dataset.q); renderFuel(); };
+});
+document.querySelectorAll('.fu-pm').forEach(function (b) { b.onclick = function () { FU.pay = b.dataset.pay; renderFuel(); }; });
+$('fuGo').onclick = function () { if (!this.classList.contains('off')) trig('cef:fuel:buy', FU.t, FU.l, FU.pay); };
+$('fuClose').onclick = closeAll;

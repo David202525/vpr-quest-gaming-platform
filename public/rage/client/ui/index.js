@@ -68,6 +68,7 @@ function openUi(name, opt) {
     if (name === 'phone') mp.events.callRemote('srv:phone:get');
     if (name === 'menu') mp.events.callRemote('srv:menu:get');
     if (name === 'docs' && !(opt && opt.shown)) mp.events.callRemote('srv:docs:get');
+    if (name === 'fuel') mp.events.callRemote('srv:fuel:get');
     mp.gui.chat.activate(false);
     cursorSync();
 }
@@ -285,3 +286,7 @@ mp.events.add('render', function () {
     mp.game.controls.enableControlAction(0, 249, true);
 });
 setTimeout(function () { mp.events.callRemote('srv:death:sync'); }, 4000);
+
+mp.events.add('ui:fuelOpen', function () { if (!uiOpen) openUi('fuel', { fromUi: true }); });
+mp.events.add('ui:fuelDone', function () { if (uiOpen === 'fuel') closeUi(); });
+mp.events.add('cef:fuel:buy', function (t, l, pay) { mp.events.callRemote('srv:fuel:buy', t, Number(l), pay); });

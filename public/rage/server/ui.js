@@ -117,9 +117,14 @@ setTimeout(function () { q('ALTER TABLE accounts ADD COLUMN IF NOT EXISTS bank I
 function accOf(p) { return p.account || p.admAcc || null; }
 function accId(p) { const a = accOf(p); return a && a.id ? a.id : null; }
 function key(p) { const id = accId(p); return id ? 'a' + id : 'n' + p.name; }
+const lastNote = {};
 function notify(p, type, text) {
+    if (!mp.players.exists(p)) return;
+    const k = p.id + '|' + text;
+    if (lastNote[k] && Date.now() - lastNote[k] < 2500) return;
+    lastNote[k] = Date.now();
     if (typeof global.hudNotify === 'function') global.hudNotify(p, type, text);
-    else p.outputChatBox(text);
+    else p.call('hud:notify', [type, text, 4000]);
 }
 function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z; return Math.sqrt(dx * dx + dy * dy + dz * dz); }
 function adminLvl(p) { return global.AdminSystem && typeof global.AdminSystem.lvl === 'function' ? global.AdminSystem.lvl(p) : 0; }
@@ -810,7 +815,7 @@ if (!global.DeathSystem) {
     try { require('./death.js'); console.log('[ui] система ранений подключена'); } catch (e) { console.log('[ui] death.js не найден: ' + e.message); }
 }
 
-global.UiSystem = { giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
+global.UiSystem = { setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
@@ -871,20 +876,85 @@ setInterval(function () {
     });
 }, 2000);
 
-mp.events.add('srv:fuel:refill', function (p) {
+const FUEL_TYPES = {
+    ai92: { n: 'АИ-92', price: 2, c: '#3fbf5f' },
+    ai95: { n: 'АИ-95', price: 3, c: '#f2b632' },
+    ai98: { n: 'АИ-98', price: 4, c: '#e63950' },
+    diesel: { n: 'Дизель', price: 2.5, c: '#4a9cff' }
+};
+
+mp.events.add('srv:fuel:get', function (p) {
+    const v = p.vehicle;
+    if (!v || nearStation(p.position) < 0) return;
+    p.call('ui:data', ['fuel', JSON.stringify({
+        fuel: Math.floor(fuelOf(v)), max: FUEL_MAX, money: getMoney(p), bank: getBank(p),
+        cur: v.getVariable('fuelType') || 'ai92',
+        types: Object.keys(FUEL_TYPES).map(function (k) { return { k: k, n: FUEL_TYPES[k].n, price: FUEL_TYPES[k].price, c: FUEL_TYPES[k].c }; })
+    })]);
+});
+
+mp.events.add('srv:fuel:buy', function (p, type, liters, pay) {
     const v = p.vehicle;
     if (!v) return notify(p, 'error', 'Вы не в машине');
     if (nearStation(p.position) < 0) return notify(p, 'error', 'Рядом нет заправки');
+    const ft = FUEL_TYPES[type];
+    if (!ft) return;
     const f = fuelOf(v);
-    const need = Math.ceil(FUEL_MAX - f);
-    if (need <= 0) return notify(p, 'warn', 'Бак и так полный');
-    if (v.engine) return notify(p, 'warn', 'Заглушите двигатель перед заправкой');
-    const money = getMoney(p);
-    const can = Math.min(need, Math.floor(money / FUEL_PRICE));
-    if (can <= 0) return notify(p, 'error', 'Недостаточно наличных. Литр стоит $' + FUEL_PRICE);
-    setMB(p, money - can * FUEL_PRICE, getBank(p));
-    setFuel(v, f + can);
-    notify(p, 'ok', 'Заправлено ' + can + ' л за $' + (can * FUEL_PRICE));
+    let l = Math.min(Math.floor(Number(liters) || 0), Math.floor(FUEL_MAX - f));
+    if (l <= 0) return notify(p, 'warn', 'Бак и так полный');
+    const cost = Math.ceil(l * ft.price);
+    if (pay === 'card') {
+        const b = getBank(p);
+        if (b < cost) return notify(p, 'error', 'На карте недостаточно средств');
+        setMB(p, getMoney(p), b - cost);
+    } else {
+        const m = getMoney(p);
+        if (m < cost) return notify(p, 'error', 'Недостаточно наличных');
+        setMB(p, m - cost, getBank(p));
+    }
+    v.engine = false;
+    setFuel(v, f + l);
+    v.setVariable('fuelType', type);
+    p.call('ui:fuelDone');
+    notify(p, 'ok', 'Заправлено ' + l + ' л ' + ft.n + ' за $' + cost + '. Заведите двигатель (Z)');
+});
+
+mp.events.add('srv:fuel:refill', function (p) {
+    if (!p.vehicle) return;
+    if (nearStation(p.position) < 0) return notify(p, 'error', 'Рядом нет заправки');
+    p.call('ui:fuelOpen');
+});
+
+/* ================= LOCKS ================= */
+function ownsVeh(p, v) {
+    const id = accId(p);
+    if (!id) return false;
+    const o = v.getVariable('ownerId');
+    return o !== undefined && o !== null && Number(o) === Number(id);
+}
+
+async function ownsByPlate(p, v) {
+    const id = accId(p);
+    if (!id) return false;
+    const r = await q('SELECT id FROM vehicles WHERE owner_id = ? AND plate = ? LIMIT 1', [id, String(v.numberPlate || '').trim()]);
+    if (r.length) { v.setVariable('ownerId', id); return true; }
+    return false;
+}
+
+mp.events.add('srv:veh:lock', async function (p, vid) {
+    let v = p.vehicle;
+    if (!v) {
+        const t = mp.vehicles.at(Number(vid));
+        if (t && t.dimension === p.dimension && dist(t.position, p.position) < 8) v = t;
+    }
+    if (!v) return notify(p, 'error', 'Рядом нет машины');
+    const adm = adminLvl(p) >= 1;
+    let own = ownsVeh(p, v);
+    if (!own && !adm) { try { own = await ownsByPlate(p, v); } catch (e) { own = false; } }
+    if (!own && !adm) return notify(p, 'error', 'Это не ваша машина');
+    v.locked = !v.locked;
+    p.call('veh:lockFx', [v.remoteId !== undefined ? v.remoteId : v.id, v.locked]);
+    notify(p, v.locked ? 'warn' : 'ok', (v.locked ? 'Машина закрыта' : 'Машина открыта') + (!own && adm ? ' (админ)' : ''));
 });
 
 mp.events.addCommand('setfuel', function (p, full2, n) {
@@ -897,6 +967,7 @@ mp.events.addCommand('setfuel', function (p, full2, n) {
 mp.events.add('srv:veh:engine', function (p) {
     const v = p.vehicle;
     if (!v) return;
+    if (p.seat !== 0 && p.seat !== -1) return;
     if (!v.engine && fuelOf(v) <= 0) return notify(p, 'error', 'Бак пуст');
     v.engine = !v.engine;
     notify(p, v.engine ? 'ok' : 'warn', v.engine ? 'Двигатель заведён' : 'Двигатель заглушен');
