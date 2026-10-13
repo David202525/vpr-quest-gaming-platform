@@ -72,3 +72,53 @@ window.hudVisible = function (on) {
 };
 
 window.hudQuest('', []);
+
+var SP = { max: 240, a0: 135, a1: 405 };
+function spPt(a, r) { var t = (a - 90) * Math.PI / 180; return [100 + r * Math.cos(t), 100 + r * Math.sin(t)]; }
+function spArcD(a0, a1, r) {
+    var p0 = spPt(a0, r), p1 = spPt(a1, r);
+    return 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A' + r + ' ' + r + ' 0 ' + (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
+}
+var SPA = { s0: 225, s1: 420, f0: 432, f1: 492, h0: 500, h1: 560 };
+function spSet(id, a0, a1, r, pct) {
+    pct = Math.max(0, Math.min(1, pct));
+    $(id).setAttribute('d', pct <= 0.001 ? '' : spArcD(a0, a0 + (a1 - a0) * pct, r));
+}
+(function () {
+    $('spTrack').setAttribute('d', spArcD(SPA.s0, SPA.s1, 86));
+    $('fuTrack').setAttribute('d', spArcD(SPA.f0, SPA.f1, 86));
+    $('hpTrack').setAttribute('d', spArcD(SPA.h0, SPA.h1, 86));
+    var t = '';
+    for (var v = 0; v <= SP.max; v += 40) {
+        var a = SPA.s0 + (SPA.s1 - SPA.s0) * v / SP.max;
+        var p = spPt(a, 72);
+        t += '<text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 2.5).toFixed(1) + '">' + v + '</text>';
+    }
+    $('spTicks').innerHTML = t;
+})();
+
+window.hudSpeedo = function (d) {
+    var el = $('speedo');
+    if (!d) { el.classList.remove('on'); return; }
+    el.classList.add('on');
+    var s = Math.max(0, Math.round(d.speed));
+    var str = String(s);
+    $('spVal').textContent = str;
+    $('spGhost').textContent = str.length < 3 ? '000'.slice(str.length) : '';
+    spSet('spArc', SPA.s0, SPA.s1, 86, s / SP.max);
+    spSet('fuArc', SPA.f0, SPA.f1, 86, d.fuel / 100);
+    spSet('hpArc', SPA.h0, SPA.h1, 86, d.hp / 100);
+    $('fuVal').textContent = Math.round(d.fuel);
+    $('hpVal').textContent = Math.round(d.hp);
+    $('fuVal').parentNode.classList.toggle('low', d.fuel < 15);
+    $('hpVal').parentNode.classList.toggle('low', d.hp < 30);
+    var g = '';
+    var gear = d.gear;
+    for (var i = 1; i <= 5; i++) g += i === gear ? '<b>' + i + '</b>' : String(i);
+    $('spGears').innerHTML = (gear === 0 && s > 1 ? '<b>R</b>' : 'R') + ' ' + g;
+    $('iLock').classList.toggle('on', !!d.lock);
+    $('iLight').classList.toggle('on', !!d.light);
+    $('iEngine').classList.toggle('on', !!d.engine);
+    $('iEngine').classList.toggle('warn', d.hp < 30);
+    $('iBelt').classList.toggle('on', !!d.belt);
+};

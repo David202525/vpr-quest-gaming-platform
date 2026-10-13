@@ -777,6 +777,16 @@ mp.events.addCommand('itemlist', function (p) {
     p.outputChatBox('Предметы: ' + Object.keys(ITEMS).join(', '));
 });
 
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        const ok = !!accId(p) && !p.getVariable('creating');
+        if (p.uiReadySent === ok) return;
+        p.uiReadySent = ok;
+        p.call('ui:ready', [ok]);
+    });
+}, 1500);
+mp.events.add('playerQuit', function (p) { p.uiReadySent = undefined; });
+
 global.UiSystem = { addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);

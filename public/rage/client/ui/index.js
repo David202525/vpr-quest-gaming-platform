@@ -7,6 +7,7 @@ var lastShot = 0;
 var gpsBlip = null;
 var VNAMES = {};
 var uiTyping = false;
+var uiReady = false;
 var uiSet = { hud: true, chat: true, sound: true, hints: true };
 
 function uiExec(code) { if (uiBrowser) uiBrowser.execute(code); }
@@ -15,7 +16,9 @@ function uiCall(fn, a, b) {
 }
 
 function busy() {
+    if (!uiReady) return true;
     if (uiTyping) return true;
+    if (!uiOpen && mp.gui.cursor.visible && !freeCursor) return true;
     if (mp.players.local.isTypingInTextChat) return true;
     if (typeof admOpen !== 'undefined' && admOpen) return true;
     return false;
@@ -46,8 +49,9 @@ function vehName(v) {
 }
 
 function openUi(name, opt) {
-    if (busy()) return;
     if (uiOpen === name) return closeUi();
+    if (uiOpen && !(opt && opt.fromUi)) return;
+    if (busy()) return;
     if (uiOpen) closeUi(true);
     uiOpen = name;
     uiCall('uiOpen', name, opt || {});
@@ -79,8 +83,9 @@ mp.keys.bind(0xC0, false, function () { openUi('inv', { trunk: !!(mp.players.loc
 mp.keys.bind(0x72, false, function () { openUi('phone'); });
 mp.keys.bind(0x4D, false, function () { openUi('menu'); });
 mp.keys.bind(0x71, false, function () {
-    if (uiTyping || mp.players.local.isTypingInTextChat) return;
+    if (!uiReady || uiTyping || mp.players.local.isTypingInTextChat) return;
     if (uiOpen) return;
+    if (!freeCursor && mp.gui.cursor.visible) return;
     freeCursor = !freeCursor;
     cursorSync();
 });
@@ -164,7 +169,7 @@ mp.events.add('inv:clearProp', function (idx) {
 });
 
 mp.events.add('cef:ui:close', function () { closeUi(true); });
-mp.events.add('cef:ui:open', function (name) { openUi(name); });
+mp.events.add('cef:ui:open', function (name) { openUi(name, { fromUi: true }); });
 mp.events.add('cef:inv:act', function (json) { mp.events.callRemote('srv:inv:act', json); });
 mp.events.add('cef:menu:buy', function (k) { mp.events.callRemote('srv:menu:buy', k); });
 mp.events.add('cef:menu:claim', function (l) { mp.events.callRemote('srv:menu:claim', l); });
@@ -187,3 +192,11 @@ mp.events.add('cef:ui:set', function (k, on) {
     if (k === 'chat') mp.gui.chat.show(!!on);
     if (k === 'hints') mp.events.call('hud:hints', !!on);
 });
+
+mp.events.add('ui:ready', function (on) {
+    uiReady = !!on;
+    if (!uiReady) { closeUi(); freeCursor = false; }
+});
+mp.events.add('creator:start', function () { uiReady = false; closeUi(); freeCursor = false; });
+mp.events.add('creator:done', function () { setTimeout(function () { uiReady = true; }, 1500); });
+global.uiBusy = function () { return !!uiOpen; };

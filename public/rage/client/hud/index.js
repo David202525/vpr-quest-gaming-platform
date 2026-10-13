@@ -101,7 +101,7 @@ mp.events.add('hud:show', function (on) {
 });
 
 mp.keys.bind(0x76, false, function () {
-    if (mp.gui.cursor.visible) return;
+    if (mp.gui.cursor.visible || mp.players.local.isTypingInTextChat) return;
     mp.events.call('hud:show', !hudOn);
 });
 
@@ -109,4 +109,34 @@ mp.events.callRemote('srv:hud:sync');
 
 mp.events.add('hud:hints', function (on) {
     hudExec('document.querySelector(".hints").style.display = ' + (on ? '""' : '"none"') + ';');
+});
+
+var spBelt = false;
+var spLast = null;
+setInterval(function () {
+    var p = mp.players.local;
+    var v = p.vehicle;
+    if (!v || !hudOn) {
+        if (spLast !== 'off') { hudExec('window.hudSpeedo && window.hudSpeedo(null);'); spLast = 'off'; }
+        if (!v) spBelt = false;
+        return;
+    }
+    var d = { speed: 0, gear: 1, fuel: 100, hp: 100, lock: false, light: false, engine: true, belt: spBelt };
+    try { d.speed = v.getSpeed() * 3.6; } catch (e) {}
+    try { d.gear = v.gear; if (typeof d.gear !== 'number') d.gear = 1; } catch (e) {}
+    try { var f = v.getVariable('fuel'); if (f !== undefined && f !== null) d.fuel = Number(f); } catch (e) {}
+    try { d.hp = Math.max(0, Math.min(100, v.getEngineHealth() / 10)); } catch (e) {}
+    try { d.lock = v.getDoorLockStatus() > 1; } catch (e) {}
+    try { var l = v.getLightsState(1, 1); d.light = !!(l && (l.lightsOn || l.highbeamsOn)); } catch (e) {}
+    try { d.engine = v.getIsEngineRunning(); } catch (e) {}
+    spLast = 'on';
+    hudExec('window.hudSpeedo && window.hudSpeedo(' + JSON.stringify(d) + ');');
+}, 100);
+
+mp.keys.bind(0x42, false, function () {
+    var p = mp.players.local;
+    if (!p.vehicle || mp.gui.cursor.visible || p.isTypingInTextChat) return;
+    spBelt = !spBelt;
+    try { p.setConfigFlag(32, !spBelt); } catch (e) {}
+    mp.events.call('hud:notify', spBelt ? 'ok' : 'warn', spBelt ? 'Ремень пристёгнут' : 'Ремень отстёгнут', 2000);
 });

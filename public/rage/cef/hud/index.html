@@ -38,6 +38,35 @@
     </div>
 </div>
 
+<div class="speedo" id="speedo">
+    <svg class="sp-svg" viewBox="0 0 200 200">
+        <defs>
+            <linearGradient id="spg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+            <radialGradient id="spbg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#1b1b22" stop-opacity=".92"/><stop offset="1" stop-color="#0c0c10" stop-opacity=".92"/></radialGradient>
+        </defs>
+        <circle cx="100" cy="100" r="74" fill="url(#spbg)"/>
+        <circle cx="100" cy="100" r="74" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+        <path id="spTrack" d="" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7" stroke-linecap="round"/>
+        <path id="spArc" d="" fill="none" stroke="url(#spg)" stroke-width="7" stroke-linecap="round"/>
+        <path id="fuTrack" d="" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="5" stroke-linecap="round"/>
+        <path id="fuArc" d="" fill="none" stroke="#2f9bff" stroke-width="5" stroke-linecap="round"/>
+        <path id="hpTrack" d="" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="5" stroke-linecap="round"/>
+        <path id="hpArc" d="" fill="none" stroke="#ff8a1f" stroke-width="5" stroke-linecap="round"/>
+        <g id="spTicks"></g>
+    </svg>
+    <div class="sp-gears" id="spGears"></div>
+    <div class="sp-num"><span class="sp-ghost" id="spGhost">0</span><span id="spVal">0</span></div>
+    <div class="sp-unit">KM/H</div>
+    <div class="sp-ind">
+        <span class="sp-k" id="iLock" title="Замок">🔒</span>
+        <span class="sp-k" id="iLight">L</span>
+        <span class="sp-k" id="iEngine">E</span>
+        <span class="sp-k" id="iBelt">B</span>
+    </div>
+    <div class="sp-side fu">⛽<b id="fuVal">100</b></div>
+    <div class="sp-side hp">🔧<b id="hpVal">100</b></div>
+</div>
+
 <div class="notes" id="notes"></div>
 
 <div class="hints">
