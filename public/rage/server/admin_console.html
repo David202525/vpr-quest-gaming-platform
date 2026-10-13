@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Админ-консоль</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Segoe UI,Arial,sans-serif;background:#0d0d14;color:#eee;font-size:14px}
+.wrap{max-width:1200px;margin:0 auto;padding:20px}
+h1{font-size:20px;margin-bottom:14px;color:#c13dff}
+.card{background:#16161f;border:1px solid #262636;border-radius:12px;padding:16px;margin-bottom:14px}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#c13dff;margin-bottom:10px}
+input,select,textarea{background:#0d0d14;border:1px solid #2c2c40;color:#fff;border-radius:8px;padding:9px 11px;font:inherit;width:100%}
+button{background:#7a2bd9;border:0;color:#fff;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.r{background:#a8263c}button.g{background:#1f8a4c}button.s{background:#2c2c40}
+.row{display:flex;gap:8px;margin-bottom:8px}.row>*{flex:1}.row>button{flex:none}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.list{max-height:340px;overflow:auto}
+.it{display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #20202c}
+.it b{min-width:150px}.mut{color:#888;font-size:12px}
+.chat .it{display:block}
+#login{max-width:420px;margin:12vh auto}
+#toast{position:fixed;right:20px;bottom:20px;background:#1f8a4c;padding:12px 16px;border-radius:8px;display:none}
+#toast.bad{background:#a8263c}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="login" class="card">
+    <h1>Админ-консоль</h1>
+    <p class="mut" style="margin-bottom:12px">Ключ выдаётся в игре: F4 → Руководство → «Получить ключ доступа». Доступ с ЗГА (7).</p>
+    <div class="row"><input id="tk" type="password" placeholder="Ключ доступа"><button id="go">Войти</button></div>
+</div>
+<div class="wrap" id="app" style="display:none">
+    <h1 id="me">—</h1>
+    <div class="grid">
+        <div class="card"><h3>Онлайн <span id="cnt"></span></h3><div class="list" id="online"></div></div>
+        <div class="card chat"><h3>Админ-чат</h3><div class="list" id="chat"></div>
+            <div class="row" style="margin-top:8px"><input id="msg" placeholder="Сообщение в админ-чат"><button id="send">Отправить</button></div></div>
+        <div class="card"><h3>Наказание онлайн-игрока</h3>
+            <div class="row"><input id="pid" placeholder="ID на сервере"><input id="min" type="number" placeholder="Минут (бан 0 = навсегда)"></div>
+            <div class="row"><input id="reason" placeholder="Причина"></div>
+            <div class="row"><button class="s" data-op="kick">Кик</button><button class="s" data-op="mute">Мут</button><button class="r" data-op="ban">Бан</button></div>
+        </div>
+        <div class="card"><h3>Офлайн-бан / разбан</h3>
+            <div class="row"><input id="lg" placeholder="Логин"><input id="omin" type="number" placeholder="Минут (0 = навсегда)"></div>
+            <div class="row"><input id="oreason" placeholder="Причина"></div>
+            <div class="row"><button class="r" id="offban">Забанить</button><button class="g" id="unban">Разбанить</button></div>
+        </div>
+        <div class="card"><h3>Объявление всем игрокам</h3>
+            <div class="row"><input id="ann" placeholder="Текст объявления"><button id="annb">Отправить</button></div></div>
+        <div class="card"><h3>Открытые репорты</h3><div class="list" id="reps"></div></div>
+    </div>
+    <div class="card"><h3>Активные баны</h3><div class="list" id="bans"></div></div>
+</div>
+<div id="toast"></div>
+<script>
+var TK = sessionStorage.getItem('tk') || '';
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function toast(t,bad){var e=$('toast');e.textContent=t;e.className=bad?'bad':'';e.style.display='block';setTimeout(function(){e.style.display='none'},2600)}
+function api(o){o.token=TK;return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(function(r){return r.json()})}
+function load(){api({op:'state'}).then(function(d){
+    if(d.err){$('app').style.display='none';$('login').style.display='';sessionStorage.removeItem('tk');return toast(d.err,true)}
+    $('login').style.display='none';$('app').style.display='';
+    $('me').textContent=d.me.login+' · '+d.me.rank;
+    $('cnt').textContent='('+d.online.length+')';
+    $('online').innerHTML=d.online.map(function(p){return '<div class="it"><b>['+p.id+'] '+esc(p.name)+'</b><span class="mut">#'+p.s+(p.lvl?' · админ '+p.lvl:'')+' · пинг '+p.ping+'</span></div>'}).join('')||'<p class="mut">Никого</p>';
+    $('chat').innerHTML=d.chat.map(function(m){return '<div class="it"><b>'+esc(m.from)+'</b> '+esc(m.text)+' <span class="mut">'+new Date(m.t).toLocaleTimeString('ru-RU')+'</span></div>'}).join('')||'<p class="mut">Пусто</p>';
+    $('reps').innerHTML=d.reports.map(function(r){return '<div class="it"><b>#'+r.id+' '+esc(r.name)+'</b><span style="flex:1">'+esc(r.text)+'</span><button class="s" data-rep="'+r.id+'">Ответ</button></div>'}).join('')||'<p class="mut">Нет</p>';
+    $('bans').innerHTML=d.bans.map(function(b){return '<div class="it"><b>'+esc(b.login)+'</b><span style="flex:1">'+esc(b.reason)+'</span><span class="mut">'+(b.until?'до '+new Date(b.until).toLocaleString('ru-RU'):'навсегда')+' · '+esc(b.admin)+'</span></div>'}).join('')||'<p class="mut">Нет</p>';
+})}
+function done(d){if(d.err)toast(d.err,true);else{toast('Готово');load()}}
+$('go').onclick=function(){TK=$('tk').value.trim();sessionStorage.setItem('tk',TK);load()};
+$('send').onclick=function(){api({op:'achat',text:$('msg').value}).then(done);$('msg').value=''};
+$('annb').onclick=function(){if(confirm('Отправить объявление всем?'))api({op:'announce',text:$('ann').value}).then(done)};
+document.querySelectorAll('[data-op]').forEach(function(b){b.onclick=function(){api({op:b.dataset.op,id:Number($('pid').value),minutes:Number($('min').value)||0,text:$('reason').value}).then(done)}});
+$('offban').onclick=function(){api({op:'offban',login:$('lg').value.trim(),minutes:Number($('omin').value)||0,text:$('oreason').value}).then(done)};
+$('unban').onclick=function(){api({op:'unban',login:$('lg').value.trim()}).then(done)};
+document.addEventListener('click',function(e){var b=e.target.closest('[data-rep]');if(!b)return;var t=prompt('Ответ на репорт #'+b.dataset.rep);if(t)api({op:'ans',rid:Number(b.dataset.rep),text:t}).then(done)});
+if(TK)load();
+setInterval(function(){if(TK&&$('app').style.display!=='none')load()},4000);
+</script>
+</body>
+</html>

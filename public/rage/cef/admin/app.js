@@ -1,16 +1,41 @@
 var D = null;
 var selected = null;
-var COLORS = ['#ffffff', '#7fd4ff', '#8fd14f', '#4fd1a5', '#ffcc66', '#ff9f43', '#ff6b6b', '#c13dff'];
+var COLORS = ['#ffffff', '#7fd4ff', '#8fd14f', '#4fd1a5', '#ffcc66', '#ff9f43', '#ff6b6b', '#ff4fa3', '#c13dff', '#00e5ff'];
 var RANK_INFO = [
     ['Обычный игрок'],
-    ['Админ-чат /a', 'Мут, ответ /pm', 'Телепорт /goto', 'Панель F4'],
-    ['Кик, варн, заморозка', 'Телепорт и /bring', 'Лечение, /revive', 'Полёт, GM, невидимость'],
-    ['Бан до 7 дней', 'Разбан', 'Обычные машины /veh', 'Ремонт и удаление машин'],
-    ['Бан до 30 дней, офлайн-бан', 'DLC-машины /vehdlc', 'Погода, время', 'Объявления'],
-    ['Вечный бан', 'Выдача денег', 'Машина в собственность', 'Изменение HP'],
-    ['Назначение админов', 'ниже своего уровня', 'Всё из уровней 1-5'],
-    ['Полный доступ', 'Назначает любой уровень', 'Действует на всех']
+    ['Репорты, админ-чат', 'Слежка, AFK, свободная камера', 'Тачку к себе, инфо о владельце', 'Админ-зона, лечить себя'],
+    ['/getpos, /arespawn', 'Объявление в чат /o', 'Ворота, эвакуатор', 'Скрыть префикс'],
+    ['Кик, мут, деморган, КПЗ', 'Ник, ТП, заморозка, слап', 'ТП из флая, поиск по номеру', 'Отбор лицензий, ремонт, dimension'],
+    ['Бан до 30 дн., офлайн-бан', 'Высадить, респавн общ. транспорта', 'Джетпак, маппинг', 'МП-панель'],
+    ['Бан до 90 дн.', 'Респавн гос. транспорта', 'Автопарк и оружие фракций', 'Лидеры, ОЧС'],
+    ['HP и броня по ID', 'Слежка за флаем, взгляд игрока', 'ТП за руль, любая машина, оружие', 'Банлист, маркеры, светофоры'],
+    ['Разбан, вечный и глобальный бан', 'Внешняя консоль', 'История ников, банк игрока', 'Скин, зелёные зоны, админка вкл/выкл'],
+    ['Логи', 'Назначение админов до ЗГА', 'Закрытие фракций', 'Отключение функций админки'],
+    ['Выдача/снятие денег', 'Эксклюзивный маппинг', 'Назначение ГА', 'Отключение работ']
 ];
+var CMDS = [
+    [1, '/ans [№] [текст]', 'Ответ на репорт'], [1, '/reports', 'Открытые репорты'], [1, '/a [текст]', 'Админ-чат'], [1, '/spec [id], /specoff', 'Слежка'],
+    [1, '/afk [id]', 'Сколько игрок в AFK'], [1, '/getcar [id машины] [1-5]', 'Тачку к себе'], [1, '/carinfo [id машины]', 'Данные владельца авто'],
+    [1, '/rnick [m/f]', 'Случайный ник'], [1, '/nickrule [id]', 'Текст про неверный ник'], [1, '/unjailself', 'Выйти из КПЗ'], [1, '/newbies', 'Недавно зарегистрированные'],
+    [1, '/near [id]', 'Игроки рядом'], [1, '/az', 'Админ-зона и обратно'], [1, '/respcar [id машины]', 'Респавн машины'], [1, '/hp', 'Вылечить себя'], [1, '/fly, F5, Backspace', 'Свободная камера'],
+    [2, '/getpos', 'Координаты в консоль'], [2, '/arespawn [id]', 'Поднять + вылечить + на спавн'], [2, '/o [текст]', 'Объявление в чат'], [2, '/agate', 'Открыть ворота в 15 м'],
+    [2, '/tow, /hook', 'Эвакуатор и крюк'], [2, '/hideprefix', 'Скрыть префикс'],
+    [3, '/kick, /mute, /warn', 'Наказания'], [3, '/demorgan [id] [мин] [причина], /undemorgan', 'Деморган'], [3, '/unjail [id]', 'Из КПЗ'], [3, '/setname [id] [Имя_Фамилия]', 'Сменить ник'],
+    [3, '/goto, /bring, /tpto [id] [id]', 'Телепорты'], [3, '/freeze [id]', 'Заморозка'], [3, '/slap [id] [hp]', 'Слап (видят все админы)'], [3, '/plate [номер]', 'Владелец по номеру'],
+    [3, '/takelic [id] [drive/bus/taxi/truck/gun] [мин]', 'Отнять лицензию'], [3, '/fixveh [id машины], /fixp [id]', 'Ремонт'], [3, '/setdim [id] [dim]', 'Измерение'],
+    [4, '/ban, /offban', 'Бан до 30 дней'], [4, '/eject [id]', 'Высадить'], [4, '/respawnpub', 'Респавн общ. транспорта'], [4, '/jetpack', 'Джетпак'], [4, '/obj [модель], /objdel', 'Маппинг'], [4, '/veh [модель]', 'Машина'],
+    [5, '/respawngov', 'Респавн гос. транспорта'], [5, '/setleader [id|#static] [фракция], /unleader', 'Лидеры'],
+    [6, '/sethp, /takehp, /setarmour', 'HP и броня'], [6, '/flylist, /flywatch [id]', 'Контроль свободной камеры'], [6, '/screen [id]', 'Смотреть от лица игрока'], [6, '/tpcar [id машины]', 'ТП за руль'],
+    [6, '/givecar [id] [модель]', 'Любая машина'], [6, '/giveweapon [id] [оружие] [патроны]', 'Оружие'], [6, '/adminidle', 'Админы без ответов'], [6, '/banlist [поиск]', 'История банов'],
+    [6, '/hpmarker [hp/armour], /hpmarkerdel', 'Маркеры'], [6, '/traffic', 'Светофоры'],
+    [7, '/unban [логин]', 'Разбан'], [7, '/permban [id|#static] [причина]', 'Глобальный бан'], [7, '/nickhistory [id|#static]', 'История ников'], [7, '/bank [id|#static]', 'Деньги игрока'],
+    [7, '/aoff, /aon', 'Админка вкл/выкл'], [7, '/skin [id] [модель]', 'Скин'], [7, '/greenzone, /gzadd, /gzdel', 'Зелёные зоны'],
+    [8, '/logs [поиск]', 'Логи'], [8, '/setadmin [id|логин|static] [0-7]', 'Назначить админа (можно офлайн)'], [8, '/factionoff, /factionon', 'Закрыть фракцию'], [8, '/flock [функция]', 'Отключить функцию'],
+    [9, '/gm2, /takemoney [id|#static] [сумма] [bank]', 'Деньги'], [9, '/exobj [модель]', 'Эксклюзивный маппинг'], [9, '/setga, /unga', 'ГА'], [9, '/joboff [работа]', 'Отключить работу']
+];
+var MP_WEAPONS = [['weapon_pistol', 'Пистолет'], ['weapon_smg', 'SMG'], ['weapon_carbinerifle', 'Карабин'], ['weapon_pumpshotgun', 'Дробовик'], ['weapon_sniperrifle', 'Снайперка'], ['weapon_knife', 'Нож'], ['weapon_bat', 'Бита'], ['weapon_rpg', 'RPG']];
+var MP_CARS = ['sultan', 'kuruma', 'elegy2', 'bati', 'sanchez', 'blazer', 'dune', 'bmx', 'faggio', 'bus'];
+var FSEL = null;
 var PRESETS = ['sultan', 'kuruma', 'adder', 'zentorno', 't20', 'elegy2', 'bati', 'sanchez', 'buzzard2', 'mesa3', 'dubsta2', 'police'];
 var WEATHER = [['EXTRASUNNY', 'Солнце'], ['CLEAR', 'Ясно'], ['CLOUDS', 'Облачно'], ['OVERCAST', 'Пасмурно'], ['RAIN', 'Дождь'], ['THUNDER', 'Гроза'], ['FOGGY', 'Туман'], ['SMOG', 'Смог'], ['SNOW', 'Снег'], ['XMAS', 'Сугробы'], ['HALLOWEEN', 'Хэллоуин']];
 var BAN_TIMES = [[60, '1 час'], [360, '6 часов'], [1440, '1 день'], [4320, '3 дня'], [10080, '7 дней'], [43200, '30 дней'], [0, 'Навсегда']];
@@ -51,6 +76,7 @@ window.admData = function (json) {
     renderRanks();
     renderServer();
     renderBiz();
+    renderExt();
 };
 
 function renderPlayers() {
@@ -72,7 +98,8 @@ function renderPlayers() {
 }
 
 function btn(label, action, cls) {
-    var ok = canDo(action);
+    var need = EXT_PERM[action] !== undefined ? EXT_PERM[action] : (D.perm[action] || 99);
+    var ok = D.me.level >= need;
     return '<button class="btn ' + (cls || '') + '" data-pa="' + action + '"' + (ok ? '' : ' disabled title="Недоступно на твоём уровне"') + '>' + label + '</button>';
 }
 
@@ -98,8 +125,14 @@ function renderDetail() {
         '<div class="act-group"><div class="g">Наказания</div><div class="act-btns">' +
         btn(p.muted ? 'Снять мут' : 'Мут', p.muted ? 'unmute' : 'mute') + btn('Варн', 'warn') + btn('Кик', 'kick', 'danger') + '</div>' +
         '<div class="act-btns" style="margin-top:6px;grid-template-columns:1fr">' + btn('Забанить', 'ban', 'danger') + '</div></div>' +
+        '<div class="act-group"><div class="g">Контроль</div><div class="act-btns">' +
+        btn('Следить', 'spec') + btn('Глазами', 'screen') + btn('Высадить', 'eject') + btn('Ремонт авто', 'fixp') + btn('Измерение', 'dim') + btn('Сменить ник', 'setname') + '</div></div>' +
+        '<div class="act-group"><div class="g">Наказания 2</div><div class="act-btns">' +
+        btn('Деморган', 'jail', 'danger') + btn('Отнять лиц.', 'takelic') + btn('Глоб. бан', 'permban', 'danger') + '</div></div>' +
+        '<div class="act-group"><div class="g">Руководство</div><div class="act-btns">' +
+        btn('HP', 'hpset') + btn('Броня', 'armourset') + btn('Оружие', 'weapon') + btn('Скин', 'skin') + btn('Банк', 'bankinfo') + btn('Ники', 'nickhist') + '</div></div>' +
         '<div class="act-group"><div class="g">Экономика</div><div class="act-btns" style="grid-template-columns:1fr 1fr">' +
-        btn('Выдать деньги', 'givemoney') + btn('Выдать машину', 'givecar') + '</div></div>';
+        btn('Деньги ±', 'money2') + btn('Выдать машину', 'givecar') + '</div></div>';
 }
 
 function modal(title, sub, body, okText, onOk) {
@@ -160,9 +193,101 @@ function playerAction(a) {
             if (!m) return false;
             trig('cef:adm:veh', JSON.stringify({ model: m, c1: Number($('mC1').value), c2: Number($('mC2').value), dlc: true, target: p.id, own: true }));
         });
+    } else if (a === 'jail') {
+        modal('Деморган', who, '<label>Минут</label>' + chipsHtml([[15, '15'], [30, '30'], [60, '60'], [120, '120'], [300, '300']], 'jt', 30) + reasonField, 'Отправить', function () {
+            act({ action: 'jail', id: p.id, minutes: chipValue('jt'), reason: $('mReason').value.trim() || 'нарушение' });
+        });
+    } else if (a === 'takelic') {
+        modal('Отнять лицензию', who, '<label>Что</label>' + chipsHtml([['drive', 'Права'], ['bus', 'Автобус'], ['taxi', 'Такси'], ['truck', 'Грузовик'], ['gun', 'Оружие']].map(function (x, i) { return [i, x[1], x[0]]; }), 'lt', 0) +
+            '<label>Минут (0 — пересдать сразу)</label><input id="mMin" type="number" value="0">' + reasonField, 'Отнять', function () {
+            var types = ['drive', 'bus', 'taxi', 'truck', 'gun'];
+            act({ action: 'takelic', id: p.id, type: types[chipValue('lt')], minutes: Number($('mMin').value) || 0, reason: $('mReason').value.trim() });
+        });
+    } else if (a === 'permban') {
+        modal('Глобальный вечный бан', who + ' · на всех серверах', reasonField, 'Забанить навсегда', function () {
+            var r = $('mReason').value.trim(); if (!r) return false;
+            act({ action: 'permban', id: p.id, reason: r });
+        });
+    } else if (a === 'hpset' || a === 'armourset' || a === 'dim' || a === 'skin' || a === 'setname') {
+        var lab = { hpset: 'HP (0–100)', armourset: 'Броня (0–100, 0 — забрать)', dim: 'Измерение', skin: 'Модель скина', setname: 'Новый ник Имя_Фамилия' }[a];
+        modal(lab, who, '<label>' + lab + '</label><input id="mVal">', 'Применить', function () {
+            var v = $('mVal').value.trim(); if (v === '') return false;
+            if (a === 'setname') act({ action: 'setname', id: p.id, name: v }); else act({ action: a, id: p.id, value: a === 'skin' ? v : Number(v) });
+        });
+    } else if (a === 'weapon') {
+        modal('Выдать оружие', who, '<label>Оружие</label><input id="mW" placeholder="weapon_pistol"><label>Патроны</label><input id="mA" type="number" value="120">', 'Выдать', function () {
+            act({ action: 'weapon', id: p.id, w: $('mW').value.trim(), ammo: Number($('mA').value) });
+        });
+    } else if (a === 'money2') {
+        modal('Деньги', who, '<label>Сумма (минус — забрать)</label><input id="mSum" type="number"><label class="check"><input type="checkbox" id="mBank"> На банковский счёт</label>', 'Применить', function () {
+            act({ action: 'money2', id: p.id, sum: Number($('mSum').value), bank: $('mBank').checked });
+        });
     } else {
         act({ action: a, id: p.id });
     }
+}
+var EXT_PERM = { spec: 1, screen: 6, eject: 4, fixp: 3, dim: 3, setname: 3, jail: 3, takelic: 3, permban: 7, hpset: 6, armourset: 6, weapon: 6, skin: 7, bankinfo: 7, nickhist: 7, money2: 9 };
+
+function rowsHtml(list, fn, empty) { return list.length ? list.map(fn).join('') : '<div class="empty">' + (empty || 'Пусто') + '</div>'; }
+function ago(ms) { var s = Math.floor(ms / 1000); if (s < 60) return s + ' сек'; if (s < 3600) return Math.floor(s / 60) + ' мин'; return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' м'; }
+function renderExt() {
+    var X = D.ext || {}, L = D.me.level;
+    document.querySelectorAll('[data-min]').forEach(function (b) { b.style.display = (D.me.real || L) >= Number(b.dataset.min) ? '' : 'none'; });
+    var reps = X.reports || [];
+    var open = reps.filter(function (r) { return !r.done; });
+    $('repCount').textContent = open.length; $('repOpen').textContent = open.length;
+    $('repList').innerHTML = rowsHtml(reps, function (r) {
+        return '<div class="tr"><b>#' + r.id + ' ' + esc(r.name) + '</b><span>' + esc(r.text) + '</span><span class="mut">' + ago(Date.now() - r.time) + ' назад</span>' +
+            (r.done ? '<span class="mut">✓ ' + esc(r.by) + ': ' + esc(r.answer || '') + '</span>' : '<button class="btn primary" data-rep="' + r.id + '">Ответить</button>') + '</div>';
+    }, 'Репортов нет');
+    $('jailList').innerHTML = rowsHtml(X.jail || [], function (j) {
+        return '<div class="tr"><b>' + esc(j.name) + '</b><span>' + (j.type === 'demorgan' ? 'Деморган' : 'КПЗ') + ' · ' + esc(j.reason) + '</span><span class="mut">осталось ' + ago(j.left) + ' · ' + esc(j.by) + '</span><button class="btn ok" data-rel="' + j.s + '">Выпустить</button></div>';
+    }, 'Никого');
+    if (!FSEL && X.factions) FSEL = Object.keys(X.factions)[0];
+    if (X.factions) {
+        $('fSel').innerHTML = Object.keys(X.factions).map(function (k) { return '<option value="' + k + '"' + (k === FSEL ? ' selected' : '') + '>' + esc(X.factions[k]) + (X.facOff && X.facOff[k] ? ' (закрыта)' : '') + '</option>'; }).join('');
+        var cfgRow = function (kind) { return function (x) { return '<div class="tr"><b>' + esc(x.m) + '</b><span class="mut">с ранга ' + x.r + '</span><span>' + (x.on ? '✅ можно брать' : '⛔ нельзя') + '</span><button class="btn" data-cfg="' + kind + '|toggle|' + esc(x.m) + '">Вкл/выкл</button><button class="btn" data-cfg="' + kind + '|rank|' + esc(x.m) + '">Ранг</button><button class="btn danger" data-cfg="' + kind + '|del|' + esc(x.m) + '">✕</button></div>'; }; };
+        $('flList').innerHTML = rowsHtml((X.fleet || {})[FSEL] || [], cfgRow('fleet'), 'Машины не настроены');
+        $('fwList').innerHTML = rowsHtml((X.fweap || {})[FSEL] || [], cfgRow('fweap'), 'Оружие не настроено');
+        $('oList').innerHTML = rowsHtml((X.ochs || []).filter(function (o) { return o.f === FSEL || o.f === 'all'; }), function (o) {
+            return '<div class="tr"><b>' + esc(o.n) + ' #' + o.s + '</b><span>' + esc(o.reason) + '</span><span class="mut">' + (o.until ? 'до ' + fmtTime(o.until) : 'навсегда') + ' · ' + esc(o.by) + '</span><button class="btn ok" data-ochsdel="' + o.s + '|' + o.f + '">Убрать</button></div>';
+        }, 'ОЧС пуст');
+    }
+    $('idleList').innerHTML = rowsHtml(X.idle || [], function (x) {
+        return '<div class="tr"><b style="color:' + COLORS[x.lvl] + '">' + esc(x.name) + ' [' + x.id + ']</b><span>без ответов ' + ago(x.noAnswer) + '</span><span class="mut">AFK ' + ago(x.afk * 1000) + ' · ответов ' + x.answers + (x.off ? ' · выкл' : '') + '</span></div>';
+    }, 'Нет админов');
+    $('flyList').innerHTML = rowsHtml(X.fly || [], function (x) {
+        return '<div class="tr"><b style="color:' + COLORS[x.lvl] + '">' + esc(x.name) + ' [' + x.id + ']</b><span class="mut">' + ago(Date.now() - x.since) + '</span><button class="btn" data-cmd="flywatch ' + x.id + '">Смотреть</button></div>';
+    }, 'Никто не летает');
+    var f = ($('bhSearch').value || '').toLowerCase();
+    $('bhList').innerHTML = rowsHtml((X.banHist || []).filter(function (b) { return !f || [b.login, b.nick, b.static, b.ip, b.serial].join(' ').toLowerCase().indexOf(f) >= 0; }).slice(0, 120), function (b) {
+        return '<div class="tr"><span class="mut">' + fmtTime(b.date) + '</span><b style="color:' + (b.t === 'ban' ? '#ff6b6b' : '#8fd14f') + '">' + (b.t === 'ban' ? 'БАН' : 'РАЗБАН') + ' ' + esc(b.login) + (b.static ? ' #' + b.static : '') + '</b><span>' + esc(b.reason) + (b.t === 'ban' ? ' · ' + dur(b.until ? Math.round((b.until - b.date) / 60000) : 0) : '') + '</span><span class="mut">' + esc(b.admin) + (b.ip ? ' · ' + esc(b.ip) : '') + '</span></div>';
+    }, 'История пуста');
+    var W = X.world || {};
+    $('wTraffic').textContent = W.traffic ? '🚦 Светофоры работают — выключить' : '⚫ Светофоры выключены — включить';
+    $('wZones').textContent = W.zonesOn ? '🟢 Зелёные зоны включены — выключить все' : '⚪ Зелёные зоны выключены — включить';
+    $('wMarkers').textContent = 'Маркеров: ' + (W.markers || 0) + ' · объектов маппинга: ' + (W.mapping || 0);
+    $('wZoneList').innerHTML = rowsHtml(W.zones || [], function (z, i) {
+        return '<div class="tr"><b>' + esc(z.n) + '</b><span class="mut">радиус ' + z.r + ' м</span><button class="btn" data-zone="' + i + '">' + (z.on ? 'Выкл' : 'Вкл') + '</button><button class="btn danger" data-zonedel="' + i + '">✕</button></div>';
+    }, 'Зон нет');
+    $('lockList').innerHTML = Object.keys(D.features || {}).map(function (k) { return '<button class="chip' + (D.locks[k] ? '' : ' active') + '" data-lock="' + k + '">' + (D.locks[k] ? '⛔ ' : '✅ ') + esc(D.features[k]) + '</button>'; }).join('');
+    $('facOffList').innerHTML = Object.keys(X.factions || {}).map(function (k) { return '<button class="chip' + (X.facOff[k] ? '' : ' active') + '" data-facoff="' + k + '">' + (X.facOff[k] ? '⛔ ' : '✅ ') + esc(X.factions[k]) + '</button>'; }).join('');
+    $('jobOffList').innerHTML = Object.keys(X.jobs || {}).map(function (k) { return '<button class="chip' + (X.jobOff[k] ? '' : ' active') + '" data-joboff="' + k + '">' + (X.jobOff[k] ? '⛔ ' : '✅ ') + esc(X.jobs[k]) + '</button>'; }).join('');
+    $('conUrl').textContent = X.consoleUrl ? 'Адрес: ' + X.consoleUrl : 'Доступно с ЗГА (7)';
+    renderCmds();
+}
+function renderCmds() {
+    var f = ($('cSearch').value || '').toLowerCase();
+    var L = D.me.level;
+    $('cList').innerHTML = CMDS.filter(function (c) { return !f || (c[1] + c[2]).toLowerCase().indexOf(f) >= 0; }).map(function (c) {
+        return '<div class="tr" style="' + (c[0] > L ? 'opacity:.4' : '') + '"><span class="badge" style="color:' + COLORS[c[0]] + '">' + c[0] + '</span><b>' + esc(c[1]) + '</b><span>' + esc(c[2]) + '</span></div>';
+    }).join('');
+}
+function mpSend(op, value, extra) {
+    var o = { action: 'mp', op: op, target: $('mpTarget').value.trim(), radius: Number($('mpRadius').value) || 50, value: value };
+    if (!o.target) return window.admToast('Укажи ID или all', false);
+    for (var k in (extra || {})) o[k] = extra[k];
+    act(o);
 }
 
 function renderBans() {
@@ -200,7 +325,7 @@ function renderRanks() {
             RANK_INFO[i].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>';
     }).join('');
     $('saLvl').innerHTML = D.ranks.map(function (r, i) {
-        var ok = D.me.level === 7 || i < D.me.level;
+        var ok = D.me.level === 9 || (D.me.level === 8 && i <= 7);
         return '<option value="' + i + '"' + (ok ? '' : ' disabled') + '>' + i + ' — ' + esc(r) + '</option>';
     }).join('');
 }
@@ -233,6 +358,35 @@ document.addEventListener('click', function (e) {
     }
     if (t.dataset.pa) return playerAction(t.dataset.pa);
     if (t.dataset.quick === 'fly') return trig('cef:adm:fly');
+    if (t.dataset.quick === 'az') return act({ action: 'cmd', text: 'az' });
+    if (t.dataset.quick === 'aoff') return act({ action: 'aoff' });
+    if (t.dataset.cmd) return act({ action: 'cmd', text: t.dataset.cmd });
+    if (t.dataset.rep) { var rid = t.dataset.rep; return modal('Ответ на репорт #' + rid, '', '<label>Ответ</label><textarea id="mAns" maxlength="250"></textarea>', 'Отправить', function () { var v = $('mAns').value.trim(); if (!v) return false; act({ action: 'ans', rid: Number(rid), text: v }); }); }
+    if (t.dataset.rel) return act({ action: 'release', s: Number(t.dataset.rel) });
+    if (t.dataset.mp) {
+        var m = t.dataset.mp;
+        if (m === 'weapon') return mpSend('weapon', $('mpW').value.trim(), { ammo: Number($('mpAmmo').value) });
+        if (m === 'car') return mpSend('car', $('mpCar').value.trim());
+        if (m === 'hp') return mpSend('hp', Number($('mpHp').value));
+        if (m === 'armour') return mpSend('armour', Number($('mpAr').value));
+        if (m === 'skin') return mpSend('skin', $('mpSkin').value.trim());
+        if (m === 'dim') return mpSend('dim', Number($('mpDim').value));
+        if (m === 'freeze1' || m === 'freeze0') return mpSend('freeze', m === 'freeze1');
+        return mpSend(m, '');
+    }
+    if (t.dataset.mpw) { $('mpW').value = t.dataset.mpw; return; }
+    if (t.dataset.mpc) { $('mpCar').value = t.dataset.mpc; return; }
+    if (t.dataset.cfg) {
+        var cp = t.dataset.cfg.split('|');
+        if (cp[1] === 'rank') return modal('С какого ранга', cp[2], '<input id="mR" type="number" value="1">', 'Сохранить', function () { act({ action: cp[0], f: FSEL, op: 'rank', m: cp[2], r: Number($('mR').value) }); });
+        return act({ action: cp[0], f: FSEL, op: cp[1], m: cp[2] });
+    }
+    if (t.dataset.ochsdel) { var op2 = t.dataset.ochsdel.split('|'); return act({ action: 'ochs', op: 'del', s: Number(op2[0]), f: op2[1] }); }
+    if (t.dataset.zone !== undefined) return act({ action: 'world', op: 'zone', i: Number(t.dataset.zone) });
+    if (t.dataset.zonedel !== undefined) return act({ action: 'world', op: 'zonedel', i: Number(t.dataset.zonedel) });
+    if (t.dataset.lock) return act({ action: 'lock', f: t.dataset.lock });
+    if (t.dataset.facoff) { var fk = t.dataset.facoff; return modal('Фракция', D.ext.factions[fk], '<p class="hint">' + (D.ext.facOff[fk] ? 'Открыть фракцию снова?' : 'Закрыть фракцию и уволить всех сотрудников?') + '</p>', 'Подтвердить', function () { act({ action: 'factionoff', f: fk }); }); }
+    if (t.dataset.joboff) return act({ action: 'joboff', j: t.dataset.joboff });
     if (t.dataset.quick === 'refresh') return trig('cef:adm:refresh');
     if (t.dataset.preset) { $('vModel').value = t.dataset.preset; return; }
     if (t.dataset.dspawn) return spawnVeh(t.dataset.dspawn, true);
@@ -362,3 +516,18 @@ function zAsk(title, cb) {
 
 $('govTaxBtn').onclick = function () { var v = $('govTaxIn').value; if (v !== '') act({ action: 'gov', op: 'tax', value: Number(v) }); };
 $('govWdBtn').onclick = function () { var v = Number($('govWdIn').value); if (v > 0) act({ action: 'gov', op: 'withdraw', value: v }); };
+
+$('mpWeapons').innerHTML = MP_WEAPONS.map(function (w) { return '<button class="chip" data-mpw="' + w[0] + '">' + w[1] + '</button>'; }).join('');
+$('mpCars').innerHTML = MP_CARS.map(function (c) { return '<button class="chip" data-mpc="' + c + '">' + c + '</button>'; }).join('');
+$('fSel').onchange = function () { FSEL = this.value; renderExt(); };
+$('fSetLeader').onclick = function () { var v = $('fLeader').value.trim(); if (!v) return; act(v[0] === '#' ? { action: 'leader', s: Number(v.slice(1)), f: FSEL } : { action: 'leader', id: v, f: FSEL }); };
+$('fUnLeader').onclick = function () { var v = $('fLeader').value.trim(); if (!v) return; act(v[0] === '#' ? { action: 'leader', s: Number(v.slice(1)), f: null } : { action: 'leader', id: v, f: null }); };
+$('oAdd').onclick = function () { act({ action: 'ochs', op: 'add', s: Number($('oStatic').value), minutes: Number($('oMin').value) || 0, f: FSEL, reason: $('oReason').value.trim() }); };
+$('flAdd').onclick = function () { act({ action: 'fleet', f: FSEL, op: 'add', m: $('flM').value.trim(), r: Number($('flR').value) }); $('flM').value = ''; };
+$('fwAdd').onclick = function () { act({ action: 'fweap', f: FSEL, op: 'add', m: $('fwM').value.trim(), r: Number($('fwR').value) }); $('fwM').value = ''; };
+$('wTraffic').onclick = function () { act({ action: 'world', op: 'traffic' }); };
+$('wZones').onclick = function () { act({ action: 'world', op: 'zones' }); };
+$('conToken').onclick = function () { act({ action: 'token' }); };
+$('bhSearch').oninput = function () { if (D) renderExt(); };
+$('cSearch').oninput = function () { if (D) renderCmds(); };
+$('cRun').onclick = function () { var v = $('cLine').value.trim(); if (!v) return; act({ action: 'cmd', text: v }); $('cLine').value = ''; };

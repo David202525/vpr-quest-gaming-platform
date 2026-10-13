@@ -24,7 +24,14 @@
             </div>
             <nav class="menu" id="menu">
                 <button class="m active" data-tab="players"><i>👥</i>Игроки</button>
+                <button class="m" data-tab="reports"><i>📨</i>Репорты <span class="badge" id="repCount" style="margin-left:auto">0</span></button>
                 <button class="m" data-tab="vehicles"><i>🚗</i>Транспорт</button>
+                <button class="m" data-tab="mp" data-min="4"><i>🎉</i>МП-панель</button>
+                <button class="m" data-tab="factions" data-min="5"><i>🏛</i>Фракции</button>
+                <button class="m" data-tab="monitor" data-min="6"><i>👁</i>Контроль</button>
+                <button class="m" data-tab="world" data-min="6"><i>🗺</i>Мир</button>
+                <button class="m" data-tab="manage" data-min="8"><i>🛡</i>Руководство</button>
+                <button class="m" data-tab="cmds"><i>⌨</i>Команды</button>
                 <button class="m" data-tab="biz"><i>🏧</i>Бизнесы</button>
                 <button class="m" data-tab="bans"><i>⛔</i>Баны</button>
                 <button class="m" data-tab="server"><i>🌐</i>Сервер</button>
@@ -33,6 +40,8 @@
             </nav>
             <div class="quick">
                 <button class="q" data-quick="fly">Полёт</button>
+                <button class="q" data-quick="az">Админ-зона</button>
+                <button class="q" data-quick="aoff" data-min="7">Админка вкл/выкл</button>
                 <button class="q" data-quick="refresh">Обновить</button>
             </div>
         </aside>
@@ -49,6 +58,135 @@
                         <div class="empty">Выбери игрока слева</div>
                     </div>
                 </div>
+            </section>
+
+            <section class="tab" data-tab="reports">
+                <header class="head"><h2>Репорты игроков <span class="badge" id="repOpen">0</span></h2></header>
+                <div class="table" id="repList"></div>
+                <div class="card">
+                    <h3>Тюрьма (КПЗ / деморган)</h3>
+                    <div class="table" id="jailList"></div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="mp">
+                <header class="head"><h2>МП-панель <span class="lvl">4+</span></h2></header>
+                <div class="card">
+                    <h3>Кому</h3>
+                    <div class="row3">
+                        <input id="mpTarget" placeholder="ID игрока или all">
+                        <input id="mpRadius" type="number" placeholder="Радиус для all, м" value="50">
+                        <span class="hint">all — все в радиусе от тебя</span>
+                    </div>
+                </div>
+                <div class="grid2">
+                    <div class="card">
+                        <h3>Оружие</h3>
+                        <div class="chips" id="mpWeapons"></div>
+                        <div class="row3"><input id="mpW" placeholder="weapon_pistol"><input id="mpAmmo" type="number" value="120"><button class="btn primary" data-mp="weapon">Выдать</button></div>
+                        <button class="btn danger" data-mp="strip">Забрать всё оружие</button>
+                    </div>
+                    <div class="card">
+                        <h3>Транспорт (1 машина на игрока)</h3>
+                        <div class="chips" id="mpCars"></div>
+                        <div class="row3"><input id="mpCar" placeholder="sultan"><button class="btn primary" data-mp="car">Создать</button><span class="hint">Без гос. и эксклюзивов</span></div>
+                    </div>
+                    <div class="card">
+                        <h3>Здоровье и броня</h3>
+                        <div class="row3"><input id="mpHp" type="number" value="100"><button class="btn ok" data-mp="hp">Поставить HP</button><span></span></div>
+                        <div class="row3"><input id="mpAr" type="number" value="100"><button class="btn ok" data-mp="armour">Поставить броню</button><span></span></div>
+                    </div>
+                    <div class="card">
+                        <h3>Скин, измерение, сбор</h3>
+                        <div class="row3"><input id="mpSkin" placeholder="s_m_y_cop_01"><button class="btn" data-mp="skin">Скин</button><span></span></div>
+                        <div class="row3"><input id="mpDim" type="number" placeholder="Измерение"><button class="btn" data-mp="dim">Перенести</button><span></span></div>
+                        <div class="btns"><button class="btn" data-mp="bring">Собрать к себе</button><button class="btn" data-mp="freeze1">Заморозить</button><button class="btn" data-mp="freeze0">Разморозить</button></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="factions">
+                <header class="head"><h2>Фракции <span class="lvl">5+</span></h2>
+                    <select id="fSel" class="search" style="max-width:220px"></select>
+                </header>
+                <div class="grid2">
+                    <div class="card">
+                        <h3>Лидер</h3>
+                        <div class="row3"><input id="fLeader" placeholder="ID или #static"><button class="btn primary" id="fSetLeader">Поставить лидера</button><button class="btn danger" id="fUnLeader">Снять</button></div>
+                        <p class="hint">Назначение админом не попадает в трудовую книжку.</p>
+                    </div>
+                    <div class="card">
+                        <h3>ОЧС (чёрный список)</h3>
+                        <div class="row3"><input id="oStatic" placeholder="static"><input id="oMin" type="number" placeholder="минут (0 — навсегда)"><button class="btn danger" id="oAdd">Внести</button></div>
+                        <input id="oReason" placeholder="Причина">
+                        <div class="table" id="oList" style="margin-top:8px"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Автопарк</h3>
+                        <div class="row3"><input id="flM" placeholder="модель"><input id="flR" type="number" placeholder="с ранга" value="1"><button class="btn ok" id="flAdd">Добавить</button></div>
+                        <div class="table" id="flList"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Оружейная</h3>
+                        <div class="row3"><input id="fwM" placeholder="weapon_carbinerifle"><input id="fwR" type="number" placeholder="с ранга" value="1"><button class="btn ok" id="fwAdd">Добавить</button></div>
+                        <div class="table" id="fwList"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="monitor">
+                <header class="head"><h2>Контроль администрации <span class="lvl">6+</span></h2></header>
+                <div class="grid2">
+                    <div class="card"><h3>Админы онлайн: без ответов / AFK</h3><div class="table" id="idleList"></div></div>
+                    <div class="card"><h3>Сейчас в свободной камере</h3><div class="table" id="flyList"></div></div>
+                </div>
+                <div class="card">
+                    <h3>История банов</h3>
+                    <input class="search" id="bhSearch" placeholder="Ник, static, IP или serial" style="max-width:none;margin-bottom:8px">
+                    <div class="table" id="bhList"></div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="world">
+                <header class="head"><h2>Мир сервера <span class="lvl">6+</span></h2></header>
+                <div class="grid2">
+                    <div class="card">
+                        <h3>Светофоры <span class="lvl">6+</span></h3>
+                        <button class="btn" id="wTraffic">—</button>
+                        <h3 style="margin-top:14px">Маркеры HP / брони <span class="lvl">6+</span></h3>
+                        <div class="btns"><button class="btn ok" data-cmd="hpmarker hp">+ HP здесь</button><button class="btn ok" data-cmd="hpmarker armour">+ Броня здесь</button><button class="btn danger" data-cmd="hpmarkerdel">Удалить ближайший</button></div>
+                        <p class="hint" id="wMarkers"></p>
+                        <h3 style="margin-top:14px">Респавн транспорта</h3>
+                        <div class="btns"><button class="btn" data-cmd="respawnpub">Общественный (4+)</button><button class="btn" data-cmd="respawngov">Государственный (5+)</button></div>
+                    </div>
+                    <div class="card">
+                        <h3>Зелёные зоны <span class="lvl">7+</span></h3>
+                        <button class="btn" id="wZones">—</button>
+                        <div class="table" id="wZoneList" style="margin-top:8px"></div>
+                        <p class="hint">Новая зона: встань в центр и введи /gzadd [радиус] [название]</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="manage">
+                <header class="head"><h2>Руководство <span class="lvl">8+</span></h2></header>
+                <div class="grid2">
+                    <div class="card"><h3>Функции админки (выкл. для всех, кроме МГА)</h3><div class="chips" id="lockList"></div></div>
+                    <div class="card"><h3>Фракции: закрыть / открыть</h3><div class="chips" id="facOffList"></div><p class="hint">Закрытие увольняет всех сотрудников.</p></div>
+                    <div class="card"><h3>Работы <span class="lvl">9</span></h3><div class="chips" id="jobOffList"></div></div>
+                    <div class="card">
+                        <h3>Внешняя консоль <span class="lvl">7+</span></h3>
+                        <p class="hint" id="conUrl">—</p>
+                        <button class="btn primary" id="conToken">Получить ключ доступа</button>
+                        <p class="hint">Открой адрес в браузере, вставь ключ — баны, админ-чат, объявления и репорты без входа в игру. Новый ключ отменяет старый.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="cmds">
+                <header class="head"><h2>Команды по уровням</h2><input class="search" id="cSearch" placeholder="Поиск команды"></header>
+                <div class="card"><div class="row3"><input id="cLine" placeholder="/команда аргументы — выполнить отсюда"><button class="btn primary" id="cRun">Выполнить</button><span></span></div></div>
+                <div class="table" id="cList"></div>
             </section>
 
             <section class="tab" data-tab="vehicles">
@@ -159,9 +297,9 @@
                 <header class="head"><h2>Уровни администрации</h2></header>
                 <div class="ranks" id="rankList"></div>
                 <div class="card">
-                    <h3>Назначить уровень <span class="lvl">6+</span></h3>
+                    <h3>Назначить уровень <span class="lvl">8+</span></h3>
                     <div class="row3">
-                        <input id="saId" placeholder="ID или логин">
+                        <input id="saId" placeholder="ID, логин или static (можно офлайн)">
                         <select id="saLvl"></select>
                         <button class="btn primary" id="saBtn">Назначить</button>
                     </div>

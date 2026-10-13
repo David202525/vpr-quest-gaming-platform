@@ -6,27 +6,41 @@ try { db = require('../database'); } catch (e) {
     try { db = require('./database'); } catch (e2) { db = null; }
 }
 
-const RANKS = ['Игрок', 'Хелпер', 'Модератор', 'Ст. модератор', 'Администратор', 'Ст. администратор', 'Гл. администратор', 'Основатель'];
-const COLORS = ['#ffffff', '#7fd4ff', '#8fd14f', '#4fd1a5', '#ffcc66', '#ff9f43', '#ff6b6b', '#c13dff'];
-const MAX = 7;
+const RANKS = ['Игрок', 'Хелпер', 'Помощник администрации', 'Младшая администрация', 'Администрация (тест)', 'Старшая администрация', 'Руководящая администрация', 'ЗГА', 'ГА', 'МГА / Разработчик'];
+const SHORT = ['', 'Хелпер', 'ПА', 'МА', 'Админ', 'СА', 'РА', 'ЗГА', 'ГА', 'МГА'];
+const COLORS = ['#ffffff', '#7fd4ff', '#8fd14f', '#4fd1a5', '#ffcc66', '#ff9f43', '#ff6b6b', '#ff4fa3', '#c13dff', '#00e5ff'];
+const MAX = 9;
 
 const OWNERS = {
-    'Rainold Star': 7,
-    'Rainold_Star': 7,
-    'Rainold_Verigo': 7
+    'Rainold Star': 9,
+    'Rainold_Star': 9,
+    'Rainold_Verigo': 9
 };
 
 const PERM = {
-    a: 1, admins: 1, mute: 1, unmute: 1, pm: 1, goto: 1, panel: 1,
-    tp: 2, bring: 2, unfreeze: 2, heal: 2, kick: 2, slap: 2, freeze: 2, warn: 2, gm: 2, invis: 2, fly: 2, revive: 2,
-    ban: 3, unban: 3, veh: 3, dv: 3, fix: 3, tpc: 3,
-    vehdlc: 4, longban: 4, offban: 4, weather: 4, time: 4, announce: 4, dvall: 4, adddlc: 4, deldlc: 4,
-    givemoney: 5, permban: 5, givecar: 5, sethp: 5,
-    setadmin: 6,
-    owner: 7
+    a: 1, admins: 1, pm: 1, panel: 1, fly: 1, spec: 1, afk: 1, getcar: 1, carinfo: 1, rnick: 1, nickrule: 1, unjailself: 1, newbies: 1, near: 1, az: 1, respawncar: 1, healself: 1, reports: 1,
+    getpos: 2, announce: 2, ochat: 2, gate: 2, tow: 2, hideprefix: 2, arespawn: 2,
+    kick: 3, mute: 3, unmute: 3, warn: 3, demorgan: 3, unjail: 3, setname: 3, goto: 3, tp: 3, bring: 3, tpto: 3, freeze: 3, unfreeze: 3, slap: 3, flytp: 3,
+    plate: 3, takelic: 3, fixveh: 3, fix: 3, setdim: 3, heal: 3, revive: 3, gm: 3, invis: 3, tpc: 3, dv: 3,
+    eject: 4, respawnpub: 4, ban: 4, offban: 4, jetpack: 4, mapping: 4, mp: 4, veh: 4, weather: 4, time: 4, dvall: 4,
+    respawngov: 5, fleet: 5, fweapons: 5, leader: 5, ochs: 5,
+    sethp: 6, armour: 6, flylist: 6, flywatch: 6, screen: 6, tpcar: 6, givecar: 6, vehdlc: 6, adddlc: 6, deldlc: 6, giveweapon: 6, adminidle: 6, banlist: 6, hpmarker: 6, traffic: 6, gov: 6,
+    unban: 7, console: 7, nickhistory: 7, bankcheck: 7, admtoggle: 7, permban: 7, skin: 7, greenzone: 7,
+    logs: 8, setadmin: 8, factionoff: 8, featurelock: 8,
+    givemoney: 9, exmapping: 9, setga: 9, joboff: 9, owner: 9
 };
+const FEATURES = {
+    mp: ['mp'], announce: ['announce', 'ochat'], mapping: ['mapping', 'exmapping'], veh: ['veh', 'vehdlc', 'givecar'], ban: ['ban', 'offban', 'permban'],
+    fly: ['fly', 'flytp', 'flywatch'], spec: ['spec'], tow: ['tow'], jetpack: ['jetpack'], greenzone: ['greenzone'], traffic: ['traffic'], screen: ['screen'],
+    weapons: ['giveweapon'], money: ['givemoney'], demorgan: ['demorgan'], console: ['console']
+};
+const FEATURE_NAMES = { mp: 'МП-панель', announce: 'Объявления', mapping: 'Маппинг', veh: 'Спавн машин', ban: 'Баны', fly: 'Свободная камера', spec: 'Слежка', tow: 'Эвакуатор', jetpack: 'Джетпак',
+    greenzone: 'Зелёные зоны', traffic: 'Светофоры', screen: 'Скриншоты', weapons: 'Выдача оружия', money: 'Выдача денег', demorgan: 'Деморган', console: 'Внешняя консоль' };
+const LOCK_FILE = path.join(__dirname, 'admin_locks.json');
+let locks = (function () { try { return JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8')); } catch (e) { return {}; } })();
+function featureOf(action) { for (const f in FEATURES) if (FEATURES[f].indexOf(action) >= 0) return f; return null; }
 
-const BAN_LIMIT = { 3: 7 * 1440, 4: 30 * 1440, 5: 0, 6: 0, 7: 0 };
+const BAN_LIMIT = { 4: 30 * 1440, 5: 90 * 1440, 6: 365 * 1440 };
 
 const BANS_FILE = path.join(__dirname, 'admin_bans.json');
 const DLC_FILE = path.join(__dirname, 'admin_dlc.json');
@@ -171,10 +185,14 @@ setInterval(function () {
     mp.players.forEach(function (p) { if (!p.admAcc) loadAcc(p); });
 }, 3000);
 
-function lvl(p) {
+function realLvl(p) {
     const a = acc(p);
     if (!a) return 0;
     return Math.max(0, Math.min(MAX, Number(a.admin) || 0));
+}
+function lvl(p) {
+    if (p && p.admOff) return 0;
+    return realLvl(p);
 }
 function rankName(n) {
     n = Number(n) || 0;
@@ -184,7 +202,16 @@ function rankColor(n) {
     return COLORS[Number(n) || 0] || '#ffffff';
 }
 function can(p, action) {
-    return lvl(p) >= (PERM[action] || 99);
+    const L = lvl(p);
+    if (L < (PERM[action] || 99)) return false;
+    const f = featureOf(action);
+    if (f && locks[f] && L < MAX) return false;
+    return true;
+}
+function whyNot(p, action) {
+    const f = featureOf(action);
+    if (f && locks[f] && lvl(p) >= (PERM[action] || 99)) return 'Функция «' + FEATURE_NAMES[f] + '» отключена руководством';
+    return 'Нужен уровень: ' + rankName(PERM[action] || 99);
 }
 function login(p) {
     if (p && p.admAcc && p.admAcc.login) return p.admAcc.login;
@@ -193,8 +220,8 @@ function login(p) {
 function msg(p, text, color) {
     p.outputChatBox('!{' + (color || '#ffcc66') + '}' + text);
 }
-function deny(p) {
-    msg(p, 'Недостаточно прав', '#e05555');
+function deny(p, action) {
+    msg(p, action ? whyNot(p, action) : 'Недостаточно прав', '#e05555');
 }
 function find(arg) {
     if (arg === undefined || arg === null || arg === '') return null;
@@ -217,10 +244,15 @@ function staff(text) {
         if (lvl(p) >= 1) p.outputChatBox('!{#c13dff}[A] !{#ffffff}' + text);
     });
 }
+const LOG_FILE = path.join(__dirname, 'admin_logs.json');
+(function () { try { const l = JSON.parse(fs.readFileSync(LOG_FILE, 'utf8')); if (Array.isArray(l)) l.forEach(function (x) { logs.push(x); }); } catch (e) {} })();
+let logsDirty = false;
+setInterval(function () { if (logsDirty) { logsDirty = false; writeJson(LOG_FILE, logs.slice(0, 3000)); } }, 15000);
 function log(admin, action, target, details) {
-    const row = { admin: login(admin), action: action, target: target || '-', details: details || '', time: Date.now() };
+    const row = { admin: typeof admin === 'string' ? admin : login(admin), lvl: typeof admin === 'string' ? 0 : realLvl(admin), action: action, target: target || '-', details: String(details || ''), time: Date.now() };
     logs.unshift(row);
-    if (logs.length > 100) logs.pop();
+    if (logs.length > 3000) logs.pop();
+    logsDirty = true;
     console.log('[admin] ' + row.admin + ' ' + action + ' ' + row.target + ' ' + row.details);
 }
 function canTouch(admin, target) {
@@ -248,7 +280,7 @@ function durationText(min) {
 }
 function maxBan(p) {
     const L = lvl(p);
-    if (L >= 5) return 0;
+    if (L >= 7) return 0;
     return BAN_LIMIT[L] || 0;
 }
 
@@ -290,18 +322,22 @@ function doBan(admin, target, minutes, reason, offlineLogin) {
         login: lg,
         social: target ? target.socialClub : null,
         serial: target ? target.serial : null,
+        ip: target ? target.ip : null,
+        static: target && acc(target) ? acc(target).id : null,
+        nick: target ? String(target.name) : null,
         reason: reason,
-        admin: login(admin),
-        adminRank: rankName(lvl(admin)),
+        admin: typeof admin === 'string' ? admin : login(admin),
+        adminRank: typeof admin === 'string' ? 'Консоль' : rankName(lvl(admin)),
         date: Date.now(),
         until: minutes ? Date.now() + minutes * 60000 : 0
     };
     bans = bans.filter(function (b) { return !(b.login && lg && b.login.toLowerCase() === lg.toLowerCase()); });
     bans.unshift(rec);
     writeJson(BANS_FILE, bans);
+    if (global.AdminCore && global.AdminCore.banHistory) global.AdminCore.banHistory(rec, 'ban');
     q('UPDATE accounts SET banned = 1, ban_reason = ?, ban_until = ? WHERE username = ? OR login = ? OR nick = ?', [reason, rec.until, lg, lg, lg]);
 
-    mp.players.broadcast('!{#e05555}[БАН] !{#ffffff}' + rankName(lvl(admin)) + ' ' + login(admin) +
+    mp.players.broadcast('!{#e05555}[БАН] !{#ffffff}' + (typeof admin === 'string' ? 'Консоль ' + admin : rankName(lvl(admin)) + ' ' + login(admin)) +
         ' забанил игрока !{#ffcc66}' + lg + ' !{#ffffff}на ' + durationText(minutes) + '. Причина: !{#ff8080}' + reason);
     log(admin, 'ban', lg, durationText(minutes) + ' | ' + reason);
     if (target) showBan(target, rec);
@@ -313,7 +349,8 @@ function doUnban(admin, lg) {
     writeJson(BANS_FILE, bans);
     q('UPDATE accounts SET banned = 0, ban_reason = NULL, ban_until = 0 WHERE username = ? OR login = ? OR nick = ?', [lg, lg, lg]);
     log(admin, 'unban', lg, '');
-    staff(login(admin) + ' разбанил ' + lg);
+    staff((typeof admin === 'string' ? admin : login(admin)) + ' разбанил ' + lg);
+    if (global.AdminCore && global.AdminCore.banHistory) global.AdminCore.banHistory({ login: lg, admin: typeof admin === 'string' ? admin : login(admin), date: Date.now() }, 'unban');
     return before !== bans.length;
 }
 
@@ -471,13 +508,16 @@ function playersData() {
 
 function panelData(p) {
     return {
-        me: { name: login(p), level: lvl(p), rank: rankName(lvl(p)), color: rankColor(lvl(p)) },
+        me: { name: login(p), level: lvl(p), real: realLvl(p), off: !!p.admOff, rank: rankName(lvl(p)), color: rankColor(lvl(p)) },
+        ext: global.AdminCore && global.AdminCore.panelExt ? global.AdminCore.panelExt(p) : null,
+        locks: locks, features: FEATURE_NAMES,
         ranks: RANKS,
+        me2: null,
         perm: PERM,
         maxBan: maxBan(p),
         players: playersData(),
         bans: bans.filter(activeBan).slice(0, 80),
-        logs: logs.slice(0, 60),
+        logs: can(p, 'logs') ? logs.slice(0, 400) : [],
         dlc: dlc,
         weather: mp.world.weather,
         shops: global.ShopSystem ? global.ShopSystem.list().map(function (a) { return { id: a.id, kind: a.kind, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
@@ -487,11 +527,21 @@ function panelData(p) {
     };
 }
 
+function setAdminRule(p, cur, n) {
+    const L = lvl(p);
+    if (L >= MAX) return null;
+    if (L < 8) return 'Назначать админов может только ГА (8) и выше';
+    if (cur >= L) return 'Нельзя менять уровень админа своего уровня или выше';
+    if (n > 7) return 'ГА может повысить максимум до ЗГА (7). Назначить ГА — только МГА (9)';
+    return null;
+}
+
 function sendPanel(p) {
     p.call('adm:data', [JSON.stringify(panelData(p))]);
 }
 
 mp.events.add('srv:adm:open', function (p) {
+    if (realLvl(p) >= 1 && p.admOff) { msg(p, 'Админка выключена. Включить: /aon', '#ffcc66'); p.call('adm:close'); return; }
     if (!can(p, 'panel')) {
         msg(p, 'Админ-панель доступна только администрации', '#e05555');
         p.call('adm:close');
@@ -515,6 +565,7 @@ mp.events.add('srv:adm:act', function (p, json) {
     const t = d.id !== undefined ? find(d.id) : null;
     const reason = String(d.reason || 'нарушение правил').slice(0, 100);
     const needT = ['tp', 'bring', 'heal', 'kick', 'slap', 'freeze', 'unfreeze', 'mute', 'unmute', 'warn', 'ban', 'goto', 'revive', 'givemoney', 'sethp'];
+    if (global.AdminCore && global.AdminCore.panelAct && global.AdminCore.panelAct(p, d, t)) return;
 
     if (a === 'gov') {
         if (!global.GovSystem) return toast(p, 'Казна не загружена', false);
@@ -529,7 +580,7 @@ mp.events.add('srv:adm:act', function (p, json) {
         if (lvl(p) < 3) return toast(p, 'Недостаточно прав', false);
         return global.AtmSystem.admin(p, d).then(function (t) { toast(p, t, true); sendPanel(p); }).catch(function (e) { toast(p, e.message, false); });
     }
-    if (!can(p, a)) return toast(p, 'Недостаточно прав', false);
+    if (!can(p, a)) return toast(p, whyNot(p, a), false);
     if (needT.indexOf(a) >= 0 && !t) return toast(p, 'Игрок не найден', false);
     if (t && t !== p && ['kick', 'ban', 'mute', 'warn', 'freeze', 'slap'].indexOf(a) >= 0 && !canTouch(p, t)) {
         return toast(p, 'Нельзя применить к админу твоего уровня или выше', false);
@@ -542,7 +593,7 @@ mp.events.add('srv:adm:act', function (p, json) {
         doHeal(p, t);
         log(p, 'revive', login(t), ''); toast(p, login(t) + ' поднят', true);
     }
-    else if (a === 'slap') { t.position = new mp.Vector3(t.position.x, t.position.y, t.position.z + 5); log(p, 'slap', login(t), ''); toast(p, 'Шлепок', true); }
+    else if (a === 'slap') { global.AdminCore.slap(p, t, Number(d.hp) || 0); toast(p, 'Шлепок', true); }
     else if (a === 'freeze') { doFreeze(p, t, true); toast(p, login(t) + ' заморожен', true); }
     else if (a === 'unfreeze') { doFreeze(p, t, false); toast(p, login(t) + ' разморожен', true); }
     else if (a === 'mute') { doMute(p, t, Math.max(1, Math.min(600, Number(d.minutes) || 10)), reason); toast(p, 'Мут выдан', true); }
@@ -601,9 +652,10 @@ mp.events.add('srv:adm:act', function (p, json) {
     else if (a === 'setadmin') {
         const n = Number(d.level);
         const tt = find(d.id);
-        if (!tt || !acc(tt)) return toast(p, 'Игрок не найден', false);
+        if (!tt || !acc(tt)) { runCmd(p, 'setadmin ' + d.id + ' ' + n); return toast(p, 'Команда отправлена (офлайн-назначение)', true); }
         if (isNaN(n) || n < 0 || n > MAX) return toast(p, 'Уровень 0-' + MAX, false);
-        if (lvl(p) < MAX && (n >= lvl(p) || lvl(tt) >= lvl(p))) return toast(p, 'Можно назначать только ниже своего уровня', false);
+        const why = setAdminRule(p, realLvl(tt), n);
+        if (why) return toast(p, why, false);
         acc(tt).admin = n;
         q('UPDATE accounts SET admin = ? WHERE id = ?', [n, acc(tt).id]);
         msg(tt, 'Ваш статус: ' + rankName(n), '#c13dff');
@@ -636,11 +688,13 @@ mp.events.add('srv:adm:vehBad', function (p, model) {
 mp.events.add('srv:adm:noclip', function (p, on) {
     if (!can(p, 'fly')) return;
     p.alpha = on ? 0 : 255;
+    p.admFly = on ? { since: Date.now(), pos: null } : null;
+    if (on) p.call('adm:flyTp', [can(p, 'flytp')]);
     log(p, 'fly', login(p), on ? 'вкл' : 'выкл');
 });
 
 mp.events.add('srv:adm:flyLand', function (p, x, y, z) {
-    if (!can(p, 'fly')) return;
+    if (!can(p, 'flytp')) return;
     p.position = new mp.Vector3(Number(x), Number(y), Number(z));
 });
 
@@ -651,13 +705,27 @@ mp.events.add('playerChat', function (p, text) {
         return;
     }
     const L = lvl(p);
-    const tag = L >= 1 ? '!{' + rankColor(L) + '}[' + rankName(L) + '] ' : '';
+    const tag = L >= 1 && !p.hidePrefix ? '!{' + rankColor(L) + '}[' + SHORT[L] + '] ' : '';
+    if (global.AdminCore && global.AdminCore.chatHook && global.AdminCore.chatHook(p, text)) return;
     mp.players.broadcast(tag + '!{#ffffff}' + login(p) + ' [' + p.id + ']: ' + text);
 });
 
+const CMDS = {};
+function runCmd(p, line) {
+    const parts = String(line || '').trim().replace(/^\//, '').split(/\s+/);
+    const c = CMDS[parts.shift().toLowerCase()];
+    if (!c) return false;
+    c(p, parts.join(' '));
+    return true;
+}
 function cmd(name, perm, usage, fn) {
+    CMDS[name] = function (p, full) {
+        if (!can(p, perm)) return deny(p, perm);
+        const args = String(full || '').trim().split(/\s+/).filter(Boolean);
+        fn(p, args, usage, String(full || ''));
+    };
     mp.events.addCommand(name, function (p, full) {
-        if (!can(p, perm)) return deny(p);
+        if (!can(p, perm)) return deny(p, perm);
         const args = String(full || '').trim().split(/\s+/).filter(Boolean);
         fn(p, args, usage, String(full || ''));
     });
@@ -704,8 +772,9 @@ mp.events.addCommand('alevel', function (p) {
 cmd('a', 'a', '/a [текст]', function (p, a, u, full) {
     if (!full.trim()) return msg(p, u);
     mp.players.forEach(function (x) {
-        if (lvl(x) >= 1) x.outputChatBox('!{#c13dff}[A] !{' + rankColor(lvl(p)) + '}' + rankName(lvl(p)) + ' ' + login(p) + ': !{#ffffff}' + full.trim());
+        if (lvl(x) >= 1) x.outputChatBox('!{#c13dff}[A] !{' + rankColor(lvl(p)) + '}' + SHORT[lvl(p)] + ' ' + login(p) + ': !{#ffffff}' + full.trim());
     });
+    if (global.AdminCore && global.AdminCore.pushChat) global.AdminCore.pushChat(SHORT[lvl(p)] + ' ' + login(p), full.trim());
 });
 
 mp.events.addCommand('admins', function (p) {
@@ -720,6 +789,7 @@ mp.events.addCommand('admins', function (p) {
 mp.events.addCommand('report', function (p, full) {
     const text = String(full || '').trim();
     if (!text) return msg(p, '/report [текст] — сообщение администрации');
+    if (global.AdminCore && global.AdminCore.addReport) return global.AdminCore.addReport(p, text);
     staff('!{#ffcc66}[РЕПОРТ] ' + login(p) + ' [' + p.id + ']: !{#ffffff}' + text);
     msg(p, 'Репорт отправлен администрации', '#8fd14f');
 });
@@ -729,6 +799,7 @@ cmd('pm', 'pm', '/pm [id] [текст]', function (p, a, u) {
     const text = a.slice(1).join(' ');
     if (!need(p, t && text, u)) return;
     t.outputChatBox('!{#c13dff}[Ответ от ' + rankName(lvl(p)) + ' ' + login(p) + ']: !{#ffffff}' + text);
+    p.admLastAnswer = Date.now();
     msg(p, 'Отправлено ' + login(t), '#8fd14f');
     log(p, 'pm', login(t), text);
 });
@@ -779,7 +850,9 @@ cmd('tpc', 'tpc', '/tpc [x] [y] [z]', function (p, a, u) {
 });
 
 cmd('aheal', 'heal', '/aheal [id]', function (p, a) {
-    doHeal(p, find(a[0]) || p);
+    const t = find(a[0]) || p;
+    if (t === p && false) return;
+    doHeal(p, t);
 });
 
 cmd('arevive', 'heal', '/arevive [id] — без id поднимет вас', function (p, a) {
@@ -787,15 +860,8 @@ cmd('arevive', 'heal', '/arevive [id] — без id поднимет вас', fu
     doHeal(p, t);
     msg(p, t === p ? 'Вы подняли себя' : 'Вы подняли ' + login(t), '#8fd14f');
 });
-cmd('selfrevive', 'heal', '/selfrevive', function (p) { doHeal(p, p); });
+cmd('selfrevive', 'healself', '/selfrevive', function (p) { doHeal(p, p); });
 
-cmd('slap', 'slap', '/slap [id]', function (p, a, u) {
-    const t = find(a[0]);
-    if (!need(p, t, u)) return;
-    if (!canTouch(p, t)) return deny(p);
-    t.position = new mp.Vector3(t.position.x, t.position.y, t.position.z + 5);
-    log(p, 'slap', login(t), '');
-});
 
 cmd('freeze', 'freeze', '/freeze [id]', function (p, a, u) {
     const t = find(a[0]);
@@ -863,19 +929,7 @@ cmd('offban', 'offban', '/offban [логин] [срок] [причина]', func
     doBan(p, online && login(online).toLowerCase() === a[0].toLowerCase() ? online : null, min, a.slice(2).join(' ') || 'нарушение правил', a[0]);
 });
 
-cmd('unban', 'unban', '/unban [логин]', function (p, a, u) {
-    if (!a[0]) return msg(p, u);
-    doUnban(p, a[0]);
-    msg(p, 'Разбанен: ' + a[0], '#8fd14f');
-});
 
-cmd('banlist', 'ban', '/banlist', function (p) {
-    const list = bans.filter(activeBan).slice(0, 10);
-    if (!list.length) return msg(p, 'Активных банов нет');
-    list.forEach(function (b) {
-        p.outputChatBox('!{#e05555}' + b.login + ' !{#cccccc}— ' + b.reason + ' (' + (b.until ? 'до ' + new Date(b.until).toLocaleString('ru-RU') : 'навсегда') + ', ' + b.admin + ')');
-    });
-});
 
 cmd('veh', 'veh', '/veh [модель] [цвет1] [цвет2]', function (p, a, u) {
     if (!a[0]) return msg(p, u + '. Пример: /veh sultan 0 0');
@@ -932,11 +986,6 @@ cmd('dvall', 'dvall', '/dvall', function (p) {
     log(p, 'dvall', '-', String(n));
 });
 
-cmd('fix', 'fix', '/fix', function (p) {
-    if (!p.vehicle) return msg(p, 'Сядь в машину');
-    p.vehicle.repair();
-    msg(p, 'Машина отремонтирована', '#8fd14f');
-});
 
 cmd('weather', 'weather', '/weather [CLEAR/RAIN/THUNDER/FOGGY/SNOW/EXTRASUNNY]', function (p, a, u) {
     if (!a[0]) return msg(p, u);
@@ -951,7 +1000,7 @@ cmd('time', 'time', '/time [0-23]', function (p, a, u) {
     staff(login(p) + ' установил время ' + h + ':00');
 });
 
-cmd('ann', 'announce', '/ann [текст]', function (p, a, u, full) {
+cmd('ann', 'mp', '/ann [текст] (МП-объявление 4+)', function (p, a, u, full) {
     if (!full.trim()) return msg(p, u);
     mp.players.broadcast('!{#c13dff}[ОБЪЯВЛЕНИЕ] !{#ffffff}' + full.trim());
     mp.players.call('adm:announce', [full.trim(), login(p)]);
@@ -968,29 +1017,25 @@ cmd('givemoney', 'givemoney', '/givemoney [id] [сумма]', function (p, a, u)
     log(p, 'givemoney', login(t), '$' + sum);
 });
 
-cmd('sethp', 'sethp', '/sethp [id] [0-100]', function (p, a, u) {
-    const t = find(a[0]);
-    if (!need(p, t, u)) return;
-    t.health = Math.max(0, Math.min(100, Number(a[1]) || 100));
-    log(p, 'sethp', login(t), String(a[1]));
-});
 
-cmd('setadmin', 'setadmin', '/setadmin [id или логин] [0-7]', function (p, a, u) {
+cmd('setadmin', 'setadmin', '/setadmin [id, логин или static] [0-9]', async function (p, a, u) {
     const n = Number(a[1]);
     if (!a[0] || isNaN(n) || n < 0 || n > MAX) {
         msg(p, u);
         RANKS.forEach(function (r, i) { p.outputChatBox('!{' + rankColor(i) + '}' + i + ' — ' + r); });
         return;
     }
-    if (lvl(p) < MAX && n >= lvl(p)) return msg(p, 'Можно назначать только ниже своего уровня', '#e05555');
     const t = find(a[0]);
-    if (t && lvl(p) < MAX && lvl(t) >= lvl(p)) return deny(p);
+    let cur = t ? realLvl(t) : 0;
+    if (!t) { const r = await q('SELECT admin FROM accounts WHERE username = ? OR login = ? OR nick = ? OR nick = ? OR id = ? LIMIT 1', [a[0], a[0], a[0], a[0].replace(/_/g, ' '), Number(a[0]) || 0]); if (!r.length) return msg(p, 'Аккаунт не найден', '#e05555'); cur = Number(r[0].admin) || 0; }
+    const why = setAdminRule(p, cur, n);
+    if (why) return msg(p, why, '#e05555');
     if (t && acc(t)) {
         acc(t).admin = n;
         msg(t, 'Ваш статус: ' + rankName(n), '#c13dff');
         q('UPDATE accounts SET admin = ? WHERE id = ?', [n, acc(t).id]);
     } else {
-        q('UPDATE accounts SET admin = ? WHERE username = ? OR login = ? OR nick = ? OR nick = ?', [n, a[0], a[0], a[0], a[0].replace(/_/g, ' ')]);
+        q('UPDATE accounts SET admin = ? WHERE username = ? OR login = ? OR nick = ? OR nick = ? OR id = ?', [n, a[0], a[0], a[0], a[0].replace(/_/g, ' '), Number(a[0]) || 0]);
     }
     const name = t ? login(t) : a[0];
     staff(login(p) + ' назначил ' + name + ' → ' + rankName(n));
@@ -999,12 +1044,26 @@ cmd('setadmin', 'setadmin', '/setadmin [id или логин] [0-7]', function (
 
 global.AdminSystem = {
     lvl: lvl,
+    realLvl: realLvl,
+    jobOff: function (j) { return global.AdminCore ? global.AdminCore.jobOff(j) : false; },
+    factionOff: function (f) { return global.AdminCore ? global.AdminCore.factionOff(f) : false; },
+    licBlocked: function (p, t) { return global.AdminCore ? global.AdminCore.licBlocked(p, t) : 0; },
     rankName: rankName,
     can: can,
     log: log,
     ban: doBan,
     isMuted: function (p) { return !!(muted[p.id] && Date.now() < muted[p.id]); }
 };
+
+global.AdminCore = {
+    q: q, acc: acc, lvl: lvl, realLvl: realLvl, can: can, whyNot: whyNot, login: login, msg: msg, deny: deny, find: find, staff: staff, log: log, logs: logs,
+    canTouch: canTouch, rankName: rankName, rankColor: rankColor, SHORT: SHORT, RANKS: RANKS, MAX: MAX, PERM: PERM, toast: toast, sendPanel: sendPanel,
+    doBan: doBan, doUnban: doUnban, doKick: doKick, doMute: doMute, doHeal: doHeal, doFreeze: doFreeze, tpTo: tpTo, spawnVeh: spawnVeh,
+    moneyOf: moneyOf, addMoney: addMoney, getBans: function () { return bans; }, muted: muted, frozen: frozen, adminVehs: adminVehs, dlc: function () { return dlc; },
+    runCmd: runCmd, parseDuration: parseDuration, durationText: durationText, maxBan: maxBan, cmd: cmd, need: need, setAdminRule: setAdminRule, loadAcc: loadAcc,
+    locks: locks, FEATURE_NAMES: FEATURE_NAMES, saveLocks: function () { writeJson(LOCK_FILE, locks); }, readJson: readJson, writeJson: writeJson, dir: __dirname
+};
+try { require('./admin_ext.js'); } catch (e) { console.log('[admin] admin_ext.js: ' + e.message); }
 
 console.log('[admin] загружено: ' + RANKS.length + ' рангов, банов: ' + bans.filter(activeBan).length + ', DLC: ' + dlc.length);
 

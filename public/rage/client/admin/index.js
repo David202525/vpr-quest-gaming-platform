@@ -87,63 +87,80 @@ mp.events.add('adm:gm', function (on) {
     mp.players.local.setInvincible(gm);
 });
 
+/* ===== свободная камера (флай) ===== */
+var flyCanTp = false;
+var flyPosAt = 0;
+var flyStartPos = null;
+mp.events.add('adm:flyTp', function (v) { flyCanTp = !!v; });
 function noclipStart() {
     var p = mp.players.local;
+    if (p.vehicle) { mp.gui.chat.push('!{#e05555}Выйдите из машины'); return; }
     noclip = true;
+    flyStartPos = p.position;
     var pos = p.position;
-    noclipCam = mp.cameras.new('admFly', new mp.Vector3(pos.x, pos.y, pos.z + 1), mp.game.cam.getGameplayCamRot(2), 60);
+    var rot = mp.game.cam.getGameplayCamRot(2);
+    noclipCam = mp.cameras.new('admFly', new mp.Vector3(pos.x, pos.y, pos.z + 1), new mp.Vector3(rot.x, 0, rot.z), 60);
     noclipCam.setActive(true);
     mp.game.cam.renderScriptCams(true, false, 0, true, false);
     p.freezePosition(true);
     p.setAlpha(0);
     p.setCollision(false, false);
+    p.setInvincible(true);
     mp.events.callRemote('srv:adm:noclip', true);
-    mp.gui.chat.push('!{#8fd14f}Полёт: WASD, Shift — быстрее, Alt — медленнее, Q/E — вниз/вверх. F5 или /fly — выйти');
+    mp.events.callRemote('srv:adm:flyStart');
+    mp.gui.chat.push('!{#8fd14f}Свободная камера: WASD, мышь, Q/E — вниз/вверх, Shift — быстро, Alt — медленно. Колесо — скорость.');
+    mp.gui.chat.push('!{#8fd14f}F5 — выйти и ТП туда, где камера (3+), Backspace — выйти и вернуться на место');
 }
-
-function noclipStop() {
+var flySpeed = 1;
+function noclipStop(back) {
     var p = mp.players.local;
+    if (!noclip) return;
     noclip = false;
     var c = noclipCam ? noclipCam.getCoord() : p.position;
     if (noclipCam) { noclipCam.setActive(false); noclipCam.destroy(); noclipCam = null; }
     mp.game.cam.renderScriptCams(false, false, 0, true, false);
-    var gz = mp.game.gameplay.getGroundZFor3dCoord(c.x, c.y, c.z, 0, false);
-    var z = gz && gz > 0 ? gz + 1 : c.z;
-    p.position = new mp.Vector3(c.x, c.y, z);
     p.freezePosition(false);
     p.setAlpha(255);
     p.setCollision(true, true);
-    mp.events.callRemote('srv:adm:flyLand', c.x, c.y, z);
+    p.setInvincible(gm);
+    if (!back && flyCanTp) {
+        var gz = mp.game.gameplay.getGroundZFor3dCoord(c.x, c.y, c.z + 2, 0, false);
+        var z = gz && gz > 0 && gz < c.z + 2 ? gz + 1 : c.z;
+        p.setCoordsNoOffset(c.x, c.y, z, false, false, false);
+        mp.events.callRemote('srv:adm:flyLand', c.x, c.y, z);
+    } else if (flyStartPos) {
+        p.setCoordsNoOffset(flyStartPos.x, flyStartPos.y, flyStartPos.z, false, false, false);
+        mp.events.callRemote('srv:adm:flyBack');
+    }
+    flyStartPos = null;
     mp.events.callRemote('srv:adm:noclip', false);
 }
 
 mp.events.add('adm:noclipToggle', function () {
-    if (noclip) noclipStop(); else noclipStart();
+    if (noclip) noclipStop(false); else noclipStart();
 });
-
-mp.keys.bind(0x74, false, function () {
-    if (noclip) noclipStop();
-});
+mp.keys.bind(0x74, false, function () { if (noclip) noclipStop(false); });
+mp.keys.bind(0x08, false, function () { if (noclip && !mp.gui.cursor.visible) noclipStop(true); });
 
 mp.events.add('render', function () {
     if (!noclip || !noclipCam) return;
-    var dx = mp.game.controls.getDisabledControlNormal(0, 1) * 6;
-    var dy = mp.game.controls.getDisabledControlNormal(0, 2) * 6;
+    var p = mp.players.local;
     mp.game.controls.disableAllControlActions(0);
-    for (var i = 0; i < 6; i++) mp.game.controls.enableControlAction(0, [245, 249, 200, 0, 1, 2][i], true);
+    [245, 249, 1, 2, 241, 242].forEach(function (k) { mp.game.controls.enableControlAction(0, k, true); });
+    if (mp.gui.cursor.visible) return;
+    var dx = mp.game.controls.getDisabledControlNormal(0, 1) * 8;
+    var dy = mp.game.controls.getDisabledControlNormal(0, 2) * 8;
+    if (mp.game.controls.isControlJustPressed(0, 241)) flySpeed = Math.min(8, flySpeed * 1.5);
+    if (mp.game.controls.isControlJustPressed(0, 242)) flySpeed = Math.max(0.1, flySpeed / 1.5);
     var rot = noclipCam.getRot(2);
     var rx = Math.max(-89, Math.min(89, rot.x - dy));
     var rz = rot.z - dx;
     noclipCam.setRot(rx, 0, rz, 2);
-
-    var speed = 1.0;
-    if (mp.keys.isDown(0x10)) speed = 4.0;
-    if (mp.keys.isDown(0x12)) speed = 0.2;
-    var radZ = rz * Math.PI / 180;
-    var radX = rx * Math.PI / 180;
-    var fx = -Math.sin(radZ) * Math.cos(radX);
-    var fy = Math.cos(radZ) * Math.cos(radX);
-    var fz = Math.sin(radX);
+    var speed = flySpeed;
+    if (mp.keys.isDown(0x10)) speed *= 4;
+    if (mp.keys.isDown(0x12)) speed *= 0.2;
+    var radZ = rz * Math.PI / 180, radX = rx * Math.PI / 180;
+    var fx = -Math.sin(radZ) * Math.cos(radX), fy = Math.cos(radZ) * Math.cos(radX), fz = Math.sin(radX);
     var c = noclipCam.getCoord();
     var nx = c.x, ny = c.y, nz = c.z;
     if (mp.keys.isDown(0x57)) { nx += fx * speed; ny += fy * speed; nz += fz * speed; }
@@ -153,7 +170,171 @@ mp.events.add('render', function () {
     if (mp.keys.isDown(0x45)) nz += speed;
     if (mp.keys.isDown(0x51)) nz -= speed;
     noclipCam.setCoord(nx, ny, nz);
-    mp.players.local.setCoordsNoOffset(nx, ny, nz - 1, false, false, false);
+    p.setCoordsNoOffset(nx, ny, nz - 3, false, false, false);
+    mp.game.streaming.setFocusArea(nx, ny, nz, 0, 0, 0);
+    if (Date.now() - flyPosAt > 250) { flyPosAt = Date.now(); mp.events.callRemote('srv:adm:flyPos', nx, ny, nz, rx, rz); }
+    mp.game.graphics.drawText('FLY  x' + flySpeed.toFixed(1), [0.5, 0.94], { font: 4, color: [143, 209, 79, 220], scale: [0.4, 0.4], outline: true });
+});
+mp.events.add('playerDeath', function () { if (noclip) noclipStop(true); });
+
+/* ===== просмотр камеры другого админа / глаз игрока ===== */
+var watchCam = null;
+mp.events.add('adm:flyWatch', function (id) {
+    if (Number(id) < 0) {
+        if (watchCam) { watchCam.setActive(false); watchCam.destroy(); watchCam = null; mp.game.cam.renderScriptCams(false, false, 0, true, false); mp.game.invoke('0x31B73D1EA9F01DA2'); }
+        return;
+    }
+    if (!watchCam) {
+        var p = mp.players.local.position;
+        watchCam = mp.cameras.new('admWatch', new mp.Vector3(p.x, p.y, p.z + 2), new mp.Vector3(0, 0, 0), 60);
+        watchCam.setActive(true);
+        mp.game.cam.renderScriptCams(true, false, 0, true, false);
+    }
+});
+mp.events.add('adm:flyWatchPos', function (x, y, z, rx, rz) {
+    if (!watchCam) return;
+    watchCam.setCoord(x, y, z);
+    watchCam.setRot(rx, 0, rz, 2);
+    mp.game.streaming.setFocusArea(x, y, z, 0, 0, 0);
+});
+var camStreamUntil = 0, camStreamAt = 0;
+mp.events.add('adm:camStream', function (sec) { camStreamUntil = Date.now() + Number(sec) * 1000; });
+mp.events.add('render', function () {
+    if (!camStreamUntil || Date.now() > camStreamUntil || Date.now() - camStreamAt < 150) return;
+    camStreamAt = Date.now();
+    var c = mp.game.cam.getGameplayCamCoord(), r = mp.game.cam.getGameplayCamRot(2);
+    mp.events.callRemote('srv:adm:camPos', c.x, c.y, c.z, r.x, r.z);
+});
+
+/* ===== слежка ===== */
+var specId = -1, specCam = null;
+mp.events.add('adm:spec', function (id, name) {
+    specId = Number(id);
+    var lp = mp.players.local;
+    lp.freezePosition(true); lp.setAlpha(0); lp.setCollision(false, false); lp.setInvincible(true);
+    if (!specCam) specCam = mp.cameras.new('admSpec', lp.position, new mp.Vector3(0, 0, 0), 60);
+    specCam.setActive(true);
+    mp.game.cam.renderScriptCams(true, false, 0, true, false);
+    mp.gui.chat.push('!{#7fd4ff}Слежка за ' + name + '. /specoff или Backspace — выйти');
+});
+mp.events.add('adm:specOff', function () {
+    specId = -1;
+    var lp = mp.players.local;
+    if (specCam) { specCam.setActive(false); specCam.destroy(); specCam = null; }
+    mp.game.cam.renderScriptCams(false, false, 0, true, false);
+    lp.freezePosition(false); lp.setAlpha(255); lp.setCollision(true, true); lp.setInvincible(gm);
+    mp.game.invoke('0x31B73D1EA9F01DA2');
+});
+mp.keys.bind(0x08, false, function () { if (specId >= 0 && !mp.gui.cursor.visible) mp.events.callRemote('srv:adm:specoff'); });
+mp.events.add('render', function () {
+    if (specId < 0 || !specCam) return;
+    var t = mp.players.atRemoteId ? mp.players.atRemoteId(specId) : mp.players.at(specId);
+    if (!t || !t.handle) return;
+    var tp = t.vehicle ? t.vehicle.position : t.position;
+    var r = mp.game.cam.getGameplayCamRot(2);
+    var rad = r.z * Math.PI / 180, dist = t.vehicle ? 7 : 4;
+    specCam.setCoord(tp.x + Math.sin(rad) * dist, tp.y - Math.cos(rad) * dist, tp.z + (t.vehicle ? 2.2 : 1.2));
+    specCam.pointAtCoord(tp.x, tp.y, tp.z + 0.5);
+    mp.game.streaming.setFocusArea(tp.x, tp.y, tp.z, 0, 0, 0);
+    mp.game.graphics.drawText('СЛЕЖКА: ' + t.name + ' [' + specId + ']  HP ' + t.getHealth() + '  AR ' + t.getArmour(), [0.5, 0.92], { font: 4, color: [127, 212, 255, 230], scale: [0.42, 0.42], outline: true });
+});
+
+/* ===== AFK ===== */
+var lastAct = Date.now(), lastPosA = null;
+setInterval(function () {
+    var p = mp.players.local.position;
+    if (!lastPosA || Math.abs(p.x - lastPosA.x) + Math.abs(p.y - lastPosA.y) > 0.5 || mp.gui.cursor.visible) lastAct = Date.now();
+    lastPosA = p;
+}, 1000);
+mp.events.add('render', function () {
+    for (var i = 30; i <= 35; i++) if (mp.game.controls.isControlPressed(0, i)) { lastAct = Date.now(); break; }
+});
+setInterval(function () { mp.events.callRemote('srv:adm:idle', Math.floor((Date.now() - lastAct) / 1000)); }, 15000);
+
+/* ===== ворота ===== */
+var GATES = ['prop_sec_barrier_ld_01a', 'prop_sec_barier_02b', 'prop_sec_barrier_ld_02a', 'prop_gate_airport_01', 'prop_facgate_01', 'prop_facgate_07b', 'prop_facgate_08', 'prop_gate_prison_01', 'prop_lrggate_01c_l', 'prop_lrggate_01c_r',
+    'prop_lrggate_02a', 'prop_gate_military_01', 'prop_fnclink_03gate5', 'v_ilev_ph_gendoor004', 'prop_gate_docks_ld', 'prop_ld_garaged_01', 'hei_prop_station_gate', 'prop_sec_gate_01b', 'prop_sec_gate_01c', 'prop_sec_gate_01d'];
+mp.events.add('adm:gate', function (x, y, z) {
+    GATES.forEach(function (m) {
+        var h = mp.game.joaat(m);
+        var obj = mp.game.object.getClosestObjectOfType(x, y, z, 15, h, false, false, false);
+        if (!obj) return;
+        var hidden = obj;
+        try { mp.game.invoke('0x1A9205C1B9EE827F', hidden, false, false); mp.game.invoke('0xEA1C610A04DB6BBB', hidden, false, false); } catch (e) {}
+        setTimeout(function () { try { mp.game.invoke('0x1A9205C1B9EE827F', hidden, true, true); mp.game.invoke('0xEA1C610A04DB6BBB', hidden, true, false); } catch (e) {} }, 20000);
+    });
+});
+
+/* ===== эвакуатор ===== */
+setInterval(function () {
+    var v = mp.players.local.vehicle;
+    if (!v || v.getPedInSeat(-1) !== mp.players.local.handle) return;
+    var tid = v.getVariable('towing');
+    if (tid === undefined || tid === null) return;
+    var t = tid >= 0 ? (mp.vehicles.atRemoteId ? mp.vehicles.atRemoteId(tid) : mp.vehicles.at(tid)) : null;
+    var cur = 0;
+    try { cur = mp.game.invoke('0xEFEA18DCF10F8F75', v.handle); } catch (e) {}
+    if (t && t.handle) {
+        if (cur !== t.handle) { try { mp.game.invoke('0x29A16F8D621C4508', v.handle, t.handle, true, 0, 0, 0); } catch (e) {} }
+    } else if (cur) {
+        try { mp.game.invoke('0xC2DB6B6708350ED8', v.handle, cur); } catch (e) {}
+    }
+}, 600);
+
+/* ===== светофоры и зелёные зоны ===== */
+var WORLD = { traffic: true, zonesOn: true, zones: [] };
+var gzBlips = [];
+var inZone = null;
+mp.events.add('adm:world', function (json) {
+    try { WORLD = JSON.parse(json); } catch (e) { return; }
+    gzBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
+    gzBlips = [];
+    if (WORLD.zonesOn) WORLD.zones.forEach(function (z) {
+        if (!z.on) return;
+        try { gzBlips.push(mp.blips.new(9, new mp.Vector3(z.x, z.y, z.z), { radius: z.r, color: 2, alpha: 70, shortRange: true, name: 'Зелёная зона' })); } catch (e) {}
+    });
+});
+setInterval(function () {
+    var p = mp.players.local.position, z = null;
+    if (WORLD.zonesOn) for (var i = 0; i < WORLD.zones.length; i++) {
+        var q = WORLD.zones[i];
+        if (q.on && Math.pow(p.x - q.x, 2) + Math.pow(p.y - q.y, 2) < q.r * q.r) { z = q; break; }
+    }
+    if (!!z !== !!inZone) mp.events.call('hud:notify', z ? 'ok' : 'warn', z ? 'Вы вошли в зелёную зону «' + z.n + '»' : 'Вы покинули зелёную зону', 3000);
+    inZone = z;
+}, 1000);
+var zoneSafe = false;
+mp.events.add('render', function () {
+    var safe = !!inZone && !jailUntil;
+    if (safe) [24, 25, 37, 44, 45, 47, 58, 140, 141, 142, 143, 257, 263, 264, 69, 70, 92, 114, 331].forEach(function (k) { mp.game.controls.disableControlAction(0, k, true); });
+    if (safe !== zoneSafe) {
+        zoneSafe = safe;
+        try { mp.players.local.setCanBeDamaged(!safe); } catch (e) {}
+    }
+});
+var LIGHTS = ['prop_traffic_01a', 'prop_traffic_01b', 'prop_traffic_01d', 'prop_traffic_02a', 'prop_traffic_02b', 'prop_traffic_03a', 'prop_traffic_03b'].map(function (m) { return mp.game.joaat(m); });
+var lightsTouched = {};
+setInterval(function () {
+    var pos = mp.players.local.position;
+    var offs = [[0, 0], [45, 0], [-45, 0], [0, 45], [0, -45], [45, 45], [-45, -45], [45, -45], [-45, 45]];
+    offs.forEach(function (o) {
+        LIGHTS.forEach(function (h) {
+            var obj = mp.game.object.getClosestObjectOfType(pos.x + o[0], pos.y + o[1], pos.z, 40, h, false, false, false);
+            if (!obj) return;
+            if (!WORLD.traffic) { try { mp.game.invoke('0x57C5DB656185EAC4', obj, 0); lightsTouched[obj] = 1; } catch (e) {} }
+            else if (lightsTouched[obj]) { try { mp.game.invoke('0x57C5DB656185EAC4', obj, 3); } catch (e) {} delete lightsTouched[obj]; }
+        });
+    });
+}, 1500);
+
+/* ===== тюрьма ===== */
+var jailUntil = 0, jailType = '', jailReason = '';
+mp.events.add('adm:jail', function (type, ms, reason) { jailType = type; jailUntil = type ? Date.now() + Number(ms) : 0; jailReason = reason; });
+mp.events.add('render', function () {
+    if (!jailUntil) return;
+    var left = Math.max(0, Math.ceil((jailUntil - Date.now()) / 1000));
+    mp.game.graphics.drawText((jailType === 'demorgan' ? 'ДЕМОРГАН' : 'КПЗ') + ': ' + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2) + '  ·  ' + jailReason, [0.5, 0.05], { font: 4, color: [255, 159, 67, 230], scale: [0.45, 0.45], outline: true });
+    [24, 25, 37, 140, 141, 142, 257, 263].forEach(function (k) { mp.game.controls.disableControlAction(0, k, true); });
 });
 
 mp.events.add('adm:banScreen', function (json) {

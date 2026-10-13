@@ -1300,7 +1300,7 @@ global.AtmSystem = {
     }
 };
 
-global.UiSystem = { setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
+global.UiSystem = { takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
