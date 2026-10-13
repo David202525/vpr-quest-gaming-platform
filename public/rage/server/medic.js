@@ -357,7 +357,7 @@ function nearestDown(p, r) {
 }
 
 function zone(pos, id, color) {
-    mp.markers.new(1, new mp.Vector3(pos.x, pos.y, pos.z - 1.0), 1.2, { color: color, dimension: 0, visible: false });
+    mp.markers.new(1, new mp.Vector3(pos.x, pos.y, pos.z - 1.0), 1.2, { color: color, dimension: 0 });
     const s = mp.colshapes.newSphere(pos.x, pos.y, pos.z, 1.6, 0);
     s.medicZone = id;
 }
@@ -638,7 +638,7 @@ function buildDoors() {
     ['out', 'in'].forEach(function (k) {
         const d = DOORS[k];
         const v = new mp.Vector3(d.x, d.y, d.z - 1.0);
-        const opt = { color: [255, 255, 255, 120], dimension: 0, visible: false };
+        const opt = { color: [255, 255, 255, 120], dimension: 0 };
         doorObjs.push(mp.markers.new(1, v, 1.0, opt));
         const s = mp.colshapes.newSphere(d.x, d.y, d.z, 1.3, 0);
         s.hospDoor = k;
