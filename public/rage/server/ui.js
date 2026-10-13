@@ -476,7 +476,7 @@ function invPayload(p) {
 
 function sendInv(p) {
     if (!mp.players.exists(p)) return;
-    p.call('ui:data', ['inv', JSON.stringify(invPayload(p))]);
+    try { p.call('ui:data', ['inv', JSON.stringify(invPayload(p))]); } catch (e) { console.log('[ui] inv: ' + e.message); }
 }
 
 mp.events.add('srv:inv:open', function (p, side, vehId, vehName) {
@@ -495,7 +495,6 @@ mp.events.add('srv:inv:open', function (p, side, vehId, vehName) {
 mp.events.add('srv:inv:act', function (p, json) {
     let a;
     try { a = JSON.parse(json); } catch (e) { return; }
-    if (!accId(p) && !p.account) { notify(p, 'error', 'Сначала войдите в аккаунт'); return; }
     if (a.a === 'move') move(p, a.from, a.to, a.count);
     else if (a.a === 'use') useItem(p, a.from);
     else if (a.a === 'drop') move(p, a.from, { b: 'ground', i: 'new' }, a.count);
@@ -619,15 +618,16 @@ async function menuPayload(p) {
 }
 
 async function sendMenu(p) {
-    const payload = await menuPayload(p);
+    let payload;
+    try { payload = await menuPayload(p); } catch (e) { console.log('[ui] menu: ' + e.message); return; }
     if (mp.players.exists(p)) p.call('ui:data', ['menu', JSON.stringify(payload)]);
 }
 
-mp.events.add('srv:menu:get', function (p) { if (accId(p)) sendMenu(p); });
+mp.events.add('srv:menu:get', function (p) { sendMenu(p).catch(function (e) { console.log('[ui] menu: ' + e.message); }); });
 
 mp.events.add('srv:menu:buy', function (p, k) {
     const it = ITEMS[k];
-    if (!it || !it.price || !accId(p)) return;
+    if (!it || !it.price) return;
     const pack = it.pack || 1;
     const price = it.price * pack;
     const m = getMoney(p);
@@ -670,21 +670,22 @@ function phonePayload(p) {
         number: d.phone, name: p.name,
         money: getMoney(p), bank: getBank(p),
         contacts: d.contacts, sms: d.sms.slice(-150),
-        online: mp.players.toArray().filter(function (x) { return accId(x); }).map(function (x) { return { id: x.id, name: x.name, number: data(x).phone }; }),
+        online: mp.players.toArray().map(function (x) { return { id: x.id, name: x.name, number: data(x).phone }; }),
         gps: GPS.map(function (g) { return { n: g.n }; })
     };
 }
 
 function sendPhone(p) {
-    if (mp.players.exists(p)) p.call('ui:data', ['phone', JSON.stringify(phonePayload(p))]);
+    if (!mp.players.exists(p)) return;
+    try { p.call('ui:data', ['phone', JSON.stringify(phonePayload(p))]); } catch (e) { console.log('[ui] phone: ' + e.message); }
 }
 
-mp.events.add('srv:phone:get', function (p) { if (accId(p)) sendPhone(p); });
+mp.events.add('srv:phone:get', function (p) { sendPhone(p); });
 
 mp.events.add('srv:phone:sms', function (p, to, text) {
     text = String(text || '').trim().slice(0, 300);
     to = String(to || '').trim();
-    if (!text || !accId(p)) return;
+    if (!text) return;
     const d = data(p);
     const tk = store._numbers[to];
     if (!tk || !store[tk]) return notify(p, 'error', 'Номер ' + to + ' не существует');
@@ -724,7 +725,7 @@ mp.events.add('srv:phone:contact', function (p, json) {
 
 mp.events.add('srv:phone:bank', function (p, op, sum, to) {
     sum = Math.floor(Number(sum) || 0);
-    if (sum <= 0 || sum > 100000000 || !accId(p)) return notify(p, 'error', 'Неверная сумма');
+    if (sum <= 0 || sum > 100000000) return notify(p, 'error', 'Неверная сумма');
     const m = getMoney(p);
     const b = getBank(p);
     if (op === 'dep') {
@@ -781,3 +782,7 @@ global.UiSystem = { addItem: addItem, countItem: function (p, k) { return countI
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
 module.exports = global.UiSystem;
+
+mp.events.addCommand('uicheck', function (p) {
+    p.outputChatBox('!{#8fd14f}[UI] Серверный модуль работает. Аккаунт: ' + (accId(p) ? '#' + accId(p) : 'не найден, данные по нику'));
+});

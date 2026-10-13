@@ -4,15 +4,50 @@ function esc(s) { return String(s === undefined || s === null ? '' : s).replace(
 function money(n) { return '$' + String(Math.floor(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
+var EMPTY_STATS = [
+    { n: 'Здоровье', v: 100, max: 100, c: '#ff4d6d', i: '❤' }, { n: 'Броня', v: 0, max: 100, c: '#4fb6ff', i: '🛡' },
+    { n: 'Уровень', v: 1, pct: 0, c: '#8fd14f', i: '★' }, { n: 'Стрельба', v: 0, pct: 0, c: '#ffd23f', i: '◎' },
+    { n: 'Вождение', v: 0, pct: 0, c: '#a6e3a1', i: '⛐' }, { n: 'Выносл.', v: 0, pct: 0, c: '#5ee6c8', i: '⚡' }
+];
+function emptyInv() {
+    return {
+        name: '—', inv: new Array(30).fill(null), cap: 50, weight: 0, equip: {}, weapon: null, ammo: [], stats: EMPTY_STATS,
+        side: { type: 'ground', title: 'Предметы рядом', sub: 'Пусто', list: new Array(15).fill(null), cap: 0, weight: 0 }
+    };
+}
+function emptyMenu() {
+    return {
+        name: 'Игрок', id: 0, number: '—', gender: '—', created: '—', faction: 'Нет', family: 'Нет',
+        lvl: 1, exp: 0, need: 75, hours: 0, money: 0, bank: 0, vehicles: [],
+        skills: [{ n: 'Стрельба', lvl: 0, pct: 0 }, { n: 'Вождение', lvl: 0, pct: 0 }, { n: 'Выносливость', lvl: 0, pct: 0 }, { n: 'Выживание', lvl: 0, pct: 0 }],
+        ach: [], bp: { lvl: 0, exp: 0, need: 30, rewards: [] }, shop: [], offline: true
+    };
+}
 var DATA = { inv: null, phone: null, menu: null };
 var current = null;
+var waitTimer = null;
+
+function srvWarn(kind) {
+    clearTimeout(waitTimer);
+    waitTimer = setTimeout(function () {
+        if (DATA[kind] && !DATA[kind].offline) return;
+        var w = document.createElement('div');
+        w.className = 'srv-warn';
+        w.innerHTML = '<b>Сервер не прислал данные</b>Модуль <i>ui.js</i> не подключён на сервере. Добавь в <i>packages/core/index.js</i> строку <i>require(\'./modules/ui.js\');</i> и перезапусти сервер.';
+        var old = document.querySelector('.srv-warn');
+        if (old) old.remove();
+        document.body.appendChild(w);
+        setTimeout(function () { if (w.parentNode) w.remove(); }, 9000);
+    }, 2500);
+}
 
 window.uiOpen = function (name, opt) {
     ['inv', 'phone', 'menu'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
     current = name;
     hideCtx();
-    if (name === 'phone') phoneHome();
-    if (name === 'menu') renderMenu();
+    if (name === 'inv') { if (!DATA.inv) { DATA.inv = emptyInv(); DATA.inv.offline = true; } renderInv(); srvWarn('inv'); }
+    if (name === 'phone') { phoneHome(); srvWarn('phone'); }
+    if (name === 'menu') { if (!DATA.menu) DATA.menu = emptyMenu(); renderMenu(); srvWarn('menu'); }
 };
 window.uiClose = function () {
     ['inv', 'phone', 'menu'].forEach(function (s) { $(s).classList.remove('show'); });
@@ -22,6 +57,8 @@ window.uiClose = function () {
 };
 window.uiData = function (kind, d) {
     DATA[kind] = d;
+    var ww = document.querySelector('.srv-warn');
+    if (ww) ww.remove();
     if (kind === 'inv') renderInv();
     if (kind === 'phone') phoneRefresh();
     if (kind === 'menu' && current === 'menu') renderMenu();
@@ -106,7 +143,7 @@ function renderInv() {
     while (am.length < 5) am.push(null);
     $('ammoGrid').innerHTML = am.map(function (it) { return cellHtml(it, 'inv', it ? it.idx : -1); }).join('');
 
-    $('stats').innerHTML = d.stats.map(ringStat).join('');
+    $('stats').innerHTML = (d.stats && d.stats.length ? d.stats : EMPTY_STATS).map(ringStat).join('');
 
     $('equip').innerHTML = Object.keys(SLOT_POS).map(function (k) {
         var p = SLOT_POS[k];
@@ -524,9 +561,8 @@ function tile(cls, img, inner, extra) {
 }
 
 function renderMenu() {
-    var d = DATA.menu;
+    var d = DATA.menu || emptyMenu();
     var b = $('mBody');
-    if (!d) { b.innerHTML = '<div class="empty-t">Загрузка...</div>'; return; }
     if (tab === 'char') b.innerHTML = menuChar(d);
     if (tab === 'ach') b.innerHTML = menuAch(d);
     if (tab === 'shop') b.innerHTML = menuShop(d);

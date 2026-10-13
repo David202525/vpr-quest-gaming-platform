@@ -1638,3 +1638,6 @@ textarea {
 .modal-box .row2 button.go {
   background: linear-gradient(180deg, #d93bc8, #9b2bb5);
 }
+.srv-warn { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); z-index: 100; max-width: 560px; padding: 14px 18px; background: rgba(20, 10, 14, .97); border-left: 3px solid var(--red); font-size: 12px; line-height: 1.5; color: #ddd; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.srv-warn b { display: block; color: #fff; font-size: 13px; margin-bottom: 4px; }
+.srv-warn i { font-style: normal; color: #ff8fb0; font-weight: 600; }
