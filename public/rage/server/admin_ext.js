@@ -20,7 +20,7 @@ function save() { dirty = true; }
 setInterval(function () { if (dirty) { dirty = false; A.writeJson(STORE_FILE, S); } }, 5000);
 
 const FACTIONS = { lspd: 'LSPD', sheriff: 'Sheriff', fib: 'FIB', medic: 'EMS', army: 'Армия', gov: 'Правительство', news: 'Weazel News' };
-const JOBS = { farm: 'Ферма', bus: 'Водитель автобуса', courier: 'Курьер', trucker: 'Дальнобойщик', taxi: 'Такси', mechanic: 'Механик' };
+const JOBS = { farm: 'Ферма', bus: 'Водитель автобуса', courier: 'Курьер' };
 const LICS = { drive: 'Водительские права', bus: 'Лицензия на автобус', taxi: 'Лицензия такси', truck: 'Права на грузовик', gun: 'Лицензия на оружие' };
 const AZ = { x: -75.2, y: -818.9, z: 326.2 };
 const DEMORGAN = { x: 1691.4, y: 2565.7, z: 45.6, dim: 999, r: 45 };

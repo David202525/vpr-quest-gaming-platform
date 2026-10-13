@@ -96,6 +96,51 @@ setTimeout(function () {
     q('ALTER TABLE accounts ADD COLUMN IF NOT EXISTS ban_until BIGINT NOT NULL DEFAULT 0');
 }, 3000);
 
+const MIGRATE_FILE = path.join(__dirname, 'admin_levels_v9.flag');
+setTimeout(async function () {
+    if (fs.existsSync(MIGRATE_FILE)) return;
+    if (!dbq()) return;
+    await q('UPDATE accounts SET admin = CASE admin WHEN 7 THEN 9 WHEN 6 THEN 8 WHEN 5 THEN 6 ELSE admin END WHERE admin BETWEEN 5 AND 7');
+    try { fs.writeFileSync(MIGRATE_FILE, String(Date.now())); } catch (e) {}
+    console.log('[admin] уровни переведены на 9-уровневую систему (7→9, 6→8, 5→6)');
+    mp.players.forEach(function (p) { p.admAcc = null; });
+}, 6000);
+
+function consoleSetAdmin(who, n) {
+    n = Number(n);
+    if (!who || isNaN(n) || n < 0 || n > MAX) return console.log('Использование: setadmin [id игрока | логин | #static] [0-' + MAX + ']');
+    let t = null;
+    if (who[0] !== '#') t = find(who);
+    if (t && acc(t)) {
+        acc(t).admin = n;
+        q('UPDATE accounts SET admin = ? WHERE id = ?', [n, acc(t).id]);
+        msg(t, 'Ваш статус: ' + rankName(n), '#c13dff');
+        console.log('[admin] ' + login(t) + ' → ' + rankName(n));
+    } else {
+        const k = who[0] === '#' ? who.slice(1) : who;
+        q('UPDATE accounts SET admin = ? WHERE id = ? OR username = ? OR login = ? OR nick = ? OR nick = ?', [n, Number(k) || 0, k, k, k, k.replace(/_/g, ' ')]);
+        console.log('[admin] ' + k + ' → ' + rankName(n) + ' (офлайн)');
+    }
+    log('КОНСОЛЬ', 'setadmin', who, rankName(n));
+}
+try {
+    if (process.stdin && !global.__admStdin) {
+        global.__admStdin = true;
+        let buf = '';
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', function (ch) {
+            buf += ch;
+            let i;
+            while ((i = buf.indexOf('\n')) >= 0) {
+                const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+                const a = line.split(/\s+/);
+                if (a[0] === 'setadmin') consoleSetAdmin(a[1], a[2]);
+                else if (a[0] === 'admins') mp.players.forEach(function (p) { if (realLvl(p)) console.log(realLvl(p) + ' ' + login(p) + ' [' + p.id + ']'); });
+            }
+        });
+    }
+} catch (e) {}
+
 function syncLogins() {
     q("UPDATE accounts SET login = username WHERE login IS NULL OR login = ''");
 }
@@ -651,8 +696,10 @@ mp.events.add('srv:adm:act', function (p, json) {
     }
     else if (a === 'setadmin') {
         const n = Number(d.level);
+        if (d.id === undefined || d.id === null || String(d.id).trim() === '') return toast(p, 'Укажи ID, логин или #static', false);
+        if (isNaN(n)) return toast(p, 'Выбери уровень', false);
         const tt = find(d.id);
-        if (!tt || !acc(tt)) { runCmd(p, 'setadmin ' + d.id + ' ' + n); return toast(p, 'Команда отправлена (офлайн-назначение)', true); }
+        if (!tt || !acc(tt)) { runCmd(p, 'setadmin ' + d.id + ' ' + n); return sendPanel(p); }
         if (isNaN(n) || n < 0 || n > MAX) return toast(p, 'Уровень 0-' + MAX, false);
         const why = setAdminRule(p, realLvl(tt), n);
         if (why) return toast(p, why, false);

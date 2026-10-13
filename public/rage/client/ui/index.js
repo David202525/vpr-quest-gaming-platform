@@ -397,3 +397,153 @@ mp.events.add('render', function () {
         mp.game.graphics.drawMarker(29, b[2], b[3], b[4] + 0.15, 0, 0, 0, 0, 0, 0, 0.32, 0.32, 0.32, 242, 182, 50, a, true, true, 2, false, null, null, false);
     }
 });
+
+/* ================= JOBS (ферма, курьер, автобус) ================= */
+var jobPt = null;
+var jobBlip = null;
+var jobBases = [];
+var jobBaseBlips = [];
+var jobBaseNear = null;
+var jobBaseHint = '';
+var jobBusUntil = 0;
+var jobCarry = null;
+
+function jobBusy() {
+    if (typeof busy === 'function' && busy()) return true;
+    if (typeof uiOpen !== 'undefined' && uiOpen) return true;
+    return false;
+}
+
+mp.events.add('job:bases', function (json) {
+    try { jobBases = JSON.parse(json); } catch (e) { return; }
+    jobBaseBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
+    jobBaseBlips = jobBases.map(function (b) {
+        return mp.blips.new(b[5], new mp.Vector3(b[2], b[3], b[4]), { name: 'Работа: ' + b[1], color: b[6], shortRange: true, scale: 0.85 });
+    });
+});
+
+mp.events.add('job:point', function (x, y, z, r, label, kind) {
+    jobPt = { x: x, y: y, z: z, r: r, label: label, kind: kind };
+    if (jobBlip) { try { jobBlip.destroy(); } catch (e) {} }
+    jobBlip = mp.blips.new(kind === 'bus' ? 513 : 1, new mp.Vector3(x, y, z), { name: label, color: 5, shortRange: false, scale: 0.9 });
+    try { jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {}
+});
+
+mp.events.add('job:state', function (s) {
+    if (s) return;
+    jobPt = null;
+    if (jobBlip) { try { jobBlip.destroy(); } catch (e) {} jobBlip = null; }
+    jobBusUntil = 0;
+    jobDropCarry();
+    try { mp.players.local.clearTasks(); } catch (e) {}
+});
+
+mp.events.add('job:paid', function (sum) {
+    mp.game.audio.playSoundFrontend(-1, 'PICK_UP', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true);
+});
+
+mp.events.add('job:busStop', function (ms) { jobBusUntil = Date.now() + Number(ms); });
+
+function jobLoadAnim(dict, cb) {
+    mp.game.streaming.requestAnimDict(dict);
+    var n = 0;
+    var t = setInterval(function () {
+        n++;
+        if (mp.game.streaming.hasAnimDictLoaded(dict) || n > 40) { clearInterval(t); cb(); }
+    }, 50);
+}
+function jobDropCarry() {
+    if (jobCarry) { try { jobCarry.destroy(); } catch (e) {} jobCarry = null; }
+}
+mp.events.add('job:anim', function (kind, ms) {
+    var p = mp.players.local;
+    if (kind === 'pick') {
+        jobLoadAnim('amb@world_human_gardener_plant@male@base', function () {
+            p.taskPlayAnim('amb@world_human_gardener_plant@male@base', 'base', 8, -8, Number(ms), 1, 0, false, false, false);
+        });
+    } else if (kind === 'box') {
+        jobLoadAnim('anim@heists@box_carry@', function () {
+            p.taskPlayAnim('anim@heists@box_carry@', 'idle', 8, -8, -1, 49, 0, false, false, false);
+            jobDropCarry();
+            jobCarry = mp.objects.new(mp.game.joaat('hei_prop_heist_box'), p.position, { dimension: p.dimension });
+            setTimeout(function () {
+                if (jobCarry && jobCarry.handle) jobCarry.attachTo(p.handle, p.getBoneIndex(60309), 0.025, 0.08, 0.255, -145, 290, 0, true, true, false, true, 1, true);
+            }, 300);
+        });
+    } else if (kind === 'give') {
+        jobDropCarry();
+        p.clearTasks();
+        jobLoadAnim('mp_common', function () { p.taskPlayAnim('mp_common', 'givetake1_a', 8, -8, Number(ms), 0, 0, false, false, false); });
+    }
+});
+
+mp.keys.bind(0x45, false, function () {
+    if (jobBusy()) return;
+    var p = mp.players.local;
+    if (jobPt && jobPt.kind !== 'bus') {
+        var d = mp.game.system.vdist(p.position.x, p.position.y, p.position.z, jobPt.x, jobPt.y, jobPt.z);
+        if (d <= Math.max(2.5, jobPt.r + 1)) { mp.events.callRemote('srv:job:here'); return; }
+    }
+    if (jobBaseNear) mp.events.callRemote('srv:job:base', jobBaseNear[0]);
+});
+
+setInterval(function () {
+    var p = mp.players.local, pos = p.position, best = null, bd = 3;
+    if (!p.vehicle) for (var i = 0; i < jobBases.length; i++) {
+        var b = jobBases[i];
+        var d = mp.game.system.vdist(pos.x, pos.y, pos.z, b[2], b[3], b[4]);
+        if (d < bd) { bd = d; best = b; }
+    }
+    jobBaseNear = best;
+    var k = best ? best[0] : '';
+    if (best && jobBaseHint !== k) { jobBaseHint = k; mp.events.call('hud:notify', 'ok', best[1] + ': нажмите E — устроиться', 3500); }
+    if (!best) jobBaseHint = '';
+}, 400);
+
+mp.events.add('render', function () {
+    var pos = mp.players.local.position;
+    for (var i = 0; i < jobBases.length; i++) {
+        var b = jobBases[i];
+        var dx = pos.x - b[2], dy = pos.y - b[3];
+        if (dx * dx + dy * dy > 900) continue;
+        mp.game.graphics.drawMarker(1, b[2], b[3], b[4] - 1, 0, 0, 0, 0, 0, 0, 1.4, 1.4, 0.4, 143, 209, 79, 110, false, false, 2, false, null, null, false);
+    }
+    if (jobPt) {
+        var ddx = pos.x - jobPt.x, ddy = pos.y - jobPt.y;
+        if (ddx * ddx + ddy * ddy < 6400) {
+            var r = jobPt.r * 2;
+            mp.game.graphics.drawMarker(1, jobPt.x, jobPt.y, jobPt.z - 1, 0, 0, 0, 0, 0, 0, r, r, 0.6, 255, 204, 102, 120, false, false, 2, false, null, null, false);
+            if (jobPt.kind !== 'bus') mp.game.graphics.drawMarker(2, jobPt.x, jobPt.y, jobPt.z + 0.6, 0, 0, 0, 180, 0, 0, 0.35, 0.35, 0.35, 255, 204, 102, 200, true, true, 2, false, null, null, false);
+        }
+    }
+    if (jobBusUntil > Date.now()) {
+        mp.game.controls.disableControlAction(0, 71, true);
+        mp.game.controls.disableControlAction(0, 72, true);
+        var left = Math.ceil((jobBusUntil - Date.now()) / 1000);
+        mp.game.graphics.drawText('Посадка пассажиров… ' + left, [0.5, 0.82], { font: 4, color: [255, 204, 102, 230], scale: [0.5, 0.5], outline: true });
+    }
+});
+
+/* меню устройства */
+mp.events.add('job:menu', function (json) {
+    if (typeof uiExec !== 'function') return;
+    uiExec('window.jobMenu && window.jobMenu(' + JSON.stringify(json) + ');');
+    mp.gui.cursor.show(true, true);
+    mp.gui.chat.activate(false);
+});
+function jobMenuClose() {
+    if (typeof uiExec === 'function') uiExec('window.jobMenu && window.jobMenu(null);');
+    if (typeof cursorSync === 'function') cursorSync(); else mp.gui.cursor.show(false, false);
+    mp.gui.chat.activate(true);
+}
+mp.events.add('job:menuClose', jobMenuClose);
+mp.events.add('cef:job:close', jobMenuClose);
+mp.events.add('cef:job:start', function (id, opt) { mp.events.callRemote('srv:job:start', id, opt || ''); });
+mp.events.add('cef:job:quit', function () { mp.events.callRemote('srv:job:quit'); jobMenuClose(); });
+
+/* телефон */
+mp.events.add('cef:job:phone', function () { mp.events.callRemote('srv:job:phone'); });
+mp.events.add('cef:job:gps', function (id) { mp.events.callRemote('srv:job:gps', id); });
+mp.events.add('job:phone', function (json) {
+    if (typeof uiExec === 'function') uiExec('window.phoneJobs && window.phoneJobs(' + JSON.stringify(json) + ');');
+});

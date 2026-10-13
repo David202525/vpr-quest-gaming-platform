@@ -350,6 +350,7 @@ var APPS = [
 ];
 var DOCK = ['contacts', 'sms', 'bank', 'camera'];
 var phApp = null;
+var gpsTab = 'places';
 var phChat = null;
 var lastSeen = Number(LS.get('sms_seen') || 0);
 
@@ -468,9 +469,27 @@ function _renderApp() {
             b.onclick = function () { trig('cef:phone:bank', b.dataset.op, Number($('bSum').value), $('bTo').value); };
         });
     } else if (phApp === 'gps') {
-        body.innerHTML = '<div class="empty-t" style="margin:6px 0 10px;text-align:left">Выберите место — метка появится на карте.</div>' +
-            p.gps.map(function (g, i) { return '<div class="gps-i" data-g="' + i + '"><span>📍</span><span>' + esc(g.n) + '</span></div>'; }).join('');
+        var tabs = '<div class="row2" style="margin-bottom:10px"><button class="btn' + (gpsTab === 'places' ? '' : ' ghost') + '" data-gt="places">Места</button><button class="btn' + (gpsTab === 'jobs' ? '' : ' ghost') + '" data-gt="jobs">Работы</button></div>';
+        if (gpsTab === 'jobs') {
+            var J = DATA.jobs;
+            if (!J) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:job:phone'); }
+            else {
+                body.innerHTML = tabs + (J.working ? '<div class="job-now">Сейчас: <b>' + esc(J.working.n) + '</b><button class="btn ghost" data-jq="1" style="margin:8px 0 0">Закончить смену</button></div>' : '') +
+                    J.list.map(function (j) {
+                        return '<div class="job-c' + (j.off ? ' off' : '') + '"><div class="job-h"><span class="job-i">' + j.i + '</span><div><b>' + esc(j.n) + '</b><small>' + esc(j.pay) + '</small></div></div>' +
+                            '<p>' + esc(j.d) + '</p>' +
+                            (j.done ? '<div class="job-st">Выполнено: ' + j.done + ' · заработано ' + money(j.earned) + '</div>' : '') +
+                            (j.off ? '<div class="job-st" style="color:#ff6b6b">Временно закрыто администрацией</div>' : '<button class="btn" data-jg="' + j.id + '">📍 Проложить маршрут</button>') + '</div>';
+                    }).join('') + '<div class="empty-t" style="margin-top:6px">Всего заработано на работах: ' + money(J.total) + '</div>';
+            }
+        } else {
+            body.innerHTML = tabs + '<div class="empty-t" style="margin:6px 0 10px;text-align:left">Выберите место — метка появится на карте.</div>' +
+                p.gps.map(function (g, i) { return '<div class="gps-i" data-g="' + i + '"><span>📍</span><span>' + esc(g.n) + '</span></div>'; }).join('');
+        }
         body.querySelectorAll('[data-g]').forEach(function (el) { el.onclick = function () { trig('cef:phone:gps', Number(el.dataset.g)); }; });
+        body.querySelectorAll('[data-gt]').forEach(function (el) { el.onclick = function () { gpsTab = el.dataset.gt; if (gpsTab === 'jobs') { DATA.jobs = null; } renderApp(); }; });
+        body.querySelectorAll('[data-jg]').forEach(function (el) { el.onclick = function () { trig('cef:job:gps', el.dataset.jg); }; });
+        body.querySelectorAll('[data-jq]').forEach(function (el) { el.onclick = function () { trig('cef:job:quit'); setTimeout(function () { DATA.jobs = null; renderApp(); }, 400); }; });
     } else if (phApp === 'players') {
         body.innerHTML = p.online.map(function (x) {
             return '<div class="li" data-n="' + esc(x.number) + '" data-nm="' + esc(x.name) + '"><div class="av">' + esc(x.name[0]) + '</div><div class="li-b"><b>' + esc(x.name) + '</b><span>ID ' + x.id + ' · ' + esc(x.number) + '</span></div><span class="li-r">💬</span></div>';
@@ -1134,3 +1153,31 @@ function renderShop() {
     $('shBox').querySelectorAll('[data-qm]').forEach(function (b) { b.onclick = function () { SH.qty[b.dataset.qm] = Math.max(1, (SH.qty[b.dataset.qm] || 1) - 1); renderShop(); }; });
     $('shBox').querySelectorAll('[data-buy]').forEach(function (b) { b.onclick = function () { trig('cef:shop:buy', b.dataset.buy, SH.qty[b.dataset.buy] || 1, SH.pay); }; });
 }
+
+window.phoneJobs = function (json) {
+    try { DATA.jobs = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) { return; }
+    if (phApp === 'gps' && gpsTab === 'jobs') renderApp();
+};
+window.jobMenu = function (json) {
+    var box = document.getElementById('jobMenu');
+    if (!json) { if (box) box.remove(); return; }
+    var d = typeof json === 'string' ? JSON.parse(json) : json;
+    if (!box) { box = document.createElement('div'); box.id = 'jobMenu'; document.body.appendChild(box); }
+    var start = '';
+    if (d.off) start = '<div class="job-st" style="color:#ff6b6b">Работа временно закрыта администрацией</div>';
+    else if (d.working === d.id) start = '<button class="btn ghost" data-jm="quit">Закончить смену</button>';
+    else if (d.working) start = '<div class="job-st">Сначала закончите текущую смену</div>';
+    else if (d.routes) start = d.routes.map(function (r) { return '<button class="btn" data-jm="start" data-r="' + r.id + '">' + esc(r.n) + ' · ' + r.stops + ' ост. · бонус ' + money(r.bonus) + '</button>'; }).join('');
+    else start = '<button class="btn" data-jm="start">Начать работу</button>';
+    box.innerHTML = '<div class="jm-box"><div class="job-h"><span class="job-i">' + d.i + '</span><div><b>' + esc(d.n) + '</b><small>' + esc(d.pay) + '</small></div></div>' +
+        '<p>' + esc(d.d) + '</p>' + (d.done ? '<div class="job-st">Вы выполнили: ' + d.done + ' · заработали ' + money(d.earned) + '</div>' : '') +
+        start + '<button class="btn ghost" data-jm="close">Закрыть</button></div>';
+    box.querySelectorAll('[data-jm]').forEach(function (b) {
+        b.onclick = function () {
+            if (b.dataset.jm === 'start') trig('cef:job:start', d.id, b.dataset.r || '');
+            else if (b.dataset.jm === 'quit') trig('cef:job:quit');
+            else trig('cef:job:close');
+        };
+    });
+};
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('jobMenu')) trig('cef:job:close'); });

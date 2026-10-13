@@ -69,14 +69,9 @@ window.admData = function (json) {
     $('meRank').style.color = D.me.color;
     $('meAva').textContent = (D.me.name || '?').charAt(0).toUpperCase();
     $('meAva').style.borderColor = D.me.color;
-    renderPlayers();
-    renderBans();
-    renderLogs();
-    renderDlc();
-    renderRanks();
-    renderServer();
-    renderBiz();
-    renderExt();
+    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt].forEach(function (f) {
+        try { f(); } catch (e) { if (window.console) console.log('[admin] ' + (f.name || '') + ': ' + e.message); }
+    });
 };
 
 function renderPlayers() {
@@ -319,14 +314,18 @@ function renderDlc() {
 }
 
 function renderRanks() {
-    $('rankList').innerHTML = D.ranks.map(function (r, i) {
-        if (i === 0) return '';
-        return '<div class="rank' + (i === D.me.level ? ' me' : '') + '" style="--c:' + COLORS[i] + '"><div class="n">Уровень ' + i + (i === D.me.level ? ' · это ты' : '') + '</div><b>' + esc(r) + '</b><ul>' +
-            RANK_INFO[i].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>';
-    }).join('');
+    var keep = $('saLvl').value;
     $('saLvl').innerHTML = D.ranks.map(function (r, i) {
         var ok = D.me.level === 9 || (D.me.level === 8 && i <= 7);
-        return '<option value="' + i + '"' + (ok ? '' : ' disabled') + '>' + i + ' — ' + esc(r) + '</option>';
+        return '<option value="' + i + '">' + i + ' — ' + esc(r) + (ok ? '' : ' (нет прав)') + '</option>';
+    }).join('');
+    if (keep) $('saLvl').value = keep;
+    $('saBtn').disabled = D.me.level < 8;
+    $('saBtn').title = D.me.level < 8 ? 'Назначать уровни может ГА (8) и МГА (9). Твой уровень: ' + D.me.level : '';
+    $('rankList').innerHTML = D.ranks.map(function (r, i) {
+        if (i === 0) return '';
+        return '<div class="rank' + (i === D.me.level ? ' me' : '') + '" style="--c:' + (COLORS[i] || '#fff') + '"><div class="n">Уровень ' + i + (i === D.me.level ? ' · это ты' : '') + '</div><b>' + esc(r) + '</b><ul>' +
+            (RANK_INFO[i] || []).map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>';
     }).join('');
 }
 

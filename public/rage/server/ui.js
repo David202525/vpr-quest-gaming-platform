@@ -866,6 +866,9 @@ setInterval(function () {
 }, 1500);
 mp.events.add('playerQuit', function (p) { p.uiReadySent = undefined; });
 
+if (!global.JobSystem) {
+    try { require('./jobs.js'); } catch (e) { console.log('[ui] jobs.js не найден: ' + e.message); }
+}
 if (!global.DeathSystem) {
     try { require('./death.js'); console.log('[ui] система ранений подключена'); } catch (e) { console.log('[ui] death.js не найден: ' + e.message); }
 }
