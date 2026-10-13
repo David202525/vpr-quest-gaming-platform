@@ -437,3 +437,18 @@ mp.events.add('adm:unstuck', function () {
     fixCount = 0;
     mp.events.call('hud:notify', 'ok', 'Вы перемещены на поверхность', 2500);
 });
+
+mp.events.add('adm:ipl', function (n) { try { mp.game.streaming.requestIpl(n); } catch (e) {} });
+mp.events.add('adm:intcheck', function (arg) {
+    var pos = mp.players.local.position, out = [];
+    if (arg) {
+        var h = mp.game.joaat(arg);
+        out.push('Модель «' + arg + '»: ' + (mp.game.streaming.isModelInCdimage(h) ? 'ЕСТЬ в игре' : 'НЕТ — игра не видит DLC'));
+        try { out.push('IPL «' + arg + '»: ' + (mp.game.streaming.isIplActive(arg) ? 'загружен' : 'не загружен')); } catch (e) {}
+    }
+    var id = 0;
+    try { id = mp.game.interior.getInteriorAtCoords(pos.x, pos.y, pos.z); } catch (e) {}
+    out.push('Интерьер здесь: ' + (id ? 'ID ' + id + (mp.game.interior.isInteriorReady(id) ? ', загружен' : ', НЕ загружен') : 'нет'));
+    out.push('Координаты: ' + pos.x.toFixed(1) + ', ' + pos.y.toFixed(1) + ', ' + pos.z.toFixed(1));
+    out.forEach(function (s) { mp.gui.chat.push('!{#7fd3ff}[intcheck] ' + s); });
+});

@@ -1088,4 +1088,21 @@ mp.events.addCommand('unstuck', function (p) {
     p.call('adm:unstuck');
 });
 
+mp.events.addCommand('intcheck', function (p, full) {
+    p.call('adm:intcheck', [String(full || '').trim()]);
+});
+mp.events.addCommand('ipl', function (p, full) {
+    const lv = global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0;
+    if (lv < 5) return msg(p, 'Доступно с уровня 5', '#e05555');
+    const n = String(full || '').trim();
+    if (!n) return msg(p, '/ipl [название] — загрузить IPL у всех игроков', '#ffcc66');
+    if (!global.__ipls) global.__ipls = [];
+    if (global.__ipls.indexOf(n) < 0) global.__ipls.push(n);
+    mp.players.call('adm:ipl', [n]);
+    msg(p, 'IPL «' + n + '» загружен у всех', '#8fd14f');
+});
+mp.events.add('playerReady', function (p) {
+    (global.__ipls || []).forEach(function (n) { p.call('adm:ipl', [n]); });
+});
+
 console.log('[admin_ext] загружено: репорты, тюрьма, МП, фракции, мир, консоль');
