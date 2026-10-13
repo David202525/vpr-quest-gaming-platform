@@ -111,7 +111,12 @@ function scan() {
     try { fixLayout(root, fixes); } catch (e) { fixes.push('не удалось исправить структуру: ' + e.message); }
     const list = [];
     if (!fs.existsSync(root)) return { root: root, fixes: fixes, list: list, missing: true };
-    fs.readdirSync(root).forEach(function (n) {
+    fs.readdirSync(root).forEach(function (n) { try { scanOne(root, n, list); } catch (e) { list.push({ name: n, ok: false, errors: ['сбой проверки: ' + e.message], warns: [], ymaps: [], models: [] }); } });
+    return { root: root, fixes: fixes, list: list };
+}
+
+function scanOne(root, n, list) {
+    {
         const f = path.join(root, n, 'dlc.rpf');
         if (!fs.existsSync(f)) {
             if (fs.statSync(path.join(root, n)).isDirectory()) list.push({ name: n, ok: false, errors: ['нет файла dlc.rpf'], warns: [], ymaps: [], models: [] });
@@ -146,13 +151,15 @@ function scan() {
             name: n, ok: !out.errors.length, errors: out.errors, warns: warns,
             ymaps: Array.from(new Set(out.ymaps)), models: Array.from(new Set(out.models)), ytyps: out.ytyps.length, files: out.files.length
         });
-    });
-    return { root: root, fixes: fixes, list: list };
+    }
 }
 
 let R = scan();
 function report(to) {
     const lines = [];
+    const bad = R.list.filter(function (d) { return !d.ok; }).length;
+    lines.push('папка: ' + R.root);
+    lines.push('найдено модов: ' + R.list.length + ', исправных: ' + (R.list.length - bad) + ', с ошибками: ' + bad);
     if (R.missing) lines.push('папка dlcpacks не найдена: ' + R.root);
     R.fixes.forEach(function (f) { lines.push(f); });
     R.list.forEach(function (d) {
