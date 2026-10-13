@@ -44,10 +44,20 @@ const frozen = {};
 const adminVehs = [];
 const logs = [];
 
+function dbq() {
+    if (!db) return null;
+    if (typeof db.query === 'function') return db;
+    if (db.pool && typeof db.pool.query === 'function') return db.pool;
+    if (db.db && typeof db.db.query === 'function') return db.db;
+    if (db.default && typeof db.default.query === 'function') return db.default;
+    return null;
+}
+
 async function q(sql, args) {
-    if (!db || typeof db.query !== 'function') return [];
+    const c = dbq();
+    if (!c) return [];
     try {
-        const r = await db.query(sql, args || []);
+        const r = await c.query(sql, args || []);
         return Array.isArray(r) && Array.isArray(r[0]) ? r[0] : r;
     } catch (e) {
         console.log('[admin] db: ' + e.message);
@@ -56,14 +66,54 @@ async function q(sql, args) {
 }
 
 setTimeout(function () {
+    q('ALTER TABLE accounts ADD COLUMN IF NOT EXISTS admin TINYINT NOT NULL DEFAULT 0');
+    q('ALTER TABLE accounts ADD COLUMN IF NOT EXISTS money BIGINT NOT NULL DEFAULT 0');
     q('ALTER TABLE accounts ADD COLUMN IF NOT EXISTS banned TINYINT NOT NULL DEFAULT 0');
     q('ALTER TABLE accounts ADD COLUMN IF NOT EXISTS ban_reason VARCHAR(255) NULL');
     q('ALTER TABLE accounts ADD COLUMN IF NOT EXISTS ban_until BIGINT NOT NULL DEFAULT 0');
 }, 3000);
 
+function acc(p) {
+    return p && p.admAcc ? p.admAcc : null;
+}
+
+const loading = {};
+async function loadAcc(p) {
+    if (!p || loading[p.id] || p.admAcc) return;
+    loading[p.id] = true;
+    let rows = [];
+    if (p.account && p.account.id) {
+        rows = await q('SELECT * FROM accounts WHERE id = ? LIMIT 1', [p.account.id]);
+    }
+    if (!rows.length) {
+        const uname = p.account && (p.account.username || p.account.login) ? (p.account.username || p.account.login) : p.name;
+        rows = await q('SELECT * FROM accounts WHERE username = ? LIMIT 1', [uname]);
+    }
+    loading[p.id] = false;
+    if (!mp.players.exists(p) || !rows.length) return;
+    const r = rows[0];
+    p.admAcc = {
+        id: r.id,
+        login: r.username,
+        admin: Number(r.admin) || 0,
+        money: Number(r.money) || 0,
+        banned: Number(r.banned) || 0,
+        ban_reason: r.ban_reason,
+        ban_until: Number(r.ban_until) || 0
+    };
+    if (p.admAcc.admin > 0) {
+        msg(p, 'Вы вошли как ' + rankName(p.admAcc.admin) + '. F4 — админ-панель', rankColor(p.admAcc.admin));
+    }
+}
+
+setInterval(function () {
+    mp.players.forEach(function (p) { if (!p.admAcc) loadAcc(p); });
+}, 3000);
+
 function lvl(p) {
-    if (!p || !p.account) return 0;
-    return Math.max(0, Math.min(MAX, Number(p.account.admin) || 0));
+    const a = acc(p);
+    if (!a) return 0;
+    return Math.max(0, Math.min(MAX, Number(a.admin) || 0));
 }
 function rankName(n) {
     n = Number(n) || 0;
@@ -76,7 +126,7 @@ function can(p, action) {
     return lvl(p) >= (PERM[action] || 99);
 }
 function login(p) {
-    if (p && p.account && p.account.login) return p.account.login;
+    if (p && p.admAcc && p.admAcc.login) return p.admAcc.login;
     return p ? p.name : '-';
 }
 function msg(p, text, color) {
@@ -110,9 +160,7 @@ function log(admin, action, target, details) {
     const row = { admin: login(admin), action: action, target: target || '-', details: details || '', time: Date.now() };
     logs.unshift(row);
     if (logs.length > 100) logs.pop();
-    if (db && typeof db.log === 'function' && admin && admin.account) {
-        db.log(admin.account.id, 'admin_' + action, row.target + ' ' + row.details);
-    }
+    console.log('[admin] ' + row.admin + ' ' + action + ' ' + row.target + ' ' + row.details);
 }
 function canTouch(admin, target) {
     if (!target) return false;
@@ -148,7 +196,7 @@ function activeBan(rec) {
     return !rec.until || rec.until > Date.now();
 }
 function findBan(p) {
-    const lg = p.account ? String(p.account.login).toLowerCase() : null;
+    const lg = acc(p) ? String(acc(p).login).toLowerCase() : null;
     return bans.find(function (b) {
         if (!activeBan(b)) return false;
         if (lg && b.login && b.login.toLowerCase() === lg) return true;
@@ -190,7 +238,7 @@ function doBan(admin, target, minutes, reason, offlineLogin) {
     bans = bans.filter(function (b) { return !(b.login && lg && b.login.toLowerCase() === lg.toLowerCase()); });
     bans.unshift(rec);
     writeJson(BANS_FILE, bans);
-    q('UPDATE accounts SET banned = 1, ban_reason = ?, ban_until = ? WHERE login = ?', [reason, rec.until, lg]);
+    q('UPDATE accounts SET banned = 1, ban_reason = ?, ban_until = ? WHERE username = ?', [reason, rec.until, lg]);
 
     mp.players.broadcast('!{#e05555}[БАН] !{#ffffff}' + rankName(lvl(admin)) + ' ' + login(admin) +
         ' забанил игрока !{#ffcc66}' + lg + ' !{#ffffff}на ' + durationText(minutes) + '. Причина: !{#ff8080}' + reason);
@@ -202,7 +250,7 @@ function doUnban(admin, lg) {
     const before = bans.length;
     bans = bans.filter(function (b) { return !(b.login && b.login.toLowerCase() === String(lg).toLowerCase()); });
     writeJson(BANS_FILE, bans);
-    q('UPDATE accounts SET banned = 0, ban_reason = NULL, ban_until = 0 WHERE login = ?', [lg]);
+    q('UPDATE accounts SET banned = 0, ban_reason = NULL, ban_until = 0 WHERE username = ?', [lg]);
     log(admin, 'unban', lg, '');
     staff(login(admin) + ' разбанил ' + lg);
     return before !== bans.length;
@@ -211,13 +259,14 @@ function doUnban(admin, lg) {
 const checked = {};
 setInterval(function () {
     mp.players.forEach(function (p) {
-        if (!p.account || checked[p.id] === p.account.login) return;
-        checked[p.id] = p.account.login;
+        const a = acc(p);
+        if (!a || checked[p.id] === a.login) return;
+        checked[p.id] = a.login;
         let rec = findBan(p);
-        if (!rec && Number(p.account.banned) === 1) {
-            const until = Number(p.account.ban_until) || 0;
+        if (!rec && Number(a.banned) === 1) {
+            const until = Number(a.ban_until) || 0;
             if (!until || until > Date.now()) {
-                rec = { login: p.account.login, admin: 'Система', reason: p.account.ban_reason || 'нарушение', date: Date.now(), until: until };
+                rec = { login: a.login, admin: 'Система', reason: a.ban_reason || 'нарушение', date: Date.now(), until: until };
             }
         }
         if (rec) showBan(p, rec);
@@ -232,13 +281,14 @@ mp.events.add('playerJoin', function (p) {
 });
 
 mp.events.add('srv:ban:quit', function (p) {
-    if (findBan(p) || (p.account && Number(p.account.banned) === 1)) p.kick('Бан');
+    if (findBan(p) || (acc(p) && Number(acc(p).banned) === 1)) p.kick('Бан');
 });
 
 mp.events.add('playerQuit', function (p) {
     delete muted[p.id];
     delete frozen[p.id];
     delete checked[p.id];
+    delete loading[p.id];
 });
 
 function doKick(admin, t, reason) {
@@ -308,13 +358,30 @@ function spawnVeh(admin, model, c1, c2, target, own) {
             try { admin.putIntoVehicle(v, 0); } catch (e) {}
         }, 200);
     }
-    if (own && who.account) {
+    if (own && acc(who)) {
         q('INSERT INTO vehicles (owner_id, model, plate, color1, color2, pos_x, pos_y, pos_z, heading) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [who.account.id, String(model), plate, Number(c1) || 0, Number(c2) || 0, spot.x, spot.y, spot.z, heading]);
+            [acc(who).id, String(model), plate, Number(c1) || 0, Number(c2) || 0, spot.x, spot.y, spot.z, heading]);
         msg(who, 'Вам выдан автомобиль ' + model + ' (номер ' + plate + ')', '#8fd14f');
     }
     log(admin, own ? 'givecar' : 'veh', target ? login(target) : login(admin), model);
     return v;
+}
+
+function moneyOf(p) {
+    if (p.account && p.account.money !== undefined) return Number(p.account.money) || 0;
+    if (typeof p.getVariable === 'function' && p.getVariable('money') !== undefined && p.getVariable('money') !== null) return Number(p.getVariable('money')) || 0;
+    return acc(p) ? Number(acc(p).money) || 0 : 0;
+}
+
+function addMoney(p, sum) {
+    const now = moneyOf(p) + sum;
+    if (p.account && p.account.money !== undefined) p.account.money = now;
+    if (typeof p.getVariable === 'function' && p.getVariable('money') !== undefined && p.getVariable('money') !== null) p.setVariable('money', now);
+    if (acc(p)) {
+        acc(p).money = now;
+        q('UPDATE accounts SET money = ? WHERE id = ?', [now, acc(p).id]);
+    }
+    return now;
 }
 
 function playersData() {
@@ -327,7 +394,7 @@ function playersData() {
             rank: rankName(lvl(p)),
             hp: Math.round(p.health),
             armour: Math.round(p.armour),
-            money: p.account ? Number(p.account.money) || 0 : 0,
+            money: moneyOf(p),
             ping: p.ping,
             muted: !!(muted[p.id] && muted[p.id] > Date.now()),
             frozen: !!frozen[p.id],
@@ -412,9 +479,8 @@ mp.events.add('srv:adm:act', function (p, json) {
     else if (a === 'unban') { doUnban(p, d.login); toast(p, 'Разбанен: ' + d.login, true); }
     else if (a === 'givemoney') {
         const sum = Math.floor(Number(d.sum) || 0);
-        if (!t.account || !sum) return toast(p, 'Неверная сумма', false);
-        t.account.money = (Number(t.account.money) || 0) + sum;
-        q('UPDATE accounts SET money = ? WHERE id = ?', [t.account.money, t.account.id]);
+        if (!acc(t) || !sum) return toast(p, 'Неверная сумма', false);
+        addMoney(t, sum);
         msg(t, 'Администратор начислил вам $' + sum, '#8fd14f');
         log(p, 'givemoney', login(t), '$' + sum);
         toast(p, 'Выдано $' + sum, true);
@@ -454,11 +520,11 @@ mp.events.add('srv:adm:act', function (p, json) {
     else if (a === 'setadmin') {
         const n = Number(d.level);
         const tt = find(d.id);
-        if (!tt || !tt.account) return toast(p, 'Игрок не найден', false);
+        if (!tt || !acc(tt)) return toast(p, 'Игрок не найден', false);
         if (isNaN(n) || n < 0 || n > MAX) return toast(p, 'Уровень 0-' + MAX, false);
         if (lvl(p) < MAX && (n >= lvl(p) || lvl(tt) >= lvl(p))) return toast(p, 'Можно назначать только ниже своего уровня', false);
-        tt.account.admin = n;
-        q('UPDATE accounts SET admin = ? WHERE id = ?', [n, tt.account.id]);
+        acc(tt).admin = n;
+        q('UPDATE accounts SET admin = ? WHERE id = ?', [n, acc(tt).id]);
         msg(tt, 'Ваш статус: ' + rankName(n), '#c13dff');
         staff(login(p) + ' назначил ' + login(tt) + ' → ' + rankName(n));
         log(p, 'setadmin', login(tt), rankName(n));
@@ -519,6 +585,15 @@ function need(p, t, usage) {
     if (!t) { msg(p, 'Использование: ' + usage); return false; }
     return true;
 }
+
+mp.events.addCommand('alevel', function (p) {
+    p.admAcc = null;
+    loadAcc(p).then(function () {
+        const a = acc(p);
+        if (!a) return msg(p, 'Аккаунт "' + p.name + '" не найден в таблице accounts', '#e05555');
+        msg(p, 'Аккаунт: ' + a.login + ', уровень: ' + a.admin + ' (' + rankName(a.admin) + ')', rankColor(a.admin));
+    });
+});
 
 cmd('a', 'a', '/a [текст]', function (p, a, u, full) {
     if (!full.trim()) return msg(p, u);
@@ -773,9 +848,8 @@ cmd('ann', 'announce', '/ann [текст]', function (p, a, u, full) {
 cmd('givemoney', 'givemoney', '/givemoney [id] [сумма]', function (p, a, u) {
     const t = find(a[0]);
     const sum = Math.floor(Number(a[1]));
-    if (!need(p, t && t.account && !isNaN(sum), u)) return;
-    t.account.money = (Number(t.account.money) || 0) + sum;
-    q('UPDATE accounts SET money = ? WHERE id = ?', [t.account.money, t.account.id]);
+    if (!need(p, t && acc(t) && !isNaN(sum), u)) return;
+    addMoney(t, sum);
     msg(t, 'Начислено: $' + sum, '#8fd14f');
     msg(p, 'Выдано $' + sum + ' игроку ' + login(t), '#8fd14f');
     log(p, 'givemoney', login(t), '$' + sum);
@@ -798,12 +872,12 @@ cmd('setadmin', 'setadmin', '/setadmin [id или логин] [0-7]', function (
     if (lvl(p) < MAX && n >= lvl(p)) return msg(p, 'Можно назначать только ниже своего уровня', '#e05555');
     const t = find(a[0]);
     if (t && lvl(p) < MAX && lvl(t) >= lvl(p)) return deny(p);
-    if (t && t.account) {
-        t.account.admin = n;
+    if (t && acc(t)) {
+        acc(t).admin = n;
         msg(t, 'Ваш статус: ' + rankName(n), '#c13dff');
-        q('UPDATE accounts SET admin = ? WHERE id = ?', [n, t.account.id]);
+        q('UPDATE accounts SET admin = ? WHERE id = ?', [n, acc(t).id]);
     } else {
-        q('UPDATE accounts SET admin = ? WHERE login = ?', [n, a[0]]);
+        q('UPDATE accounts SET admin = ? WHERE username = ?', [n, a[0]]);
     }
     const name = t ? login(t) : a[0];
     staff(login(p) + ' назначил ' + name + ' → ' + rankName(n));
