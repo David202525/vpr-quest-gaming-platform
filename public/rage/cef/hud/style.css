@@ -39,8 +39,9 @@ body {
 
 .info {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 26px;
 }
 .info-rows {
   display: flex;
@@ -311,8 +312,8 @@ body {
   right: 0;
   bottom: 0;
   height: 54px;
-  padding-left: 40px;
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 22px;
   font-size: 13px;
