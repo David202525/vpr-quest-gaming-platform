@@ -20,9 +20,18 @@ function setOverlay(p, o) {
     const color2 = num(o.color2, color);
     try {
         p.setHeadOverlay(id, index, opacity, color, color2);
+        return;
+    } catch (e) {}
+    try {
+        p.setHeadOverlay(id, index, opacity);
     } catch (e) {
         mp.game.ped.setPedHeadOverlay(p.handle, id, index, opacity);
-        if (COLOR_TYPE[id]) mp.game.ped.setPedHeadOverlayColor(p.handle, id, COLOR_TYPE[id], color, color2);
+    }
+    if (!COLOR_TYPE[id]) return;
+    try {
+        p.setHeadOverlayColor(id, COLOR_TYPE[id], color, color2);
+    } catch (e) {
+        mp.game.ped.setPedHeadOverlayColor(p.handle, id, COLOR_TYPE[id], color, color2);
     }
 }
 

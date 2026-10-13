@@ -75,7 +75,9 @@ mp.events.add('cef:creator:update', function (field, json) {
     let value;
     try { value = JSON.parse(json); } catch (e) { return; }
 
-    if (field === 'gender') {
+    if (field === 'all') {
+        current = value;
+    } else if (field === 'gender') {
         current = defaultAppearance(value ? 1 : 0);
     } else if (field === 'parents') {
         current.parents = value;
