@@ -23,6 +23,18 @@ function emptyMenu() {
         ach: [], bp: { lvl: 0, exp: 0, need: 30, rewards: [] }, shop: [], offline: true
     };
 }
+var MEM = {};
+var LS = {
+    get: function (k) { try { var v = window.LS.get(k); return v === null ? (MEM[k] !== undefined ? MEM[k] : null) : v; } catch (e) { return MEM[k] !== undefined ? MEM[k] : null; } },
+    set: function (k, v) { MEM[k] = String(v); try { window.LS.set(k, String(v)); } catch (e) {} }
+};
+function showErr(where, e) {
+    var box = document.querySelector('.srv-warn.err') || document.createElement('div');
+    box.className = 'srv-warn err';
+    box.innerHTML = '<b>Ошибка интерфейса (' + where + ')</b>' + esc(e && e.message ? e.message : e) + (e && e.stack ? '<br><small style="opacity:.6">' + esc(String(e.stack).split('\n').slice(0, 3).join(' | ')) + '</small>' : '');
+    document.body.appendChild(box);
+}
+window.onerror = function (m, src, line) { showErr('строка ' + line, m); };
 var DATA = { inv: null, phone: null, menu: null };
 var current = null;
 var waitTimer = null;
@@ -55,7 +67,16 @@ window.uiClose = function () {
     hideCtx();
     closeModal();
 };
+function fill(d, def) {
+    if (!d || typeof d !== 'object') return def;
+    Object.keys(def).forEach(function (k) { if (d[k] === undefined || d[k] === null) d[k] = def[k]; });
+    return d;
+}
 window.uiData = function (kind, d) {
+    if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
+    if (kind === 'menu') { d = fill(d, emptyMenu()); d.offline = false; d.name = String(d.name); d.bp = fill(d.bp, { lvl: 0, exp: 0, need: 30, rewards: [] }); }
+    if (kind === 'inv') { d = fill(d, emptyInv()); d.offline = false; d.side = fill(d.side, emptyInv().side); }
+    if (kind === 'phone') d = fill(d, { number: '—', name: '—', money: 0, bank: 0, contacts: [], sms: [], online: [], gps: [] });
     DATA[kind] = d;
     var ww = document.querySelector('.srv-warn');
     if (ww) ww.remove();
@@ -114,6 +135,9 @@ function ringStat(s) {
 }
 
 function renderInv() {
+    try { return _renderInv(); } catch (e) { showErr('renderInv', e); }
+}
+function _renderInv() {
     var d = DATA.inv;
     if (!d) return;
     $('invNick').textContent = d.name;
@@ -318,7 +342,7 @@ var APPS = [
 var DOCK = ['contacts', 'sms', 'bank', 'camera'];
 var phApp = null;
 var phChat = null;
-var lastSeen = Number(localStorage.getItem('sms_seen') || 0);
+var lastSeen = Number(LS.get('sms_seen') || 0);
 
 function unread() {
     var p = DATA.phone;
@@ -332,6 +356,9 @@ function appHtml(a) {
 }
 
 function phoneHome() {
+    try { return _phoneHome(); } catch (e) { showErr('phoneHome', e); }
+}
+function _phoneHome() {
     phApp = null; phChat = null;
     $('pg-home').classList.add('active');
     $('pg-app').classList.remove('active');
@@ -382,6 +409,9 @@ function nameOf(num) {
 function timeOf(at) { var d = new Date(at); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 
 function renderApp() {
+    try { return _renderApp(); } catch (e) { showErr('renderApp', e); }
+}
+function _renderApp() {
     var p = DATA.phone;
     var a = APPS.find(function (x) { return x.id === phApp; });
     var body = $('appBody');
@@ -406,7 +436,7 @@ function renderApp() {
     } else if (phApp === 'sms') {
         if (phChat) return renderChat();
         lastSeen = Date.now();
-        localStorage.setItem('sms_seen', lastSeen);
+        LS.set('sms_seen', lastSeen);
         actEl.textContent = '✎';
         actEl.onclick = function () { newChat(); };
         var conv = {};
@@ -442,8 +472,8 @@ function renderApp() {
     } else if (phApp === 'calc') {
         calcRender();
     } else if (phApp === 'notes') {
-        body.innerHTML = '<textarea class="f-in" id="notesT" style="height:440px;resize:none;line-height:1.5" placeholder="Ваши заметки...">' + esc(localStorage.getItem('ph_notes') || '') + '</textarea>';
-        $('notesT').oninput = function () { localStorage.setItem('ph_notes', this.value); };
+        body.innerHTML = '<textarea class="f-in" id="notesT" style="height:440px;resize:none;line-height:1.5" placeholder="Ваши заметки...">' + esc(LS.get('ph_notes') || '') + '</textarea>';
+        $('notesT').oninput = function () { LS.set('ph_notes', this.value); };
     } else if (phApp === 'settings') {
         body.innerHTML = '<div style="text-align:center;font-size:60px;margin:20px 0 6px">📱</div><div style="text-align:center;font-weight:700;font-size:16px;margin-bottom:20px">RPhone 15</div>' +
             '<div class="kv"><span>Владелец</span><b>' + esc(p.name) + '</b></div><div class="kv"><span>Номер</span><b>' + esc(p.number) + '</b></div>' +
@@ -539,7 +569,8 @@ function calcKey(k) {
 /* ================= MENU ================= */
 var tab = 'char';
 var shopCat = 'Все';
-var settings = JSON.parse(localStorage.getItem('ui_settings') || '{"hud":true,"chat":true,"sound":true,"hints":true}');
+var settings = { hud: true, chat: true, sound: true, hints: true };
+try { var _st = JSON.parse(LS.get('ui_settings') || 'null'); if (_st) settings = _st; } catch (e) {}
 
 $('tabs').addEventListener('click', function (e) {
     var b = e.target.closest('button');
@@ -561,8 +592,12 @@ function tile(cls, img, inner, extra) {
 }
 
 function renderMenu() {
+    try { return _renderMenu(); } catch (e) { showErr('renderMenu', e); }
+}
+function _renderMenu() {
     var d = DATA.menu || emptyMenu();
     var b = $('mBody');
+    if (['char', 'ach', 'shop', 'bp', 'set'].indexOf(tab) < 0) tab = 'char';
     if (tab === 'char') b.innerHTML = menuChar(d);
     if (tab === 'ach') b.innerHTML = menuAch(d);
     if (tab === 'shop') b.innerHTML = menuShop(d);
@@ -651,7 +686,7 @@ function bindMenu() {
         x.onclick = function () {
             var k = x.dataset.set;
             settings[k] = !settings[k];
-            localStorage.setItem('ui_settings', JSON.stringify(settings));
+            LS.set('ui_settings', JSON.stringify(settings));
             trig('cef:ui:set', k, settings[k]);
             renderMenu();
         };
