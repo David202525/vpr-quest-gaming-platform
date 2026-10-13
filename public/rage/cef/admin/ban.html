@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Бан</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { width: 100vw; height: 100vh; overflow: hidden; color: #fff; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(60,0,10,0.92) 0%, rgba(5,0,2,0.98) 70%); user-select: none; }
+        .stripes { position: fixed; inset: 0; background: repeating-linear-gradient(45deg, rgba(255,40,60,0.04) 0 20px, transparent 20px 40px); pointer-events: none; }
+        .box { position: relative; width: 560px; padding: 44px 46px 36px; background: rgba(18,6,10,0.9); border: 1px solid rgba(255,70,90,0.35); border-radius: 22px; box-shadow: 0 0 80px rgba(255,40,60,0.25), 0 30px 80px rgba(0,0,0,0.6); text-align: center; animation: pop .5s cubic-bezier(.2,.8,.2,1); }
+        .icon { width: 92px; height: 92px; margin: -90px auto 18px; border-radius: 50%; background: linear-gradient(135deg, #ff3b55, #b0102a); display: flex; align-items: center; justify-content: center; font-size: 44px; box-shadow: 0 0 0 8px rgba(255,59,85,0.15), 0 14px 40px rgba(255,40,60,0.5); animation: pulse 2s infinite; }
+        h1 { font-size: 34px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: #ff5a6e; }
+        .sub { color: #c9a5ab; font-size: 14px; margin: 6px 0 26px; }
+        .rows { text-align: left; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; overflow: hidden; }
+        .r { display: flex; justify-content: space-between; gap: 20px; padding: 13px 18px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; }
+        .r:last-child { border-bottom: none; }
+        .r span { color: #a08a8e; }
+        .r b { text-align: right; word-break: break-word; }
+        .reason b { color: #ffb3bd; }
+        .left { margin: 22px 0 6px; font-size: 13px; color: #a08a8e; }
+        .timer { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+        .hint { margin-top: 22px; font-size: 12px; color: #8a7478; line-height: 1.6; }
+        .btn { margin-top: 22px; width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #ff3b55, #b0102a); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; transition: .2s; }
+        .btn:hover { filter: brightness(1.15); }
+        .auto { margin-top: 10px; font-size: 11px; color: #6f5c60; }
+        @keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 8px rgba(255,59,85,0.15), 0 14px 40px rgba(255,40,60,0.5); } 50% { box-shadow: 0 0 0 16px rgba(255,59,85,0.05), 0 14px 40px rgba(255,40,60,0.5); } }
+    </style>
+</head>
+<body>
+    <div class="stripes"></div>
+    <div class="box">
+        <div class="icon">⛔</div>
+        <h1>Вы заблокированы</h1>
+        <div class="sub">Доступ к серверу для этого аккаунта закрыт</div>
+        <div class="rows">
+            <div class="r"><span>Аккаунт</span><b id="login">—</b></div>
+            <div class="r reason"><span>Причина</span><b id="reason">—</b></div>
+            <div class="r"><span>Администратор</span><b id="admin">—</b></div>
+            <div class="r"><span>Дата бана</span><b id="date">—</b></div>
+            <div class="r"><span>Окончание</span><b id="until">—</b></div>
+        </div>
+        <div class="left">До разблокировки</div>
+        <div class="timer" id="timer">—</div>
+        <div class="hint">Не согласен с решением? Сделай скриншот этого окна<br>и подай жалобу на форуме или в Discord сервера.</div>
+        <button class="btn" id="quit">Выйти с сервера</button>
+        <div class="auto" id="auto">Автоматический выход через 20 сек</div>
+    </div>
+    <script>
+        var until = 0;
+        function fmt(t) { var d = new Date(t); return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); }
+        function tick() {
+            if (!until) { document.getElementById('timer').textContent = 'Навсегда'; return; }
+            var s = Math.max(0, Math.floor((until - Date.now()) / 1000));
+            var d = Math.floor(s / 86400); s %= 86400;
+            var h = Math.floor(s / 3600); s %= 3600;
+            var m = Math.floor(s / 60); s %= 60;
+            document.getElementById('timer').textContent = (d ? d + 'д ' : '') + ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2) + ':' + ('0' + s).slice(-2);
+        }
+        window.showBan = function (json) {
+            var b = typeof json === 'string' ? JSON.parse(json) : json;
+            document.getElementById('login').textContent = b.login || '—';
+            document.getElementById('reason').textContent = b.reason || '—';
+            document.getElementById('admin').textContent = b.admin || '—';
+            document.getElementById('date').textContent = b.date ? fmt(b.date) : '—';
+            document.getElementById('until').textContent = b.forever || !b.until ? 'Навсегда' : fmt(b.until);
+            until = b.forever ? 0 : b.until;
+            tick();
+        };
+        setInterval(tick, 1000);
+        var left = 20;
+        setInterval(function () {
+            left = Math.max(0, left - 1);
+            document.getElementById('auto').textContent = 'Автоматический выход через ' + left + ' сек';
+        }, 1000);
+        document.getElementById('quit').onclick = function () { if (window.mp && mp.trigger) mp.trigger('cef:ban:quit'); };
+    </script>
+</body>
+</html>

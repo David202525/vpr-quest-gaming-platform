@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Админ-панель</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="wrap" id="wrap">
+        <aside class="side">
+            <div class="logo">
+                <div class="logo-mark">A</div>
+                <div>
+                    <div class="logo-title">Админ-панель</div>
+                    <div class="logo-sub">F4 — закрыть</div>
+                </div>
+            </div>
+            <div class="me">
+                <div class="me-ava" id="meAva">?</div>
+                <div>
+                    <div class="me-name" id="meName">—</div>
+                    <div class="me-rank" id="meRank">—</div>
+                </div>
+            </div>
+            <nav class="menu" id="menu">
+                <button class="m active" data-tab="players"><i>👥</i>Игроки</button>
+                <button class="m" data-tab="vehicles"><i>🚗</i>Транспорт</button>
+                <button class="m" data-tab="bans"><i>⛔</i>Баны</button>
+                <button class="m" data-tab="server"><i>🌐</i>Сервер</button>
+                <button class="m" data-tab="staff"><i>⭐</i>Администрация</button>
+                <button class="m" data-tab="logs"><i>📜</i>Логи</button>
+            </nav>
+            <div class="quick">
+                <button class="q" data-quick="fly">Полёт</button>
+                <button class="q" data-quick="refresh">Обновить</button>
+            </div>
+        </aside>
+
+        <main class="main">
+            <section class="tab active" data-tab="players">
+                <header class="head">
+                    <h2>Игроки онлайн <span class="badge" id="pCount">0</span></h2>
+                    <input class="search" id="pSearch" placeholder="Поиск по ID или нику">
+                </header>
+                <div class="split">
+                    <div class="list" id="pList"></div>
+                    <div class="card detail" id="pDetail">
+                        <div class="empty">Выбери игрока слева</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="vehicles">
+                <header class="head"><h2>Создание транспорта</h2></header>
+                <div class="grid2">
+                    <div class="card">
+                        <h3>Обычная машина</h3>
+                        <label>Модель</label>
+                        <input id="vModel" placeholder="например: sultan, adder, kuruma">
+                        <div class="chips" id="vPresets"></div>
+                        <div class="row2">
+                            <div><label>Цвет 1</label><input id="vC1" type="number" min="0" max="159" value="0"></div>
+                            <div><label>Цвет 2</label><input id="vC2" type="number" min="0" max="159" value="0"></div>
+                        </div>
+                        <label>Кому (ID, пусто — себе)</label>
+                        <input id="vTarget" placeholder="ID игрока">
+                        <label class="check"><input type="checkbox" id="vOwn"> Выдать в собственность (5+)</label>
+                        <button class="btn primary" id="vSpawn">Создать машину</button>
+                    </div>
+                    <div class="card">
+                        <h3>DLC машины <span class="lvl">4+</span></h3>
+                        <div class="dlc" id="dlcList"></div>
+                        <div class="row2">
+                            <div><label>Модель</label><input id="dModel" placeholder="rmodgt63"></div>
+                            <div><label>Название</label><input id="dName" placeholder="Mercedes GT63"></div>
+                        </div>
+                        <button class="btn" id="dAdd">Добавить в список</button>
+                        <p class="hint">Модель — это имя папки машины в dlcpacks. Если модель не найдена, панель предупредит.</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Управление</h3>
+                    <div class="btns">
+                        <button class="btn danger" data-act="dvall">Удалить все админ-машины</button>
+                    </div>
+                    <p class="hint">В чате: /veh [модель], /vehdlc [модель], /givecar [id] [модель], /dv, /fix</p>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="bans">
+                <header class="head">
+                    <h2>Активные баны <span class="badge" id="bCount">0</span></h2>
+                    <input class="search" id="bSearch" placeholder="Поиск по логину">
+                </header>
+                <div class="card">
+                    <h3>Офлайн-бан / разбан</h3>
+                    <div class="row3">
+                        <input id="obLogin" placeholder="Логин">
+                        <input id="obReason" placeholder="Причина">
+                        <button class="btn" id="unbanBtn">Разбанить</button>
+                    </div>
+                </div>
+                <div class="table" id="bList"></div>
+            </section>
+
+            <section class="tab" data-tab="server">
+                <header class="head"><h2>Сервер</h2></header>
+                <div class="grid2">
+                    <div class="card">
+                        <h3>Погода <span class="lvl">4+</span></h3>
+                        <div class="chips" id="weatherList"></div>
+                        <h3>Время</h3>
+                        <div class="row3">
+                            <input id="hour" type="range" min="0" max="23" value="12">
+                            <span class="badge" id="hourVal">12:00</span>
+                            <button class="btn" id="setTime">Установить</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Объявление <span class="lvl">4+</span></h3>
+                        <textarea id="annText" maxlength="200" placeholder="Текст увидят все игроки по центру экрана"></textarea>
+                        <button class="btn primary" id="annBtn">Отправить всем</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="staff">
+                <header class="head"><h2>Уровни администрации</h2></header>
+                <div class="ranks" id="rankList"></div>
+                <div class="card">
+                    <h3>Назначить уровень <span class="lvl">6+</span></h3>
+                    <div class="row3">
+                        <input id="saId" placeholder="ID или логин">
+                        <select id="saLvl"></select>
+                        <button class="btn primary" id="saBtn">Назначить</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab" data-tab="logs">
+                <header class="head"><h2>Последние действия</h2></header>
+                <div class="table" id="lList"></div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-box">
+            <h3 id="mTitle">Действие</h3>
+            <p class="m-sub" id="mSub"></p>
+            <div id="mBody"></div>
+            <div class="m-foot">
+                <button class="btn" id="mCancel">Отмена</button>
+                <button class="btn danger" id="mOk">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+    <script src="app.js"></script>
+</body>
+</html>
