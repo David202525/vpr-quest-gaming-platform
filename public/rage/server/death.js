@@ -1,7 +1,15 @@
-const db = require('./database');
+let db = null;
+try { db = require('../database'); } catch (e) {
+    try { db = require('./database'); } catch (e2) { db = null; }
+}
 
 let admin = null;
 try { admin = require('./admin'); } catch (e) { admin = null; }
+
+function ensure(p) {
+    if (p && !p.account && p.admAcc) p.account = p.admAcc;
+    return p && p.account;
+}
 
 function adminLvl(p) {
     if (admin && typeof admin.lvl === 'function') return admin.lvl(p);
@@ -113,7 +121,7 @@ async function respawn(player) {
 
     mp.events.call('medic:resolved', player);
 
-    try {
+    if (db) try {
         await db.query('UPDATE accounts SET deaths = ?, money = ? WHERE id = ?', [
             player.account.deaths, player.account.money, player.account.id
         ]);
@@ -139,6 +147,7 @@ function revive(target) {
 }
 
 mp.events.addCommand('respawn', function (player) {
+    ensure(player);
     if (!player.account || !player.account.downed) {
         player.outputChatBox('!{#ffcc66}\u0412\u044b \u043d\u0435 \u0440\u0430\u043d\u0435\u043d\u044b');
         return;
@@ -152,7 +161,7 @@ mp.events.addCommand('respawn', function (player) {
 });
 
 mp.events.add('playerDeath', function (player) {
-    if (!player.account) return;
+    if (!ensure(player)) return;
     if (player.account.downed) {
         const p = player.position;
         player.spawn(new mp.Vector3(p.x, p.y, p.z));
@@ -165,6 +174,7 @@ mp.events.add('playerDeath', function (player) {
 });
 
 mp.events.add('srv:death:call', function (p) {
+    ensure(p);
     if (!p.account || !p.account.downed) return;
     if (!p.account.downCalled) {
         p.account.downCalled = true;
@@ -174,12 +184,14 @@ mp.events.add('srv:death:call', function (p) {
 });
 
 mp.events.add('srv:death:hospital', function (p) {
+    ensure(p);
     if (!p.account || !p.account.downed) return;
     if (Date.now() - p.account.downAt < BLEED_MS) return info(p);
     respawn(p);
 });
 
 mp.events.add('srv:death:sync', function (p) {
+    ensure(p);
     if (!p.account || !p.account.downed) return;
     p.call('srv:death', [p.account.downReason, Math.max(0, BLEED_MS - (Date.now() - p.account.downAt))]);
     info(p);

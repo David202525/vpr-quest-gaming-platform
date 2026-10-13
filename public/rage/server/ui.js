@@ -806,6 +806,10 @@ setInterval(function () {
 }, 1500);
 mp.events.add('playerQuit', function (p) { p.uiReadySent = undefined; });
 
+if (!global.DeathSystem) {
+    try { require('./death.js'); console.log('[ui] система ранений подключена'); } catch (e) { console.log('[ui] death.js не найден: ' + e.message); }
+}
+
 global.UiSystem = { giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
