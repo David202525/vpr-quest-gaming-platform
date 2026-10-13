@@ -19,10 +19,11 @@ const ITEMS = {
     bandage: { n: 'Бинт', i: '🩹', w: 0.1, s: 20, use: 'heal', v: 25, price: 150 },
     pills: { n: 'Таблетки', i: '💊', w: 0.1, s: 20, use: 'heal', v: 15, price: 100 },
     armour: { n: 'Бронежилет', i: '🦺', w: 3, s: 1, slot: 'armour', price: 2500 },
+    canister: { n: 'Канистра (+25 л)', i: '🛢️', w: 3, s: 2, use: 'fuel', v: 25, price: 400 },
     repair: { n: 'Ремкомплект', i: '🔧', w: 2, s: 3, use: 'repair', price: 1200 },
     lockpick: { n: 'Отмычка', i: '🗝️', w: 0.1, s: 10, price: 500 },
     cash: { n: 'Пачка денег', i: '💵', w: 0.1, s: 100, use: 'cash', v: 1000 },
-    docs: { n: 'Паспорт', i: '📄', w: 0.1, s: 1 },
+    docs: { n: 'Папка документов', i: '📂', w: 0.1, s: 1, use: 'docs' },
     card: { n: 'Банковская карта', i: '💳', w: 0.05, s: 1 },
     phone: { n: 'Телефон', i: '📱', w: 0.2, s: 1, slot: 'phone', price: 1000 },
     cap: { n: 'Кепка', i: '🧢', w: 0.2, s: 1, slot: 'hat', cloth: { p: 0, d: 2 }, price: 300 },
@@ -396,6 +397,24 @@ function useItem(p, r) {
         best.repair();
         consume(s);
         return notify(p, 'ok', 'Машина отремонтирована');
+    }
+    if (it.use === 'fuel') {
+        let best = null, bd = 5;
+        mp.vehicles.forEach(function (v) {
+            if (v.dimension !== p.dimension) return;
+            const dd = dist(v.position, p.position);
+            if (dd < bd) { bd = dd; best = v; }
+        });
+        if (!best) return notify(p, 'error', 'Рядом нет машины');
+        const f = fuelOf(best);
+        if (f >= FUEL_MAX) return notify(p, 'warn', 'Бак и так полный');
+        setFuel(best, f + it.v);
+        consume(s);
+        return notify(p, 'ok', 'Заправлено из канистры: ' + Math.round(fuelOf(best)) + ' л');
+    }
+    if (it.use === 'docs') {
+        p.call('ui:openDocs');
+        return;
     }
     if (it.use === 'cash') {
         addMoney(p, it.v);
@@ -787,7 +806,7 @@ setInterval(function () {
 }, 1500);
 mp.events.add('playerQuit', function (p) { p.uiReadySent = undefined; });
 
-global.UiSystem = { addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
+global.UiSystem = { giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
@@ -796,3 +815,232 @@ module.exports = global.UiSystem;
 mp.events.addCommand('uicheck', function (p) {
     p.outputChatBox('!{#8fd14f}[UI] Серверный модуль работает. Аккаунт: ' + (accId(p) ? '#' + accId(p) : 'не найден, данные по нику'));
 });
+
+/* ================= FUEL ================= */
+const FUEL_MAX = 100;
+const FUEL_PRICE = 3;
+const STATIONS = [
+    [49.42, 2778.79, 58.04], [263.89, 2606.46, 44.98], [1039.96, 2671.13, 39.55], [1207.26, 2660.18, 37.90],
+    [2539.69, 2594.19, 37.94], [2679.86, 3263.95, 55.24], [2005.06, 3773.89, 32.40], [1687.16, 4929.39, 42.08],
+    [1701.31, 6416.03, 32.76], [179.86, 6602.84, 31.87], [-94.46, 6419.59, 31.49], [-2555.00, 2334.40, 33.08],
+    [-1800.38, 803.66, 138.65], [-1437.62, -276.75, 46.21], [-2096.24, -320.29, 13.17], [-724.62, -935.16, 19.21],
+    [-526.02, -1211.00, 18.18], [-70.21, -1761.79, 29.53], [265.65, -1261.31, 29.29], [819.65, -1028.85, 26.40],
+    [1208.95, -1402.57, 35.22], [1181.38, -330.85, 69.32], [620.84, 269.10, 103.09], [2581.32, 362.04, 108.47],
+    [176.63, -1562.03, 29.26], [-319.29, -1471.72, 30.55], [1784.32, 3330.55, 41.25]
+];
+STATIONS.forEach(function (s) {
+    mp.blips.new(361, new mp.Vector3(s[0], s[1], s[2]), { name: 'Заправка', color: 1, shortRange: true, scale: 0.8 });
+    mp.markers.new(1, new mp.Vector3(s[0], s[1], s[2] - 1.1), 6, { color: [255, 140, 30, 60], visible: true });
+});
+
+function fuelOf(v) {
+    let f = v.getVariable('fuel');
+    if (f === undefined || f === null) { f = 60 + Math.floor(Math.random() * 41); v.setVariable('fuel', f); }
+    return Number(f) || 0;
+}
+function setFuel(v, f) {
+    f = Math.max(0, Math.min(FUEL_MAX, Math.round(f * 10) / 10));
+    v.setVariable('fuel', f);
+    if (f <= 0) v.engine = false;
+}
+function nearStation(pos) {
+    for (let i = 0; i < STATIONS.length; i++) {
+        const s = STATIONS[i];
+        if (dist(pos, { x: s[0], y: s[1], z: s[2] }) < 12) return i;
+    }
+    return -1;
+}
+
+setInterval(function () {
+    mp.vehicles.forEach(function (v) {
+        if (!mp.vehicles.exists(v)) return;
+        const f = fuelOf(v);
+        if (!v.engine) return;
+        const occ = v.getOccupants ? v.getOccupants() : [];
+        if (!occ.length) return;
+        const vel = v.velocity || { x: 0, y: 0, z: 0 };
+        const sp = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+        const use = 0.01 + sp * 0.0045;
+        setFuel(v, f - use);
+        if (f > 10 && f - use <= 10) occ.forEach(function (x) { notify(x, 'warn', 'Мало бензина! Найдите заправку (значок на карте)'); });
+        if (f - use <= 0) occ.forEach(function (x) { notify(x, 'error', 'Бензин закончился'); });
+    });
+}, 2000);
+
+mp.events.add('srv:fuel:refill', function (p) {
+    const v = p.vehicle;
+    if (!v) return notify(p, 'error', 'Вы не в машине');
+    if (nearStation(p.position) < 0) return notify(p, 'error', 'Рядом нет заправки');
+    const f = fuelOf(v);
+    const need = Math.ceil(FUEL_MAX - f);
+    if (need <= 0) return notify(p, 'warn', 'Бак и так полный');
+    if (v.engine) return notify(p, 'warn', 'Заглушите двигатель перед заправкой');
+    const money = getMoney(p);
+    const can = Math.min(need, Math.floor(money / FUEL_PRICE));
+    if (can <= 0) return notify(p, 'error', 'Недостаточно наличных. Литр стоит $' + FUEL_PRICE);
+    setMB(p, money - can * FUEL_PRICE, getBank(p));
+    setFuel(v, f + can);
+    notify(p, 'ok', 'Заправлено ' + can + ' л за $' + (can * FUEL_PRICE));
+});
+
+mp.events.addCommand('setfuel', function (p, full2, n) {
+    if (adminLvl(p) < 3) return;
+    if (!p.vehicle) return notify(p, 'error', 'Сядьте в машину');
+    setFuel(p.vehicle, Number(n) || FUEL_MAX);
+    notify(p, 'ok', 'Бензин: ' + fuelOf(p.vehicle));
+});
+
+mp.events.add('srv:veh:engine', function (p) {
+    const v = p.vehicle;
+    if (!v) return;
+    if (!v.engine && fuelOf(v) <= 0) return notify(p, 'error', 'Бак пуст');
+    v.engine = !v.engine;
+    notify(p, v.engine ? 'ok' : 'warn', v.engine ? 'Двигатель заведён' : 'Двигатель заглушен');
+});
+
+/* ================= DOCUMENTS ================= */
+const DOC_TYPES = {
+    passport: 'Паспорт',
+    drive: 'Водительское удостоверение',
+    military: 'Военный билет',
+    med: 'Медицинская книжка',
+    psych: 'Справка от психиатра',
+    gun: 'Разрешение на оружие',
+    faction: 'Служебное удостоверение'
+};
+const FACTIONS = {
+    lspd: { n: 'Полиция Лос-Сантоса', s: 'LSPD', c: '#2f6fff', pos: 'Офицер' },
+    ems: { n: 'Медицинская служба', s: 'EMS', c: '#e63950', pos: 'Врач' },
+    fib: { n: 'Федеральное бюро расследований', s: 'FIB', c: '#1b1b1b', pos: 'Агент' },
+    army: { n: 'Национальная гвардия', s: 'ARMY', c: '#4f6b2f', pos: 'Рядовой' },
+    gov: { n: 'Правительство штата', s: 'GOV', c: '#b8892b', pos: 'Сотрудник' },
+    news: { n: 'Weazel News', s: 'NEWS', c: '#d9541e', pos: 'Репортёр' }
+};
+function dnum(len) { let s = ''; for (let i = 0; i < len; i++) s += Math.floor(Math.random() * 10); return s; }
+function dstr(t) { return new Date(t).toLocaleDateString('ru-RU'); }
+function yearsLater(n) { const d = new Date(); d.setFullYear(d.getFullYear() + n); return dstr(d); }
+function issuer(p) { return accOf(p) && accOf(p).nick ? accOf(p).nick : p.name; }
+
+function makeDoc(t, opt, by) {
+    opt = opt || {};
+    const base = { t: t, num: dnum(6), issued: dstr(Date.now()), by: by || 'Мэрия Лос-Сантоса' };
+    if (t === 'passport') { base.series = dnum(4); base.until = yearsLater(10); }
+    if (t === 'drive') { base.cats = opt.cats || ['A', 'B', 'C']; base.until = yearsLater(10); }
+    if (t === 'military') { base.rank = opt.rank || 'Рядовой'; base.unit = opt.unit || 'В/Ч 2178'; base.fit = opt.fit || 'А — годен'; }
+    if (t === 'med') { base.status = opt.status || 'Здоров'; base.until = yearsLater(1); base.blood = ['O(I) Rh+', 'A(II) Rh+', 'B(III) Rh+', 'AB(IV) Rh+'][Math.floor(Math.random() * 4)]; }
+    if (t === 'psych') { base.status = opt.status || 'На учёте не состоит'; base.until = yearsLater(1); }
+    if (t === 'gun') { base.cls = opt.cls || 'Пистолеты, гладкоствольное'; base.until = yearsLater(5); }
+    if (t === 'faction') {
+        const f = FACTIONS[opt.f] ? opt.f : 'lspd';
+        base.f = f; base.pos = opt.pos || FACTIONS[f].pos; base.badge = dnum(4);
+        base.by = FACTIONS[f].n;
+    }
+    return base;
+}
+
+function docList(d) {
+    if (!d.docs) d.docs = [];
+    return d.docs;
+}
+function hasDoc(d, t, f) { return docList(d).some(function (x) { return x.t === t && (!f || x.f === f); }); }
+function giveDoc(p, t, opt, by) {
+    const d = data(p);
+    const list = docList(d);
+    const f = t === 'faction' ? (opt && FACTIONS[opt.f] ? opt.f : 'lspd') : null;
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].t === t && (t !== 'faction' || list[i].f === f)) list.splice(i, 1);
+    list.push(makeDoc(t, opt, by));
+    if (!countItem(d, 'docs')) addItem(p, 'docs', 1);
+    mark();
+}
+
+function docsPayload(p, owner) {
+    const d = data(p);
+    const female = p.model === mp.joaat('mp_f_freemode_01');
+    if (!d.birth) { const y = 1975 + Math.floor(Math.random() * 30); d.birth = String(1 + Math.floor(Math.random() * 28)).padStart(2, '0') + '.' + String(1 + Math.floor(Math.random() * 12)).padStart(2, '0') + '.' + y; mark(); }
+    const nm = String(issuer(p)).replace(/_/g, ' ').split(' ');
+    return {
+        own: owner, holder: p.name,
+        first: nm[0] || '', last: nm.slice(1).join(' ') || '',
+        gender: female ? 'Ж' : 'М', birth: d.birth, place: 'Лос-Сантос, Сан-Андреас',
+        docs: docList(d).map(function (x) {
+            const o = Object.assign({}, x, { title: DOC_TYPES[x.t] || x.t });
+            if (x.t === 'faction') o.fac = FACTIONS[x.f];
+            return o;
+        })
+    };
+}
+
+function sendDocs(to, of, focus) {
+    if (!mp.players.exists(to) || !mp.players.exists(of)) return;
+    const pl = docsPayload(of, to === of);
+    pl.focus = focus || null;
+    to.call('ui:docs', [JSON.stringify(pl)]);
+}
+
+mp.events.add('srv:docs:get', function (p) { sendDocs(p, p); });
+
+mp.events.add('srv:docs:show', function (p, idx) {
+    const list = docList(data(p));
+    const doc = list[Number(idx)];
+    if (!doc) return;
+    let best = null, bd = 3.5;
+    mp.players.forEach(function (x) {
+        if (x === p || x.dimension !== p.dimension) return;
+        const dd = dist(x.position, p.position);
+        if (dd < bd) { bd = dd; best = x; }
+    });
+    if (!best) return notify(p, 'error', 'Рядом никого нет');
+    sendDocs(best, p, Number(idx));
+    notify(p, 'ok', 'Вы показали «' + (DOC_TYPES[doc.t] || 'документ') + '» игроку ' + best.name);
+    notify(best, 'warn', p.name + ' показывает вам документ');
+});
+
+function findPl(s) {
+    if (s === undefined || s === '') return null;
+    const n = Number(s);
+    if (!isNaN(n)) return mp.players.at(n) || null;
+    return mp.players.toArray().find(function (x) { return x.name.toLowerCase().indexOf(String(s).toLowerCase()) >= 0; }) || null;
+}
+
+mp.events.addCommand('givedoc', function (p, full2, id, t, extra) {
+    if (adminLvl(p) < 4) return notify(p, 'error', 'Недостаточно прав');
+    const target = findPl(id);
+    if (!target || !DOC_TYPES[t]) {
+        return p.outputChatBox('!{#ffc93c}/givedoc [id] [тип] [фракция]  Типы: ' + Object.keys(DOC_TYPES).join(', ') + '. Фракции: ' + Object.keys(FACTIONS).join(', '));
+    }
+    giveDoc(target, t, t === 'faction' ? { f: extra } : null, issuer(p));
+    notify(p, 'ok', 'Выдан документ «' + DOC_TYPES[t] + '» игроку ' + target.name);
+    notify(target, 'ok', 'Вам выдан документ: ' + DOC_TYPES[t]);
+});
+
+mp.events.addCommand('takedoc', function (p, full2, id, t) {
+    if (adminLvl(p) < 4) return notify(p, 'error', 'Недостаточно прав');
+    const target = findPl(id);
+    if (!target) return p.outputChatBox('!{#ffc93c}/takedoc [id] [тип или all]');
+    const d = data(target);
+    d.docs = t === 'all' ? [] : docList(d).filter(function (x) { return x.t !== t; });
+    mark();
+    notify(p, 'ok', 'Документы изъяты у ' + target.name);
+});
+
+mp.events.addCommand('alldocs', function (p) {
+    if (adminLvl(p) < 4) return notify(p, 'error', 'Недостаточно прав');
+    ['passport', 'drive', 'military', 'med', 'psych', 'gun'].forEach(function (t) { giveDoc(p, t, null, 'Администрация'); });
+    Object.keys(FACTIONS).forEach(function (f) { giveDoc(p, 'faction', { f: f }, 'Администрация'); });
+    notify(p, 'ok', 'Вам выданы все документы. Откройте: инвентарь → «Папка документов» или меню M → «Ваши документы»');
+});
+
+mp.events.addCommand('docs', function (p) { sendDocs(p, p); });
+
+const OWNER_NAMES = ['Rainold Star', 'Rainold_Star', 'Rainold_Verigo'];
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        if (OWNER_NAMES.indexOf(p.name) < 0 || !accId(p)) return;
+        const d = data(p);
+        if (d.ownerDocs) return;
+        d.ownerDocs = true;
+        ['passport', 'drive', 'military', 'med', 'psych', 'gun'].forEach(function (t) { giveDoc(p, t, null, 'Администрация'); });
+        Object.keys(FACTIONS).forEach(function (f) { giveDoc(p, 'faction', { f: f }, 'Администрация'); });
+        notify(p, 'ok', 'Вам выданы все документы для просмотра. Меню M → «Ваши документы»');
+    });
+}, 5000);

@@ -140,3 +140,50 @@ mp.keys.bind(0x42, false, function () {
     try { p.setConfigFlag(32, !spBelt); } catch (e) {}
     mp.events.call('hud:notify', spBelt ? 'ok' : 'warn', spBelt ? 'Ремень пристёгнут' : 'Ремень отстёгнут', 2000);
 });
+
+var FUEL_ST = [
+    [49.42, 2778.79], [263.89, 2606.46], [1039.96, 2671.13], [1207.26, 2660.18], [2539.69, 2594.19], [2679.86, 3263.95],
+    [2005.06, 3773.89], [1687.16, 4929.39], [1701.31, 6416.03], [179.86, 6602.84], [-94.46, 6419.59], [-2555.00, 2334.40],
+    [-1800.38, 803.66], [-1437.62, -276.75], [-2096.24, -320.29], [-724.62, -935.16], [-526.02, -1211.00], [-70.21, -1761.79],
+    [265.65, -1261.31], [819.65, -1028.85], [1208.95, -1402.57], [1181.38, -330.85], [620.84, 269.10], [2581.32, 362.04],
+    [176.63, -1562.03], [-319.29, -1471.72], [1784.32, 3330.55]
+];
+var atStation = false;
+var lastFuelKey = 0;
+function nearFuel() {
+    var pos = mp.players.local.position;
+    for (var i = 0; i < FUEL_ST.length; i++) {
+        var dx = pos.x - FUEL_ST[i][0], dy = pos.y - FUEL_ST[i][1];
+        if (dx * dx + dy * dy < 144) return true;
+    }
+    return false;
+}
+setInterval(function () {
+    var p = mp.players.local;
+    var v = p.vehicle;
+    var now = !!v && nearFuel();
+    if (now && !atStation) mp.events.call('hud:notify', 'ok', 'Заправка: заглушите мотор и нажмите E. Литр — $3', 5000);
+    atStation = now;
+}, 700);
+mp.events.add('render', function () {
+    var v = mp.players.local.vehicle;
+    if (!v) return;
+    var f = v.getVariable('fuel');
+    if (f !== undefined && f !== null && Number(f) <= 0) {
+        v.setEngineOn(false, true, true);
+        mp.game.controls.disableControlAction(0, 71, true);
+        mp.game.controls.disableControlAction(0, 72, true);
+    }
+});
+mp.keys.bind(0x45, false, function () {
+    if (!atStation || mp.gui.cursor.visible || mp.players.local.isTypingInTextChat) return;
+    if (Date.now() - lastFuelKey < 1500) return;
+    lastFuelKey = Date.now();
+    mp.events.callRemote('srv:fuel:refill');
+});
+mp.keys.bind(0x5A, false, function () {
+    var p = mp.players.local, v = p.vehicle;
+    if (!v || mp.gui.cursor.visible || p.isTypingInTextChat) return;
+    if (v.getPedInSeat(-1) !== p.handle) return;
+    mp.events.callRemote('srv:veh:engine');
+});

@@ -65,6 +65,7 @@ function openUi(name, opt) {
     }
     if (name === 'phone') mp.events.callRemote('srv:phone:get');
     if (name === 'menu') mp.events.callRemote('srv:menu:get');
+    if (name === 'docs' && !(opt && opt.shown)) mp.events.callRemote('srv:docs:get');
     mp.gui.chat.activate(false);
     cursorSync();
 }
@@ -200,3 +201,19 @@ mp.events.add('ui:ready', function (on) {
 mp.events.add('creator:start', function () { uiReady = false; closeUi(); freeCursor = false; });
 mp.events.add('creator:done', function () { setTimeout(function () { uiReady = true; }, 1500); });
 global.uiBusy = function () { return !!uiOpen; };
+
+mp.events.add('ui:docs', function (json) {
+    var d = null;
+    try { d = JSON.parse(json); } catch (e) { return; }
+    if (!d.own && uiOpen && uiOpen !== 'docs') return;
+    if (uiOpen !== 'docs') {
+        if (uiOpen) closeUi(true);
+        uiOpen = 'docs';
+        uiCall('uiOpen', 'docs', { shown: !d.own });
+        mp.gui.chat.activate(false);
+        cursorSync();
+    }
+    uiExec('window.uiData && window.uiData("docs",' + json + ');');
+});
+mp.events.add('ui:openDocs', function () { openUi('docs', { fromUi: true }); });
+mp.events.add('cef:docs:show', function (i) { mp.events.callRemote('srv:docs:show', i); });

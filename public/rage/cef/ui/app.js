@@ -35,7 +35,8 @@ function showErr(where, e) {
     document.body.appendChild(box);
 }
 window.onerror = function (m, src, line) { showErr('строка ' + line, m); };
-var DATA = { inv: null, phone: null, menu: null };
+var DATA = { inv: null, phone: null, menu: null, docs: null };
+var docSel = 0;
 var current = null;
 var waitTimer = null;
 
@@ -54,15 +55,16 @@ function srvWarn(kind) {
 }
 
 window.uiOpen = function (name, opt) {
-    ['inv', 'phone', 'menu'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
+    ['inv', 'phone', 'menu', 'docs'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
     current = name;
     hideCtx();
+    if (name === 'docs') { docSel = 0; if (!(opt && opt.shown)) DATA.docs = DATA.docs && DATA.docs.own ? DATA.docs : null; renderDocs(); }
     if (name === 'inv') { if (!DATA.inv) { DATA.inv = emptyInv(); DATA.inv.offline = true; } renderInv(); srvWarn('inv'); }
     if (name === 'phone') { phoneHome(); srvWarn('phone'); }
     if (name === 'menu') { if (!DATA.menu) DATA.menu = emptyMenu(); renderMenu(); srvWarn('menu'); }
 };
 window.uiClose = function () {
-    ['inv', 'phone', 'menu'].forEach(function (s) { $(s).classList.remove('show'); });
+    ['inv', 'phone', 'menu', 'docs'].forEach(function (s) { $(s).classList.remove('show'); });
     current = null;
     hideCtx();
     closeModal();
@@ -83,6 +85,7 @@ window.uiData = function (kind, d) {
     if (kind === 'inv') renderInv();
     if (kind === 'phone') phoneRefresh();
     if (kind === 'menu' && current === 'menu') renderMenu();
+    if (kind === 'docs') { if (typeof d.focus === 'number') docSel = d.focus; renderDocs(); }
 };
 function closeAll() { window.uiClose(); trig('cef:ui:close'); }
 
@@ -624,12 +627,12 @@ function menuChar(d) {
         '<div class="r1">' +
         tile('orange-t', 'house.jpg', '<div class="t-cap">Ваш дом</div><div class="t-big">Нет дома</div><div class="t-kv"><span>ID персонажа</span><b>' + d.id + '</b><span>Номер телефона</span><b>' + esc(d.number) + '</b></div><div class="t-loc">Сан-Андреас</div>') +
         tile('green-t', 'flat.jpg', '<div class="t-cap">Ваша квартира</div><div class="t-sub">У Вас нет квартиры</div>') +
-        tile('orange-t', 'docs.jpg', '<div class="t-cap">Ваши документы</div><div class="t-sub">Паспорт, банковская карта</div>') +
+        tile('orange-t clickable', 'docs.jpg', '<div class="t-cap">Ваши документы</div><div class="t-sub">Паспорт, удостоверения, справки</div>', ' data-docs="1"') +
         '</div>' +
         '<div class="r2">' + cars + '</div>' +
         '<div class="r3">' +
         tile('blue-t', 'biz.jpg', '<div class="t-cap">Ваши финансы</div><div class="t-big">' + money(d.money + d.bank) + '</div><div class="t-kv"><span>Наличные</span><b>' + money(d.money) + '</b><span>На счёте</span><b>' + money(d.bank) + '</b><span>Часов в игре</span><b>' + d.hours + '</b></div>') +
-        tile('yellow-t', 'lic.jpg', '<div class="t-cap" style="font-weight:600">Ваши лицензии</div><div class="t-sub">Список всех ваших лицензий</div>') +
+        tile('yellow-t clickable', 'lic.jpg', '<div class="t-cap" style="font-weight:600">Ваши лицензии</div><div class="t-sub">Права, разрешение на оружие</div>', ' data-docs="1"') +
         '</div>' +
         '<div class="r4"><div class="tile skills" style="background:linear-gradient(135deg,rgba(30,70,50,.3),rgba(255,255,255,.03))"><b>Ваши скиллы</b><div class="sk-row">' +
         d.skills.map(function (s) {
@@ -693,6 +696,7 @@ function bindMenu() {
     });
     var r = b.querySelector('[data-report]');
     if (r) r.onclick = openReport;
+    b.querySelectorAll('[data-docs]').forEach(function (x) { x.onclick = function () { trig('cef:ui:open', 'docs'); }; });
 }
 
 function openReport() {
@@ -713,3 +717,88 @@ function closeModal() { var m = document.querySelector('.modal'); if (m) m.remov
 
 window.uiSettings = function () { return settings; };
 setTimeout(function () { Object.keys(settings).forEach(function (k) { trig('cef:ui:set', k, settings[k]); }); }, 1500);
+
+/* ================= DOCUMENTS ================= */
+var DOC_ICON = { passport: '🛂', drive: '🚗', military: '🎖️', med: '🩺', psych: '🧠', gun: '🔫', faction: '🪪' };
+var DOC_CLS = { passport: 'd-pass', drive: 'd-drive', military: 'd-mil', med: 'd-med', psych: 'd-psy', gun: 'd-gun', faction: 'd-fac' };
+var PHOTO_M = '<svg viewBox="0 0 60 72"><rect width="60" height="72" fill="#cfd6df"/><circle cx="30" cy="27" r="13" fill="#8a96a6"/><path d="M6 72c0-15 11-24 24-24s24 9 24 24z" fill="#8a96a6"/></svg>';
+var PHOTO_F = '<svg viewBox="0 0 60 72"><rect width="60" height="72" fill="#e3d6df"/><path d="M14 34c0-14 7-22 16-22s16 8 16 22v10H14z" fill="#7d6a78"/><circle cx="30" cy="28" r="11" fill="#a690a0"/><path d="M6 72c0-15 11-24 24-24s24 9 24 24z" fill="#a690a0"/></svg>';
+
+function kv(k, v, cls) { return '<div class="dk ' + (cls || '') + '"><small>' + k + '</small><b>' + esc(v) + '</b></div>'; }
+function stamp(t) { return '<div class="stamp">' + esc(t) + '</div>'; }
+function sign(n) { return '<div class="sign"><span>' + esc(n) + '</span><small>подпись владельца</small></div>'; }
+
+function docCard(d, x) {
+    var full = d.first + ' ' + d.last;
+    var photo = '<div class="photo">' + (d.gender === 'Ж' ? PHOTO_F : PHOTO_M) + '</div>';
+    var head = function (t, s) { return '<div class="dc-head"><div class="seal">SA</div><div><b>' + t + '</b><small>' + (s || 'STATE OF SAN ANDREAS') + '</small></div></div>'; };
+    if (x.t === 'passport') {
+        return '<div class="dcard d-pass"><div class="pp-cover"><div class="seal big">SA</div><b>ПАСПОРТ</b><small>ГРАЖДАНИНА ШТАТА САН-АНДРЕАС</small><small>PASSPORT</small></div>' +
+            '<div class="pp-page">' + head('ПАСПОРТ ГРАЖДАНИНА', 'Серия ' + x.series + ' № ' + x.num) +
+            '<div class="dc-main">' + photo + '<div class="dc-grid">' + kv('Фамилия', d.last || '—') + kv('Имя', d.first) + kv('Пол', d.gender) + kv('Дата рождения', d.birth) + kv('Место рождения', d.place, 'w2') + kv('Дата выдачи', x.issued) + kv('Действителен до', x.until) + '</div></div>' +
+            '<div class="dc-foot">' + kv('Кем выдан', x.by, 'w2') + sign(full) + '</div>' +
+            '<div class="mrz">P&lt;SAN' + esc((d.last || 'X').toUpperCase().replace(/[^A-Z]/g, 'X')) + '&lt;&lt;' + esc(d.first.toUpperCase().replace(/[^A-Z]/g, 'X')) + '&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br>' + x.series + x.num + '&lt;8SAN' + d.birth.replace(/\./g, '') + '&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</div>' + stamp('МЭРИЯ ЛС') + '</div></div>';
+    }
+    if (x.t === 'drive') {
+        var all = ['A', 'B', 'C', 'D', 'E'];
+        return '<div class="dcard d-drive plastic">' + head('ВОДИТЕЛЬСКОЕ УДОСТОВЕРЕНИЕ', 'DRIVER LICENSE · SAN ANDREAS') +
+            '<div class="dc-main">' + photo + '<div class="dc-grid">' + kv('1. Фамилия', d.last || '—') + kv('2. Имя', d.first) + kv('3. Дата рождения', d.birth) + kv('5. Номер', x.num.slice(0, 2) + ' ' + x.num.slice(2)) + kv('4a. Выдано', x.issued) + kv('4b. Действует до', x.until) + '</div></div>' +
+            '<div class="cats">' + all.map(function (c) { return '<span class="' + (x.cats.indexOf(c) >= 0 ? 'on' : '') + '">' + c + '</span>'; }).join('') + '</div>' +
+            '<div class="dc-foot">' + kv('Выдал', x.by, 'w2') + sign(full) + '</div><div class="holo"></div></div>';
+    }
+    if (x.t === 'military') {
+        return '<div class="dcard d-mil">' + head('ВОЕННЫЙ БИЛЕТ', 'Серия АС № ' + x.num) +
+            '<div class="dc-main">' + photo + '<div class="dc-grid">' + kv('Фамилия', d.last || '—') + kv('Имя', d.first) + kv('Дата рождения', d.birth) + kv('Воинское звание', x.rank) + kv('Воинская часть', x.unit) + kv('Категория годности', x.fit) + '</div></div>' +
+            '<div class="dc-foot">' + kv('Дата выдачи', x.issued) + kv('Военкомат', x.by) + sign(full) + '</div>' + stamp('ВОЕНКОМАТ') + '</div>';
+    }
+    if (x.t === 'med') {
+        return '<div class="dcard d-med">' + head('МЕДИЦИНСКАЯ КНИЖКА', 'Pillbox Hill Medical Center · № ' + x.num) +
+            '<div class="dc-main">' + photo + '<div class="dc-grid">' + kv('Фамилия', d.last || '—') + kv('Имя', d.first) + kv('Дата рождения', d.birth) + kv('Группа крови', x.blood) + kv('Заключение', x.status, 'ok') + kv('Действительна до', x.until) + '</div></div>' +
+            '<div class="dc-foot">' + kv('Дата осмотра', x.issued) + kv('Врач', x.by) + sign(full) + '</div>' + stamp('ГОДЕН') + '</div>';
+    }
+    if (x.t === 'psych') {
+        return '<div class="dcard d-psy paper">' + head('СПРАВКА', 'Психоневрологический диспансер ЛС · № ' + x.num) +
+            '<div class="psy-text">Выдана гражданину(ке) <b>' + esc(full) + '</b>, ' + esc(d.birth) + ' г.р., в том, что он(а) <b>' + esc(x.status.toLowerCase()) + '</b>. Противопоказаний к владению оружием и управлению транспортом не выявлено.</div>' +
+            '<div class="dc-grid three">' + kv('Дата выдачи', x.issued) + kv('Действительна до', x.until) + kv('Врач-психиатр', x.by) + '</div>' + stamp('ПНД ЛС') + '</div>';
+    }
+    if (x.t === 'gun') {
+        return '<div class="dcard d-gun plastic">' + head('РАЗРЕШЕНИЕ НА ОРУЖИЕ', 'FIREARMS LICENSE · LSPD · № ' + x.num) +
+            '<div class="dc-main">' + photo + '<div class="dc-grid">' + kv('Фамилия', d.last || '—') + kv('Имя', d.first) + kv('Дата рождения', d.birth) + kv('Категории', x.cls, 'w2') + kv('Выдано', x.issued) + kv('Действует до', x.until) + '</div></div>' +
+            '<div class="dc-foot">' + kv('Выдал', x.by, 'w2') + sign(full) + '</div><div class="holo"></div></div>';
+    }
+    if (x.t === 'faction') {
+        var f = x.fac || { n: x.by, s: '?', c: '#555' };
+        return '<div class="dcard d-fac" style="--fc:' + f.c + '"><div class="fac-band"><div class="badge">' + esc(f.s) + '</div><div><b>СЛУЖЕБНОЕ УДОСТОВЕРЕНИЕ</b><small>' + esc(f.n) + '</small></div><div class="fac-no">№ ' + x.badge + '</div></div>' +
+            '<div class="dc-main">' + photo + '<div class="dc-grid">' + kv('Фамилия', d.last || '—') + kv('Имя', d.first) + kv('Должность', x.pos) + kv('Жетон', x.badge) + kv('Дата выдачи', x.issued) + kv('Выдал', 'Администрация') + '</div></div>' +
+            '<div class="fac-note">Предъявитель является действующим сотрудником ' + esc(f.n) + '. Просьба оказывать содействие.</div>' + stamp(f.s) + '</div>';
+    }
+    return '<div class="dcard">' + esc(x.title) + '</div>';
+}
+
+function renderDocs() {
+    try { return _renderDocs(); } catch (e) { showErr('docs', e); }
+}
+function _renderDocs() {
+    var d = DATA.docs;
+    $('dTitle').textContent = d && !d.own ? 'ВАМ ПОКАЗЫВАЮТ ДОКУМЕНТЫ' : 'ДОКУМЕНТЫ';
+    $('dSub').textContent = d && !d.own ? 'Владелец: ' + d.first + ' ' + d.last : 'Ваши документы, лицензии и удостоверения';
+    if (!d) { $('dList').innerHTML = ''; $('dCard').innerHTML = '<div class="empty-t">Загрузка...</div>'; $('dActs').innerHTML = ''; return; }
+    var list = d.docs || [];
+    if (!d.own && typeof d.focus === 'number' && list[d.focus]) { list = [list[d.focus]]; docSel = 0; }
+    if (!list.length) {
+        $('dList').innerHTML = '';
+        $('dCard').innerHTML = '<div class="d-empty"><div>📂</div><b>У вас пока нет документов</b><small>Паспорт выдают в мэрии, права — в автошколе, медкнижку — в больнице.</small></div>';
+        $('dActs').innerHTML = '';
+        return;
+    }
+    if (docSel >= list.length) docSel = 0;
+    $('dList').innerHTML = list.map(function (x, i) {
+        var sub = x.t === 'faction' && x.fac ? x.fac.s : x.until ? 'до ' + x.until : x.issued;
+        return '<div class="d-it ' + (i === docSel ? 'active' : '') + '" data-di="' + i + '"><span class="d-ico">' + (DOC_ICON[x.t] || '📄') + '</span><div><b>' + esc(x.title) + '</b><small>' + esc(sub) + '</small></div></div>';
+    }).join('');
+    $('dList').querySelectorAll('[data-di]').forEach(function (el) { el.onclick = function () { docSel = Number(el.dataset.di); renderDocs(); }; });
+    $('dCard').innerHTML = docCard(d, list[docSel]);
+    $('dActs').innerHTML = d.own ? '<button class="d-btn" id="dShow">Показать игроку рядом</button>' : '';
+    if ($('dShow')) $('dShow').onclick = function () { trig('cef:docs:show', docSel); };
+}
+$('dClose').onclick = closeAll;
