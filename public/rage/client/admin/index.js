@@ -87,6 +87,10 @@ mp.events.add('adm:gm', function (on) {
     mp.players.local.setInvincible(gm);
 });
 
+function clearFocus() {
+    try { mp.game.streaming.clearFocus(); } catch (e) { try { mp.game.invoke('0x31B73D1EA9F01DA2'); } catch (e2) {} }
+}
+
 /* ===== свободная камера (флай) ===== */
 var flyCanTp = false;
 var flyPosAt = 0;
@@ -119,6 +123,7 @@ function noclipStop(back) {
     var c = noclipCam ? noclipCam.getCoord() : p.position;
     if (noclipCam) { noclipCam.setActive(false); noclipCam.destroy(); noclipCam = null; }
     mp.game.cam.renderScriptCams(false, false, 0, true, false);
+    clearFocus();
     p.freezePosition(false);
     p.setAlpha(255);
     p.setCollision(true, true);
@@ -181,7 +186,7 @@ mp.events.add('playerDeath', function () { if (noclip) noclipStop(true); });
 var watchCam = null;
 mp.events.add('adm:flyWatch', function (id) {
     if (Number(id) < 0) {
-        if (watchCam) { watchCam.setActive(false); watchCam.destroy(); watchCam = null; mp.game.cam.renderScriptCams(false, false, 0, true, false); mp.game.invoke('0x31B73D1EA9F01DA2'); }
+        if (watchCam) { watchCam.setActive(false); watchCam.destroy(); watchCam = null; mp.game.cam.renderScriptCams(false, false, 0, true, false); clearFocus(); }
         return;
     }
     if (!watchCam) {
@@ -223,7 +228,7 @@ mp.events.add('adm:specOff', function () {
     if (specCam) { specCam.setActive(false); specCam.destroy(); specCam = null; }
     mp.game.cam.renderScriptCams(false, false, 0, true, false);
     lp.freezePosition(false); lp.setAlpha(255); lp.setCollision(true, true); lp.setInvincible(gm);
-    mp.game.invoke('0x31B73D1EA9F01DA2');
+    clearFocus();
 });
 mp.keys.bind(0x08, false, function () { if (specId >= 0 && !mp.gui.cursor.visible) mp.events.callRemote('srv:adm:specoff'); });
 mp.events.add('render', function () {
@@ -361,3 +366,38 @@ mp.events.add('adm:announce', function (text, author) {
         if (annBrowser) annBrowser.execute('window.announce && window.announce(' + JSON.stringify(text) + ',' + JSON.stringify(author) + ');');
     }, 300);
 });
+
+/* ===== защита от провала под карту ===== */
+setInterval(function () {
+    if (!noclip && specId < 0 && !watchCam) clearFocus();
+}, 2000);
+
+var safePos = null, safeAt = 0, fallSince = 0;
+setInterval(function () {
+    var p = mp.players.local;
+    if (noclip || specId >= 0 || watchCam) { fallSince = 0; return; }
+    var pos = p.vehicle ? p.vehicle.position : p.position;
+    var vz = 0;
+    try { vz = (p.vehicle ? p.vehicle.getVelocity() : p.getVelocity()).z; } catch (e) {}
+    if (Math.abs(vz) < 2 && pos.z > -50) {
+        safePos = { x: pos.x, y: pos.y, z: pos.z, dim: p.dimension };
+        safeAt = Date.now();
+        fallSince = 0;
+        return;
+    }
+    if (!safePos || vz > -8) { fallSince = 0; return; }
+    var ground = 0;
+    try { ground = mp.game.gameplay.getGroundZFor3dCoord(pos.x, pos.y, safePos.z + 3, 0, false); } catch (e) {}
+    var under = (ground > 0 && pos.z < ground - 4) || (ground === 0 && Date.now() - safeAt < 6000 && pos.z < safePos.z - 25) || pos.z < -60;
+    if (!under) { fallSince = 0; return; }
+    if (!fallSince) { fallSince = Date.now(); return; }
+    if (Date.now() - fallSince < 700) return;
+    fallSince = 0;
+    try { mp.game.streaming.requestCollisionAtCoord(safePos.x, safePos.y, safePos.z); } catch (e) {}
+    var ent = p.vehicle && p.vehicle.getPedInSeat(-1) === p.handle ? p.vehicle : p;
+    try { ent.setVelocity(0, 0, 0); } catch (e) {}
+    ent.freezePosition(true);
+    ent.setCoordsNoOffset(safePos.x, safePos.y, safePos.z + 0.5, false, false, false);
+    setTimeout(function () { try { ent.freezePosition(false); } catch (e) {} }, 800);
+    mp.events.call('hud:notify', 'warn', 'Вы провалились под текстуры — возвращены на дорогу', 3000);
+}, 500);
