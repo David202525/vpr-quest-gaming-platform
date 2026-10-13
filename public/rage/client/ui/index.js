@@ -15,8 +15,10 @@ function uiCall(fn, a, b) {
     uiExec('window.' + fn + ' && window.' + fn + '(' + JSON.stringify(a) + (b !== undefined ? ',' + JSON.stringify(b) : '') + ');');
 }
 
+var deadState = null;
 function busy() {
     if (!uiReady) return true;
+    if (deadState) return true;
     if (uiTyping) return true;
     if (!uiOpen && mp.gui.cursor.visible && !freeCursor) return true;
     if (mp.players.local.isTypingInTextChat) return true;
@@ -25,7 +27,7 @@ function busy() {
 }
 
 function cursorSync() {
-    var need = !!uiOpen || freeCursor;
+    var need = !!uiOpen || freeCursor || !!deadState;
     mp.gui.cursor.show(need, need);
 }
 
@@ -217,3 +219,69 @@ mp.events.add('ui:docs', function (json) {
 });
 mp.events.add('ui:openDocs', function () { openUi('docs', { fromUi: true }); });
 mp.events.add('cef:docs:show', function (i) { mp.events.callRemote('srv:docs:show', i); });
+
+/* ================= DEATH ================= */
+function deathPush() {
+    if (!deadState) return;
+    uiExec('window.deathShow && window.deathShow(' + JSON.stringify({
+        reason: deadState.reason,
+        left: Math.max(0, deadState.until - Date.now()),
+        called: deadState.called, medics: deadState.medics
+    }) + ');');
+}
+mp.events.add('srv:death', function (reason, ms) {
+    if (uiOpen) closeUi();
+    freeCursor = false;
+    var was = deadState;
+    deadState = { reason: reason || 'Ранение', until: Date.now() + Number(ms || 0), called: was ? was.called : false, medics: was ? was.medics : 0 };
+    mp.gui.chat.activate(true);
+    mp.gui.cursor.show(true, true);
+    deathPush();
+});
+mp.events.add('death:info', function (json) {
+    if (!deadState) return;
+    try {
+        var d = JSON.parse(json);
+        deadState.called = !!d.called;
+        deadState.medics = d.medics || 0;
+        deadState.until = Date.now() + Number(d.left || 0);
+    } catch (e) {}
+    deathPush();
+});
+mp.events.add('srv:deathEnd', function () {
+    deadState = null;
+    uiExec('window.deathHide && window.deathHide();');
+    try { mp.players.local.clearTasksImmediately(); } catch (e) {}
+    cursorSync();
+});
+mp.events.add('cef:death:call', function () { if (deadState) mp.events.callRemote('srv:death:call'); });
+mp.events.add('cef:death:hospital', function () {
+    if (!deadState || Date.now() < deadState.until) return;
+    mp.events.callRemote('srv:death:hospital');
+});
+mp.keys.bind(0x45, false, function () {
+    if (!deadState || mp.players.local.isTypingInTextChat) return;
+    mp.events.callRemote('srv:death:call');
+});
+mp.keys.bind(0x0D, false, function () {
+    if (!deadState || mp.players.local.isTypingInTextChat) return;
+    if (Date.now() < deadState.until) return;
+    mp.events.callRemote('srv:death:hospital');
+});
+setInterval(function () {
+    if (!deadState) return;
+    if (!mp.gui.cursor.visible && !mp.players.local.isTypingInTextChat) mp.gui.cursor.show(true, true);
+    deathPush();
+}, 1000);
+mp.events.add('render', function () {
+    if (!deadState) return;
+    for (var i = 0; i <= 360; i++) {
+        if (i === 1 || i === 2 || i === 245 || i === 249) continue;
+        mp.game.controls.disableControlAction(0, i, true);
+    }
+    mp.game.controls.enableControlAction(0, 1, true);
+    mp.game.controls.enableControlAction(0, 2, true);
+    mp.game.controls.enableControlAction(0, 245, true);
+    mp.game.controls.enableControlAction(0, 249, true);
+});
+setTimeout(function () { mp.events.callRemote('srv:death:sync'); }, 4000);

@@ -387,6 +387,7 @@ function doFreeze(admin, t, on) {
 }
 
 function doHeal(admin, t) {
+    if (t.account && t.account.downed && global.DeathSystem && typeof global.DeathSystem.revive === 'function') global.DeathSystem.revive(t);
     t.health = 100;
     t.armour = 100;
     msg(t, 'Администратор восстановил вам здоровье', '#8fd14f');
@@ -518,8 +519,7 @@ mp.events.add('srv:adm:act', function (p, json) {
     else if (a === 'bring') { tpTo(t, p); msg(t, 'Вас телепортировал администратор'); log(p, 'bring', login(t), ''); toast(p, login(t) + ' у тебя', true); }
     else if (a === 'heal') { doHeal(p, t); toast(p, login(t) + ' вылечен', true); }
     else if (a === 'revive') {
-        if (global.DeathSystem && typeof global.DeathSystem.revive === 'function') global.DeathSystem.revive(t);
-        else doHeal(p, t);
+        doHeal(p, t);
         log(p, 'revive', login(t), ''); toast(p, login(t) + ' поднят', true);
     }
     else if (a === 'slap') { t.position = new mp.Vector3(t.position.x, t.position.y, t.position.z + 5); log(p, 'slap', login(t), ''); toast(p, 'Шлепок', true); }

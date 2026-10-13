@@ -9,6 +9,22 @@ function adminLvl(p) {
 }
 
 const BLEED_MS = 120000;
+const AUTO_MS = 600000;
+const ANIM = ['combat@damage@writhe', 'writhe_loop'];
+
+function lie(p) {
+    setTimeout(function () {
+        if (!mp.players.exists(p) || !p.account || !p.account.downed) return;
+        try { p.playAnimation(ANIM[0], ANIM[1], 2, 1); } catch (e) {}
+    }, 400);
+}
+function medicsOnDuty() {
+    return mp.players.toArray().filter(function (x) { return x.account && x.account.medicDuty; }).length;
+}
+function info(p) {
+    if (!mp.players.exists(p) || !p.account) return;
+    p.call('death:info', [JSON.stringify({ called: !!p.account.downCalled, medics: medicsOnDuty(), left: Math.max(0, BLEED_MS - (Date.now() - p.account.downAt)) })]);
+}
 const HOSPITAL_FEE = 500;
 
 const HOSPITALS = [
@@ -46,6 +62,7 @@ function down(player, reason) {
     player.account.downed = true;
     player.account.downReason = reason || '\u0420\u0430\u043d\u0435\u043d\u0438\u0435';
     player.account.downAt = Date.now();
+    player.account.downCalled = false;
 
     player.spawn(new mp.Vector3(pos.x, pos.y, pos.z));
     player.heading = head;
@@ -53,7 +70,8 @@ function down(player, reason) {
     player.armour = 0;
 
     player.call('srv:death', [player.account.downReason, BLEED_MS]);
-    player.outputChatBox('!{#e05555}\u0412\u044b \u0442\u044f\u0436\u0435\u043b\u043e \u0440\u0430\u043d\u0435\u043d\u044b. \u041c\u0435\u0434\u0438\u043a\u0438 \u043e\u043f\u043e\u0432\u0435\u0449\u0435\u043d\u044b. \u0418\u043b\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 /respawn');
+    lie(player);
+    setTimeout(function () { info(player); }, 300);
 
     mp.players.forEach(function (p) {
         if (p === player || !p.account) return;
@@ -65,11 +83,9 @@ function down(player, reason) {
         }
     });
 
-    mp.events.call('medic:downed', player, player.account.downReason);
-
     player.account.downTimer = setTimeout(function () {
         if (mp.players.exists(player) && player.account && player.account.downed) respawn(player);
-    }, BLEED_MS);
+    }, AUTO_MS);
 }
 
 async function respawn(player) {
@@ -112,6 +128,8 @@ function revive(target) {
     clearTimer(target);
 
     target.account.downed = false;
+    target.account.downCalled = false;
+    try { target.stopAnimation(); } catch (e) {}
     target.health = 60;
     target.call('srv:deathEnd');
     target.outputChatBox('!{#8fd14f}\u0412\u0430\u0441 \u043f\u043e\u0434\u043d\u044f\u043b\u0438 \u043d\u0430 \u043d\u043e\u0433\u0438');
@@ -126,8 +144,8 @@ mp.events.addCommand('respawn', function (player) {
         return;
     }
     const waited = Date.now() - player.account.downAt;
-    if (waited < 15000) {
-        player.outputChatBox('!{#ffcc66}\u041f\u043e\u0434\u043e\u0436\u0434\u0438\u0442\u0435 \u0435\u0449\u0451 ' + Math.ceil((15000 - waited) / 1000) + ' \u0441\u0435\u043a');
+    if (waited < BLEED_MS) {
+        player.outputChatBox('!{#ffcc66}\u041f\u043e\u0434\u043e\u0436\u0434\u0438\u0442\u0435 \u0435\u0449\u0451 ' + Math.ceil((BLEED_MS - waited) / 1000) + ' \u0441\u0435\u043a');
         return;
     }
     respawn(player);
@@ -139,10 +157,39 @@ mp.events.add('playerDeath', function (player) {
         const p = player.position;
         player.spawn(new mp.Vector3(p.x, p.y, p.z));
         player.health = 12;
+        player.call('srv:death', [player.account.downReason, Math.max(0, BLEED_MS - (Date.now() - player.account.downAt))]);
+        lie(player);
         return;
     }
     down(player, '\u0421\u043c\u0435\u0440\u0442\u0435\u043b\u044c\u043d\u043e\u0435 \u0440\u0430\u043d\u0435\u043d\u0438\u0435');
 });
+
+mp.events.add('srv:death:call', function (p) {
+    if (!p.account || !p.account.downed) return;
+    if (!p.account.downCalled) {
+        p.account.downCalled = true;
+        mp.events.call('medic:downed', p, p.account.downReason);
+    }
+    info(p);
+});
+
+mp.events.add('srv:death:hospital', function (p) {
+    if (!p.account || !p.account.downed) return;
+    if (Date.now() - p.account.downAt < BLEED_MS) return info(p);
+    respawn(p);
+});
+
+mp.events.add('srv:death:sync', function (p) {
+    if (!p.account || !p.account.downed) return;
+    p.call('srv:death', [p.account.downReason, Math.max(0, BLEED_MS - (Date.now() - p.account.downAt))]);
+    info(p);
+});
+
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        if (p.account && p.account.downed && p.account.downCalled) info(p);
+    });
+}, 10000);
 
 mp.events.add('playerQuit', function (player) {
     clearTimer(player);

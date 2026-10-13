@@ -802,3 +802,27 @@ function _renderDocs() {
     if ($('dShow')) $('dShow').onclick = function () { trig('cef:docs:show', docSel); };
 }
 $('dClose').onclick = closeAll;
+
+/* ================= DEATH ================= */
+window.deathShow = function (d) {
+    var el = $('death');
+    el.classList.add('show');
+    $('dtReason').textContent = d.reason || 'Ранение';
+    var s = Math.ceil((d.left || 0) / 1000);
+    var ready = s <= 0;
+    $('dtTime').textContent = ready ? '✓' : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    $('dtLbl').textContent = ready ? 'можно в больницу' : 'до выбора';
+    var c = 2 * Math.PI * 52;
+    $('dtRing').style.strokeDasharray = c;
+    $('dtRing').style.strokeDashoffset = c * (1 - Math.min(1, s / 120));
+    $('dtHosp').classList.toggle('off', !ready);
+    $('dtCall').classList.toggle('done', !!d.called);
+    $('dtCall').querySelector('span:last-child').textContent = d.called ? 'Врач вызван' : 'Ждать врача';
+    var st;
+    if (d.called) st = d.medics > 0 ? 'Вызов принят диспетчером. Медиков на смене: <b>' + d.medics + '</b>. Ожидайте помощи.' : 'Вызов отправлен, но медиков на смене сейчас <b>нет</b>.' + (ready ? ' Можно отправиться в больницу.' : '');
+    else st = ready ? 'Время вышло. Отправляйтесь в больницу или продолжайте ждать врача.' : 'Нажмите <b>E</b>, чтобы вызвать медиков. Через 2 минуты станет доступна больница.';
+    $('dtStatus').innerHTML = st;
+};
+window.deathHide = function () { $('death').classList.remove('show'); };
+$('dtCall').onclick = function () { trig('cef:death:call'); };
+$('dtHosp').onclick = function () { if (!this.classList.contains('off')) trig('cef:death:hospital'); };
