@@ -82,12 +82,31 @@ async function loadAcc(p) {
     if (!p || loading[p.id] || p.admAcc) return;
     loading[p.id] = true;
     let rows = [];
-    if (p.account && p.account.id) {
-        rows = await q('SELECT * FROM accounts WHERE id = ? LIMIT 1', [p.account.id]);
+    const ids = [];
+    const pushId = function (v) { if (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) ids.push(Number(v)); };
+    if (p.account) pushId(p.account.id);
+    pushId(p.accountId);
+    pushId(p.account_id);
+    if (p.data) { pushId(p.data.accountId); pushId(p.data.account_id); }
+    if (typeof p.getVariable === 'function') {
+        ['accountId', 'account_id', 'accId', 'uid'].forEach(function (k) {
+            try { pushId(p.getVariable(k)); } catch (e) {}
+        });
+    }
+    for (let i = 0; i < ids.length && !rows.length; i++) {
+        rows = await q('SELECT * FROM accounts WHERE id = ? LIMIT 1', [ids[i]]);
     }
     if (!rows.length) {
-        const uname = p.account && (p.account.username || p.account.login) ? (p.account.username || p.account.login) : p.name;
-        rows = await q('SELECT * FROM accounts WHERE username = ? LIMIT 1', [uname]);
+        const names = [];
+        if (p.account && p.account.username) names.push(p.account.username);
+        if (p.account && p.account.login) names.push(p.account.login);
+        names.push(p.name, String(p.name).replace(/ /g, '_'));
+        for (let i = 0; i < names.length && !rows.length; i++) {
+            rows = await q('SELECT * FROM accounts WHERE username = ? LIMIT 1', [names[i]]);
+        }
+    }
+    if (!rows.length && p.socialClub) {
+        rows = await q('SELECT * FROM accounts WHERE social_club = ? ORDER BY last_login DESC LIMIT 1', [p.socialClub]);
     }
     loading[p.id] = false;
     if (!mp.players.exists(p) || !rows.length) return;
@@ -590,7 +609,7 @@ mp.events.addCommand('alevel', function (p) {
     p.admAcc = null;
     loadAcc(p).then(function () {
         const a = acc(p);
-        if (!a) return msg(p, 'Аккаунт "' + p.name + '" не найден в таблице accounts', '#e05555');
+        if (!a) return msg(p, 'Аккаунт не найден. Ник: ' + p.name + ', Social Club: ' + p.socialClub, '#e05555');
         msg(p, 'Аккаунт: ' + a.login + ', уровень: ' + a.admin + ' (' + rankName(a.admin) + ')', rankColor(a.admin));
     });
 });
