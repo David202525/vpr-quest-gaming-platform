@@ -372,32 +372,68 @@ setInterval(function () {
     if (!noclip && specId < 0 && !watchCam) clearFocus();
 }, 2000);
 
-var safePos = null, safeAt = 0, fallSince = 0;
+var admFrozen = false;
+mp.events.add('adm:freeze', function (on) { admFrozen = !!on; });
+
+function N(hash) { try { return mp.game.invoke.apply(mp.game, arguments); } catch (e) { return null; } }
+function collLoaded(ent) { var r = N('0xE9676F61BC0B3321', ent.handle); return r === null ? true : !!r; }
+function reqColl(x, y, z) { N('0x07503F7948F491A7', x, y, z); }
+
+var holdEnt = null, holdSince = 0, safePos = null, lastFix = 0, fixCount = 0;
+function release() {
+    if (holdEnt) { try { if (!admFrozen || holdEnt !== mp.players.local) holdEnt.freezePosition(false); } catch (e) {} }
+    holdEnt = null; holdSince = 0;
+}
 setInterval(function () {
     var p = mp.players.local;
-    if (noclip || specId >= 0 || watchCam) { fallSince = 0; return; }
-    var pos = p.vehicle ? p.vehicle.position : p.position;
-    var vz = 0;
-    try { vz = (p.vehicle ? p.vehicle.getVelocity() : p.getVelocity()).z; } catch (e) {}
-    if (Math.abs(vz) < 2 && pos.z > -50) {
-        safePos = { x: pos.x, y: pos.y, z: pos.z, dim: p.dimension };
-        safeAt = Date.now();
-        fallSince = 0;
+    if (noclip || specId >= 0 || watchCam || (typeof deadState !== 'undefined' && deadState)) { release(); return; }
+    var drv = p.vehicle && p.vehicle.getPedInSeat(-1) === p.handle;
+    if (p.vehicle && !drv) { release(); return; }
+    var ent = drv ? p.vehicle : p;
+    var pos = ent.position;
+    reqColl(pos.x, pos.y, pos.z);
+
+    if (!collLoaded(ent)) {
+        if (!holdEnt) {
+            holdEnt = ent; holdSince = Date.now();
+            try { ent.freezePosition(true); } catch (e) {}
+        }
+        if (Date.now() - holdSince > 10000) release();
         return;
     }
-    if (!safePos || vz > -8) { fallSince = 0; return; }
+    if (holdEnt) release();
+
     var ground = 0;
-    try { ground = mp.game.gameplay.getGroundZFor3dCoord(pos.x, pos.y, safePos.z + 3, 0, false); } catch (e) {}
-    var under = (ground > 0 && pos.z < ground - 4) || (ground === 0 && Date.now() - safeAt < 6000 && pos.z < safePos.z - 25) || pos.z < -60;
-    if (!under) { fallSince = 0; return; }
-    if (!fallSince) { fallSince = Date.now(); return; }
-    if (Date.now() - fallSince < 700) return;
-    fallSince = 0;
-    try { mp.game.streaming.requestCollisionAtCoord(safePos.x, safePos.y, safePos.z); } catch (e) {}
-    var ent = p.vehicle && p.vehicle.getPedInSeat(-1) === p.handle ? p.vehicle : p;
+    try { ground = mp.game.gameplay.getGroundZFor3dCoord(pos.x, pos.y, pos.z + 50, 0, false); } catch (e) {}
+    var vz = 0;
+    try { vz = ent.getVelocity().z; } catch (e) {}
+
+    if (ground > 0 && pos.z >= ground - 1 && pos.z < ground + 3 && Math.abs(vz) < 3) {
+        safePos = { x: pos.x, y: pos.y, z: ground + 1 };
+        fixCount = 0;
+        return;
+    }
+    var under = ground > 0 && pos.z < ground - 3 && vz < -3;
+    if (!under || Date.now() - lastFix < 3000) return;
+    if (fixCount >= 3) return;
+    lastFix = Date.now(); fixCount++;
     try { ent.setVelocity(0, 0, 0); } catch (e) {}
-    ent.freezePosition(true);
-    ent.setCoordsNoOffset(safePos.x, safePos.y, safePos.z + 0.5, false, false, false);
-    setTimeout(function () { try { ent.freezePosition(false); } catch (e) {} }, 800);
-    mp.events.call('hud:notify', 'warn', 'Вы провалились под текстуры — возвращены на дорогу', 3000);
-}, 500);
+    ent.setCoordsNoOffset(pos.x, pos.y, ground + 1, false, false, false);
+    mp.events.call('hud:notify', 'warn', 'Вы провалились под текстуры — подняты на поверхность', 3000);
+}, 250);
+
+mp.events.add('render', function () {
+    if (!holdEnt) return;
+    mp.game.graphics.drawText('Загрузка карты…', [0.5, 0.86], { font: 4, color: [255, 255, 255, 220], scale: [0.45, 0.45], outline: true });
+});
+
+mp.events.addCommand('unstuck', function () {
+    var p = mp.players.local, ent = p.vehicle || p, pos = ent.position;
+    var src = safePos || pos;
+    reqColl(src.x, src.y, src.z);
+    var g = 0;
+    try { g = mp.game.gameplay.getGroundZFor3dCoord(src.x, src.y, src.z + 100, 0, false); } catch (e) {}
+    ent.setCoordsNoOffset(src.x, src.y, g > 0 ? g + 1 : src.z + 1, false, false, false);
+    fixCount = 0;
+    mp.events.call('hud:notify', 'ok', 'Вы перемещены на поверхность', 2500);
+});
