@@ -77,6 +77,23 @@ for (let l = 1; l <= BP_MAX; l++) {
     else BP.push({ lvl: l, money: 1000 * l });
 }
 
+const BP_IMG = { money: 'money', medkit: 'medkit', armour: 'armour', backpack: 'backpack', rifle: 'rifle' };
+const COIN_RATE = 100;
+const VIPS = {
+    silver: { n: 'Silver VIP', price: 300, days: 30, mult: 1.5, color: '#c9d3e0', img: 'coins', perks: ['Опыт и Battle Pass x1.5', 'Бонус $5.000 при покупке', 'Серебряный тег в меню'], bonus: 5000 },
+    gold: { n: 'Gold VIP', price: 700, days: 30, mult: 2, color: '#ffc93c', img: 'crown', perks: ['Опыт и Battle Pass x2', 'Бонус $20.000 при покупке', 'Золотой тег в меню'], bonus: 20000 },
+    platinum: { n: 'Platinum VIP', price: 1500, days: 30, mult: 3, color: '#b18cff', img: 'crown', perks: ['Опыт и Battle Pass x3', 'Бонус $60.000 при покупке', 'Платиновый тег в меню'], bonus: 60000 }
+};
+const COIN_PACKS = [
+    { c: 100, bonus: 0, rub: 100 },
+    { c: 500, bonus: 50, rub: 500 },
+    { c: 1000, bonus: 150, rub: 1000 },
+    { c: 2500, bonus: 500, rub: 2500 },
+    { c: 5000, bonus: 1250, rub: 5000 }
+];
+function vipOf(d) { return d.vip && d.vip.until > Date.now() && VIPS[d.vip.t] ? d.vip : null; }
+function vipMult(d) { const v = vipOf(d); return v ? VIPS[v.t].mult : 1; }
+
 const GPS = [
     { n: 'Больница', x: 298.6, y: -584.4 },
     { n: 'Полиция', x: 425.1, y: -979.5 },
@@ -601,15 +618,18 @@ setInterval(function () {
         if (!accId(p)) return;
         const d = data(p);
         d.mins = (d.mins || 0) + 1;
-        d.exp += 1;
-        d.bpExp = (d.bpExp || 0) + 1;
+        const vm = vipMult(d);
+        const bpBefore = Math.floor((d.bpExp || 0) / BP_STEP);
+        d.exp += vm;
+        d.bpExp = (d.bpExp || 0) + vm;
         if (d.mins % 10 === 0) d.skills.survive = Math.min(500, (d.skills.survive || 0) + 5);
-        if (d.exp >= needExp(d.lvl)) {
+        while (d.exp >= needExp(d.lvl)) {
             d.exp -= needExp(d.lvl);
             d.lvl += 1;
             notify(p, 'ok', 'Новый уровень: ' + d.lvl);
         }
-        if (d.bpExp % BP_STEP === 0 && Math.floor(d.bpExp / BP_STEP) <= BP_MAX) notify(p, 'ok', 'Battle Pass: доступна награда ' + Math.floor(d.bpExp / BP_STEP) + ' уровня');
+        const bpNow = Math.floor(d.bpExp / BP_STEP);
+        if (bpNow > bpBefore && bpNow <= BP_MAX) notify(p, 'ok', 'Battle Pass: доступна награда ' + bpNow + ' уровня');
     });
     mark();
 }, 60000);
@@ -689,9 +709,13 @@ async function menuPayload(p) {
         ach: ach,
         bp: {
             lvl: bpLvl, exp: (d.bpExp || 0) % BP_STEP, need: BP_STEP,
-            rewards: BP.map(function (r) { return { lvl: r.lvl, text: rewardText(r), claimed: d.bpClaimed.indexOf(r.lvl) >= 0, open: r.lvl <= bpLvl }; })
+            rewards: BP.map(function (r) { return { lvl: r.lvl, text: r.money ? '$' + r.money.toLocaleString('en-US') : ITEMS[r.item].n + (r.c > 1 ? ' x' + r.c : ''), img: r.money ? 'money' : (BP_IMG[r.item] || 'money'), big: r.lvl % 5 === 0, claimed: d.bpClaimed.indexOf(r.lvl) >= 0, open: r.lvl <= bpLvl }; })
         },
-        shop: shop
+        shop: shop,
+        coins: d.coins || 0, rate: COIN_RATE,
+        vip: vipOf(d) ? { t: d.vip.t, n: VIPS[d.vip.t].n, color: VIPS[d.vip.t].color, left: Math.ceil((d.vip.until - Date.now()) / 86400000) } : null,
+        vips: Object.keys(VIPS).map(function (k) { const v = VIPS[k]; return { k: k, n: v.n, price: v.price, days: v.days, color: v.color, img: v.img, perks: v.perks }; }),
+        packs: COIN_PACKS
     };
 }
 
@@ -717,6 +741,61 @@ mp.events.add('srv:menu:buy', function (p, k) {
     addItem(p, k, pack);
     notify(p, 'ok', 'Куплено: ' + it.n);
     sendMenu(p);
+});
+
+mp.events.add('srv:menu:vip', function (p, k) {
+    const v = VIPS[k];
+    if (!v) return;
+    const d = data(p);
+    if ((d.coins || 0) < v.price) return notify(p, 'error', 'Недостаточно коинов');
+    const cur = vipOf(d);
+    if (cur && cur.t !== k && VIPS[cur.t].price > v.price) return notify(p, 'error', 'У вас уже более высокий VIP');
+    d.coins -= v.price;
+    const base = cur && cur.t === k ? cur.until : Date.now();
+    d.vip = { t: k, until: base + v.days * 86400000 };
+    addMoney(p, v.bonus);
+    mark();
+    notify(p, 'ok', v.n + ' активирован на ' + v.days + ' дн.');
+    sendMenu(p);
+});
+mp.events.add('srv:menu:exchange', function (p, n) {
+    n = Math.floor(Number(n));
+    const d = data(p);
+    if (!(n > 0)) return;
+    if ((d.coins || 0) < n) return notify(p, 'error', 'Недостаточно коинов');
+    d.coins -= n;
+    addMoney(p, n * COIN_RATE);
+    mark();
+    notify(p, 'ok', 'Обменяно ' + n + ' RC на $' + (n * COIN_RATE).toLocaleString('ru-RU'));
+    sendMenu(p);
+});
+mp.events.add('srv:menu:pack', function (p) {
+    notify(p, 'info', 'Пополнение коинов — через администрацию сервера (/report)');
+});
+mp.events.addCommand('givecoins', function (p, full, id, n) {
+    if (adminLvl(p) < 8) return;
+    const t = mp.players.at(Number(id));
+    n = Math.floor(Number(n));
+    if (!t || !isFinite(n) || !n) return p.outputChatBox('!{#ffcc66}/givecoins [ID] [кол-во] (минус — забрать)');
+    const d = data(t);
+    d.coins = Math.max(0, (d.coins || 0) + n);
+    mark();
+    p.outputChatBox('!{#8fd14f}' + t.name + ': баланс ' + d.coins + ' RC');
+    if (n > 0) notify(t, 'ok', 'Вам начислено ' + n + ' RC');
+    if (global.AdminSystem && global.AdminSystem.log) try { global.AdminSystem.log(p, 'givecoins', t.name + ' ' + n); } catch (e) {}
+});
+mp.events.addCommand('givevip', function (p, full, id, k, days) {
+    if (adminLvl(p) < 8) return;
+    const t = mp.players.at(Number(id));
+    if (!t || !VIPS[k]) return p.outputChatBox('!{#ffcc66}/givevip [ID] [silver/gold/platinum] [дней] (0 — снять)');
+    const d = data(t);
+    days = Number(days);
+    if (!isFinite(days)) days = VIPS[k].days;
+    if (days <= 0) { d.vip = null; mark(); return p.outputChatBox('!{#8fd14f}VIP снят у ' + t.name); }
+    d.vip = { t: k, until: Date.now() + days * 86400000 };
+    mark();
+    p.outputChatBox('!{#8fd14f}' + t.name + ': ' + VIPS[k].n + ' на ' + days + ' дн.');
+    notify(t, 'ok', 'Вам выдан ' + VIPS[k].n + ' на ' + days + ' дн.');
 });
 
 mp.events.add('srv:menu:claim', function (p, lvl) {

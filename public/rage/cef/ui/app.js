@@ -674,21 +674,53 @@ function menuAch(d) {
         d.ach.map(function (a) { return '<div class="ach' + (a.done ? ' done' : '') + '"><div class="ai">' + a.i + '</div><div><b>' + esc(a.n) + '</b><small>' + esc(a.d) + (a.done ? ' ✓' : '') + '</small></div></div>'; }).join('') + '</div>';
 }
 
+var shopSec = 'vip', exN = 10;
 function menuShop(d) {
-    var cats = ['Все', 'Разное', 'Одежда', 'Оружие'];
-    var list = d.shop.filter(function (x) { return shopCat === 'Все' || x.cat === shopCat; });
-    return '<div class="shop-top"><div class="cats">' + cats.map(function (c) { return '<button data-cat="' + c + '" class="' + (c === shopCat ? 'active' : '') + '">' + c + '</button>'; }).join('') +
-        '</div><div class="wallet">Наличные:<b>' + money(d.money) + '</b></div></div><div class="shop-grid">' +
-        list.map(function (x) { return '<div class="si"><div class="ii">' + x.i + '</div><b>' + esc(x.n) + '</b><button data-buy="' + x.k + '">' + money(x.price) + '</button></div>'; }).join('') + '</div>';
+    var coins = d.coins || 0;
+    var secs = [['vip', '👑', 'VIP-статус'], ['coins', '💎', 'Коины'], ['items', '🛒', 'Предметы']];
+    var head = '<div class="dn-hero" style="background-image:linear-gradient(90deg,rgba(20,8,30,.96) 30%,rgba(20,8,30,.35)),url(img/banner.jpg)">' +
+        '<div class="dn-h-l"><span class="dn-tag">ДОНАТ-МАГАЗИН</span><h2>Поддержи сервер — получи бонусы</h2><p>VIP ускоряет прокачку и Battle Pass, коины меняются на игровую валюту</p></div>' +
+        '<div class="dn-bal"><div class="dn-coin"><img src="img/bp_coins.jpg"><div><small>Баланс</small><b>' + coins.toLocaleString('ru-RU') + ' RC</b></div></div>' +
+        '<div class="dn-cash"><small>Наличные</small><b>' + money(d.money) + '</b></div>' +
+        (d.vip ? '<div class="dn-vipnow" style="--c:' + d.vip.color + '">' + esc(d.vip.n) + ' · ещё ' + d.vip.left + ' дн.</div>' : '') + '</div></div>' +
+        '<div class="dn-secs">' + secs.map(function (x) { return '<button data-sec="' + x[0] + '" class="' + (shopSec === x[0] ? 'active' : '') + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('') + '</div>';
+    var body = '';
+    if (shopSec === 'vip') {
+        body = '<div class="vip-grid">' + d.vips.map(function (v, i) {
+            var mine = d.vip && d.vip.t === v.k;
+            return '<div class="vip' + (i === 1 ? ' hot' : '') + '" style="--c:' + v.color + '">' + (i === 1 ? '<span class="vip-rib">ХИТ</span>' : '') +
+                '<div class="vip-img"><img src="img/bp_' + v.img + '.jpg"></div><h3>' + esc(v.n) + '</h3><small>' + v.days + ' дней</small>' +
+                '<ul>' + v.perks.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>' +
+                '<button data-vip="' + v.k + '"' + (coins < v.price ? ' class="poor"' : '') + '>' + (mine ? 'Продлить · ' : '') + v.price + ' RC</button></div>';
+        }).join('') + '</div>';
+    } else if (shopSec === 'coins') {
+        body = '<div class="ex-box"><div class="ex-l"><b>Обмен коинов</b><small>1 RC = ' + money(d.rate) + '</small></div>' +
+            '<div class="ex-ctl"><button data-exm="1">−</button><input id="exIn" type="number" min="1" value="' + exN + '"><button data-exp="1">+</button></div>' +
+            '<div class="ex-r">= <b>' + money(exN * d.rate) + '</b></div><button class="ex-go" data-ex="1"' + (coins < exN ? ' disabled' : '') + '>Обменять</button></div>' +
+            '<div class="pk-grid">' + d.packs.map(function (p, i) {
+                return '<div class="pk"><div class="pk-img"><img src="img/bp_coins.jpg">' + (p.bonus ? '<span>+' + p.bonus + ' бонус</span>' : '') + '</div><b>' + (p.c + p.bonus).toLocaleString('ru-RU') + ' RC</b><small>' + p.c + ' + ' + p.bonus + '</small><button data-pack="' + i + '">' + p.rub + ' ₽</button></div>';
+            }).join('') + '</div><p class="pk-note">Пополнение пока через администрацию: напишите /report — коины начислят вручную.</p>';
+    } else {
+        var cats = ['Все', 'Разное', 'Одежда', 'Оружие'];
+        var list = d.shop.filter(function (x) { return shopCat === 'Все' || x.cat === shopCat; });
+        body = '<div class="cats" style="margin-bottom:14px">' + cats.map(function (c) { return '<button data-cat="' + c + '" class="' + (c === shopCat ? 'active' : '') + '">' + c + '</button>'; }).join('') + '</div><div class="shop-grid">' +
+            list.map(function (x) { return '<div class="si"><div class="ii">' + x.i + '</div><b>' + esc(x.n) + '</b><button data-buy="' + x.k + '">' + money(x.price) + '</button></div>'; }).join('') + '</div>';
+    }
+    return '<div class="dn">' + head + body + '</div>';
 }
 
 function menuBp(d) {
-    var bp = d.bp;
-    return '<div class="bp-top"><div class="bp-lvl">' + bp.lvl + '</div><div class="bp-info"><b>Battle Pass · Сезон 1</b><small>Играйте на сервере: каждые ' + bp.need + ' минут — новый уровень и награда</small>' +
-        '<div class="bar"><i style="width:' + (bp.lvl >= 30 ? 100 : bp.exp / bp.need * 100) + '%"></i></div></div></div><div class="bp-grid">' +
-        bp.rewards.map(function (r) {
-            var btn = r.claimed ? '<span class="lock">Получено ✓</span>' : r.open ? '<button data-claim="' + r.lvl + '">Забрать</button>' : '<span class="lock">🔒 Закрыто</span>';
-            return '<div class="bpi' + (r.open && !r.claimed ? ' open' : '') + (r.claimed ? ' got' : '') + '"><span class="n">УРОВЕНЬ ' + r.lvl + '</span><span class="r">' + esc(r.text) + '</span>' + btn + '</div>';
+    var bp = d.bp, pct = bp.lvl >= 30 ? 100 : bp.exp / bp.need * 100;
+    var ready = bp.rewards.filter(function (r) { return r.open && !r.claimed; }).length;
+    return '<div class="bp2-hero" style="background-image:linear-gradient(90deg,rgba(12,22,14,.95) 25%,rgba(12,22,14,.3)),url(img/banner.jpg)">' +
+        '<div class="bp2-lvl"><small>УРОВЕНЬ</small><b>' + bp.lvl + '</b><small>из 30</small></div>' +
+        '<div class="bp2-info"><span class="dn-tag g">СЕЗОН 1</span><h2>Battle Pass</h2><p>Каждые ' + bp.need + ' минут игры — новый уровень. VIP ускоряет прогресс.</p>' +
+        '<div class="bp2-bar"><i style="width:' + pct + '%"></i></div><small>' + (bp.lvl >= 30 ? 'Сезон пройден!' : bp.exp + ' / ' + bp.need + ' мин до ' + (bp.lvl + 1) + ' уровня') + '</small></div>' +
+        (ready ? '<div class="bp2-ready">🎁 Доступно наград: <b>' + ready + '</b></div>' : '') + '</div>' +
+        '<div class="bp2-track">' + bp.rewards.map(function (r) {
+            var st = r.claimed ? 'got' : r.open ? 'open' : 'lock';
+            var btn = r.claimed ? '<span class="st">✓ Получено</span>' : r.open ? '<button data-claim="' + r.lvl + '">Забрать</button>' : '<span class="st">🔒 Ур. ' + r.lvl + '</span>';
+            return '<div class="bp2 ' + st + (r.big ? ' big' : '') + '"><span class="bp2-n">' + r.lvl + '</span><div class="bp2-img"><img src="img/bp_' + r.img + '.jpg"></div><b>' + esc(r.text) + '</b>' + btn + '</div>';
         }).join('') + '</div>';
 }
 
@@ -709,6 +741,14 @@ function bindMenu() {
     var b = $('mBody');
     b.querySelectorAll('[data-cat]').forEach(function (x) { x.onclick = function () { shopCat = x.dataset.cat; renderMenu(); }; });
     b.querySelectorAll('[data-buy]').forEach(function (x) { x.onclick = function () { trig('cef:menu:buy', x.dataset.buy); }; });
+    b.querySelectorAll('[data-sec]').forEach(function (x) { x.onclick = function () { shopSec = x.dataset.sec; renderMenu(); }; });
+    b.querySelectorAll('[data-vip]').forEach(function (x) { x.onclick = function () { trig('cef:menu:vip', x.dataset.vip); }; });
+    b.querySelectorAll('[data-pack]').forEach(function (x) { x.onclick = function () { trig('cef:menu:pack', Number(x.dataset.pack)); }; });
+    b.querySelectorAll('[data-exm]').forEach(function (x) { x.onclick = function () { exN = Math.max(1, exN - 10); renderMenu(); }; });
+    b.querySelectorAll('[data-exp]').forEach(function (x) { x.onclick = function () { exN += 10; renderMenu(); }; });
+    var ei = b.querySelector('#exIn');
+    if (ei) ei.onchange = function () { exN = Math.max(1, Math.floor(Number(ei.value) || 1)); renderMenu(); };
+    b.querySelectorAll('[data-ex]').forEach(function (x) { x.onclick = function () { trig('cef:menu:exchange', exN); }; });
     b.querySelectorAll('[data-claim]').forEach(function (x) { x.onclick = function () { trig('cef:menu:claim', Number(x.dataset.claim)); }; });
     b.querySelectorAll('[data-set]').forEach(function (x) {
         x.onclick = function () {
