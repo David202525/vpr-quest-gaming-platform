@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="inv" class="screen inv">
+    <div class="inv-wrap">
+        <div class="inv-left">
+            <div class="panel">
+                <div class="p-head red">
+                    <span class="ph-ico" id="sideIco">🚗</span>
+                    <div class="ph-txt"><div id="sideTitle">Багажник</div><b id="sideSub">—</b></div>
+                    <span class="ph-arr">⌃</span>
+                </div>
+                <div class="grid g5" id="sideGrid"></div>
+                <div class="cap" id="sideCapBox">
+                    <span class="cap-ico">⬢</span>
+                    <div class="cap-body"><div class="cap-row"><span>Вместимость</span><span id="sideCap">0/0kg</span></div><div class="bar"><i id="sideBar"></i></div></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="p-head red">
+                    <span class="ph-ico">🔫</span>
+                    <div class="ph-txt"><b id="wpName">Оружие не в руках</b></div>
+                    <span class="ph-arr">⌃</span>
+                </div>
+                <div class="weapon-box" id="wpBox"><span class="wp-empty">Дважды кликните по оружию в инвентаре</span></div>
+                <div class="grid g5 ammo" id="ammoGrid"></div>
+            </div>
+        </div>
+
+        <div class="inv-mid">
+            <div class="panel">
+                <div class="inv-head">
+                    <span>ИНВЕНТАРЬ <span class="gear">⚙</span></span>
+                    <span class="nick" id="invNick">—</span>
+                </div>
+                <div class="grid g5 scroll" id="invGrid"></div>
+                <div class="cap">
+                    <span class="cap-ico">⬢</span>
+                    <div class="cap-body"><div class="cap-row"><span>Вместимость</span><span id="invCap">0/50kg</span></div><div class="bar"><i id="invBar"></i></div></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="inv-head"><span>ОБЩИЕ ПОКАЗАТЕЛИ ПЕРСОНАЖА</span></div>
+                <div class="stats" id="stats"></div>
+            </div>
+        </div>
+
+        <div class="inv-body">
+            <div class="ring" id="equip"></div>
+        </div>
+    </div>
+
+    <div class="ctx" id="ctx">
+        <div class="ctx-img" id="ctxImg"></div>
+        <div class="ctx-name" id="ctxName"></div>
+        <div class="ctx-t">ВЫБЕРИТЕ ДЕЙСТВИЕ</div>
+        <button data-act="use" id="ctxUse">Использовать</button>
+        <button data-act="split" id="ctxSplit">Разделить</button>
+        <button data-act="drop">Выбросить</button>
+        <button data-act="destroy">Уничтожить</button>
+    </div>
+    <div class="tip" id="tip"></div>
+    <div class="drag" id="drag"></div>
+</div>
+
+<div id="phone" class="screen phone-screen">
+    <div class="phone">
+        <div class="ph-frame">
+            <div class="ph-island"></div>
+            <div class="ph-status"><span id="phTime">12:00</span><span class="ph-sig">▂▄▆ 📶 🔋</span></div>
+            <div class="ph-page active" id="pg-home">
+                <div class="ph-clock" id="phClock">12:00</div>
+                <div class="ph-date" id="phDate">—</div>
+                <div class="apps" id="apps"></div>
+                <div class="dock" id="dock"></div>
+            </div>
+            <div class="ph-page" id="pg-app">
+                <div class="app-head"><button class="back" id="phBack">‹</button><span id="appTitle"></span><span class="app-act" id="appAct"></span></div>
+                <div class="app-body" id="appBody"></div>
+            </div>
+            <div class="ph-bar" id="phHome"></div>
+        </div>
+    </div>
+</div>
+
+<div id="menu" class="screen menu-screen">
+    <div class="menu">
+        <div class="m-top">
+            <div class="m-title">
+                <h1>МЕНЮ СЕРВЕРА</h1>
+                <p>Подробная информация о Вашем персонаже, а также донат-меню и настройки.</p>
+            </div>
+            <div class="tabs" id="tabs">
+                <button data-tab="char" class="active">Персонаж</button>
+                <button data-tab="ach">Достижения</button>
+                <button data-tab="shop">Магазин</button>
+                <button data-tab="bp" class="bp">Battle Pass</button>
+                <button data-tab="set">Настройки</button>
+            </div>
+            <div class="m-close" id="mClose">Закрыть меню <span>ESC</span></div>
+        </div>
+        <div class="m-body" id="mBody"></div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -106,3 +106,7 @@ mp.keys.bind(0x76, false, function () {
 });
 
 mp.events.callRemote('srv:hud:sync');
+
+mp.events.add('hud:hints', function (on) {
+    hudExec('document.querySelector(".hints").style.display = ' + (on ? '""' : '"none"') + ';');
+});
