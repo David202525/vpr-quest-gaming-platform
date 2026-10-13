@@ -1111,6 +1111,7 @@ global.AdminCore = {
     locks: locks, FEATURE_NAMES: FEATURE_NAMES, saveLocks: function () { writeJson(LOCK_FILE, locks); }, readJson: readJson, writeJson: writeJson, dir: __dirname
 };
 try { require('./admin_ext.js'); } catch (e) { console.log('[admin] admin_ext.js: ' + e.message); }
+try { require('./dlc.js'); } catch (e) { console.log('[admin] dlc.js: ' + e.message); }
 
 console.log('[admin] загружено: ' + RANKS.length + ' рангов, банов: ' + bans.filter(activeBan).length + ', DLC: ' + dlc.length);
 

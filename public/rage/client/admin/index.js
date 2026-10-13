@@ -454,3 +454,23 @@ mp.events.add('adm:intcheck', function (arg) {
     out.push('Координаты: ' + pos.x.toFixed(1) + ', ' + pos.y.toFixed(1) + ', ' + pos.z.toFixed(1));
     out.forEach(function (s) { mp.gui.chat.push('!{#7fd3ff}[intcheck] ' + s); });
 });
+
+mp.events.add('dlc:load', function (json, dev) {
+    var list = [];
+    try { list = JSON.parse(json); } catch (e) { return; }
+    var res = [];
+    list.forEach(function (d) {
+        var ipl = 0, found = 0;
+        d.y.forEach(function (n) {
+            try { if (!mp.game.streaming.isIplActive(n)) mp.game.streaming.requestIpl(n); if (mp.game.streaming.isIplActive(n)) ipl++; } catch (e) {}
+        });
+        d.m.forEach(function (n) { try { if (mp.game.streaming.isModelInCdimage(mp.game.joaat(n))) found++; } catch (e) {} });
+        res.push({ n: d.n, found: found, total: d.m.length, ipl: ipl + '/' + d.y.length });
+    });
+    try {
+        var pos = mp.players.local.position;
+        var id = mp.game.interior.getInteriorAtCoords(pos.x, pos.y, pos.z);
+        if (id) { mp.game.interior.refreshInterior(id); }
+    } catch (e) {}
+    if (dev && res.length) mp.events.callRemote('dlc:result', JSON.stringify(res));
+});
