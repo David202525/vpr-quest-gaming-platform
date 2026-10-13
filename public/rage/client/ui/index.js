@@ -547,3 +547,18 @@ mp.events.add('cef:job:gps', function (id) { mp.events.callRemote('srv:job:gps',
 mp.events.add('job:phone', function (json) {
     if (typeof uiExec === 'function') uiExec('window.phoneJobs && window.phoneJobs(' + JSON.stringify(json) + ');');
 });
+
+mp.events.add('job:findSpot', function (x, y, z, h) {
+    var best = null;
+    function ok(v) { return v && typeof v.x === 'number' && (Math.abs(v.x) + Math.abs(v.y)) > 1; }
+    var tries = [
+        function () { var r = mp.game.pathfind.getClosestVehicleNodeWithHeading(x, y, z, 0, 0, 3, 0); if (r && ok(r.outPosition)) return { p: r.outPosition, h: r.outHeading }; },
+        function () { var r = mp.game.pathfind.getClosestVehicleNodeWithHeading(x, y, z, new mp.Vector3(0, 0, 0), 0, 1, 3, 0); if (r && ok(r.outPosition)) return { p: r.outPosition, h: r.outHeading }; },
+        function () { var r = mp.game.pathfind.getClosestVehicleNode(x, y, z, 0, 3, 0); if (r && ok(r.outPosition || r)) return { p: r.outPosition || r, h: h }; }
+    ];
+    for (var i = 0; i < tries.length && !best; i++) { try { best = tries[i](); } catch (e) {} }
+    if (!best) return mp.events.callRemote('srv:job:spot', 'x', 0, 0, 0);
+    var gz = 0;
+    try { gz = mp.game.gameplay.getGroundZFor3dCoord(best.p.x, best.p.y, best.p.z + 3, 0, false); } catch (e) {}
+    mp.events.callRemote('srv:job:spot', best.p.x, best.p.y, gz > 0 ? gz : best.p.z, Number(best.h) || h);
+});

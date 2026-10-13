@@ -84,8 +84,10 @@ function stopJob(p, silent) {
     quest(p, '', []);
     if (!silent) notify(p, 'warn', 'Вы закончили смену: ' + JOBS[s.id].n);
 }
-function jobVeh(p, j) {
-    const c = j.carPos;
+if (!store._spots) store._spots = {};
+function carSpot(id) { return store._spots[id] || JOBS[id].carPos; }
+function jobVeh(p, j, spot) {
+    const c = spot || j.carPos;
     const v = mp.vehicles.new(mp.joaat(j.car), V(c.x, c.y, c.z), { heading: c.h, numberPlate: 'JOB' + String(p.id).padStart(4, '0'), dimension: 0, locked: false, engine: false });
     v.jobOwner = p.id;
     v.setVariable('jobVeh', p.id);
@@ -105,15 +107,52 @@ function startJob(p, id, opt) {
     const s = { id: id, step: 0, since: Date.now() };
     p.job = s;
     if (id === 'farm') { s.carry = 0; nextFarm(p); }
-    if (id === 'courier') { s.veh = jobVeh(p, j); s.has = false; courierPick(p); }
-    if (id === 'bus') {
-        const r = ROUTES[opt] ? opt : 'city';
-        s.route = r; s.stop = 1; s.veh = jobVeh(p, j);
-        busNext(p);
+    if (id === 'courier' || id === 'bus') {
+        if (id === 'bus') { s.route = ROUTES[opt] ? opt : 'city'; s.stop = 1; }
+        s.has = false;
+        const saved = store._spots[id];
+        const go = function (spot) {
+            if (!mp.players.exists(p) || p.job !== s || s.veh) return;
+            s.veh = jobVeh(p, j, spot);
+            if (id === 'courier') courierPick(p); else busNext(p);
+        };
+        if (saved) go(saved);
+        else {
+            s.spotCb = go;
+            p.call('job:findSpot', [j.carPos.x, j.carPos.y, j.carPos.z, j.carPos.h]);
+            setTimeout(function () { if (s.spotCb) { s.spotCb = null; go(null); } }, 2500);
+        }
     }
     notify(p, 'ok', 'Вы начали работу: ' + j.n + '. Закончить — /quitjob или в телефоне');
     return null;
 }
+
+mp.events.add('srv:job:spot', function (p, x, y, z, h) {
+    const s = p.job;
+    if (!s || !s.spotCb) return;
+    const cb = s.spotCb; s.spotCb = null;
+    x = Number(x); y = Number(y); z = Number(z); h = Number(h);
+    const c = JOBS[s.id].carPos;
+    if (!isFinite(x) || !isFinite(z) || dist({ x: x, y: y, z: z }, c.x, c.y, c.z) > 120) return cb(null);
+    cb({ x: x, y: y, z: z + 0.4, h: isFinite(h) ? h : c.h });
+});
+mp.events.addCommand('setjobcar', function (p, full) {
+    const lv = global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0;
+    if (lv < 5) return p.outputChatBox('!{#e05555}Доступно со Старшей администрации (5)');
+    const id = String(full || '').trim().toLowerCase();
+    if (!JOBS[id] || !JOBS[id].car) return p.outputChatBox('!{#ffcc66}/setjobcar [courier/bus] — встаньте (или сядьте в машину) на нужное место, лицом к выезду. /setjobcar [работа] reset — сброс');
+    const ent = p.vehicle || p;
+    store._spots[id] = { x: ent.position.x, y: ent.position.y, z: ent.position.z + 0.3, h: ent.heading !== undefined ? ent.heading : p.heading };
+    dirty = true;
+    p.outputChatBox('!{#8fd14f}Точка появления транспорта для работы «' + JOBS[id].n + '» сохранена');
+});
+mp.events.addCommand('resetjobcar', function (p, full) {
+    const lv = global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0;
+    if (lv < 5) return;
+    delete store._spots[String(full || '').trim().toLowerCase()];
+    dirty = true;
+    p.outputChatBox('!{#8fd14f}Точка сброшена — транспорт будет ставиться на ближайшую дорогу');
+});
 
 /* ---------- ферма ---------- */
 function nextFarm(p) {
