@@ -128,13 +128,14 @@
     <div class="fuel">
         <div class="fu-head">
             <div class="fu-logo">⛽</div>
-            <div><h2>АЗС</h2><small>Выберите топливо и количество литров</small></div>
+            <div><h2 id="fuName">АЗС</h2><small id="fuSub">Выберите топливо и количество литров</small></div>
             <div class="m-close" id="fuClose">Закрыть <span>ESC</span></div>
         </div>
         <div class="fu-tank">
             <div class="fu-tank-bar"><div class="fu-cur" id="fuCur"></div><div class="fu-add" id="fuAdd"></div></div>
             <div class="fu-tank-txt"><span>В баке: <b id="fuNow">0</b> л</span><span>Свободно: <b id="fuFree">0</b> л</span></div>
         </div>
+        <div class="fu-stock" id="fuStock"></div>
         <div class="fu-types" id="fuTypes"></div>
         <div class="fu-lit">
             <div class="fu-lit-top"><span>Литров</span><b id="fuL">0</b></div>
@@ -160,6 +161,10 @@
         </div>
         <div class="m-close atm-x" id="atmClose">Забрать карту <span>ESC</span></div>
     </div>
+</div>
+
+<div id="biz" class="screen biz-screen">
+    <div class="bz" id="bzBox"></div>
 </div>
 
 <div id="card" class="screen card-screen">

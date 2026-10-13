@@ -55,7 +55,7 @@ function srvWarn(kind) {
 }
 
 window.uiOpen = function (name, opt) {
-    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card', 'biz'].forEach(function (s) { $(s).classList.toggle('show', s === name); });
     current = name;
     hideCtx();
     if (name === 'atm') { ATM.d = null; ATM.view = 'boot'; ATM.input = ''; renderAtm(); }
@@ -65,7 +65,7 @@ window.uiOpen = function (name, opt) {
     if (name === 'menu') { if (!DATA.menu) DATA.menu = emptyMenu(); renderMenu(); srvWarn('menu'); }
 };
 window.uiClose = function () {
-    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card'].forEach(function (s) { $(s).classList.remove('show'); });
+    ['inv', 'phone', 'menu', 'docs', 'fuel', 'atm', 'card', 'biz'].forEach(function (s) { $(s).classList.remove('show'); });
     current = null;
     hideCtx();
     closeModal();
@@ -89,6 +89,7 @@ window.uiData = function (kind, d) {
     if (kind === 'fuel') { fuelInit(d); }
     if (kind === 'atm') { atmData(d); }
     if (kind === 'card') { renderCard(d); }
+    if (kind === 'biz') { bizData(d); }
     if (kind === 'docs') { if (typeof d.focus === 'number') docSel = d.focus; renderDocs(); }
 };
 function closeAll() { window.uiClose(); trig('cef:ui:close'); }
@@ -836,6 +837,15 @@ var FU = { d: null, t: 'ai92', l: 0, pay: 'cash' };
 function fuelInit(d) {
     FU.d = d; FU.t = d.cur || 'ai92';
     var free = Math.max(0, d.max - d.fuel);
+    if (d.station && d.station.stock !== null) free = Math.min(free, d.station.stock);
+    var S = d.station || {};
+    $('fuName').textContent = S.name || 'АЗС';
+    $('fuSub').textContent = S.owner ? 'Владелец: ' + S.owner : 'Государственная заправка';
+    if (S.stock !== null && S.stock !== undefined) {
+        var pc = Math.round(S.stock / S.maxStock * 100);
+        $('fuStock').innerHTML = '<span>Запас на станции</span><div class="fs-bar"><i style="width:' + pc + '%"></i></div><b>' + S.stock + ' л</b>' + (S.deficit ? '<em>ДЕФИЦИТ' + (S.owner ? '' : ' · цена ×1.5') + '</em>' : '');
+        $('fuStock').className = 'fu-stock show' + (S.deficit ? ' low' : '');
+    } else $('fuStock').className = 'fu-stock';
     FU.l = free;
     $('fuRange').max = free;
     renderFuel();
@@ -844,6 +854,7 @@ function renderFuel() {
     var d = FU.d;
     if (!d) return;
     var free = Math.max(0, d.max - d.fuel);
+    if (d.station && d.station.stock !== null && d.station.stock !== undefined) free = Math.min(free, d.station.stock);
     FU.l = Math.max(0, Math.min(free, FU.l));
     var t = d.types.find(function (x) { return x.k === FU.t; }) || d.types[0];
     var sum = Math.ceil(FU.l * t.price);
@@ -986,8 +997,8 @@ function atmAct(a) {
     if (a === 'insert') { ATM.view = 'pin'; ATM.input = ''; return renderAtm(); }
     if (a === 'wd' || a === 'dep') { ATM.op = a; ATM.view = 'amount'; ATM.input = ''; return renderAtm(); }
     if (a === 'send') { ATM.view = 'send'; ATM.input = ''; ATM.to = ''; return renderAtm(); }
-    if (a === 'hist' || a === 'biz' || a === 'info') { ATM.view = a; return renderAtm(); }
-    if (a === 'bizinfo') { ATM.view = 'bizinfo'; return renderAtm(); }
+    if (a === 'biz' || a === 'bizinfo') return trig('cef:biz:open', 'atm', d.atm.id);
+    if (a === 'hist' || a === 'info') { ATM.view = a; return renderAtm(); }
     if (a === 'pinc') { ATM.view = 'pinchange1'; ATM.input = ''; return renderAtm(); }
     if (a === 'back') { ATM.view = d.auth ? 'menu' : 'insert'; ATM.input = ''; return renderAtm(); }
     if (a === 'exit') return closeAll();
@@ -1004,3 +1015,78 @@ document.addEventListener('keydown', function (e) {
     else if (e.key === 'Enter') atmKey('OK');
 });
 $('atmClose').onclick = closeAll;
+
+/* ================= BUSINESS MENU ================= */
+var BZ = { d: null, tab: 'main', msg: null, order: 500 };
+function bizData(d) {
+    if (!BZ.d || BZ.d.kind !== d.kind || BZ.d.id !== d.id) BZ.tab = 'main';
+    BZ.d = d;
+    BZ.msg = d.err ? { e: 1, t: d.err } : d.ok ? { e: 0, t: d.ok } : null;
+    renderBiz();
+}
+function bzTabs(d) {
+    var t = [['main', '📊', 'Обзор']];
+    if (d.own) {
+        if (d.kind === 'fuel') t.push(['stock', '🛢', 'Склад']);
+        t.push(['set', '⚙', 'Настройки'], ['log', '🧾', 'Журнал']);
+    }
+    return '<nav class="bz-tabs">' + t.map(function (x) { return '<button class="' + (BZ.tab === x[0] ? 'active' : '') + '" data-bt="' + x[0] + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('') + '</nav>';
+}
+function renderBiz() {
+    var d = BZ.d;
+    if (!d) return;
+    var head = '<header class="bz-head"><div class="bz-ico">' + d.i + '</div><div><small>' + esc(d.n) + ' · #' + d.id + '</small><h2>' + esc(d.name) + '</h2>' +
+        '<span class="bz-tag ' + (d.own ? 'own' : d.forSale ? 'sale' : '') + '">' + (d.own ? 'Ваш бизнес' : d.forSale ? 'Продаётся' : 'Владелец: ' + esc(d.ownerName)) + '</span></div>' +
+        '<div class="m-close" id="bzClose">Закрыть <span>ESC</span></div></header>';
+    var msg = BZ.msg ? '<div class="bz-msg ' + (BZ.msg.e ? 'e' : 'o') + '">' + esc(BZ.msg.t) + '</div>' : '';
+    var body = '';
+    if (BZ.tab === 'main') {
+        var tiles = [];
+        if (d.own) tiles.push({ l: 'Касса', v: money(d.balance), big: 1 }, { l: 'Заработано всего', v: money(d.earned) });
+        d.stats.forEach(function (s) { tiles.push(s); });
+        body = '<div class="bz-tiles">' + tiles.map(function (x) { return '<div class="bz-tile ' + (x.big ? 'big' : '') + (x.warn ? ' warn' : '') + '"><small>' + esc(x.l) + '</small><b>' + esc(x.v) + '</b></div>'; }).join('') + '</div>';
+        if (d.own) body += '<div class="bz-acts"><button class="bz-btn pri" data-ba="collect">💰 Забрать выручку на карту</button></div>';
+        else if (d.forSale) body += '<div class="bz-buy"><div><small>Цена бизнеса</small><b>' + money(d.price) + '</b><span>На вашей карте: ' + money(d.myBank) + '</span></div>' +
+            '<p>' + (d.kind === 'fuel' ? 'Вы получаете всю выручку с продажи топлива, сами ставите цены и заказываете поставки. Если топливо закончится — АЗС перестанет продавать.' : 'Вы получаете комиссию с каждого снятия наличных другими игроками. Размер комиссии ставите сами.') + '</p>' +
+            '<button class="bz-btn pri" data-ba="buy"' + (d.myBank < d.price ? ' disabled' : '') + '>Купить за ' + money(d.price) + '</button></div>';
+        else body += '<p class="bz-p">Этот бизнес принадлежит игроку <b>' + esc(d.ownerName) + '</b>.</p>';
+    } else if (BZ.tab === 'stock' && d.stock) {
+        var S = d.stock, pc = Math.round(S.cur / S.max * 100);
+        body = '<div class="bz-tank"><div class="bz-tank-v"><i style="height:' + pc + '%" class="' + (S.deficit ? 'low' : '') + '"></i><span>' + pc + '%</span></div>' +
+            '<div><small>Запас топлива</small><b>' + S.cur + ' / ' + S.max + ' л</b>' + (S.deficit ? '<em>Дефицит! Закажите поставку</em>' : '') +
+            '<div class="bz-order"><label>Заказать у поставщика · $' + S.wholesale + ' за литр</label><div class="bz-row"><input type="range" min="100" max="' + Math.max(100, S.max - S.cur) + '" step="100" value="' + Math.min(BZ.order, Math.max(100, S.max - S.cur)) + '" id="bzOrd"><b id="bzOrdV">' + Math.min(BZ.order, Math.max(100, S.max - S.cur)) + ' л</b></div>' +
+            '<button class="bz-btn pri" data-ba="order">Оформить заказ · <span id="bzOrdC">' + money(Math.min(BZ.order, Math.max(100, S.max - S.cur)) * S.wholesale) + '</span></button><small class="bz-note">Списывается из кассы, если не хватает — с карты. Скоро поставки будут возить дальнобойщики.</small></div></div></div>' +
+            '<h4 class="bz-h4">Заказы</h4><div class="bz-list">' + (S.orders.length ? S.orders.map(function (o) {
+                var st = { pending: ['Ожидает', 'w'], taken: ['В пути', 'b'], done: ['Доставлен', 'o'], cancel: ['Отменён', 'e'] }[o.s] || [o.s, ''];
+                return '<div class="bz-li"><span>🛢 ' + o.l + ' л</span><small>' + esc(o.d) + '</small><em class="' + st[1] + '">' + st[0] + '</em></div>';
+            }).join('') : '<p class="bz-p">Заказов пока не было</p>') + '</div>';
+    } else if (BZ.tab === 'set') {
+        body = d.settings.map(function (s) {
+            return '<div class="bz-set"><div class="bz-set-top"><label>' + esc(s.l) + '</label><b id="bzv_' + s.k + '">' + s.v + s.unit + '</b></div>' +
+                '<input type="range" min="' + s.min + '" max="' + s.max + '" step="' + s.step + '" value="' + s.v + '" data-set="' + s.k + '" data-unit="' + s.unit + '">' +
+                (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '<button class="bz-btn" data-save="' + s.k + '">Сохранить</button></div>';
+        }).join('') +
+            '<div class="bz-set"><label>Название бизнеса</label><div class="bz-row"><input class="bz-in" id="bzName" value="' + esc(d.name) + '" maxlength="32"><button class="bz-btn" data-ba="rename">Переименовать</button></div></div>' +
+            '<div class="bz-set danger"><label>Продать государству</label><small>Вы получите ' + money(d.sellBack) + ' + деньги из кассы. Действие необратимо.</small><button class="bz-btn dan" data-ba="sell">Продать бизнес</button></div>';
+    } else if (BZ.tab === 'log') {
+        body = '<div class="bz-list">' + (d.log && d.log.length ? d.log.map(function (x) {
+            return '<div class="bz-li"><span>' + esc(x.text) + '</span><small>' + esc(x.d) + '</small>' + (x.a ? '<em class="' + (x.a > 0 ? 'o' : 'e') + '">' + (x.a > 0 ? '+' : '−') + money(Math.abs(x.a)) + '</em>' : '<em></em>') + '</div>';
+        }).join('') : '<p class="bz-p">Записей пока нет</p>') + '</div>';
+    }
+    $('bzBox').innerHTML = head + '<div class="bz-wrap">' + bzTabs(d) + '<div class="bz-body">' + msg + body + '</div></div>';
+    $('bzClose').onclick = closeAll;
+    $('bzBox').querySelectorAll('[data-bt]').forEach(function (b) { b.onclick = function () { BZ.tab = b.dataset.bt; BZ.msg = null; renderBiz(); }; });
+    $('bzBox').querySelectorAll('[data-set]').forEach(function (r) { r.oninput = function () { $('bzv_' + r.dataset.set).textContent = r.value + r.dataset.unit; }; });
+    $('bzBox').querySelectorAll('[data-save]').forEach(function (b) { b.onclick = function () { var r = $('bzBox').querySelector('[data-set="' + b.dataset.save + '"]'); trig('cef:biz:act', 'set', b.dataset.save + ':' + r.value); }; });
+    var ord = $('bzOrd');
+    if (ord) ord.oninput = function () { BZ.order = Number(ord.value); $('bzOrdV').textContent = ord.value + ' л'; $('bzOrdC').textContent = money(ord.value * d.stock.wholesale); };
+    $('bzBox').querySelectorAll('[data-ba]').forEach(function (b) {
+        b.onclick = function () {
+            var a = b.dataset.ba;
+            if (a === 'sell' && !b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Точно продать? Нажмите ещё раз'; return; }
+            if (a === 'order') return trig('cef:biz:act', 'order', $('bzOrd').value);
+            if (a === 'rename') return trig('cef:biz:act', 'rename', $('bzName').value);
+            trig('cef:biz:act', a, '');
+        };
+    });
+}

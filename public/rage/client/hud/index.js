@@ -142,30 +142,37 @@ mp.keys.bind(0x42, false, function () {
     mp.events.call('hud:notify', spBelt ? 'ok' : 'warn', spBelt ? 'Ремень пристёгнут' : 'Ремень отстёгнут', 2000);
 });
 
-var FUEL_ST = [
-    [49.42, 2778.79], [263.89, 2606.46], [1039.96, 2671.13], [1207.26, 2660.18], [2539.69, 2594.19], [2679.86, 3263.95],
-    [2005.06, 3773.89], [1687.16, 4929.39], [1701.31, 6416.03], [179.86, 6602.84], [-94.46, 6419.59], [-2555.00, 2334.40],
-    [-1800.38, 803.66], [-1437.62, -276.75], [-2096.24, -320.29], [-724.62, -935.16], [-526.02, -1211.00], [-70.21, -1761.79],
-    [265.65, -1261.31], [819.65, -1028.85], [1208.95, -1402.57], [1181.38, -330.85], [620.84, 269.10], [2581.32, 362.04],
-    [176.63, -1562.03], [-319.29, -1471.72], [1784.32, 3330.55]
-];
+var FUEL_ST = [];
+var PUMP_MODELS = ['prop_gas_pump_1a', 'prop_gas_pump_1b', 'prop_gas_pump_1c', 'prop_gas_pump_1d', 'prop_gas_pump_old2', 'prop_gas_pump_old3', 'prop_vintage_pump'].map(function (m) { return mp.game.joaat(m); });
+mp.events.add('fuel:list', function (json) { try { FUEL_ST = JSON.parse(json); } catch (e) {} });
+setTimeout(function () { mp.events.callRemote('srv:biz:points'); }, 4500);
 var atStation = false;
 var lastFuelKey = 0;
-function nearFuel() {
-    var pos = mp.players.local.position;
+function stationClose(pos) {
     for (var i = 0; i < FUEL_ST.length; i++) {
-        var dx = pos.x - FUEL_ST[i][0], dy = pos.y - FUEL_ST[i][1];
-        if (dx * dx + dy * dy < 144) return true;
+        var dx = pos.x - FUEL_ST[i][1], dy = pos.y - FUEL_ST[i][2];
+        if (dx * dx + dy * dy < 2025) return true;
+    }
+    return false;
+}
+function pumpNear(pos) {
+    for (var i = 0; i < PUMP_MODELS.length; i++) {
+        var h = mp.game.object.getClosestObjectOfType(pos.x, pos.y, pos.z, 5.5, PUMP_MODELS[i], false, false, false);
+        if (h) return true;
     }
     return false;
 }
 setInterval(function () {
     var p = mp.players.local;
     var v = p.vehicle;
-    var now = !!v && nearFuel();
-    if (now && !atStation) mp.events.call('hud:notify', 'ok', 'Заправка: нажмите E, чтобы выбрать топливо', 5000);
+    var now = false;
+    if (v && stationClose(p.position)) {
+        var sp = v.getSpeed ? v.getSpeed() : 0;
+        now = sp < 3 && pumpNear(v.position);
+    }
+    if (now && !atStation) mp.events.call('hud:notify', 'ok', 'Колонка рядом: нажмите E, чтобы заправиться', 5000);
     atStation = now;
-}, 700);
+}, 500);
 mp.events.add('render', function () {
     var v = mp.players.local.vehicle;
     if (!v) return;

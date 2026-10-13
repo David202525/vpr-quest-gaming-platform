@@ -77,6 +77,7 @@ function openUi(name, opt) {
 function closeUi(silent) {
     if (!uiOpen) return;
     if (uiOpen === 'atm') mp.events.callRemote('srv:atm:close');
+    if (uiOpen === 'biz') mp.events.callRemote('srv:biz:close');
     uiOpen = null;
     uiTyping = false;
     if (!silent) uiCall('uiClose', '');
@@ -311,15 +312,8 @@ setInterval(function () {
     if (best >= 0 && atmHinted !== best && !uiOpen) { atmHinted = best; mp.events.call('hud:notify', 'ok', 'Банкомат: нажмите E', 3000); }
     if (best < 0) atmHinted = -1;
 }, 400);
-mp.events.add('render', function () {
-    if (atmNear < 0 || uiOpen) return;
-    for (var i = 0; i < ATM_LIST.length; i++) if (ATM_LIST[i][0] === atmNear) {
-        var a = ATM_LIST[i];
-        mp.game.graphics.drawMarker(29, a[1], a[2], a[3] + 0.2, 0, 0, 0, 0, 0, 0, 0.45, 0.45, 0.45, 47, 200, 120, 170, true, true, 2, false, null, null, false);
-    }
-});
 mp.keys.bind(0x45, false, function () {
-    if (atmNear < 0 || busy() || uiOpen) return;
+    if (atmNear < 0 || busy() || uiOpen || bizNear) return;
     mp.events.callRemote('srv:atm:open', atmNear);
 });
 mp.events.add('ui:atmOpen', function () { if (!uiOpen) openUi('atm', { fromUi: true }); });
@@ -333,3 +327,32 @@ mp.events.add('cef:atm:pin', function (pin) { mp.events.callRemote('srv:atm:pin'
 mp.events.add('cef:atm:op', function (op, sum, to) { mp.events.callRemote('srv:atm:op', op, Number(sum), String(to || '')); });
 mp.events.add('cef:atm:pinchange', function (a, b) { mp.events.callRemote('srv:atm:pinchange', String(a), String(b)); });
 mp.events.add('cef:atm:biz', function (act, val) { mp.events.callRemote('srv:atm:biz', act, String(val === undefined ? '' : val)); });
+
+/* ================= BUSINESS POINTS (невидимые) ================= */
+var BIZ_PTS = [];
+var bizNear = null;
+var bizHinted = '';
+mp.events.add('biz:points', function (json) { try { BIZ_PTS = JSON.parse(json); } catch (e) {} });
+setInterval(function () {
+    var p = mp.players.local, pos = p.position, best = null, bd = 2.2;
+    if (!p.vehicle) for (var i = 0; i < BIZ_PTS.length; i++) {
+        var b = BIZ_PTS[i];
+        var d = mp.game.system.vdist(pos.x, pos.y, pos.z, b[2], b[3], b[4]);
+        if (d < bd) { bd = d; best = b; }
+    }
+    bizNear = best;
+    var k = best ? best[0] + best[1] : '';
+    if (best && bizHinted !== k && !uiOpen) { bizHinted = k; mp.events.call('hud:notify', 'ok', best[5] + ': нажмите E — управление бизнесом', 3500); }
+    if (!best) bizHinted = '';
+}, 400);
+mp.keys.bind(0x45, false, function () {
+    if (!bizNear || busy() || uiOpen) return;
+    mp.events.callRemote('srv:biz:open', bizNear[0], bizNear[1]);
+});
+mp.events.add('ui:bizOpen', function (json) {
+    if (uiOpen && uiOpen !== 'biz') closeUi(true);
+    if (uiOpen !== 'biz') { uiOpen = 'biz'; uiCall('uiOpen', 'biz', {}); mp.gui.chat.activate(false); cursorSync(); }
+    uiExec('window.uiData && window.uiData("biz",' + json + ');');
+});
+mp.events.add('cef:biz:open', function (kind, id) { mp.events.callRemote('srv:biz:open', kind, Number(id)); });
+mp.events.add('cef:biz:act', function (act, val) { mp.events.callRemote('srv:biz:act', act, String(val === undefined ? '' : val)); });

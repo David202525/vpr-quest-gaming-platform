@@ -291,8 +291,18 @@ setInterval(function () {
     if (D && document.visibilityState !== 'hidden') trig('cef:adm:refresh');
 }, 5000);
 
+var ZK = 'atm';
+document.querySelectorAll('[data-zk]').forEach(function (b) {
+    b.onclick = function () {
+        ZK = b.dataset.zk;
+        document.querySelectorAll('[data-zk]').forEach(function (x) { x.classList.toggle('active', x === b); });
+        $('zNewT').textContent = ZK === 'fuel' ? 'Новая АЗС' : 'Новый банкомат';
+        $('zPrice').value = ZK === 'fuel' ? 250000 : 150000;
+        renderBiz();
+    };
+});
 function renderBiz() {
-    var list = D.atms || [];
+    var list = (ZK === 'fuel' ? D.stations : D.atms) || [];
     var f = ($('zSearch').value || '').trim().toLowerCase();
     $('zCount').textContent = list.length;
     var can5 = D.me.level >= 5;
@@ -300,26 +310,29 @@ function renderBiz() {
     $('zList').innerHTML = list.filter(function (a) { return !f || (a.name + ' ' + (a.ownerName || '')).toLowerCase().indexOf(f) >= 0; }).map(function (a) {
         return '<div class="tr biz"><b>#' + a.id + ' ' + esc(a.name) + '</b>' +
             '<span>' + (a.ownerName ? '👤 ' + esc(a.ownerName) : '<span class="mut">гос. (продаётся)</span>') + '</span>' +
-            '<span class="mut">цена $' + a.price + ' · ' + a.fee + '% · касса $' + a.balance + ' · всего $' + a.earned + '</span>' +
+            '<span class="mut">цена $' + a.price + ' · ' + (ZK === 'fuel' ? 'запас ' + a.stock + '/' + a.max + ' л · ' + a.markup + '%' : a.fee + '%') + ' · касса $' + a.balance + ' · всего $' + a.earned + '</span>' +
             '<span class="biz-acts">' +
             '<button class="btn" data-ztp="' + a.id + '">ТП</button>' +
             '<button class="btn" data-zprice="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Цена</button>' +
             '<button class="btn" data-zown="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Владелец</button>' +
             '<button class="btn" data-zfree="' + a.id + '"' + (can5 && a.ownerName ? '' : ' disabled') + '>Изъять</button>' +
-            '<button class="btn danger" data-zdel="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Удалить</button>' +
+            (ZK === 'fuel' ? '<button class="btn" data-zstock="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Запас</button><button class="btn" data-zpos="' + a.id + '"' + (can5 ? '' : ' disabled') + '>Точка сюда</button>' : '') +
+            '<button class="btn danger" data-zdel=""' + a.id + '"' + (can5 ? '' : ' disabled') + '>Удалить</button>' +
             '</span></div>';
     }).join('') || '<div class="empty">Банкоматов нет</div>';
 }
 $('zSearch').oninput = renderBiz;
-$('zAdd').onclick = function () { act({ action: 'atm', op: 'add', name: $('zName').value, price: Number($('zPrice').value) || 150000 }); };
+$('zAdd').onclick = function () { act({ action: 'atm', kind: ZK, op: 'add', name: $('zName').value, price: Number($('zPrice').value) || 150000 }); };
 $('zList').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b || b.disabled) return;
-    if (b.dataset.ztp) act({ action: 'atm', op: 'tp', atm: Number(b.dataset.ztp) });
-    if (b.dataset.zdel) act({ action: 'atm', op: 'del', atm: Number(b.dataset.zdel) });
-    if (b.dataset.zfree) act({ action: 'atm', op: 'owner', atm: Number(b.dataset.zfree), pid: -1 });
-    if (b.dataset.zprice) zAsk('Новая цена банкомата, $', function (v) { act({ action: 'atm', op: 'price', atm: Number(b.dataset.zprice), value: Number(v) }); });
-    if (b.dataset.zown) zAsk('ID игрока онлайн — новый владелец', function (v) { act({ action: 'atm', op: 'owner', atm: Number(b.dataset.zown), pid: Number(v) }); });
+    if (b.dataset.ztp) act({ action: 'atm', kind: ZK, op: 'tp', atm: Number(b.dataset.ztp) });
+    if (b.dataset.zdel) act({ action: 'atm', kind: ZK, op: 'del', atm: Number(b.dataset.zdel) });
+    if (b.dataset.zfree) act({ action: 'atm', kind: ZK, op: 'owner', atm: Number(b.dataset.zfree), pid: -1 });
+    if (b.dataset.zstock) zAsk('Запас топлива на АЗС, литров', function (v) { act({ action: 'atm', kind: 'fuel', op: 'stock', atm: Number(b.dataset.zstock), value: Number(v) }); });
+    if (b.dataset.zpos) act({ action: 'atm', kind: 'fuel', op: 'bizpos', atm: Number(b.dataset.zpos) });
+    if (b.dataset.zprice) zAsk('Новая цена банкомата, $', function (v) { act({ action: 'atm', kind: ZK, op: 'price', atm: Number(b.dataset.zprice), value: Number(v) }); });
+    if (b.dataset.zown) zAsk('ID игрока онлайн — новый владелец', function (v) { act({ action: 'atm', kind: ZK, op: 'owner', atm: Number(b.dataset.zown), pid: Number(v) }); });
 });
 
 function zAsk(title, cb) {

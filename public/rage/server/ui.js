@@ -1129,6 +1129,7 @@ mp.events.add('srv:atm:op', async function (p, op, sum, target) {
         if (!a.owner || fee <= 0) return;
         a.balance += fee; a.earned += fee;
         q('UPDATE atms SET balance = balance + ?, earned = earned + ? WHERE id = ?', [fee, fee, a.id]);
+        bizLog('atm', a.id, 'Комиссия со снятия — ' + holder(p), fee);
     };
     if (op === 'wd') {
         const fee = a.owner && a.owner !== id ? Math.ceil(sum * a.fee / 100) : 0;
@@ -1272,6 +1273,7 @@ mp.events.addCommand('cardunblock', async function (p, full2, pid) {
 global.AtmSystem = {
     list: function () { return ATMS; }, reload: loadAtms,
     admin: async function (p, d) {
+        if (d.kind === 'fuel') return global.FuelSystem.admin(p, d);
         const a = atmOf(d.atm);
         if (d.op === 'add') {
             const pos = p.position;
@@ -1307,7 +1309,8 @@ mp.events.addCommand('uicheck', function (p) {
 /* ================= FUEL ================= */
 const FUEL_MAX = 100;
 const FUEL_PRICE = 3;
-const STATIONS = [
+const WHOLESALE = 1;
+const STATION_SEED = [
     [49.42, 2778.79, 58.04], [263.89, 2606.46, 44.98], [1039.96, 2671.13, 39.55], [1207.26, 2660.18, 37.90],
     [2539.69, 2594.19, 37.94], [2679.86, 3263.95, 55.24], [2005.06, 3773.89, 32.40], [1687.16, 4929.39, 42.08],
     [1701.31, 6416.03, 32.76], [179.86, 6602.84, 31.87], [-94.46, 6419.59, 31.49], [-2555.00, 2334.40, 33.08],
@@ -1316,10 +1319,87 @@ const STATIONS = [
     [1208.95, -1402.57, 35.22], [1181.38, -330.85, 69.32], [620.84, 269.10, 103.09], [2581.32, 362.04, 108.47],
     [176.63, -1562.03, 29.26], [-319.29, -1471.72, 30.55], [1784.32, 3330.55, 41.25]
 ];
-STATIONS.forEach(function (s) {
-    mp.blips.new(361, new mp.Vector3(s[0], s[1], s[2]), { name: 'Заправка', color: 1, shortRange: true, scale: 0.8 });
-    mp.markers.new(1, new mp.Vector3(s[0], s[1], s[2] - 1.1), 6, { color: [255, 140, 30, 60], visible: true });
-});
+let STATIONS = [];
+const stBlips = {};
+
+const FUEL_TYPES = {
+    ai92: { n: 'АИ-92', price: 2, c: '#3fbf5f' },
+    ai95: { n: 'АИ-95', price: 3, c: '#f2b632' },
+    ai98: { n: 'АИ-98', price: 4, c: '#e63950' },
+    diesel: { n: 'Дизель', price: 2.5, c: '#4a9cff' }
+};
+
+async function fuelInit() {
+    if (!db) return console.log('[fuel] нет базы — АЗС без склада');
+    await q(`CREATE TABLE IF NOT EXISTS fuel_stations (
+        id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(48) NOT NULL DEFAULT 'АЗС',
+        x FLOAT NOT NULL, y FLOAT NOT NULL, z FLOAT NOT NULL,
+        bx FLOAT NULL, by_ FLOAT NULL, bz FLOAT NULL,
+        owner_id INT NULL, price INT NOT NULL DEFAULT 250000, markup INT NOT NULL DEFAULT 100,
+        stock INT NOT NULL DEFAULT 2500, max_stock INT NOT NULL DEFAULT 5000,
+        balance BIGINT NOT NULL DEFAULT 0, earned BIGINT NOT NULL DEFAULT 0, sold BIGINT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await q(`CREATE TABLE IF NOT EXISTS fuel_orders (
+        id INT AUTO_INCREMENT PRIMARY KEY, station_id INT NOT NULL, liters INT NOT NULL, cost INT NOT NULL,
+        status VARCHAR(12) NOT NULL DEFAULT 'pending', driver_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, done_at TIMESTAMP NULL,
+        INDEX idx_st (station_id), INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await q(`CREATE TABLE IF NOT EXISTS biz_log (
+        id INT AUTO_INCREMENT PRIMARY KEY, kind VARCHAR(8) NOT NULL, biz_id INT NOT NULL,
+        text VARCHAR(120) NOT NULL, amount INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_biz (kind, biz_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    const c = await q('SELECT COUNT(*) AS n FROM fuel_stations');
+    if (c[0] && Number(c[0].n) === 0) {
+        for (let i = 0; i < STATION_SEED.length; i++) {
+            const st = STATION_SEED[i];
+            await q('INSERT INTO fuel_stations (name, x, y, z, stock) VALUES (?, ?, ?, ?, ?)', ['АЗС #' + (i + 1), st[0], st[1], st[2], 1500 + Math.floor(Math.random() * 2500)]);
+        }
+        console.log('[fuel] создано АЗС: ' + STATION_SEED.length);
+    }
+    await loadStations();
+}
+async function loadStations() {
+    const rows = await q('SELECT s.*, a.nick AS owner_nick, a.login AS owner_login FROM fuel_stations s LEFT JOIN accounts a ON a.id = s.owner_id ORDER BY s.id');
+    if (!rows.length && !STATIONS.length) {
+        STATIONS = STATION_SEED.map(function (st, i) { return { id: i + 1, name: 'АЗС #' + (i + 1), x: st[0], y: st[1], z: st[2], bx: st[0], by: st[1], bz: st[2], owner: null, ownerName: null, price: 250000, markup: 100, stock: 999999, max: 999999, balance: 0, earned: 0, sold: 0, nodb: true }; });
+    } else if (rows.length) {
+        STATIONS = rows.map(function (r) {
+            return { id: r.id, name: r.name, x: Number(r.x), y: Number(r.y), z: Number(r.z),
+                bx: r.bx !== null ? Number(r.bx) : Number(r.x), by: r.by_ !== null ? Number(r.by_) : Number(r.y), bz: r.bz !== null ? Number(r.bz) : Number(r.z),
+                owner: r.owner_id ? Number(r.owner_id) : null, ownerName: r.owner_nick || r.owner_login || null,
+                price: Number(r.price) || 0, markup: Number(r.markup) || 100, stock: Number(r.stock) || 0, max: Number(r.max_stock) || 5000,
+                balance: Number(r.balance) || 0, earned: Number(r.earned) || 0, sold: Number(r.sold) || 0 };
+        });
+    }
+    Object.keys(stBlips).forEach(function (k) { try { stBlips[k].destroy(); } catch (e) {} delete stBlips[k]; });
+    STATIONS.forEach(function (st) {
+        stBlips[st.id] = mp.blips.new(361, new mp.Vector3(st.x, st.y, st.z), { name: st.name, color: st.stock <= 0 ? 40 : 1, shortRange: true, scale: 0.8 });
+    });
+    mp.players.forEach(sendBizPoints);
+}
+function stationOf(id) { return STATIONS.find(function (s) { return s.id === Number(id); }) || null; }
+function sendBizPoints(p) {
+    if (!mp.players.exists(p)) return;
+    p.call('fuel:list', [JSON.stringify(STATIONS.map(function (s) { return [s.id, s.x, s.y, s.z]; }))]);
+    p.call('biz:points', [JSON.stringify(STATIONS.map(function (s) { return ['fuel', s.id, s.bx, s.by, s.bz, s.name]; }))]);
+}
+mp.events.add('playerReady', function (p) { setTimeout(function () { sendBizPoints(p); }, 3200); });
+mp.events.add('srv:biz:points', function (p) { sendBizPoints(p); });
+setTimeout(function () { fuelInit().catch(function (e) { console.log('[fuel] init: ' + e.message); loadStations(); }); }, 2000);
+
+function bizLog(kind, id, text, amount) { q('INSERT INTO biz_log (kind, biz_id, text, amount) VALUES (?, ?, ?, ?)', [kind, id, String(text).slice(0, 120), Math.floor(amount || 0)]); }
+function saveStation(st, fields) {
+    if (st.nodb) return;
+    const map = { stock: 'stock', balance: 'balance', earned: 'earned', sold: 'sold', markup: 'markup', owner: 'owner_id', name: 'name', price: 'price', max: 'max_stock' };
+    const cols = fields.map(function (f) { return map[f] + ' = ?'; }).join(', ');
+    q('UPDATE fuel_stations SET ' + cols + ' WHERE id = ?', fields.map(function (f) { return st[f]; }).concat([st.id]));
+}
+function deficit(st) { return st.stock <= st.max * 0.2; }
+function priceOf(st, type) {
+    const base = FUEL_TYPES[type].price;
+    let k = st.owner ? st.markup / 100 : (deficit(st) ? 1.5 : 1);
+    return Math.round(base * k * 100) / 100;
+}
 
 function fuelOf(v) {
     let f = v.getVariable('fuel');
@@ -1332,11 +1412,12 @@ function setFuel(v, f) {
     if (f <= 0) v.engine = false;
 }
 function nearStation(pos) {
+    let best = -1, bd = 45;
     for (let i = 0; i < STATIONS.length; i++) {
-        const s = STATIONS[i];
-        if (dist(pos, { x: s[0], y: s[1], z: s[2] }) < 12) return i;
+        const d = dist(pos, STATIONS[i]);
+        if (d < bd) { bd = d; best = i; }
     }
-    return -1;
+    return best;
 }
 
 setInterval(function () {
@@ -1355,54 +1436,269 @@ setInterval(function () {
     });
 }, 2000);
 
-const FUEL_TYPES = {
-    ai92: { n: 'АИ-92', price: 2, c: '#3fbf5f' },
-    ai95: { n: 'АИ-95', price: 3, c: '#f2b632' },
-    ai98: { n: 'АИ-98', price: 4, c: '#e63950' },
-    diesel: { n: 'Дизель', price: 2.5, c: '#4a9cff' }
-};
+/* государственные АЗС медленно пополняются, частные — только поставками */
+setInterval(function () {
+    STATIONS.forEach(function (st) {
+        if (st.owner || st.nodb) return;
+        if (st.stock >= st.max * 0.45) return;
+        st.stock = Math.min(st.max, st.stock + 250);
+        saveStation(st, ['stock']);
+    });
+}, 10 * 60000);
+
+/* поставки: пока нет дальнобойщиков — их везёт «гос. логистика» через 6 минут */
+setInterval(async function () {
+    if (global.TruckerSystem && global.TruckerSystem.active) return;
+    const rows = await q("SELECT * FROM fuel_orders WHERE status = 'pending' AND created_at < (NOW() - INTERVAL 6 MINUTE) LIMIT 20");
+    for (const r of rows) await deliverOrder(r.id, null);
+}, 60000);
+
+async function deliverOrder(orderId, driverAcc) {
+    const r = (await q('SELECT * FROM fuel_orders WHERE id = ? LIMIT 1', [orderId]))[0];
+    if (!r || r.status === 'done' || r.status === 'cancel') return false;
+    const st = stationOf(r.station_id);
+    if (!st) { await q("UPDATE fuel_orders SET status = 'cancel' WHERE id = ?", [orderId]); return false; }
+    const add = Math.min(Number(r.liters), st.max - st.stock);
+    st.stock += Math.max(0, add);
+    saveStation(st, ['stock']);
+    await q("UPDATE fuel_orders SET status = 'done', driver_id = ?, done_at = NOW() WHERE id = ?", [driverAcc, orderId]);
+    bizLog('fuel', st.id, 'Поставка топлива: +' + add + ' л', 0);
+    if (st.owner) {
+        const op = mp.players.toArray().find(function (x) { return accId(x) === st.owner; });
+        if (op) notify(op, 'ok', st.name + ': доставлено ' + add + ' л топлива');
+    }
+    if (stBlips[st.id]) try { stBlips[st.id].color = st.stock <= 0 ? 40 : 1; } catch (e) {}
+    return true;
+}
 
 mp.events.add('srv:fuel:get', function (p) {
     const v = p.vehicle;
-    if (!v || nearStation(p.position) < 0) return;
+    const i = nearStation(p.position);
+    if (!v || i < 0) return;
+    const st = STATIONS[i];
     p.call('ui:data', ['fuel', JSON.stringify({
         fuel: Math.floor(fuelOf(v)), max: FUEL_MAX, money: getMoney(p), bank: getBank(p),
         cur: v.getVariable('fuelType') || 'ai92',
-        types: Object.keys(FUEL_TYPES).map(function (k) { return { k: k, n: FUEL_TYPES[k].n, price: FUEL_TYPES[k].price, c: FUEL_TYPES[k].c }; })
+        station: { name: st.name, stock: st.nodb ? null : st.stock, maxStock: st.max, deficit: !st.nodb && deficit(st), owner: st.ownerName },
+        types: Object.keys(FUEL_TYPES).map(function (k) { return { k: k, n: FUEL_TYPES[k].n, price: priceOf(st, k), c: FUEL_TYPES[k].c }; })
     })]);
 });
 
 mp.events.add('srv:fuel:buy', function (p, type, liters, pay) {
     const v = p.vehicle;
     if (!v) return notify(p, 'error', 'Вы не в машине');
-    if (nearStation(p.position) < 0) return notify(p, 'error', 'Рядом нет заправки');
+    const i = nearStation(p.position);
+    if (i < 0) return notify(p, 'error', 'Рядом нет заправки');
+    const st = STATIONS[i];
     const ft = FUEL_TYPES[type];
     if (!ft) return;
+    if (st.stock <= 0) return notify(p, 'error', 'На этой АЗС закончилось топливо. Ждите поставку');
     const f = fuelOf(v);
-    let l = Math.min(Math.floor(Number(liters) || 0), Math.floor(FUEL_MAX - f));
+    let l = Math.min(Math.floor(Number(liters) || 0), Math.floor(FUEL_MAX - f), st.stock);
     if (l <= 0) return notify(p, 'warn', 'Бак и так полный');
-    const cost = Math.ceil(l * ft.price);
+    const cost = Math.ceil(l * priceOf(st, type));
     if (pay === 'card') {
         const b = getBank(p);
         if (b < cost) return notify(p, 'error', 'На карте недостаточно средств');
         setMB(p, getMoney(p), b - cost);
+        tx(accId(p), 'out', -cost, 'Топливо: ' + st.name);
     } else {
         const m = getMoney(p);
         if (m < cost) return notify(p, 'error', 'Недостаточно наличных');
         setMB(p, m - cost, getBank(p));
     }
+    st.stock -= l; st.sold += l;
+    if (st.owner) { st.balance += cost; st.earned += cost; }
+    saveStation(st, st.owner ? ['stock', 'sold', 'balance', 'earned'] : ['stock', 'sold']);
+    if (st.owner) bizLog('fuel', st.id, ft.n + ' ' + l + ' л — ' + holder(p), cost);
     v.engine = false;
     setFuel(v, f + l);
     v.setVariable('fuelType', type);
     p.call('ui:fuelDone');
     notify(p, 'ok', 'Заправлено ' + l + ' л ' + ft.n + ' за $' + cost + '. Заведите двигатель (Z)');
+    if (st.stock <= 0) { notify(p, 'warn', 'Вы залили последние литры на этой АЗС'); if (stBlips[st.id]) try { stBlips[st.id].color = 40; } catch (e) {} }
 });
 
 mp.events.add('srv:fuel:refill', function (p) {
     if (!p.vehicle) return;
-    if (nearStation(p.position) < 0) return notify(p, 'error', 'Рядом нет заправки');
+    const i = nearStation(p.position);
+    if (i < 0) return notify(p, 'error', 'Рядом нет заправки');
+    if (STATIONS[i].stock <= 0) return notify(p, 'error', STATIONS[i].name + ': топливо закончилось, ждите поставку');
     p.call('ui:fuelOpen');
 });
+
+/* ================= BUSINESS (общее меню) ================= */
+const BIZ_KINDS = {
+    fuel: { n: 'АЗС', i: '⛽', list: function () { return STATIONS; }, table: 'fuel_stations', of: stationOf, pt: function (b) { return { x: b.bx, y: b.by, z: b.bz }; } },
+    atm: { n: 'Банкомат', i: '🏧', list: function () { return ATMS; }, table: 'atms', of: function (id) { return atmOf(id); }, pt: function (b) { return b; } }
+};
+function bizNear(p, kind, id) {
+    const K = BIZ_KINDS[kind];
+    if (!K) return null;
+    const b = K.of(id);
+    if (!b) return null;
+    if (adminLvl(p) >= 5 && p.bizAdminView) return b;
+    return dist(p.position, K.pt(b)) < 4.5 ? b : null;
+}
+async function bizState(p, kind, b, extra) {
+    const id = accId(p), K = BIZ_KINDS[kind];
+    const own = !!(id && b.owner === id);
+    const st = { kind: kind, id: b.id, n: K.n, i: K.i, name: b.name, own: own, forSale: !b.owner, ownerName: b.ownerName, price: b.price,
+        balance: b.balance, earned: b.earned, myBank: getBank(p), myMoney: getMoney(p), sellBack: Math.floor(b.price * 0.6), settings: [], stats: [] };
+    if (kind === 'fuel') {
+        st.stats = [{ l: 'Запас топлива', v: b.stock + ' / ' + b.max + ' л', warn: deficit(b) }, { l: 'Продано всего', v: b.sold + ' л' }, { l: 'Наценка', v: b.markup + '%' }];
+        st.settings = [{ k: 'markup', l: 'Цена топлива (% от базовой)', v: b.markup, min: 50, max: 250, step: 5, unit: '%',
+            hint: Object.keys(FUEL_TYPES).map(function (k) { return FUEL_TYPES[k].n + ': $' + (Math.round(FUEL_TYPES[k].price * b.markup) / 100); }).join(' · ') }];
+        const ord = own ? await q('SELECT liters, status, created_at FROM fuel_orders WHERE station_id = ? ORDER BY id DESC LIMIT 6', [b.id]) : [];
+        st.stock = { cur: b.stock, max: b.max, wholesale: WHOLESALE, deficit: deficit(b),
+            orders: ord.map(function (o) { return { l: Number(o.liters), s: o.status, d: new Date(o.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }; }) };
+    } else if (kind === 'atm') {
+        st.stats = [{ l: 'Комиссия за снятие', v: b.fee + '%' }];
+        st.settings = [{ k: 'fee', l: 'Комиссия за снятие наличных', v: b.fee, min: 0, max: 5, step: 0.5, unit: '%', hint: 'Берётся с игроков, кроме вас' }];
+    }
+    if (own) {
+        const lg = await q('SELECT text, amount, created_at FROM biz_log WHERE kind = ? AND biz_id = ? ORDER BY id DESC LIMIT 15', [kind, b.id]);
+        st.log = lg.map(function (x) { return { text: x.text, a: Number(x.amount), d: new Date(x.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }; });
+    }
+    return Object.assign(st, extra || {});
+}
+async function sendBiz(p, kind, b, extra) {
+    if (!mp.players.exists(p)) return;
+    p.call('ui:bizOpen', [JSON.stringify(await bizState(p, kind, b, extra))]);
+}
+mp.events.add('srv:biz:open', async function (p, kind, bid) {
+    const b = bizNear(p, kind, bid);
+    if (!b) return notify(p, 'error', 'Подойдите ближе к бизнесу');
+    p.bizCur = { kind: kind, id: b.id };
+    await sendBiz(p, kind, b);
+});
+mp.events.add('srv:biz:act', async function (p, act, val) {
+    if (!p.bizCur) return;
+    const kind = p.bizCur.kind, K = BIZ_KINDS[kind];
+    const b = bizNear(p, kind, p.bizCur.id);
+    const id = accId(p);
+    if (!b || !id) return;
+    const reply = function (o) { return sendBiz(p, kind, b, o); };
+    const save = async function (cols) {
+        if (kind === 'fuel') return saveStation(b, cols);
+        const map = { owner: 'owner_id', balance: 'balance', earned: 'earned', fee: 'fee', name: 'name' };
+        await q('UPDATE atms SET ' + cols.map(function (c) { return map[c] + ' = ?'; }).join(', ') + ' WHERE id = ?', cols.map(function (c) { return b[c]; }).concat([b.id]));
+    };
+    if (act === 'buy') {
+        if (b.owner) return reply({ err: 'У бизнеса уже есть владелец' });
+        const bank = getBank(p);
+        if (bank < b.price) return reply({ err: 'Нужно ' + b.price + '$ на банковской карте' });
+        setMB(p, getMoney(p), bank - b.price);
+        b.owner = id; b.ownerName = holder(p); b.balance = 0;
+        await save(['owner', 'balance']);
+        tx(id, 'biz', -b.price, 'Покупка: ' + b.name);
+        bizLog(kind, b.id, 'Куплен игроком ' + holder(p), -b.price);
+        if (kind === 'fuel') loadStations(); else loadAtms();
+        return reply({ ok: 'Поздравляем! ' + K.n + ' теперь ваш бизнес' });
+    }
+    if (b.owner !== id) return reply({ err: 'Это не ваш бизнес' });
+    if (act === 'collect') {
+        const s = b.balance;
+        if (s <= 0) return reply({ err: 'Касса пуста' });
+        b.balance = 0;
+        await save(['balance']);
+        setMB(p, getMoney(p), getBank(p) + s);
+        tx(id, 'biz', s, 'Доход: ' + b.name);
+        bizLog(kind, b.id, 'Владелец забрал выручку', -s);
+        return reply({ ok: 'Выручка $' + s + ' переведена на карту' });
+    }
+    if (act === 'set') {
+        const sp = (val || '').split(':'), k = sp[0], v = Number(sp[1]);
+        if (kind === 'fuel' && k === 'markup') { b.markup = Math.max(50, Math.min(250, Math.round(v / 5) * 5)); await save(['markup']); return reply({ ok: 'Цена топлива: ' + b.markup + '%' }); }
+        if (kind === 'atm' && k === 'fee') { b.fee = Math.max(0, Math.min(5, Math.round(v * 2) / 2)); await save(['fee']); return reply({ ok: 'Комиссия: ' + b.fee + '%' }); }
+        return;
+    }
+    if (act === 'rename') {
+        const nm = String(val || '').trim().slice(0, 32);
+        if (nm.length < 3) return reply({ err: 'Название от 3 символов' });
+        b.name = nm;
+        await save(['name']);
+        if (kind === 'fuel') loadStations(); else loadAtms();
+        return reply({ ok: 'Название изменено' });
+    }
+    if (act === 'order' && kind === 'fuel') {
+        const l = Math.floor(Number(val) || 0);
+        const pend = await q("SELECT COALESCE(SUM(liters),0) AS s FROM fuel_orders WHERE station_id = ? AND status IN ('pending','taken')", [b.id]);
+        const free = b.max - b.stock - Number(pend[0] ? pend[0].s : 0);
+        if (l < 100) return reply({ err: 'Минимальный заказ — 100 л' });
+        if (l > free) return reply({ err: 'На складе есть место только для ' + Math.max(0, free) + ' л (с учётом заказов в пути)' });
+        const cost = l * WHOLESALE;
+        let from = 'касса';
+        if (b.balance >= cost) { b.balance -= cost; await save(['balance']); }
+        else { const bank = getBank(p); if (bank < cost) return reply({ err: 'Нужно $' + cost + ' (в кассе или на карте)' }); setMB(p, getMoney(p), bank - cost); from = 'карта'; tx(id, 'biz', -cost, 'Закупка топлива: ' + b.name); }
+        await q('INSERT INTO fuel_orders (station_id, liters, cost) VALUES (?, ?, ?)', [b.id, l, cost]);
+        bizLog('fuel', b.id, 'Заказ топлива ' + l + ' л (' + from + ')', -cost);
+        return reply({ ok: 'Заказ ' + l + ' л оформлен. Доставка до 6 минут' });
+    }
+    if (act === 'sell') {
+        const back = Math.floor(b.price * 0.6) + b.balance;
+        b.owner = null; b.ownerName = null; b.balance = 0;
+        await save(['owner', 'balance']);
+        if (kind === 'fuel') { b.markup = 100; await save(['markup']); }
+        setMB(p, getMoney(p), getBank(p) + back);
+        tx(id, 'biz', back, 'Продажа: ' + b.name);
+        bizLog(kind, b.id, 'Продан государству', back);
+        if (kind === 'fuel') loadStations(); else loadAtms();
+        return reply({ ok: 'Бизнес продан государству за $' + back });
+    }
+});
+mp.events.addCommand('fuelstock', function (p, full2, n) {
+    if (adminLvl(p) < 3) return notify(p, 'error', 'Недостаточно прав');
+    const i = nearStation(p.position);
+    if (i < 0) return notify(p, 'error', 'Встаньте на АЗС');
+    const st = STATIONS[i];
+    st.stock = Math.max(0, Math.min(st.max, Number(n) || st.max));
+    saveStation(st, ['stock']);
+    notify(p, 'ok', st.name + ': запас ' + st.stock + ' л');
+});
+mp.events.addCommand('bizhere', async function (p) {
+    if (adminLvl(p) < 5) return notify(p, 'error', 'Недостаточно прав');
+    const i = nearStation(p.position);
+    if (i < 0) return notify(p, 'error', 'Встаньте на АЗС');
+    notify(p, 'ok', await global.FuelSystem.admin(p, { op: 'bizpos', atm: STATIONS[i].id }));
+});
+mp.events.add('srv:biz:close', function (p) { p.bizCur = null; p.bizAdminView = false; });
+mp.events.addCommand('mybiz', function (p) {
+    const id = accId(p);
+    const list = [];
+    Object.keys(BIZ_KINDS).forEach(function (k) { BIZ_KINDS[k].list().forEach(function (b) { if (b.owner === id) list.push(BIZ_KINDS[k].i + ' ' + b.name + ' — касса $' + b.balance); }); });
+    if (!list.length) return notify(p, 'warn', 'У вас нет бизнесов');
+    list.forEach(function (t) { p.outputChatBox('!{#5ef0a0}' + t); });
+});
+
+global.FuelSystem = {
+    list: function () { return STATIONS; }, reload: loadStations, deliver: deliverOrder, WHOLESALE: WHOLESALE,
+    pendingOrders: function () { return q("SELECT o.*, s.name, s.x, s.y, s.z FROM fuel_orders o JOIN fuel_stations s ON s.id = o.station_id WHERE o.status = 'pending' ORDER BY o.id"); },
+    takeOrder: async function (orderId, driverAcc) { const r = await q("UPDATE fuel_orders SET status = 'taken', driver_id = ? WHERE id = ? AND status = 'pending'", [driverAcc, orderId]); return r && r.affectedRows > 0; },
+    admin: async function (p, d) {
+        const st = stationOf(d.atm);
+        if (d.op === 'add') {
+            const pos = p.position;
+            await q('INSERT INTO fuel_stations (name, x, y, z, price) VALUES (?, ?, ?, ?, ?)', [String(d.name || '').trim().slice(0, 48) || 'АЗС', pos.x, pos.y, pos.z, Math.max(0, Number(d.price) || 250000)]);
+            await loadStations();
+            return 'АЗС создана';
+        }
+        if (!st) throw new Error('АЗС не найдена');
+        if (d.op === 'tp') { p.position = new mp.Vector3(st.bx + 1, st.by, st.bz); return 'Телепорт к ' + st.name; }
+        if (d.op === 'del') { await q('DELETE FROM fuel_stations WHERE id = ?', [st.id]); await loadStations(); return st.name + ' удалена'; }
+        if (d.op === 'price') { await q('UPDATE fuel_stations SET price = ? WHERE id = ?', [Math.max(0, Number(d.value) || 0), st.id]); await loadStations(); return 'Цена изменена'; }
+        if (d.op === 'stock') { st.stock = Math.max(0, Math.min(st.max, Number(d.value) || 0)); saveStation(st, ['stock']); return 'Запас: ' + st.stock + ' л'; }
+        if (d.op === 'bizpos') { const pos = p.position; await q('UPDATE fuel_stations SET bx = ?, by_ = ?, bz = ? WHERE id = ?', [pos.x, pos.y, pos.z, st.id]); await loadStations(); return 'Точка управления перенесена сюда'; }
+        if (d.op === 'owner') {
+            let owner = null;
+            if (Number(d.pid) >= 0) { const t = mp.players.at(Number(d.pid)); if (!t || !accId(t)) throw new Error('Игрок не найден'); owner = accId(t); }
+            await q('UPDATE fuel_stations SET owner_id = ?, balance = 0 WHERE id = ?', [owner, st.id]);
+            await loadStations();
+            return owner ? 'Владелец назначен' : 'АЗС изъята у владельца';
+        }
+        throw new Error('Неизвестное действие');
+    }
+};
 
 /* ================= LOCKS ================= */
 function ownsVeh(p, v) {

@@ -480,6 +480,7 @@ function panelData(p) {
         logs: logs.slice(0, 60),
         dlc: dlc,
         weather: mp.world.weather,
+        stations: global.FuelSystem ? global.FuelSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
         atms: global.AtmSystem ? global.AtmSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, fee: a.fee, balance: a.balance, earned: a.earned }; }) : []
     };
 }
