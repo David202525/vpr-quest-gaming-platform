@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import CabinetHeader from '@/components/CabinetHeader';
-import ParentHeatmap from '@/components/cabinet/ParentHeatmap';
 import ParentShop from '@/components/cabinet/ParentShop';
 import ParentBackground from '@/components/cabinet/ParentBackground';
+import ParentHero from '@/components/cabinet/ParentHero';
+import ParentChildrenList from '@/components/cabinet/ParentChildrenList';
+import ParentProgressTab from '@/components/cabinet/ParentProgressTab';
+import ParentAssignTab from '@/components/cabinet/ParentAssignTab';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, Assignment, Child, Invite, Parent, ShopItem } from '@/lib/api';
-import { GRADES, SUBJECTS } from '@/data/curriculum';
 import { DbTopic } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
-const AVATARS = ['🐼', '🤖', '🦊', '🐦‍⬛', '🐱', '🐲'];
 type Tab = 'progress' | 'assign' | 'shop';
 
 const ParentCabinet = () => {
@@ -162,137 +163,27 @@ const ParentCabinet = () => {
       <CabinetHeader title={`Кабинет родителя · ${parent?.name || ''}`} />
 
       <main className="mx-auto mt-8 max-w-6xl pb-16">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="rubric text-primary">Только для вас</p>
-            <h1 className="mt-4 font-display text-[clamp(2rem,5vw,3.25rem)] font-light uppercase leading-[1.05] tracking-[0.05em]">
-              Дети и их прогресс
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {parent?.is_admin && (
-              <button
-                onClick={() => navigate('/admin')}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-5 py-4 text-[0.68rem] font-medium uppercase tracking-[0.12em] transition-colors hover:bg-secondary"
-              >
-                <Icon name="Database" size={15} strokeWidth={1.5} />
-                Банк заданий
-              </button>
-            )}
-            <div className="rounded-md border border-border bg-card px-5 py-4">
-            <p className="rubric text-muted-foreground">Попытки</p>
-            <p className="mt-1 inline-flex items-center gap-2 font-display text-2xl">
-              <Icon name="Zap" size={18} strokeWidth={1.4} className="text-primary" />
-              {parent?.plan === 'unlimited' ? '∞' : (parent?.energy ?? 0)}
-            </p>
-            </div>
-          </div>
-        </div>
+        <ParentHero parent={parent} />
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[300px_1fr]">
-          <div className="space-y-3">
-            {children.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveId(c.id)}
-                className={`w-full rounded-md border p-5 text-left transition-all ${
-                  c.id === activeId
-                    ? 'border-primary bg-card shadow-[6px_6px_0_0_hsl(var(--primary))]'
-                    : 'border-border bg-card hover:-translate-y-0.5'
-                }`}
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-display text-lg uppercase tracking-[0.05em]">
-                    <span className="mr-2">{c.avatar}</span>
-                    {c.name}
-                  </span>
-                  <span className="text-[0.66rem] uppercase tracking-[0.1em] text-muted-foreground">
-                    {c.grade} класс
-                  </span>
-                </div>
-                <div className="mt-3 flex gap-5 text-[0.72rem] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon name="Coins" size={13} strokeWidth={1.6} />
-                    {c.coins}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon name="Zap" size={13} strokeWidth={1.6} />
-                    {c.xp} XP
-                  </span>
-                </div>
-              </button>
-            ))}
-
-            {addOpen ? (
-              <form
-                onSubmit={addChild}
-                noValidate
-                className="rounded-md border border-border bg-card p-5"
-              >
-                <p className="rubric text-muted-foreground">Новый ребёнок</p>
-                <label className="mt-4 block text-sm">
-                  <span className="text-muted-foreground">Имя</span>
-                  <input
-                    value={childName}
-                    onChange={(e) => setChildName(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <label className="block text-sm">
-                    <span className="text-muted-foreground">Класс</span>
-                    <select
-                      value={grade}
-                      onChange={(e) => setGrade(e.target.value)}
-                      className={inputClass}
-                    >
-                      {GRADES.map((g) => (
-                        <option key={g}>{g}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-muted-foreground">ПИН</span>
-                    <input
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      inputMode="numeric"
-                      className={`${inputClass} tracking-[0.3em]`}
-                    />
-                  </label>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {AVATARS.map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => setAvatar(a)}
-                      className={`flex h-10 w-10 items-center justify-center rounded-md border text-lg transition-colors ${
-                        a === avatar ? 'border-primary bg-primary/10' : 'border-border bg-background'
-                      }`}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
-                {addError && <p className="mt-3 text-sm text-destructive">{addError}</p>}
-                <button
-                  type="submit"
-                  className="mt-5 w-full rounded-md bg-primary px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.14em] text-primary-foreground"
-                >
-                  Создать доступ
-                </button>
-              </form>
-            ) : (
-              <button
-                onClick={() => setAddOpen(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-card px-5 py-4 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary"
-              >
-                <Icon name="Plus" size={15} strokeWidth={1.6} />
-                Добавить ребёнка
-              </button>
-            )}
-          </div>
+          <ParentChildrenList
+            children={children}
+            activeId={activeId}
+            setActiveId={setActiveId}
+            addOpen={addOpen}
+            setAddOpen={setAddOpen}
+            addChild={addChild}
+            childName={childName}
+            setChildName={setChildName}
+            grade={grade}
+            setGrade={setGrade}
+            pin={pin}
+            setPin={setPin}
+            avatar={avatar}
+            setAvatar={setAvatar}
+            addError={addError}
+            inputClass={inputClass}
+          />
 
           <div className="space-y-6">
             {active ? (
@@ -328,165 +219,25 @@ const ParentCabinet = () => {
                   ))}
                 </div>
 
-                {tab === 'progress' && (
-                  <>
-                    <ParentHeatmap data={active.heatmap} name={active.name} />
-                    <div className="rounded-md border border-border bg-card p-6">
-                      <p className="rubric text-muted-foreground">Итог по темам</p>
-                      {active.stats && active.stats.length ? (
-                        <ul className="mt-5 space-y-4">
-                          {active.stats.map((s) => (
-                            <li key={s.topic}>
-                              <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                                <span>{s.topic}</span>
-                                <span className="text-muted-foreground">
-                                  {s.correct} из {s.total} — {s.percent}% верных
-                                </span>
-                              </div>
-                              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-secondary">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    s.percent < 50 ? 'bg-destructive' : 'bg-primary'
-                                  }`}
-                                  style={{ width: `${s.percent}%` }}
-                                />
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                          Пока пусто. После первой капсулы здесь появятся темы и доля верных
-                          ответов.
-                        </p>
-                      )}
-                    </div>
-                  </>
-                )}
+                {tab === 'progress' && <ParentProgressTab active={active} />}
 
                 {tab === 'assign' && (
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <form
-                      onSubmit={assign}
-                      noValidate
-                      className="rounded-md border border-border bg-card p-6"
-                    >
-                      <p className="rubric text-muted-foreground">Назначить задание</p>
-                      <label className="mt-5 block text-sm">
-                        <span className="text-muted-foreground">Предмет</span>
-                        <select
-                          value={subject}
-                          onChange={(e) => setSubject(e.target.value)}
-                          className={inputClass}
-                        >
-                          {SUBJECTS.map((s) => (
-                            <option key={s}>{s}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="mt-4 block text-sm">
-                        <span className="text-muted-foreground">
-                          Тема для {active.grade} класса
-                        </span>
-                        <select
-                          value={selectedTopic?.slug || ''}
-                          onChange={(e) => setTopicId(e.target.value)}
-                          className={inputClass}
-                        >
-                          {availableTopics.map((t) => (
-                            <option key={t.slug} value={t.slug}>
-                              {t.label} ({t.count})
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {!availableTopics.length && (
-                        <p className="mt-3 text-sm text-muted-foreground">
-                          Для этого класса по предмету тем нет — выберите другой предмет.
-                        </p>
-                      )}
-                      <label className="mt-4 block text-sm">
-                        <span className="text-muted-foreground">Дедлайн</span>
-                        <input
-                          type="date"
-                          value={deadline}
-                          onChange={(e) => setDeadline(e.target.value)}
-                          className={inputClass}
-                        />
-                      </label>
-                      <div className="mt-5">
-                        <span className="text-sm text-muted-foreground">
-                          Капсула: <b className="text-foreground">{minutes} мин</b>
-                        </span>
-                        <div className="mt-3 flex gap-2">
-                          {[10, 15, 20, 30].map((m) => (
-                            <button
-                              key={m}
-                              type="button"
-                              onClick={() => setMinutes(m)}
-                              className={`rounded-md border px-4 py-2 text-xs font-medium transition-colors ${
-                                m === minutes
-                                  ? 'border-primary bg-primary text-primary-foreground'
-                                  : 'border-border bg-background hover:bg-secondary'
-                              }`}
-                            >
-                              {m}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      {selectedTopic && (
-                        <p className="mt-5 rounded-md border border-border bg-background px-4 py-3 text-sm">
-                          <span className="text-muted-foreground">Модуль: </span>
-                          {selectedTopic.module} · в капсуле {Math.max(5, Math.round(minutes * 0.8))}{' '}
-                          заданий из {selectedTopic.count}
-                        </p>
-                      )}
-                      {assignError && (
-                        <p className="mt-3 text-sm text-destructive">{assignError}</p>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={!availableTopics.length}
-                        className="mt-5 w-full rounded-md bg-primary px-6 py-3.5 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-                      >
-                        Назначить {active.name}
-                      </button>
-                    </form>
-
-                    <div className="rounded-md border border-border bg-card p-6">
-                      <p className="rubric text-muted-foreground">Уже назначено</p>
-                      {childAssignments.length ? (
-                        <ul className="mt-5 space-y-4">
-                          {childAssignments.map((a) => (
-                            <li key={a.id} className="border-b border-border pb-4 last:border-b-0">
-                              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                <span className="font-display text-base uppercase tracking-[0.04em]">
-                                  {a.topic}
-                                </span>
-                                <span
-                                  className={`rounded-sm px-2 py-1 text-[0.62rem] uppercase tracking-[0.12em] ${
-                                    a.status === 'done'
-                                      ? 'bg-primary text-primary-foreground'
-                                      : 'bg-secondary text-muted-foreground'
-                                  }`}
-                                >
-                                  {a.status === 'done' ? 'Сдано' : 'В работе'}
-                                </span>
-                              </div>
-                              <p className="mt-1.5 text-[0.72rem] text-muted-foreground">
-                                {a.module} · до {a.deadline} · {a.minutes} мин
-                              </p>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                          Заданий пока нет. Выберите тему слева и поставьте дедлайн.
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  <ParentAssignTab
+                    active={active}
+                    assign={assign}
+                    subject={subject}
+                    setSubject={setSubject}
+                    selectedTopic={selectedTopic}
+                    setTopicId={setTopicId}
+                    availableTopics={availableTopics}
+                    deadline={deadline}
+                    setDeadline={setDeadline}
+                    minutes={minutes}
+                    setMinutes={setMinutes}
+                    assignError={assignError}
+                    childAssignments={childAssignments}
+                    inputClass={inputClass}
+                  />
                 )}
 
                 {tab === 'shop' && (
