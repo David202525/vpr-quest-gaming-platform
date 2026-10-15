@@ -1,0 +1,17 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; font-family: "Segoe UI", Roboto, Arial, sans-serif; }
+.chat { position: absolute; top: 3vh; left: 1.6vw; width: 34vw; min-width: 420px; max-width: 640px; transition: opacity .3s; }
+.chat.hidden { opacity: 0; pointer-events: none; }
+.list { height: 290px; overflow-y: hidden; overflow-x: hidden; padding: 6px 10px 6px 4px; border-radius: 10px; scroll-behavior: auto; user-select: text; }
+.chat.active .list { overflow-y: auto; background: linear-gradient(90deg, rgba(10, 10, 18, .55), rgba(10, 10, 18, .15)); }
+.list::-webkit-scrollbar { width: 5px; }
+.list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .35); border-radius: 3px; }
+.msg { color: #fff; font-size: 14.5px; font-weight: 600; line-height: 1.4; padding: 1px 4px; border-radius: 4px; text-shadow: 0 0 2px #000, 1px 1px 1px #000; word-wrap: break-word; }
+.chat.active .msg:hover { background: rgba(255, 255, 255, .07); }
+.msg.flash { background: rgba(139, 61, 255, .35); }
+.bar { display: none; margin-top: 6px; }
+.chat.active .bar { display: block; }
+#inp { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(139, 61, 255, .7); background: rgba(10, 10, 18, .82); color: #fff; font-size: 14.5px; outline: none; user-select: text; }
+.hint { margin-top: 4px; font-size: 11px; color: rgba(255, 255, 255, .55); text-shadow: 0 0 2px #000; }
+.toast { position: absolute; top: 3vh; left: calc(1.6vw + 300px); padding: 6px 12px; background: #8b3dff; color: #fff; font-size: 12px; font-weight: 700; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }

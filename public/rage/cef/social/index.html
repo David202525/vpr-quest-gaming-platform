@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>social</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap" id="wrap">
+    <div class="ring" id="ring">
+        <svg viewBox="-200 -200 400 400" id="svg"></svg>
+        <div class="core" id="core">
+            <div class="who" id="who">Гражданин</div>
+            <div class="title" id="title">Взаимодействие</div>
+            <div class="sub" id="sub">G — закрыть</div>
+            <div class="pay" id="pay">
+                <input id="sum" inputmode="numeric" maxlength="6" placeholder="Сумма, $">
+                <div class="pay-btns"><button id="payOk">Передать</button><button id="payNo" class="ghost">Назад</button></div>
+            </div>
+        </div>
+        <div class="labels" id="labels"></div>
+    </div>
+</div>
+<div class="offer" id="offer">
+    <div class="offer-ico">🤝</div>
+    <div class="offer-txt" id="offerTxt"></div>
+    <div class="offer-keys"><span><b>Y</b> принять</span><span><b>N</b> отказать</span></div>
+    <div class="offer-bar"><i id="offerBar"></i></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

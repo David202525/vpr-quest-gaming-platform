@@ -754,7 +754,11 @@ mp.events.add('playerChat', function (p, text) {
     const L = lvl(p);
     const tag = L >= 1 && !p.hidePrefix ? '!{' + rankColor(L) + '}[' + SHORT[L] + '] ' : '';
     if (global.AdminCore && global.AdminCore.chatHook && global.AdminCore.chatHook(p, text)) return;
-    mp.players.broadcast(tag + '!{#ffffff}' + login(p) + ' [' + p.id + ']: ' + text);
+    const S = global.SocialSystem;
+    if (!S) return mp.players.broadcast(tag + '!{#ffffff}' + login(p) + ' [' + p.id + ']: ' + text);
+    mp.players.forEach(function (x) {
+        x.outputChatBox(tag + '!{#ffffff}' + S.seen(x, p) + ' [' + p.id + ']: ' + text);
+    });
 });
 
 const CMDS = {};

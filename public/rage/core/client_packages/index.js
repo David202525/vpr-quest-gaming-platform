@@ -1,3 +1,4 @@
+require('./social/index.js');
 require('./modules/vehicle_names.js');
 require('./modules/appearance.js');
 require('./modules/creator.js');

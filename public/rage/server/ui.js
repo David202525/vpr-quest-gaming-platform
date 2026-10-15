@@ -948,6 +948,9 @@ mp.events.add('playerQuit', function (p) { p.uiReadySent = undefined; });
 if (!global.JobSystem) {
     try { require('./jobs.js'); } catch (e) { console.log('[ui] jobs.js не найден: ' + e.message); }
 }
+if (!global.SocialSystem) {
+    try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }
+}
 if (!global.DeathSystem) {
     try { require('./death.js'); console.log('[ui] система ранений подключена'); } catch (e) { console.log('[ui] death.js не найден: ' + e.message); }
 }
@@ -1382,7 +1385,7 @@ global.AtmSystem = {
     }
 };
 
-global.UiSystem = { takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
+global.UiSystem = { showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
