@@ -135,7 +135,14 @@ function dossier(x) {
 function bind(m) {
     var on = function (sel, fn) { m.querySelectorAll(sel).forEach(function (b) { b.onclick = function (e) { fn(b, e); }; }); };
     var mf = $('mf'); if (mf) mf.oninput = function () { memFilter = mf.value; var p = mf.selectionStart; render(); var n = $('mf'); n.focus(); n.setSelectionRange(p, p); };
-    var inv = $('inv'); if (inv) inv.onclick = function () { modal('Пригласить в организацию', '<label>ID игрока (должен стоять рядом)</label><input class="in" id="iId" type="number">', 'Пригласить', function () { act({ a: 'invite', id: Number($('iId').value) }); }); };
+    var inv = $('inv'); if (inv) inv.onclick = function () {
+        var maxR = D.me.lead ? D.ranks.length - 1 : Math.max(1, D.me.r - 1);
+        var opts = D.ranks.slice(0, maxR).map(function (r, i) { return '<option value="' + (i + 1) + '">' + (i + 1) + ' · ' + esc(r) + '</option>'; }).join('');
+        modal('Пригласить в организацию', '<label>ID игрока (должен стоять рядом)</label><input class="in" id="iId" type="number"><label>На какой ранг принять</label><select class="in" id="iR">' + opts + '</select>', 'Пригласить', function () {
+            if (!$('iId').value) { toast('Укажите ID'); return false; }
+            act({ a: 'invite', id: Number($('iId').value), r: Number($('iR').value) });
+        });
+    };
     on('[data-a]', function (b) {
         if (b.dataset.a === 'fire') return modal('Уволить ' + b.dataset.n + '?', '<label>Причина</label><input class="in" id="fR" placeholder="Например: прогулы">', 'Уволить', function () { act({ a: 'fire', id: Number(b.dataset.id), reason: $('fR').value.trim() }); });
         act({ a: b.dataset.a, id: Number(b.dataset.id) });

@@ -528,8 +528,38 @@ $('govWdBtn').onclick = function () { var v = Number($('govWdIn').value); if (v 
 
 $('mpWeapons').innerHTML = MP_WEAPONS.map(function (w) { return '<button class="chip" data-mpw="' + w[0] + '">' + w[1] + '</button>'; }).join('');
 $('mpCars').innerHTML = MP_CARS.map(function (c) { return '<button class="chip" data-mpc="' + c + '">' + c + '</button>'; }).join('');
-$('fSel').onchange = function () { FSEL = this.value; renderExt(); };
-$('fSetLeader').onclick = function () { var v = $('fLeader').value.trim(); if (!v) return; act(v[0] === '#' ? { action: 'leader', s: Number(v.slice(1)), f: FSEL } : { action: 'leader', id: v, f: FSEL }); };
+$('fSel').onchange = function () { FSEL = this.value; FM = null; renderExt(); facLoad(); };
+var FM = null, FM_AT = 0;
+function facLoad() { if (FSEL) { FM_AT = Date.now(); act({ action: 'fac', f: FSEL, op: 'load' }); } }
+window.admFac = function (json) {
+    FM = typeof json === 'string' ? JSON.parse(json) : json;
+    if (FM.f !== FSEL) return;
+    $('fmCount').textContent = FM.members.length;
+    $('fmR').innerHTML = FM.ranks.slice(0, FM.ranks.length - 1).map(function (r, i) { return '<option value="' + (i + 1) + '">Ранг ' + (i + 1) + ' · ' + esc(r) + '</option>'; }).join('');
+    $('fmList').innerHTML = rowsHtml(FM.members, function (m) {
+        var opts = FM.ranks.map(function (r, i) { return '<option value="' + (i + 1) + '"' + (m.r === i + 1 ? ' selected' : '') + '>' + (i + 1) + ' · ' + esc(r) + '</option>'; }).join('');
+        return '<div class="tr"><b>' + (m.on ? '🟢 ' : '⚫ ') + esc(m.n) + ' <span class="mut">#' + m.id + (m.pid >= 0 ? ' · ID ' + m.pid : '') + '</span></b>' +
+            '<span>' + (m.lead ? '<b style="color:#ffcc66">Лидер</b>' : m.dep ? '<b style="color:#8fb2ff">Заместитель</b>' : '') + '</span>' +
+            '<select class="search" data-fmr="' + m.id + '" style="max-width:220px">' + opts + '</select>' +
+            (FM.gov && !m.lead ? '<button class="btn" data-fmd="' + m.id + '">' + (m.dep ? 'Снять зама' : 'Зам') + '</button>' : '') +
+            '<button class="btn danger" data-fmk="' + m.id + '" data-n="' + esc(m.n) + '">Исключить</button></div>';
+    }, 'В фракции никого нет');
+    var P = FM.points;
+    $('fmInfo').innerHTML = FM.gov ? ('Склад: ' + FM.stock.map(function (s) { return esc(s.n) + ' — <b>' + s.c + '</b>'; }).join(' · ') + ' <button class="btn" id="fmStock">+ Поставка</button><br>' +
+        (P ? 'Точки: склад ' + (P.armory ? '✅' : '❌') + ' · раздевалка ' + (P.locker ? '✅' : '❌') + ' · гараж ' + (P.garage ? '✅' : '❌') + ' · парковок: ' + P.spawns + ' — меняются командой /govpoint' : 'Точки не заданы — /govpoint')) : 'Для EMS склад и раздевалка работают в модуле медиков';
+    var st = $('fmStock'); if (st) st.onclick = function () { act({ action: 'fac', f: FSEL, op: 'stock' }); };
+    $('fmList').querySelectorAll('[data-fmr]').forEach(function (s) { s.onchange = function () { act({ action: 'fac', f: FSEL, op: 'rank', s: Number(s.dataset.fmr), r: Number(s.value) }); }; });
+    $('fmList').querySelectorAll('[data-fmd]').forEach(function (b) { b.onclick = function () { act({ action: 'fac', f: FSEL, op: 'dep', s: Number(b.dataset.fmd) }); }; });
+    $('fmList').querySelectorAll('[data-fmk]').forEach(function (b) { b.onclick = function () { modal('Исключить из фракции', b.dataset.n, '<p class="hint">Сотрудник потеряет должность и служебное снаряжение.</p>', 'Исключить', function () { act({ action: 'fac', f: FSEL, op: 'kick', s: Number(b.dataset.fmk) }); }); }; });
+};
+$('fmLoad').onclick = facLoad;
+$('fmAdd').onclick = function () {
+    var v = $('fmId').value.trim(); if (!v) return;
+    act(v[0] === '#' ? { action: 'fac', f: FSEL, op: 'add', s: Number(v.slice(1)), r: Number($('fmR').value) } : { action: 'fac', f: FSEL, op: 'add', id: v, r: Number($('fmR').value) });
+    $('fmId').value = '';
+};
+document.querySelector('[data-tab="factions"].m').addEventListener('click', function () { setTimeout(facLoad, 50); });
+$('fSetLeader').onclick = function () { var v = $('fLeader').value.trim(); if (!v) return; setTimeout(facLoad, 600); act(v[0] === '#' ? { action: 'leader', s: Number(v.slice(1)), f: FSEL } : { action: 'leader', id: v, f: FSEL }); };
 $('fUnLeader').onclick = function () { var v = $('fLeader').value.trim(); if (!v) return; act(v[0] === '#' ? { action: 'leader', s: Number(v.slice(1)), f: null } : { action: 'leader', id: v, f: null }); };
 $('oAdd').onclick = function () { act({ action: 'ochs', op: 'add', s: Number($('oStatic').value), minutes: Number($('oMin').value) || 0, f: FSEL, reason: $('oReason').value.trim() }); };
 $('flAdd').onclick = function () { act({ action: 'fleet', f: FSEL, op: 'add', m: $('flM').value.trim(), r: Number($('flR').value) }); $('flM').value = ''; };

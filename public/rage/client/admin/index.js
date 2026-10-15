@@ -490,3 +490,5 @@ mp.events.add('dlc:load', function (json, dev) {
     } catch (e) {}
     if (dev && res.length) mp.events.callRemote('dlc:result', JSON.stringify(res));
 });
+
+mp.events.add('adm:fac', function (json) { if (admBrowser) admBrowser.execute('window.admFac && window.admFac(' + JSON.stringify(json) + ');'); });

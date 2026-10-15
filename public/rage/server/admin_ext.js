@@ -585,7 +585,13 @@ async function setLeader(p, target, staticId, f) {
     if (f && S.facOff[f]) return 'Фракция отключена';
     await q('UPDATE accounts SET job = ?, job_rank = ?, leader = ? WHERE id = ?', [f || null, f ? 10 : 0, f ? 1 : 0, id]);
     const t = target || online(id);
-    if (t && t.account) { t.account.job = f || null; t.account.job_rank = f ? 10 : 0; t.account.leader = f ? 1 : 0; }
+    const GF = global.GovFaction;
+    const topR = f && GF && GF.F && GF.isGov && GF.isGov(f) ? GF.F(f).ranks.length : 10;
+    if (f) await q('UPDATE accounts SET job_rank = ? WHERE id = ?', [topR, id]);
+    if (!f) await q('UPDATE accounts SET leader = 0 WHERE id = ?', [id]);
+    if (t && t.account) { t.account.job = f || null; t.account.job_rank = f ? topR : 0; t.account.leader = f ? 1 : 0; }
+    if (GF && GF.sync && t) GF.sync(t);
+    if (GF && GF.log && f) GF.log(f, 'Администрация назначила лидером: ' + (t ? nick(t) : '#' + id));
     if (t) msg(t, f ? 'Вы назначены лидером фракции ' + FACTIONS[f] : 'Вы сняты с поста лидера', f ? '#8fd14f' : '#ff9f43');
     admNote(login(p) + (f ? ' назначил лидером ' + FACTIONS[f] + ': ' : ' снял лидера: ') + (t ? who(t) : '#' + id) + ' (без записи в трудовую)');
     log(p, f ? 'setleader' : 'unleader', t ? login(t) : '#' + id, f || '');
@@ -1031,7 +1037,20 @@ function pact(p, d, t) {
     if (a === 'cmd') { A.runCmd(p, String(d.text || '').replace(/^\//, '')); return T('Выполнено', true); }
     return false;
 }
-A.panelAct = pact;
+A.panelAct = function (p, d, t) {
+    if (d.action === 'fac') {
+        if (!can(p, 'leader')) { toast(p, A.whyNot(p, 'leader'), false); return true; }
+        const GF = global.GovFaction;
+        if (!GF || !GF.admin) { toast(p, 'Модуль госструктур не загружен', false); return true; }
+        GF.admin(p, d, login(p)).then(function (r) {
+            if (r && r.err) toast(p, r.err, false);
+            else if (r && r.ok) toast(p, r.ok, true);
+            if (r && r.data) p.call('adm:fac', [JSON.stringify(r.data)]);
+        }).catch(function (e) { toast(p, 'Ошибка: ' + e.message, false); });
+        return true;
+    }
+    return pact(p, d, t);
+};
 
 /* ================= ВНЕШНЯЯ КОНСОЛЬ (7+) ================= */
 const crypto = require('crypto');

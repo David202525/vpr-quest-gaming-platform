@@ -445,8 +445,10 @@ async function tabAct(p, json) {
         if (!t || !mp.players.exists(t) || !t.account) return tabErr(p, 'Игрок не найден');
         if (t.position.subtract(p.position).length() > 5) return tabErr(p, 'Игрок должен стоять рядом');
         if (t.account.job) return tabErr(p, 'Игрок уже состоит в организации');
-        t.inviteGov = { f: f, by: sid(p), at: Date.now() };
-        t.call('social:offer', [nick(p) + ' приглашает вас в ' + (NAMES[f] || f), 30000]);
+        const maxR = isLeader(p) ? x.ranks.length - 1 : Math.max(1, rank(p) - 1);
+        const ir = Math.max(1, Math.min(maxR, Number(d.r) || 1));
+        t.inviteGov = { f: f, by: sid(p), at: Date.now(), r: ir };
+        t.call('social:offer', [nick(p) + ' приглашает вас в ' + (NAMES[f] || f) + ' на должность «' + rankName(f, ir) + '»', 30000]);
         notify(t, 'warn', 'Приглашение в ' + (NAMES[f] || f) + ': Y — принять, N — отказаться (или /faccept)');
         return done('Приглашение отправлено');
     }
@@ -638,13 +640,14 @@ async function acceptInvite(p) {
     p.inviteGov = null;
     if (!p.account) return;
     if (p.account.job) return notify(p, 'error', 'Вы уже состоите в организации');
-    p.account.job = inv.f; p.account.job_rank = 1; p.account.leader = 0;
+    const ir = Math.max(1, Number(inv.r) || 1);
+    p.account.job = inv.f; p.account.job_rank = ir; p.account.leader = 0;
     p.setVariable('fac', inv.f);
     syncCop(p);
-    await q('UPDATE accounts SET job = ?, job_rank = 1, leader = 0 WHERE id = ?', [inv.f, sid(p)]);
-    if (U() && U().giveDoc) try { U().giveDoc(p, 'faction', { f: inv.f === 'sheriff' ? 'lspd' : inv.f, pos: rankName(inv.f, 1) }, NAMES[inv.f]); } catch (e) {}
-    flog(inv.f, nick(p) + ' принят в организацию');
-    notify(p, 'ok', 'Вы приняты в ' + (NAMES[inv.f] || inv.f) + '. Планшет — F6');
+    await q('UPDATE accounts SET job = ?, job_rank = ?, leader = 0 WHERE id = ?', [inv.f, ir, sid(p)]);
+    if (U() && U().giveDoc) try { U().giveDoc(p, 'faction', { f: inv.f === 'sheriff' ? 'lspd' : inv.f, pos: rankName(inv.f, ir) }, NAMES[inv.f]); } catch (e) {}
+    flog(inv.f, nick(p) + ' принят в организацию: ' + rankName(inv.f, ir));
+    notify(p, 'ok', 'Вы приняты в ' + (NAMES[inv.f] || inv.f) + ': ' + rankName(inv.f, ir) + '. Планшет — F6');
     const by = online(inv.by); if (by) { notify(by, 'ok', nick(p) + ' принял приглашение'); }
 }
 mp.events.addCommand('faccept', function (p) { acceptInvite(p); });
@@ -752,5 +755,78 @@ mp.events.addCommand('webtablet', function (p) {
     p.outputChatBox('!{#7fd4ff}Веб-планшет: !{#ffffff}http://' + (WEB.host || 'IP_СЕРВЕРА') + ':' + WEB.port + '/ !{#9a9aa8}— вход по логину и паролю от игрового аккаунта');
 });
 
-global.GovFaction = { rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES };
+/* ================= АДМИН-ПАНЕЛЬ ================= */
+async function adminFac(p, d, by) {
+    const f = String(d.f || '');
+    const ALL = { lspd: 1, sheriff: 1, fib: 1, army: 1, gov: 1, news: 1, medic: 1 };
+    if (!ALL[f]) return { err: 'Неизвестная фракция' };
+    const gov = isGovF(f);
+    const x = gov ? F(f) : null;
+    const ranks = x ? x.ranks : ['Интерн', 'Фельдшер', 'Врач', 'Зав. отделением', 'Главврач'];
+    const pack = async function (ok) {
+        const mem = gov ? await members(f) : (await q('SELECT id, nick, login, job_rank, leader, last_login FROM accounts WHERE job = ? ORDER BY job_rank DESC LIMIT 200', [f])).map(function (r) {
+            const o = online(r.id);
+            return { id: Number(r.id), n: String(r.nick || r.login || '#' + r.id).replace(/_/g, ' '), r: Number(r.job_rank) || 1, rn: ranks[Math.max(0, Math.min(ranks.length, Number(r.job_rank) || 1) - 1)], lead: Number(r.leader) === 1, on: !!o, pid: o ? o.id : -1, last: r.last_login ? new Date(r.last_login).getTime() : 0 };
+        });
+        return {
+            ok: ok, data: {
+                f: f, gov: gov, ranks: ranks, members: mem,
+                stock: gov ? Object.keys(ARMORY_ITEMS).map(function (k) { return { k: k, n: ARMORY_ITEMS[k].n, c: x.stock[k] || 0 }; }) : [],
+                points: gov && x.points ? { armory: !!x.points.armory, locker: !!x.points.locker, garage: !!x.points.garage, spawns: (x.points.spawns || []).length } : null,
+                log: gov ? x.log.slice(0, 30) : []
+            }
+        };
+    };
+    if (d.op === 'load') return pack();
+    const id = Number(d.s) || 0;
+    if (d.op === 'add') {
+        let t = d.id !== undefined && d.id !== '' ? mp.players.at(Number(d.id)) : null;
+        const sidT = t && t.account ? sid(t) : id;
+        if (!sidT) return { err: 'Укажите ID игрока в сети или #static' };
+        const r = Math.max(1, Math.min(ranks.length - 1, Number(d.r) || 1));
+        await q('UPDATE accounts SET job = ?, job_rank = ?, leader = 0 WHERE id = ?', [f, r, sidT]);
+        t = t || online(sidT);
+        if (t && t.account) { t.account.job = f; t.account.job_rank = r; t.account.leader = 0; syncCop(t); notify(t, 'ok', 'Администрация зачислила вас в ' + (NAMES[f] || f) + ': ' + ranks[r - 1]); }
+        if (gov) flog(f, 'Администрация (' + by + ') зачислила #' + sidT + ' — ' + ranks[r - 1]);
+        return pack('Зачислен на ранг ' + r);
+    }
+    if (d.op === 'stock') {
+        if (!gov) return { err: 'У этой фракции нет склада' };
+        Object.keys(SUPPLY_PACK).forEach(function (k) { x.stock[k] = (x.stock[k] || 0) + SUPPLY_PACK[k]; });
+        mark(); flog(f, 'Администрация пополнила склад');
+        return pack('Склад пополнен');
+    }
+    if (!id) return { err: 'Не выбран сотрудник' };
+    const row = (await q('SELECT id, job, job_rank, leader FROM accounts WHERE id = ? LIMIT 1', [id]))[0];
+    if (!row || row.job !== f) return { err: 'Сотрудник не найден в этой фракции' };
+    const t = online(id);
+    if (d.op === 'rank') {
+        const r = Math.max(1, Math.min(ranks.length, Number(d.r) || 1));
+        await q('UPDATE accounts SET job_rank = ? WHERE id = ?', [r, id]);
+        if (t && t.account) { t.account.job_rank = r; notify(t, 'ok', 'Ваш ранг изменён администрацией: ' + ranks[r - 1]); }
+        if (gov) flog(f, 'Администрация (' + by + ') изменила ранг #' + id + ' → ' + ranks[r - 1]);
+        return pack('Ранг изменён');
+    }
+    if (d.op === 'kick') {
+        await q('UPDATE accounts SET job = NULL, job_rank = 0, leader = 0 WHERE id = ?', [id]);
+        if (gov) { const di = x.deps.indexOf(id); if (di >= 0) x.deps.splice(di, 1); x.squads.forEach(function (s) { s.m = s.m.filter(function (z) { return z !== id; }); if (s.l === id) s.l = 0; }); mark(); }
+        if (t && t.account) {
+            t.account.job = null; t.account.job_rank = 0; t.account.leader = 0; syncCop(t);
+            if (t.getVariable('duty')) setDuty(t, false);
+            if (U()) U().govStrip(t, GOV_KEYS);
+            notify(t, 'warn', 'Администрация исключила вас из ' + (NAMES[f] || f));
+        }
+        if (gov) flog(f, 'Администрация (' + by + ') исключила #' + id);
+        return pack('Исключён из фракции');
+    }
+    if (d.op === 'dep' && gov) {
+        const i = x.deps.indexOf(id);
+        if (i >= 0) x.deps.splice(i, 1); else x.deps.push(id);
+        mark();
+        return pack(i >= 0 ? 'Заместитель снят' : 'Назначен заместителем');
+    }
+    return { err: 'Неизвестное действие' };
+}
+
+global.GovFaction = { rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');
