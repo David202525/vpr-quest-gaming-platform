@@ -774,3 +774,21 @@ label.check input {
 .stars{letter-spacing:1px;margin-left:4px}.stars i{font-style:normal;color:rgba(255,255,255,.18)}.stars i.on{color:#ffcc33;text-shadow:0 0 6px rgba(255,204,51,.6)}
 
 .q#qGm.on{background:linear-gradient(135deg,#2fbf5f,#1d8f44);color:#fff;border-color:transparent}
+
+/* ===== Фракции: адаптивная вёрстка ===== */
+.row3 > input, .row3 > select { flex: 1 1 0; min-width: 0; width: auto; }
+.row3 > .btn { flex: none; }
+.tab[data-tab="factions"] .grid2 { grid-template-columns: 1fr 1fr; align-items: start; }
+.tab[data-tab="factions"] .card { min-width: 0; }
+.tab[data-tab="factions"] .card h3 { display: flex; align-items: center; gap: 8px; }
+.tab[data-tab="factions"] .row3 { flex-wrap: wrap; }
+.tab[data-tab="factions"] .row3 > input { min-width: 120px; }
+.tab[data-tab="factions"] .tr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tab[data-tab="factions"] .tr > b { flex: 1 1 180px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab[data-tab="factions"] .tr > span { flex: 0 1 auto; }
+.tab[data-tab="factions"] .tr > select { flex: 0 0 210px; width: 210px; padding: 7px 10px; }
+.tab[data-tab="factions"] .tr > .btn { flex: none; padding: 7px 12px; font-size: 12px; }
+.tab[data-tab="factions"] #fmList { max-height: 300px; overflow-y: auto; padding-right: 4px; }
+.tab[data-tab="factions"] #flList, .tab[data-tab="factions"] #fwList, .tab[data-tab="factions"] #oList { margin-top: 10px; max-height: 220px; overflow-y: auto; }
+.tab[data-tab="factions"] .head .search { width: 220px; }
+@media (max-width: 1100px) { .tab[data-tab="factions"] .grid2 { grid-template-columns: 1fr; } }

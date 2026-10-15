@@ -445,8 +445,7 @@ async function tabAct(p, json) {
         if (!t || !mp.players.exists(t) || !t.account) return tabErr(p, 'Игрок не найден');
         if (t.position.subtract(p.position).length() > 5) return tabErr(p, 'Игрок должен стоять рядом');
         if (t.account.job) return tabErr(p, 'Игрок уже состоит в организации');
-        const maxR = isLeader(p) ? x.ranks.length - 1 : Math.max(1, rank(p) - 1);
-        const ir = Math.max(1, Math.min(maxR, Number(d.r) || 1));
+        const ir = 1;
         t.inviteGov = { f: f, by: sid(p), at: Date.now(), r: ir };
         t.call('social:offer', [nick(p) + ' приглашает вас в ' + (NAMES[f] || f) + ' на должность «' + rankName(f, ir) + '»', 30000]);
         notify(t, 'warn', 'Приглашение в ' + (NAMES[f] || f) + ': Y — принять, N — отказаться (или /faccept)');

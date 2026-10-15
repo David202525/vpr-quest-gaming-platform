@@ -120,7 +120,7 @@
                 <div class="grid2">
                     <div class="card">
                         <h3>Лидер</h3>
-                        <div class="row3"><input id="fLeader" placeholder="ID или #static"><button class="btn primary" id="fSetLeader">Поставить лидера</button><button class="btn danger" id="fUnLeader">Снять</button></div>
+                        <div class="row3"><input id="fLeader" placeholder="ID в сети или #static"><button class="btn primary" id="fSetLeader">Поставить лидера</button><button class="btn danger" id="fUnLeader">Снять</button></div>
                         <p class="hint">Назначение админом не попадает в трудовую книжку.</p>
                     </div>
                     <div class="card">
@@ -131,12 +131,12 @@
                     </div>
                     <div class="card">
                         <h3>Автопарк</h3>
-                        <div class="row3"><input id="flM" placeholder="модель"><input id="flR" type="number" placeholder="с ранга" value="1"><button class="btn ok" id="flAdd">Добавить</button></div>
+                        <div class="row3"><input id="flM" placeholder="модель (police3)"><input id="flR" type="number" placeholder="с ранга" value="1" min="1" max="15" style="flex:0 0 90px"><button class="btn ok" id="flAdd">Добавить</button></div>
                         <div class="table" id="flList"></div>
                     </div>
                     <div class="card">
                         <h3>Оружейная</h3>
-                        <div class="row3"><input id="fwM" placeholder="weapon_carbinerifle"><input id="fwR" type="number" placeholder="с ранга" value="1"><button class="btn ok" id="fwAdd">Добавить</button></div>
+                        <div class="row3"><input id="fwM" placeholder="weapon_carbinerifle"><input id="fwR" type="number" placeholder="с ранга" value="1" min="1" max="15" style="flex:0 0 90px"><button class="btn ok" id="fwAdd">Добавить</button></div>
                         <div class="table" id="fwList"></div>
                     </div>
                 </div>

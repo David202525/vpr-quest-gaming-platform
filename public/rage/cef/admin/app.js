@@ -250,7 +250,7 @@ function renderExt() {
     if (!FSEL && X.factions) FSEL = Object.keys(X.factions)[0];
     if (X.factions) {
         $('fSel').innerHTML = Object.keys(X.factions).map(function (k) { return '<option value="' + k + '"' + (k === FSEL ? ' selected' : '') + '>' + esc(X.factions[k]) + (X.facOff && X.facOff[k] ? ' (закрыта)' : '') + '</option>'; }).join('');
-        var cfgRow = function (kind) { return function (x) { return '<div class="tr"><b>' + esc(x.m) + '</b><span class="mut">с ранга ' + x.r + '</span><span>' + (x.on ? '✅ можно брать' : '⛔ нельзя') + '</span><button class="btn" data-cfg="' + kind + '|toggle|' + esc(x.m) + '">Вкл/выкл</button><button class="btn" data-cfg="' + kind + '|rank|' + esc(x.m) + '">Ранг</button><button class="btn danger" data-cfg="' + kind + '|del|' + esc(x.m) + '">✕</button></div>'; }; };
+        var cfgRow = function (kind) { return function (x) { return '<div class="tr"><b title="' + esc(x.m) + '">' + esc(x.m) + '</b><span class="mut">с ' + x.r + ' ранга</span><span>' + (x.on ? '✅ можно брать' : '⛔ нельзя') + '</span><button class="btn" data-cfg="' + kind + '|toggle|' + esc(x.m) + '">Вкл/выкл</button><button class="btn" data-cfg="' + kind + '|rank|' + esc(x.m) + '">Ранг</button><button class="btn danger" data-cfg="' + kind + '|del|' + esc(x.m) + '">✕</button></div>'; }; };
         $('flList').innerHTML = rowsHtml((X.fleet || {})[FSEL] || [], cfgRow('fleet'), 'Машины не настроены');
         $('fwList').innerHTML = rowsHtml((X.fweap || {})[FSEL] || [], cfgRow('fweap'), 'Оружие не настроено');
         $('oList').innerHTML = rowsHtml((X.ochs || []).filter(function (o) { return o.f === FSEL || o.f === 'all'; }), function (o) {
