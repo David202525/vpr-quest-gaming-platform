@@ -6,6 +6,7 @@ function load(file) {
 }
 
 load('./modules/admin.js');
+load('./modules/help.js');
 load('./modules/hud.js');
 load('./modules/ui.js');
 
