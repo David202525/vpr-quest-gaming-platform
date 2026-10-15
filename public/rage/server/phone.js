@@ -124,9 +124,23 @@ function voice(c, on) {
         try { if (on) x[0].enableVoiceTo(x[1]); else x[0].disableVoiceTo(x[1]); } catch (e) { console.log('[phone] voice: ' + e.message); }
     });
 }
+function logCall(c) {
+    const u = U(); if (!u) return;
+    const now = Date.now(), dur = c.since ? Math.round((now - c.since) / 1000) : 0;
+    [[c.a, c.b, 'out'], [c.b, c.a, c.since ? 'in' : 'miss']].forEach(function (x) {
+        if (!x[0] || !mp.players.exists(x[0]) || !x[1] || !mp.players.exists(x[1])) return;
+        const d = u.data(x[0]);
+        if (!d.calls) d.calls = [];
+        d.calls.push({ n: u.data(x[1]).phone, dir: x[2], at: now, dur: dur });
+        if (d.calls.length > 50) d.calls.splice(0, d.calls.length - 50);
+    });
+    u.mark();
+    [c.a, c.b].forEach(function (x) { if (x && mp.players.exists(x)) u.sendPhone(x); });
+}
 function end(c, why) {
     if (!calls[c.id]) return;
     delete calls[c.id];
+    logCall(c);
     clearTimeout(c.ringT); clearInterval(c.bill);
     if (c.st === 'talk') voice(c, false);
     [c.a, c.b].forEach(function (x) {

@@ -354,6 +354,9 @@ var phApp = null;
 var gpsTab = 'places';
 var phChat = null;
 var dialNum = '';
+var dialTab = 'keys';
+var missSeen = Number(LS.get('miss_seen') || 0);
+function missed() { var p = DATA.phone; return p && p.calls ? p.calls.filter(function (c) { return c.dir === 'miss' && c.at > missSeen; }).length : 0; }
 var callT = null;
 var lastSeen = Number(LS.get('sms_seen') || 0);
 
@@ -364,7 +367,7 @@ function unread() {
 }
 
 function appHtml(a) {
-    var dot = a.id === 'sms' && unread() ? '<span class="dot">' + unread() + '</span>' : '';
+    var dot = a.id === 'sms' && unread() ? '<span class="dot">' + unread() + '</span>' : a.id === 'dial' && missed() ? '<span class="dot">' + missed() + '</span>' : '';
     return '<div class="app" data-app="' + a.id + '"><div class="app-ic" style="background:' + a.bg + '">' + a.i + dot + '</div><span>' + a.n + '</span></div>';
 }
 
@@ -504,6 +507,20 @@ function _renderApp() {
             el.onclick = function () { if (el.dataset.n === p.number) return; phApp = 'sms'; phChat = el.dataset.n; $('appTitle').textContent = 'Сообщения'; renderApp(); };
         });
     } else if (phApp === 'dial') {
+        actEl.textContent = dialTab === 'keys' ? '🕘' : '⌨';
+        actEl.onclick = function () { dialTab = dialTab === 'keys' ? 'recent' : 'keys'; renderApp(); };
+        if (dialTab === 'recent') {
+            var cl = (p.calls || []).slice().reverse();
+            var DIR = { out: ['↗', 'Исходящий', '#8e8e93'], in: ['↙', 'Входящий', '#34c759'], miss: ['↙', 'Пропущенный', '#ff453a'] };
+            body.innerHTML = '<div class="row2" style="margin-bottom:10px"><button class="btn ghost" data-dt="keys">Клавиатура</button><button class="btn" data-dt="recent">Недавние</button></div>' +
+                (cl.length ? cl.map(function (c) {
+                    var dd = DIR[c.dir] || DIR.out, nm = nameOf(c.n);
+                    return '<div class="li" data-cn="' + esc(c.n) + '"><div class="av">' + esc(nm[0]) + '</div><div class="li-b"><b style="color:' + (c.dir === 'miss' ? '#ff453a' : '#fff') + '">' + esc(nm) + '</b><span><i style="font-style:normal;color:' + dd[2] + '">' + dd[0] + '</i> ' + dd[1] + (c.dur ? ' · ' + Math.floor(c.dur / 60) + ':' + pad(c.dur % 60) : '') + '</span></div><span class="li-r">' + timeOf(c.at) + ' 📞</span></div>';
+                }).join('') : '<div class="empty-t">Звонков пока не было</div>');
+            body.querySelectorAll('[data-cn]').forEach(function (el) { el.onclick = function () { trig('cef:call:start', el.dataset.cn); }; });
+            body.querySelectorAll('[data-dt]').forEach(function (el) { el.onclick = function () { dialTab = el.dataset.dt; renderApp(); }; });
+            return;
+        }
         var dk = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
         body.innerHTML = '<div class="dl-n" id="dlN">' + esc(dialNum || '') + '</div><div class="dl-bal">Баланс: $' + (p.pbal || 0) + ' · звонок $' + (p.tariff ? p.tariff.callMin : 5) + '/мин</div><div class="dl-k">' +
             dk.map(function (k) { return k ? '<button data-dk="' + k + '">' + k + '</button>' : '<span></span>'; }).join('') + '</div><button class="dl-go" id="dlGo">📞</button>';
@@ -515,6 +532,8 @@ function _renderApp() {
                 $('dlN').textContent = dialNum;
             };
         });
+        body.querySelector('.dl-n').insertAdjacentHTML('beforebegin', '<div class="row2" style="margin-bottom:4px"><button class="btn" data-dt="keys">Клавиатура</button><button class="btn ghost" data-dt="recent">Недавние' + (missed() ? ' (' + missed() + ')' : '') + '</button></div>');
+        body.querySelectorAll('[data-dt]').forEach(function (el) { el.onclick = function () { dialTab = el.dataset.dt; if (dialTab === 'recent') { missSeen = Date.now(); LS.set('miss_seen', missSeen); } renderApp(); }; });
         $('dlGo').onclick = function () { if (/^\d{3}-\d{3}$/.test(dialNum)) trig('cef:call:start', dialNum); };
     } else if (phApp === 'calc') {
         calcRender();
@@ -1414,4 +1433,34 @@ window.phoneCall = function (json) {
         var s = Math.floor((Date.now() - t0) / 1000), e = document.getElementById('pcSt');
         if (e) e.textContent = pad(Math.floor(s / 60)) + ':' + pad(s % 60);
     }, 1000);
+};
+
+window.govMenu = function (json) {
+    var box = document.getElementById('govMenu');
+    if (!json) { if (box) box.remove(); return; }
+    var d = typeof json === 'string' ? JSON.parse(json) : json, h = '';
+    if (!box) { box = document.createElement('div'); box.id = 'govMenu'; box.className = 'hm-wrap'; document.body.appendChild(box); }
+    if (d.t === 'armory') {
+        h = '<div class="hm-h"><span class="hm-i">🗄️</span><div><b>Склад оружия · ' + esc(d.f) + '</b><small>Поставки выполняет армия. Остатки видны справа</small></div></div><div class="gv-list">' +
+            d.items.map(function (x) {
+                var lock = d.rank < x.r;
+                return '<div class="gv-it' + (lock ? ' lock' : '') + '"><span class="gv-i">' + x.i + '</span><div class="gv-b"><b>' + esc(x.n) + '</b><small>' + (lock ? 'С ' + x.r + ' ранга' : x.has ? 'У вас: ' + x.has : 'Доступно') + '</small></div><span class="gv-left' + (x.left ? '' : ' z') + '">' + x.left + ' шт</span><button class="btn" data-gt="' + x.k + '"' + (lock || !x.left ? ' disabled' : '') + '>Взять</button></div>';
+            }).join('') + '</div><button class="btn ghost" data-gr="1">Сдать всё снаряжение</button>';
+    } else if (d.t === 'locker') {
+        h = '<div class="hm-h"><span class="hm-i">👮</span><div><b>Раздевалка · ' + esc(d.f) + '</b><small>' + (d.on ? 'Вы на смене' : 'Вы не на смене') + '</small></div></div><div class="hm-days">' +
+            d.list.map(function (u) { return '<button class="hm-o" data-gu="' + u.i + '"><b>' + esc(u.n) + '</b><small>Надеть и заступить на смену</small></button>'; }).join('') + '</div>' +
+            (d.on ? '<button class="btn ghost" data-gu="-1">Гражданская одежда (закончить смену)</button>' : '');
+    } else if (d.t === 'garage') {
+        h = '<div class="hm-h"><span class="hm-i">🚓</span><div><b>Автопарк · ' + esc(d.f) + '</b><small>' + (d.out ? 'Сейчас у вас: ' + esc(d.out) : 'Выберите служебный транспорт') + '</small></div></div><div class="gv-list">' +
+            d.list.map(function (c) {
+                var lock = d.rank < c.r;
+                return '<div class="gv-it' + (lock ? ' lock' : '') + '"><span class="gv-i">🚔</span><div class="gv-b"><b>' + esc(c.m) + '</b><small>' + (lock ? 'С ранга «' + esc(c.rn) + '»' : 'Доступно') + '</small></div><button class="btn" data-gc="' + esc(c.m) + '"' + (lock || d.out ? ' disabled' : '') + '>Взять</button></div>';
+            }).join('') + '</div>' + (d.out ? '<button class="btn ghost" data-gc="__back">Сдать машину (пригоните к гаражу)</button>' : '');
+    }
+    box.innerHTML = '<div class="hm-box">' + h + '<button class="btn ghost" data-gx="1">Закрыть</button></div>';
+    box.querySelectorAll('[data-gt]').forEach(function (b) { b.onclick = function () { trig('cef:gov:take', b.dataset.gt); }; });
+    box.querySelectorAll('[data-gr]').forEach(function (b) { b.onclick = function () { trig('cef:gov:return'); }; });
+    box.querySelectorAll('[data-gu]').forEach(function (b) { b.onclick = function () { trig('cef:gov:uniform', Number(b.dataset.gu)); }; });
+    box.querySelectorAll('[data-gc]').forEach(function (b) { b.onclick = function () { trig('cef:gov:car', b.dataset.gc); }; });
+    box.querySelector('[data-gx]').onclick = function () { trig('cef:gov:close'); };
 };

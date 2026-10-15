@@ -2232,3 +2232,11 @@ textarea {
 .pc-btns button{width:68px;height:68px;border-radius:50%;border:0;font-size:28px;cursor:pointer}
 .pc-ok{background:#34c759}.pc-no{background:#ff3b30;transform:rotate(135deg)}
 .pc-hint{margin-top:18px;font-size:12px;color:#9aa6b4}
+#govMenu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:9999;pointer-events:auto}
+.gv-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;max-height:52vh;overflow:auto}
+.gv-it{display:flex;align-items:center;gap:10px;background:#1d1d24;border:1px solid #2a2a33;border-radius:12px;padding:8px 10px}
+.gv-it.lock{opacity:.5}
+.gv-i{width:36px;height:36px;border-radius:10px;background:#26262f;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.gv-b{flex:1;min-width:0}.gv-b b{display:block;font-size:13px}.gv-b small{font-size:11px;color:#9a9aa6}
+.gv-left{font-size:11px;color:#8fd14f;font-weight:700;white-space:nowrap}.gv-left.z{color:#ff6b6b}
+.gv-it .btn{margin:0;width:auto;padding:8px 14px}

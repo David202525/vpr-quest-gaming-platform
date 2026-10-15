@@ -49,7 +49,12 @@ const ITEMS = {
     bat: { n: 'Бита', i: '🏏', w: 1, s: 1, wp: 'weapon_bat', price: 800 },
     ammo_pistol: { n: 'Патроны 9 mm', i: '🟡', w: 0.01, s: 250, price: 10, pack: 30 },
     ammo_smg: { n: 'Патроны SMG', i: '🟠', w: 0.01, s: 250, price: 12, pack: 30 },
-    ammo_rifle: { n: 'Патроны 5,56 mm', i: '🔴', w: 0.015, s: 250 }
+    ammo_rifle: { n: 'Патроны 5,56 mm', i: '🔴', w: 0.015, s: 250 },
+    g_stungun: { n: 'Тайзер', i: '⚡', w: 0.8, s: 1, wp: 'weapon_stungun', fa: 100, gov: 1 },
+    g_pistol: { n: 'Служебный пистолет', i: '🔫', w: 1.1, s: 1, wp: 'weapon_combatpistol', ammo: 'ammo_pistol', gov: 1 },
+    g_carbine: { n: 'Служебный автомат', i: '🔫', w: 3.8, s: 1, wp: 'weapon_carbinerifle', ammo: 'ammo_rifle', gov: 1 },
+    g_armour: { n: 'Служебный бронежилет', i: '🦺', w: 3, s: 1, slot: 'armour', gov: 1 },
+    cuffs: { n: 'Наручники', i: '⛓️', w: 0.3, s: 2, gov: 1 }
 };
 
 const DEF = {
@@ -520,7 +525,7 @@ function toggleWeapon(p, s) {
     const d = data(p);
     const ammo = it.ammo ? takeAll(d, it.ammo) : 0;
     const hash = mp.joaat(it.wp);
-    p.giveWeapon(hash, it.ammo ? ammo : 1);
+    p.giveWeapon(hash, it.ammo ? ammo : (it.fa || 1));
     p.uiWeapon = { k: s.item.k, hash: hash, ammo: it.ammo || null };
     notify(p, 'ok', it.n + ' в руках' + (it.ammo ? ' (' + ammo + ' патр.)' : ''));
 }
@@ -608,6 +613,10 @@ mp.events.add('srv:inv:act', function (p, json) {
             const it = s0 && s0.item;
             if (it) global.SLog.add('item', { actor: p, action: 'move:' + a.to.b, details: (ITEMS[it.k] ? ITEMS[it.k].n || it.k : it.k) + ' x' + (a.count || it.c || 1) });
         } catch (e) {}
+    }
+    if ((a.a === 'drop' || (a.a === 'move' && a.to && a.to.b && a.to.b !== 'inv' && a.to.b !== 'equip'))) {
+        const s1 = ref(p, a.from);
+        if (s1 && s1.item && ITEMS[s1.item.k] && ITEMS[s1.item.k].gov) return notify(p, 'error', 'Служебное снаряжение нельзя выбросить или передать — сдайте его на складе');
     }
     if (a.a === 'move') move(p, a.from, a.to, a.count);
     else if (a.a === 'use') useItem(p, a.from);
@@ -849,7 +858,7 @@ function phonePayload(p) {
         money: getMoney(p), bank: getBank(p),
         contacts: d.contacts, sms: d.sms.slice(-150),
         online: mp.players.toArray().map(function (x) { return { id: x.id, name: x.name, number: data(x).phone }; }),
-        pbal: Math.floor(d.pbal === undefined ? 200 : d.pbal), tariff: global.PhoneSystem ? global.PhoneSystem.TARIFF : null, call: global.PhoneSystem ? global.PhoneSystem.state(p) : null,
+        calls: (d.calls || []).slice(-50), pbal: Math.floor(d.pbal === undefined ? 200 : d.pbal), tariff: global.PhoneSystem ? global.PhoneSystem.TARIFF : null, call: global.PhoneSystem ? global.PhoneSystem.state(p) : null,
         gps: GPS.map(function (g) { return { n: g.n }; })
     };
 }
@@ -1407,8 +1416,24 @@ global.AtmSystem = {
     }
 };
 
+function govStrip(p, keys) {
+    const d = data(p);
+    let n = 0;
+    keys.forEach(function (k) {
+        if (p.uiWeapon && p.uiWeapon.k === k) { try { p.removeWeapon(p.uiWeapon.hash); } catch (e) {} p.uiWeapon = null; }
+        n += takeAll(d, k);
+        Object.keys(d.equip).forEach(function (s) { if (d.equip[s] && d.equip[s].k === k) { d.equip[s] = null; n++; if (s === 'armour') p.armour = 0; } });
+    });
+    mark();
+    return n;
+}
+function redress(p) {
+    if (!mp.players.exists(p) || !accId(p)) return;
+    const d = data(p);
+    SLOTS.forEach(function (s) { if (s !== 'armour' && s !== 'phone') applyCloth(p, s, d.equip[s] || null); });
+}
 global.UiPhone = { data: data, store: store, mark: mark, sendPhone: sendPhone, sendMenu: sendMenu, key: key, online: online };
-global.UiSystem = { showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
+global.UiSystem = { showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 

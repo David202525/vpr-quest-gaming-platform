@@ -9,3 +9,4 @@ require('./admin/index.js');
 require('./social/index.js');
 require('./intro/index.js');
 require('./houses/index.js');
+require('./gov/index.js');

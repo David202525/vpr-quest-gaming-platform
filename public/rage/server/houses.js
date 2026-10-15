@@ -296,6 +296,7 @@ global.HouseSystem = {
         return { x: i.x, y: i.y, z: i.z, h: i.h, dim: DIM_HOUSE + h.id, n: h.flat ? 'Моя квартира' : 'Мой дом', d: h.n, flat: !!h.flat };
     },
     hotelRoom: hotelRoom,
+    byOwner: function (id) { const h = D.houses.find(function (x) { return x.owner === Number(id); }); return h ? h.n : null; },
     mine: mine,
     refresh: sendList
 };

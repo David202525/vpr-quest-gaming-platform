@@ -107,6 +107,7 @@ function pact(p, d, t) {
 }
 
 /* ---------- команды полиции ---------- */
+function hasCuffs(p) { const U = global.UiSystem; return !U || !U.countItem || U.countItem(p, 'cuffs') > 0; }
 function copOnly(p) { if (!isCop(p)) { notify(p, 'error', 'Доступно только сотрудникам полиции'); return false; } return true; }
 function near(p, t, m) { return t && t !== p && t.dimension === p.dimension && p.position.subtract(t.position).length() <= m; }
 mp.events.addCommand('su', function (p, full) {
@@ -135,6 +136,7 @@ mp.events.addCommand('cuff', function (p, full) {
     const t = find(full);
     if (!near(p, t, 2.5)) return notify(p, 'warn', '/cuff [id] — подойдите к человеку вплотную');
     if (t.vehicle) return notify(p, 'warn', 'Человек в транспорте');
+    if (!hasCuffs(p)) return notify(p, 'warn', 'Нет наручников — возьмите на складе фракции');
     cuff(t, true);
     notify(t, 'warn', 'Офицер ' + nick(p) + ' надел на вас наручники');
     notify(p, 'ok', 'Наручники надеты');
@@ -173,6 +175,7 @@ mp.events.add('srv:cop:act', function (p, act, tid) {
     if (t && !mp.players.exists(t)) t = null;
     if (act === 'cuff') {
         if (!t || !near(p, t, 3)) return notify(p, 'warn', 'Рядом никого нет — подойдите вплотную');
+        if (!t.getVariable('cuffed') && !hasCuffs(p)) return notify(p, 'warn', 'Нет наручников — возьмите на складе фракции');
         if (t.vehicle) return notify(p, 'warn', 'Человек в транспорте');
         const on = !t.getVariable('cuffed');
         cuff(t, on);
@@ -234,5 +237,15 @@ setInterval(function () { mp.players.forEach(function (p) {
     if (p.escorting && (!mp.players.exists(p.escorting) || !near(p, p.escorting, 25))) { if (mp.players.exists(p.escorting)) escortStop(p.escorting); p.escorting = null; }
 }); }, 3000);
 
-global.WantedSystem = { get: get, set: set, add: add, cuff: cuff, arrest: arrest, pact: pact, MIN_PER_STAR: MIN_PER_STAR };
+function setById(id, stars, reason, by) {
+    id = Number(id);
+    stars = Math.max(0, Math.min(MAX, Math.floor(Number(stars) || 0)));
+    if (!stars) delete store[id]; else store[id] = { s: stars, r: String(reason || 'без причины').slice(0, 80), by: by || '', d: Date.now() };
+    dirty = true;
+    const o = mp.players.toArray().find(function (x) { return sid(x) === id; });
+    if (o) sync(o);
+}
+function list() { return Object.keys(store).map(function (k) { const r = store[k]; return { s: Number(k), stars: r.s, r: r.r, by: r.by, d: r.d }; }); }
+function info(id) { return store[Number(id)] || null; }
+global.WantedSystem = { setById: setById, list: list, info: info, get: get, set: set, add: add, cuff: cuff, arrest: arrest, pact: pact, MIN_PER_STAR: MIN_PER_STAR };
 console.log('[wanted] розыск и наручники загружены');
