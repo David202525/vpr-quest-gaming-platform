@@ -162,6 +162,7 @@ mp.events.addCommand('respawn', function (player) {
 
 mp.events.add('playerDeath', function (player) {
     if (!ensure(player)) return;
+    if (player.adminGm) { const p = player.position; player.spawn(new mp.Vector3(p.x, p.y, p.z)); player.health = 100; return; }
     if (player.account.downed) {
         const p = player.position;
         player.spawn(new mp.Vector3(p.x, p.y, p.z));

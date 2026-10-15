@@ -389,3 +389,5 @@ body.hidden .hints {
 .wanted i.on{color:#ffd84a;-webkit-text-stroke:1px #6b4a00;text-shadow:0 0 8px rgba(255,200,40,.55);animation:wst 1.6s ease-in-out infinite}
 .wanted i.on:nth-child(2){animation-delay:.1s}.wanted i.on:nth-child(3){animation-delay:.2s}.wanted i.on:nth-child(4){animation-delay:.3s}.wanted i.on:nth-child(5){animation-delay:.4s}
 @keyframes wst{50%{transform:scale(1.12)}}
+
+#hudGm{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:3px 12px;border-radius:20px;background:rgba(47,191,95,.85);color:#fff;font-weight:800;font-size:12px;letter-spacing:.12em;text-shadow:none;box-shadow:0 0 12px rgba(47,191,95,.5)}

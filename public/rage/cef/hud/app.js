@@ -145,3 +145,9 @@ window.hudWanted = function (n) {
     for (var i = 0; i < el.children.length; i++) el.children[i].classList.toggle('on', i < n);
     el.title = n ? n * 10 + ' мин тюрьмы' : '';
 };
+
+window.hudGm = function (on) {
+    var el = document.getElementById('hudGm');
+    if (!on) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'hudGm'; el.textContent = 'GM'; document.body.appendChild(el); }
+};

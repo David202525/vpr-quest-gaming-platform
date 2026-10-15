@@ -805,7 +805,7 @@ cmd('bank', 'bankcheck', '/bank [id или #static]', async function (p, a, u) {
 mp.events.addCommand('aoff', function (p) {
     if (realLvl(p) < 7) return msg(p, 'Доступно с ЗГА (7)', '#e05555');
     p.admOff = true;
-    if (p.adminGm) { p.adminGm = false; p.call('adm:gm', [false]); }
+    if (p.adminGm) { p.adminGm = false; p.setVariable('admGm', false); p.call('adm:gm', [false]); }
     p.call('adm:close');
     msg(p, 'Админка выключена — вы как обычный игрок. /aon — включить', '#ffcc66');
     log(p, 'aoff', login(p), '');

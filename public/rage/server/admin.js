@@ -557,7 +557,7 @@ function playersData() {
 
 function panelData(p) {
     return {
-        me: { name: login(p), level: lvl(p), real: realLvl(p), off: !!p.admOff, rank: rankName(lvl(p)), color: rankColor(lvl(p)) },
+        me: { name: login(p), level: lvl(p), real: realLvl(p), off: !!p.admOff, gm: !!p.adminGm, rank: rankName(lvl(p)), color: rankColor(lvl(p)) },
         ext: global.AdminCore && global.AdminCore.panelExt ? global.AdminCore.panelExt(p) : null,
         locks: locks, features: FEATURE_NAMES,
         ranks: RANKS,
@@ -947,11 +947,19 @@ cmd('unwarn', 'warn', '/unwarn [логин]', function (p, a, u) {
     log(p, 'unwarn', a[0], '');
 });
 
-cmd('gm', 'gm', '/gm', function (p) {
-    p.adminGm = !p.adminGm;
+function setGm(p, on) {
+    p.adminGm = !!on;
+    p.setVariable('admGm', p.adminGm);
     p.call('adm:gm', [p.adminGm]);
-    msg(p, 'Бессмертие: ' + (p.adminGm ? 'вкл' : 'выкл'), '#8fd14f');
+    if (on) { p.health = 100; if (p.account && p.account.downed && global.DeathSystem) try { global.DeathSystem.revive(p); } catch (e) {} }
+}
+cmd('gm', 'gm', '/gm — бессмертие вкл/выкл', function (p) {
+    setGm(p, !p.adminGm);
+    msg(p, 'GM (бессмертие): ' + (p.adminGm ? 'включено' : 'выключено'), p.adminGm ? '#8fd14f' : '#ffcc66');
+    log(p, 'gm', login(p), p.adminGm ? 'вкл' : 'выкл');
 });
+mp.events.add('playerSpawn', function (p) { if (p.adminGm) setTimeout(function () { if (mp.players.exists(p)) p.call('adm:gm', [true]); }, 300); });
+mp.events.add('playerDamage', function (p) { if (p.adminGm && p.health < 100) p.health = 100; });
 
 cmd('invis', 'invis', '/invis', function (p) {
     p.alpha = p.alpha === 0 ? 255 : 0;

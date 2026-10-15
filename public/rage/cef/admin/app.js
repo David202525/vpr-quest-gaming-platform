@@ -366,6 +366,7 @@ document.addEventListener('click', function (e) {
     }
     if (t.dataset.pa) return playerAction(t.dataset.pa);
     if (t.dataset.quick === 'fly') return trig('cef:adm:fly');
+    if (t.dataset.quick === 'gm') return act({ action: 'cmd', text: 'gm' });
     if (t.dataset.quick === 'az') return act({ action: 'cmd', text: 'az' });
     if (t.dataset.quick === 'aoff') return act({ action: 'aoff' });
     if (t.dataset.cmd) return act({ action: 'cmd', text: t.dataset.cmd });
@@ -539,3 +540,11 @@ $('conToken').onclick = function () { act({ action: 'token' }); };
 $('bhSearch').oninput = function () { if (D) renderExt(); };
 $('cSearch').oninput = function () { if (D) renderCmds(); };
 $('cRun').onclick = function () { var v = $('cLine').value.trim(); if (!v) return; act({ action: 'cmd', text: v }); $('cLine').value = ''; };
+
+setInterval(function () {
+    var b = document.getElementById('qGm');
+    if (!b || !D || !D.me) return;
+    b.textContent = D.me.gm ? 'GM: вкл' : 'GM: выкл';
+    b.classList.toggle('on', !!D.me.gm);
+    b.disabled = D.me.level < 3;
+}, 300);

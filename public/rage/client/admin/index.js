@@ -84,8 +84,23 @@ mp.events.add('adm:freeze', function (on) {
 
 mp.events.add('adm:gm', function (on) {
     gm = !!on;
-    mp.players.local.setInvincible(gm);
+    var p = mp.players.local;
+    p.setInvincible(gm);
+    try { p.setCanRagdoll(!gm); } catch (e) {}
+    try { p.setProofs(gm, gm, gm, gm, gm, gm, gm, gm); } catch (e) {}
+    mp.events.call('hud:gm', gm);
 });
+setInterval(function () {
+    if (!gm) return;
+    var p = mp.players.local;
+    if (!noclip) p.setInvincible(true);
+    if (p.getHealth() < 200) p.setHealth(200);
+    try { p.clearBloodDamage(); } catch (e) {}
+    if (p.vehicle && p.vehicle.getPedInSeat(-1) === p.handle) {
+        try { p.vehicle.setCanBeVisiblyDamaged(false); p.vehicle.setInvincible(true); } catch (e) {}
+    }
+}, 500);
+mp.events.add('playerDeath', function () { if (gm) setTimeout(function () { mp.players.local.setInvincible(true); }, 500); });
 
 function clearFocus() {
     try { mp.game.streaming.clearFocus(); } catch (e) { try { mp.game.invoke('0x31B73D1EA9F01DA2'); } catch (e2) {} }
@@ -128,6 +143,7 @@ function noclipStop(back) {
     p.setAlpha(255);
     p.setCollision(true, true);
     p.setInvincible(gm);
+    if (gm) mp.events.call('adm:gm', true);
     if (!back && flyCanTp) {
         var gz = mp.game.gameplay.getGroundZFor3dCoord(c.x, c.y, c.z + 2, 0, false);
         var z = gz && gz > 0 && gz < c.z + 2 ? gz + 1 : c.z;

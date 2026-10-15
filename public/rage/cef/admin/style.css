@@ -772,3 +772,5 @@ label.check input {
 .z-kinds { flex-wrap: wrap; }
 
 .stars{letter-spacing:1px;margin-left:4px}.stars i{font-style:normal;color:rgba(255,255,255,.18)}.stars i.on{color:#ffcc33;text-shadow:0 0 6px rgba(255,204,51,.6)}
+
+.q#qGm.on{background:linear-gradient(135deg,#2fbf5f,#1d8f44);color:#fff;border-color:transparent}
