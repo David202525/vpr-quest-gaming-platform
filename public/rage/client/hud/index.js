@@ -262,9 +262,9 @@ setInterval(function () {
         var c = !!p.getVariable('cuffed');
         if (c && !p.isPlayingAnim(cuffDict, 'idle', 3)) {
             mp.game.streaming.requestAnimDict(cuffDict);
-            if (mp.game.streaming.hasAnimDictLoaded(cuffDict)) p.taskPlayAnim(cuffDict, 'idle', 8, -8, -1, 49, 0, false, false, false);
+            if (mp.game.streaming.hasAnimDictLoaded(cuffDict)) { p.taskPlayAnim(cuffDict, 'idle', 8, -8, -1, 49, 0, false, false, false); if (p === mp.players.local) escortSpd = -1; }
             p._cuffAnim = true;
-        } else if (!c && p._cuffAnim) { p._cuffAnim = false; p.clearTasks(); }
+        } else if (!c && p._cuffAnim) { p._cuffAnim = false; p.stopAnimTask(cuffDict, 'idle', 3); }
     });
 }, 700);
 
@@ -302,21 +302,39 @@ mp.events.add('cef:ui:keys', function (json) {
     } catch (e) {}
 });
 
-var escortAttached = false;
+var escortOn = false, escortSpd = -1, escortAt = 0;
+function escortCop() {
+    var by = mp.players.local.getVariable('escortBy');
+    return (by !== undefined && by !== null && by >= 0) ? mp.players.atRemoteId(by) : null;
+}
+mp.events.add('render', function () {
+    if (!escortOn) return;
+    [30, 31, 32, 33, 34, 35, 21, 22, 23, 44, 75].forEach(function (k) { mp.game.controls.disableControlAction(0, k, true); });
+});
 setInterval(function () {
-    var me = mp.players.local;
-    var by = me.getVariable('escortBy');
-    var cop = (by !== undefined && by !== null && by >= 0) ? mp.players.atRemoteId(by) : null;
-    if (cop && cop.handle && !me.vehicle) {
-        if (!escortAttached) {
-            me.attachTo(cop.handle, cop.getBoneIndex(11816), 0.3, 0.55, 0.0, 0, 0, 0, false, false, false, false, 2, true);
-            escortAttached = true;
-        }
-    } else if (escortAttached) {
-        me.detach(true, false);
-        escortAttached = false;
+    var me = mp.players.local, cop = escortCop();
+    if (!cop || !cop.handle || me.vehicle || cop.vehicle) {
+        if (escortOn) { escortOn = false; escortSpd = -1; try { me.clearTasks(); } catch (e) {} }
+        return;
     }
-}, 300);
+    if (me.isAttached && me.isAttached()) { try { me.detach(true, false); } catch (e) {} }
+    escortOn = true;
+    var t = cop.getOffsetFromInWorldCoords(0.35, 0.75, 0.0);
+    var d = mp.game.system.vdist(me.position.x, me.position.y, me.position.z, t.x, t.y, t.z);
+    if (d > 14) {
+        me.setCoordsNoOffset(t.x, t.y, t.z, false, false, false);
+        me.setHeading(cop.getHeading());
+        escortSpd = -1;
+        return;
+    }
+    var cs = cop.getSpeed();
+    var spd = d > 4 || cs > 4 ? 3.0 : d > 1.6 || cs > 1.6 ? 2.0 : 1.0;
+    if (spd !== escortSpd || Date.now() - escortAt > 2500) {
+        escortSpd = spd; escortAt = Date.now();
+        try { me.taskFollowToOffsetOf(cop.handle, 0.35, 0.75, 0.0, spd, -1, 0.35, true); }
+        catch (e) { me.taskGoStraightToCoord(t.x, t.y, t.z, spd, -1, cop.getHeading(), 0.2); }
+    }
+}, 200);
 
 var hotelBlip = null;
 mp.events.add('spawn:hotel', function (x, y, z, n) {

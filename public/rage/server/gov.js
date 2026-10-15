@@ -85,7 +85,7 @@ function isGovF(f) { return !!DEF_RANKS[f]; }
 function isPolice(p) { return POLICE.indexOf(fac(p)) >= 0; }
 function notify(p, type, text) { if (typeof global.hudNotify === 'function') global.hudNotify(p, type, text); else p.outputChatBox(text); }
 function V(x, y, z) { return new mp.Vector3(Number(x), Number(y), Number(z)); }
-function near(p, pt, r) { return pt && Math.hypot(p.position.x - pt[0], p.position.y - pt[1]) <= (r || 2.5) && Math.abs(p.position.z - pt[2]) < 4 && p.dimension === 0; }
+function near(p, pt, r) { return pt && Math.hypot(p.position.x - pt[0], p.position.y - pt[1]) <= (r || 2.5) + 1 && Math.abs(p.position.z - pt[2]) < 4; }
 function online(id) { return mp.players.toArray().find(function (x) { return sid(x) === Number(id); }) || null; }
 function U() { return global.UiSystem; }
 function rankName(f, r) { const R = F(f).ranks; return R[Math.max(0, Math.min(R.length, r) - 1)] || ('Ранг ' + r); }
@@ -255,9 +255,13 @@ function points() {
 }
 function sendPoints(p) { p.call('gov:points', [JSON.stringify(points())]); }
 mp.events.add('srv:gov:point', function (p, f, k) {
-    if (fac(p) !== f || p.vehicle) return;
+    if (p.vehicle) return;
     const x = F(f);
-    if (!x.points || !near(p, x.points[k], 3)) return;
+    if (!x.points || !x.points[k] || Math.hypot(p.position.x - x.points[k][0], p.position.y - x.points[k][1]) > 3.5) return;
+    if (fac(p) !== f) {
+        const my = fac(p);
+        return notify(p, 'error', 'Это ' + ({ armory: 'склад', locker: 'раздевалка', garage: 'гараж' })[k] + ' ' + (NAMES[f] || f) + '. ' + (my ? 'Вы состоите в: ' + (NAMES[my] || my) : 'Вы не состоите в этой организации'));
+    }
     if (k === 'armory') { if (f === 'army') return notify(p, 'ok', 'Склад армии: подгоните армейский грузовик сюда и введите /supply — загрузка. Доставка на склад LSPD/шерифа/FIB — снова /supply'); return armoryOpen(p); }
     if (k === 'locker') return lockerOpen(p);
     if (k === 'garage') return garageOpen(p);
@@ -276,6 +280,19 @@ mp.events.addCommand('govpoint', function (p, full) {
     mark();
     mp.players.forEach(sendPoints);
     p.outputChatBox('!{#8fd14f}Точка ' + k + ' для ' + f + ' сохранена');
+});
+mp.events.addCommand('setfaction', async function (p, full) {
+    if (admLvl(p) < 5) return;
+    const a = String(full || '').trim().split(/\s+/);
+    const t = mp.players.at(Number(a[0])), f = a[1], r = Math.max(1, Math.min(9, Number(a[2]) || 1));
+    if (!t || !t.account || !(DEF_RANKS[f] || f === 'none')) return p.outputChatBox('!{#ffcc66}/setfaction [id] [' + Object.keys(DEF_RANKS).join('/') + '/none] [ранг 1-9]');
+    if (f === 'none') { t.account.job = null; t.account.job_rank = 0; t.account.leader = 0; await q('UPDATE accounts SET job = NULL, job_rank = 0, leader = 0 WHERE id = ?', [sid(t)]); syncCop(t); return p.outputChatBox('!{#8fd14f}' + nick(t) + ' исключён из организации'); }
+    t.account.job = f; t.account.job_rank = r; t.account.leader = 0;
+    await q('UPDATE accounts SET job = ?, job_rank = ?, leader = 0 WHERE id = ?', [f, r, sid(t)]);
+    syncCop(t);
+    flog(f, 'Администрация зачислила ' + nick(t) + ' (' + rankName(f, r) + ')');
+    notify(t, 'ok', 'Вы зачислены в ' + (NAMES[f] || f) + ': ' + rankName(f, r));
+    p.outputChatBox('!{#8fd14f}' + nick(t) + ' → ' + f + ', ранг ' + r);
 });
 mp.events.addCommand('govstock', function (p, full) {
     if (admLvl(p) < 6) return;
@@ -351,8 +368,8 @@ mp.events.add('srv:tab:act', async function (p, json) {
         if (t.position.subtract(p.position).length() > 5) return tabErr(p, 'Игрок должен стоять рядом');
         if (t.account.job) return tabErr(p, 'Игрок уже состоит в организации');
         t.inviteGov = { f: f, by: sid(p), at: Date.now() };
-        t.call('social:offer', [nick(p) + ' приглашает вас в ' + (NAMES[f] || f) + '. /accept — принять', 20000]);
-        notify(t, 'warn', 'Приглашение в ' + (NAMES[f] || f) + '. Введите /accept чтобы принять');
+        t.call('social:offer', [nick(p) + ' приглашает вас в ' + (NAMES[f] || f), 30000]);
+        notify(t, 'warn', 'Приглашение в ' + (NAMES[f] || f) + ': Y — принять, N — отказаться (или /faccept)');
         return done('Приглашение отправлено');
     }
     if (['rankup', 'rankdown', 'fire', 'dep'].indexOf(a) >= 0) {
@@ -379,7 +396,7 @@ mp.events.add('srv:tab:act', async function (p, json) {
             const di = x.deps.indexOf(id); if (di >= 0) x.deps.splice(di, 1);
             x.squads.forEach(function (s) { s.m = s.m.filter(function (z) { return z !== id; }); });
             if (t) {
-                t.account.job = null; t.account.job_rank = 0;
+                t.account.job = null; t.account.job_rank = 0; t.account.leader = 0; syncCop(t);
                 if (t.getVariable('duty')) setDuty(t, false);
                 if (U()) U().govStrip(t, GOV_KEYS);
                 notify(t, 'warn', 'Вы уволены из ' + (NAMES[f] || f) + (d.reason ? '. Причина: ' + d.reason : ''));
@@ -518,6 +535,13 @@ mp.events.add('srv:tab:act', async function (p, json) {
         return notify(p, 'ok', 'Сигнал засечён: ' + nick(t) + ' где-то в красной зоне (~300 м). Ищите сами');
     }
 });
+function syncCop(p) {
+    const f = fac(p);
+    if ((p.getVariable('fac') || '') !== f) p.setVariable('fac', f);
+    const c = POLICE.indexOf(f) >= 0 ? 1 : 0;
+    if (p.getVariable('cop') !== c) p.setVariable('cop', c);
+}
+setInterval(function () { mp.players.forEach(function (p) { if (p.account) syncCop(p); }); }, 3000);
 function addRecord(id, p, text) {
     if (!G.records[id]) G.records[id] = [];
     G.records[id].push({ t: Date.now(), x: text, by: nick(p), f: NAMES[fac(p)] || fac(p) });
@@ -526,17 +550,27 @@ function addRecord(id, p, text) {
 }
 
 /* ---- приглашение ---- */
-mp.events.addCommand('accept', async function (p) {
+async function acceptInvite(p) {
     const inv = p.inviteGov;
     if (!inv || Date.now() - inv.at > 60000) return notify(p, 'warn', 'Нет активных приглашений');
     p.inviteGov = null;
+    if (!p.account) return;
     if (p.account.job) return notify(p, 'error', 'Вы уже состоите в организации');
-    await q('UPDATE accounts SET job = ?, job_rank = 1 WHERE id = ?', [inv.f, sid(p)]);
-    p.account.job = inv.f; p.account.job_rank = 1;
+    p.account.job = inv.f; p.account.job_rank = 1; p.account.leader = 0;
+    p.setVariable('fac', inv.f);
+    syncCop(p);
+    await q('UPDATE accounts SET job = ?, job_rank = 1, leader = 0 WHERE id = ?', [inv.f, sid(p)]);
     if (U() && U().giveDoc) try { U().giveDoc(p, 'faction', { f: inv.f === 'sheriff' ? 'lspd' : inv.f, pos: rankName(inv.f, 1) }, NAMES[inv.f]); } catch (e) {}
     flog(inv.f, nick(p) + ' принят в организацию');
     notify(p, 'ok', 'Вы приняты в ' + (NAMES[inv.f] || inv.f) + '. Планшет — F6');
-    const by = online(inv.by); if (by) notify(by, 'ok', nick(p) + ' принял приглашение');
+    const by = online(inv.by); if (by) { notify(by, 'ok', nick(p) + ' принял приглашение'); }
+}
+mp.events.addCommand('faccept', function (p) { acceptInvite(p); });
+try { mp.events.addCommand('accept', function (p, arg) { if (p.inviteGov && !String(arg || '').trim()) return acceptInvite(p); if (global.MedicAccept) return global.MedicAccept(p, arg); notify(p, 'warn', 'Нет активных приглашений'); }); } catch (e) { console.log('[gov] /accept занята другим модулем — используйте /faccept или Y'); }
+mp.events.add('srv:int:answer', function (p, yes) {
+    if (!p.inviteGov || Date.now() - p.inviteGov.at > 60000) return;
+    if (!yes) { const by = online(p.inviteGov.by); p.inviteGov = null; if (by) notify(by, 'warn', nick(p) + ' отклонил приглашение'); return notify(p, 'warn', 'Приглашение отклонено'); }
+    acceptInvite(p);
 });
 
 /* ---- штрафы ---- */
