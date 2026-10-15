@@ -18,3 +18,6 @@ ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS pos_x FLOAT NULL;
 ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS pos_y FLOAT NULL;
 ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS pos_z FLOAT NULL;
 ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS heading FLOAT NULL;
+
+-- Лишние обязательные колонки от старой сборки (ошибка "Field 'email' doesn't have a default value")
+ALTER TABLE accounts MODIFY email VARCHAR(255) NULL DEFAULT NULL;

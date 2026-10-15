@@ -110,6 +110,15 @@ async function init() {
                 .then(() => console.log('[DB] Добавлена колонка ' + t + '.' + c))
                 .catch((e) => console.error('[DB] ' + t + '.' + c + ': ' + e.message));
         }
+        try {
+            const [strict] = await pool.query("SELECT COLUMN_NAME AS c, COLUMN_TYPE AS t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND IS_NULLABLE = 'NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", [t]);
+            for (const r of strict) {
+                if (NEED[t][String(r.c).toLowerCase()] && ['login', 'password', 'type'].indexOf(String(r.c).toLowerCase()) >= 0) continue;
+                await pool.query('ALTER TABLE `' + t + '` MODIFY `' + r.c + '` ' + r.t + ' NULL DEFAULT NULL')
+                    .then(() => console.log('[DB] Колонка ' + t + '.' + r.c + ' сделана необязательной'))
+                    .catch((e) => console.error('[DB] ' + t + '.' + r.c + ': ' + e.message));
+            }
+        } catch (e) { console.error('[DB] ' + e.message); }
         if (t === 'vehicles' && add.indexOf('owner_id') >= 0) {
             const alt = ['owner', 'account_id', 'acc_id', 'user_id', 'char_id'].find((c) => have.indexOf(c) >= 0);
             if (alt) await pool.query('UPDATE vehicles SET owner_id = `' + alt + '` WHERE owner_id IS NULL').catch(() => {});
