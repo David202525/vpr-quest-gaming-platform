@@ -6,7 +6,7 @@ var toastEl = document.getElementById('toast');
 var active = false;
 var shown = true;
 var allowed = true;
-var history = [];
+var hist = [];
 var hPos = -1;
 var draft = '';
 var stick = true;
@@ -107,13 +107,14 @@ function setActive(on) {
 
 function send() {
     var v = inp.value.trim();
-    if (v) {
-        if (history[0] !== v) history.unshift(v);
-        if (history.length > 50) history.pop();
-        if (v.charAt(0) === '/') { if (v.length > 1) invoke('command', v.slice(1)); }
-        else invoke('chatMessage', v);
-    }
     setActive(false);
+    if (!v) return;
+    try {
+        if (hist[0] !== v) hist.unshift(v);
+        if (hist.length > 50) hist.pop();
+    } catch (e) {}
+    if (v.charAt(0) === '/') { if (v.length > 1) invoke('command', v.slice(1)); }
+    else invoke('chatMessage', v);
 }
 
 document.addEventListener('keyup', function (e) {
@@ -128,19 +129,19 @@ document.addEventListener('keyup', function (e) {
 
 document.addEventListener('keydown', function (e) {
     if (!active) return;
-    if (e.keyCode === 13) { e.preventDefault(); send(); }
+    if (e.keyCode === 13 || e.key === 'Enter') { e.preventDefault(); send(); }
     else if (e.keyCode === 27) { e.preventDefault(); setActive(false); }
     else if (e.keyCode === 38) {
         e.preventDefault();
-        if (!history.length) return;
+        if (!hist.length) return;
         if (hPos === -1) draft = inp.value;
-        hPos = Math.min(history.length - 1, hPos + 1);
-        inp.value = history[hPos];
+        hPos = Math.min(hist.length - 1, hPos + 1);
+        inp.value = hist[hPos];
     } else if (e.keyCode === 40) {
         e.preventDefault();
         if (hPos <= -1) return;
         hPos--;
-        inp.value = hPos === -1 ? draft : history[hPos];
+        inp.value = hPos === -1 ? draft : hist[hPos];
     } else if (e.keyCode === 33) { e.preventDefault(); list.scrollTop -= list.clientHeight - 30; }
     else if (e.keyCode === 34) { e.preventDefault(); list.scrollTop += list.clientHeight - 30; }
 });
