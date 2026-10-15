@@ -220,3 +220,30 @@ mp.events.add('hud:money', function (m, b) {
     hudSrv.bank = Number(b) || 0;
     hudTick();
 });
+
+var badgeLast = '';
+setInterval(function () {
+    var me = mp.players.local, out = [];
+    if (!global.authOpen && !global.creatorOpen) {
+        var mp0 = me.position;
+        mp.players.forEachInStreamRange(function (p) {
+            if (!p.handle || p.dimension !== me.dimension) return;
+            var b = Number(p.getVariable('admBadge')) || 0;
+            if (!b) return;
+            if (p.getAlpha && p.getAlpha() < 50) return;
+            var pos = p.position;
+            var d = mp.game.system.vdist(mp0.x, mp0.y, mp0.z, pos.x, pos.y, pos.z);
+            if (d > 20 || (p !== me && !me.hasClearLosToEntity(p.handle, 17))) return;
+            if (p === me && mp.game.invoke('0x8D4D46230B2C353A') === 4) return;
+            var head = p.getBoneCoords(12844, 0, 0, 0);
+            var z = (head ? head.z : pos.z + 0.7) + 0.62 + d * 0.016;
+            var sc = mp.game.graphics.world3dToScreen2d(new mp.Vector3(pos.x, pos.y, z));
+            if (!sc) return;
+            out.push([b, Math.round(sc.x * 1000) / 10, Math.round(sc.y * 1000) / 10, Math.round(Math.max(26, 64 - d * 2))]);
+        });
+    }
+    var js = JSON.stringify(out);
+    if (js === badgeLast) return;
+    badgeLast = js;
+    hudExec('window.hudBadges && window.hudBadges(' + js + ');');
+}, 40);

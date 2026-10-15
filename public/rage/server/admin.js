@@ -19,7 +19,7 @@ const OWNERS = {
 
 const PERM = {
     a: 1, admins: 1, pm: 1, panel: 1, fly: 1, spec: 1, afk: 1, getcar: 1, carinfo: 1, rnick: 1, nickrule: 1, unjailself: 1, newbies: 1, near: 1, az: 1, respawncar: 1, healself: 1, reports: 1,
-    getpos: 2, announce: 2, ochat: 2, gate: 2, tow: 2, hideprefix: 2, arespawn: 2,
+    getpos: 2, announce: 2, ochat: 2, gate: 2, tow: 2, hideprefix: 1, arespawn: 2,
     kick: 3, mute: 3, unmute: 3, warn: 3, demorgan: 3, unjail: 3, setname: 3, goto: 3, tp: 3, bring: 3, tpto: 3, freeze: 3, unfreeze: 3, slap: 3, flytp: 3,
     plate: 3, takelic: 3, fixveh: 3, fix: 3, setdim: 3, heal: 3, revive: 3, gm: 3, invis: 3, tpc: 3, dv: 3,
     eject: 4, respawnpub: 4, ban: 4, offban: 4, jetpack: 4, mapping: 4, mp: 4, veh: 4, weather: 4, time: 4, dvall: 4,
@@ -753,7 +753,7 @@ mp.events.add('playerChat', function (p, text) {
         return;
     }
     const L = lvl(p);
-    const tag = L >= 1 && !p.hidePrefix ? '!{' + rankColor(L) + '}[' + SHORT[L] + '] ' : '';
+    const tag = L >= 1 && !p.hidePrefix ? '!{badge:' + L + '}!{' + rankColor(L) + '}[' + SHORT[L] + '] ' : '';
     if (global.AdminCore && global.AdminCore.chatHook && global.AdminCore.chatHook(p, text)) return;
     const S = global.SocialSystem;
     if (!S) return mp.players.broadcast(tag + '!{#ffffff}' + login(p) + ' [' + p.id + ']: ' + text);

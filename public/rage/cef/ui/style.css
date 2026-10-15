@@ -2156,3 +2156,20 @@ textarea {
 .jm-opt small{font-size:11px;color:#9a9aa6}
 .jm-opt.lk{opacity:.45;cursor:default}
 .jm-opt.lk:hover{border-color:#2e2e3a}
+
+#jobSort{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:10000;pointer-events:auto}
+.js-box{width:440px;background:var(--panel,#16161c);border:1px solid var(--line,#2a2a33);border-radius:18px;padding:18px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.5);transition:transform .2s,border-color .2s}
+.js-box.win{border-color:#8fd14f;transform:scale(1.02)}
+.js-box.lose{border-color:#ff6b6b;animation:jsShake .3s}
+@keyframes jsShake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.js-h b{display:block;font-size:15px}.js-h small{font-size:12px;color:#9a9aa6}
+.js-q{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}
+.js-p{padding:8px 12px;border-radius:9px;background:#22222b;border:2px solid var(--c);font-weight:800;font-size:15px;opacity:.55}
+.js-p.cur{opacity:1;transform:scale(1.12);box-shadow:0 0 14px var(--c)}
+.js-p.ok{opacity:.25;text-decoration:line-through}
+.js-t{height:6px;background:#2a2a33;border-radius:4px;overflow:hidden;margin-bottom:12px}
+.js-t i{display:block;height:100%;width:100%}
+.js-g{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.js-c{background:#1d1d24;border:0;border-bottom:4px solid var(--c);border-radius:8px;color:#fff;font:inherit;font-weight:800;padding:12px 0;cursor:pointer}
+.js-c:hover{background:#2a2a35}
+.js-c.bad{background:#5a1a22}

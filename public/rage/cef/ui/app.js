@@ -1221,3 +1221,47 @@ window.jobMenu = function (json) {
     });
 };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('jobMenu')) trig('cef:job:close'); });
+
+window.jobSort = function (n) {
+    var box = document.getElementById('jobSort');
+    if (box) box.remove();
+    n = Number(n) || 0;
+    if (!n) return;
+    var C = [['A', '#ff6b6b'], ['B', '#ffb357'], ['C', '#ffe066'], ['D', '#8fd14f'], ['E', '#5aa9ff'], ['F', '#c13dff']];
+    var Q = [];
+    for (var i = 0; i < n; i++) Q.push(C[Math.floor(Math.random() * C.length)][0] + '-' + (1 + Math.floor(Math.random() * 3)));
+    var cells = [];
+    for (var k = 1; k <= 3; k++) C.forEach(function (c) { cells.push([c[0] + '-' + k, c[1]]); });
+    var idx = 0, total = 4000 + n * 1700, t0 = Date.now(), done = false;
+    box = document.createElement('div'); box.id = 'jobSort'; document.body.appendChild(box);
+    function finish(ok) {
+        if (done) return; done = true;
+        box.querySelector('.js-box').classList.add(ok ? 'win' : 'lose');
+        box.querySelector('.js-h small').textContent = ok ? 'Готово! Несите ящик к фургону' : 'Ошибка сортировки';
+        setTimeout(function () { box.remove(); trig('cef:job:sort', ok ? 1 : 0); }, 650);
+    }
+    function draw() {
+        box.innerHTML = '<div class="js-box"><div class="js-h"><b>📦 Сортировка посылок</b><small>Разложите посылки по ячейкам стеллажа</small></div>' +
+            '<div class="js-q">' + Q.map(function (q, i) { var c = cells.find(function (x) { return x[0] === q; }); return '<span class="js-p' + (i < idx ? ' ok' : i === idx ? ' cur' : '') + '" style="--c:' + c[1] + '">' + q + '</span>'; }).join('') + '</div>' +
+            '<div class="js-t"><i id="jsT"></i></div>' +
+            '<div class="js-g">' + cells.map(function (c) { return '<button class="js-c" data-c="' + c[0] + '" style="--c:' + c[1] + '">' + c[0] + '</button>'; }).join('') + '</div></div>';
+        box.querySelectorAll('[data-c]').forEach(function (b) {
+            b.onclick = function () {
+                if (done) return;
+                if (b.dataset.c !== Q[idx]) { b.classList.add('bad'); return finish(false); }
+                idx++;
+                if (idx >= Q.length) { draw(); return finish(true); }
+                draw();
+            };
+        });
+    }
+    draw();
+    (function tick() {
+        if (done || !document.body.contains(box)) return;
+        var k = 1 - (Date.now() - t0) / total;
+        var el = document.getElementById('jsT');
+        if (el) { el.style.width = Math.max(0, k * 100) + '%'; el.style.background = k > 0.35 ? '#8fd14f' : '#ff6b6b'; }
+        if (k <= 0) return finish(false);
+        requestAnimationFrame(tick);
+    })();
+};

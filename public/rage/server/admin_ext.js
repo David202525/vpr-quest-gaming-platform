@@ -287,9 +287,31 @@ cmd('hook', 'tow', '/hook', function (p) {
     msg(p, 'Машина #' + best.id + ' на крюке', '#8fd14f');
     log(p, 'tow', 'veh ' + best.id, '');
 });
-cmd('hideprefix', 'hideprefix', '/hideprefix', function (p) {
+if (!S.noPrefix) S.noPrefix = {};
+function prefixToggle(p) {
+    const id = sid(p);
     p.hidePrefix = !p.hidePrefix;
-    msg(p, 'Префикс админа в чате: ' + (p.hidePrefix ? 'скрыт' : 'показан'), '#8fd14f');
+    if (id) { if (p.hidePrefix) S.noPrefix[id] = 1; else delete S.noPrefix[id]; save(); }
+    syncBadge(p);
+    return p.hidePrefix;
+}
+A.prefixToggle = prefixToggle;
+function syncBadge(p) {
+    const id = sid(p);
+    if (id) p.hidePrefix = !!S.noPrefix[id];
+    const L = lvl(p);
+    const b = L >= 1 && !p.hidePrefix ? L : 0;
+    if (p._badge !== b) { p._badge = b; p.setVariable('admBadge', b); }
+}
+setInterval(function () { mp.players.forEach(function (p) { try { syncBadge(p); } catch (e) {} }); }, 2000);
+cmd('hideprefix', 'hideprefix', '/hideprefix', function (p) {
+    const h = prefixToggle(p);
+    msg(p, 'Префикс и значок администратора: ' + (h ? 'скрыты' : 'показаны'), '#8fd14f');
+});
+mp.events.addCommand('prefix', function (p) {
+    if (realLvl(p) < 1) return;
+    const h = prefixToggle(p);
+    msg(p, 'Префикс и значок администратора: ' + (h ? 'скрыты' : 'показаны'), '#8fd14f');
 });
 
 /* ================= LEVEL 3 — МЛАДШАЯ АДМИНИСТРАЦИЯ ================= */

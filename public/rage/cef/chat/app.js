@@ -35,7 +35,7 @@ function colorize(text) {
     }
     out += esc(text.slice(last));
     if (open) out += '</span>';
-    return out;
+    return out.replace(/!\{badge:([1-9])\}/g, '<img class="badge" src="../hud/badges/$1.png">');
 }
 function plain(text) { return String(text).replace(/!\{[^}]*\}/g, ''); }
 

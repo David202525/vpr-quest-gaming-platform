@@ -123,3 +123,17 @@ window.hudSpeedo = function (d) {
     $('iEngine').classList.toggle('warn', d.hp < 30);
     $('iBelt').classList.toggle('on', !!d.belt);
 };
+
+window.hudBadges = function (list) {
+    var box = document.getElementById('admBadges');
+    if (!box) { box = document.createElement('div'); box.id = 'admBadges'; document.body.appendChild(box); }
+    while (box.children.length < list.length) { var im = document.createElement('img'); box.appendChild(im); }
+    for (var i = 0; i < box.children.length; i++) {
+        var el = box.children[i], b = list[i];
+        if (!b) { el.style.display = 'none'; continue; }
+        var src = 'badges/' + b[0] + '.png';
+        if (el.getAttribute('src') !== src) el.setAttribute('src', src);
+        el.style.display = 'block';
+        el.style.left = b[1] + 'vw'; el.style.top = b[2] + 'vh'; el.style.width = b[3] + 'px';
+    }
+};

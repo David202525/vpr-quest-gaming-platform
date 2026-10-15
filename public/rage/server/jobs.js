@@ -12,7 +12,7 @@ const JOBS = {
         base: { x: 2029.8, y: 4980.6, z: 42.1 }, blip: 85, color: 2
     },
     courier: {
-        n: 'Курьер', i: '📦', lvl: 0, pay: '60–140$ за доставку', d: 'Забери посылку на складе Post OP и доставь клиенту. Чем дальше адрес — тем выше оплата.',
+        n: 'Курьер', i: '📦', lvl: 0, pay: '60–140$ за доставку + бонус за полный фургон', d: 'Отсортируй посылки на складе Post OP, загрузи до 4 ящиков в фургон и развези по адресам. Чем дальше адрес — тем выше оплата.',
         base: { x: -424.9, y: -2789.4, z: 6.0 }, blip: 478, color: 5, car: 'boxville2', carPos: { x: -431.6, y: -2794.6, z: 5.6, h: 45 }
     },
     bus: {
@@ -167,6 +167,7 @@ function startJob(p, id, opt) {
             s.route = rk; s.stop = 1;
         }
         s.has = false;
+        if (id === 'courier') { s.loaded = []; s.hands = null; }
         const saved = store._spots[id];
         const go = function (spot) {
             if (!mp.players.exists(p) || p.job !== s || s.veh) return;
@@ -247,21 +248,91 @@ mp.events.add('srv:job:qte', function (p, ok) {
 });
 
 /* ---------- курьер ---------- */
+const VAN_CAP = 4;
+function vanRear(v) {
+    const h = (v.heading || 0) * Math.PI / 180;
+    return { x: v.position.x + Math.sin(h) * 4.3, y: v.position.y - Math.cos(h) * 4.3, z: v.position.z };
+}
+function nearRear(p, s) {
+    if (!s.veh || !mp.vehicles.exists(s.veh)) return false;
+    const r = vanRear(s.veh);
+    return Math.hypot(p.position.x - r.x, p.position.y - r.y) < 3 && Math.abs(p.position.z - r.z) < 3;
+}
 function courierPick(p) {
     const j = JOBS.courier;
-    p.job.has = false;
-    p.call('job:point', [j.base.x, j.base.y, j.base.z, 2.5, 'Забрать посылку на складе (E)', 'pick']);
-    quest(p, 'Курьер', ['Заберите посылку на складе Post OP', 'Фургон — у склада']);
-}
-function courierDrop(p) {
-    const d = COURIER_DEST[Math.floor(Math.random() * COURIER_DEST.length)];
     const s = p.job;
-    s.has = true;
-    s.dest = d;
-    s.price = Math.round(Math.max(60, Math.min(140, 50 + dist(JOBS.courier.base, d[1], d[2], d[3]) / 45)));
-    p.call('job:point', [d[1], d[2], d[3], 2.5, 'Доставить посылку (E)', 'drop']);
-    quest(p, 'Курьер', ['Доставьте посылку: ' + d[0], 'Оплата: $' + s.price]);
+    s.phase = 'load';
+    if (!s.loaded) s.loaded = [];
+    s.hands = null;
+    if (s.veh && mp.vehicles.exists(s.veh)) p.call('job:van', [s.veh.id]);
+    p.call('job:point', [j.base.x, j.base.y, j.base.z, 2.5, 'Отсортировать и взять ящик (E)', 'pick', '']);
+    quest(p, 'Курьер · погрузка', ['В фургоне: ' + s.loaded.length + '/' + VAN_CAP, 'Возьмите ящик на складе (E) и отнесите к задним дверям фургона',
+        s.loaded.length ? 'Можно ехать — просто сядьте за руль' : 'Полный фургон = бонус 15%']);
 }
+function courierToTrunk(p) {
+    const s = p.job;
+    const r = vanRear(s.veh);
+    p.call('job:point', [r.x, r.y, r.z, 1.4, 'Погрузить ящик в фургон (E)', 'trunk', '']);
+    quest(p, 'Курьер · погрузка', ['Ящик в руках — несите к задним дверям фургона', 'В фургоне: ' + s.loaded.length + '/' + VAN_CAP, 'С ящиком в руках за руль сесть нельзя']);
+}
+function courierRoute(p) {
+    const s = p.job;
+    s.phase = 'deliver';
+    if (!s.loaded.length) return courierPick(p);
+    const pos = s.veh && mp.vehicles.exists(s.veh) ? s.veh.position : p.position;
+    s.loaded.sort(function (a, b) { return dist(pos, a.d[1], a.d[2], a.d[3]) - dist(pos, b.d[1], b.d[2], b.d[3]); });
+    const t = s.loaded[0];
+    s.dest = t.d; s.price = t.price;
+    if (s.hands === 'deliver') {
+        p.call('job:point', [t.d[1], t.d[2], t.d[3], 2.5, 'Отдать посылку (E)', 'drop', '']);
+        quest(p, 'Курьер · доставка', ['Отнесите посылку: ' + t.d[0], 'Оплата: $' + t.price]);
+    } else {
+        p.call('job:point', [t.d[1], t.d[2], t.d[3], 2.5, 'Адрес: ' + t.d[0], 'drop', 'van']);
+        quest(p, 'Курьер · доставка', ['Адрес: ' + t.d[0] + ' ($' + t.price + ')', 'На месте достаньте посылку из задних дверей фургона (E)', 'Осталось посылок: ' + s.loaded.length]);
+    }
+}
+function newParcel(s) {
+    let d, tries = 0;
+    do { d = COURIER_DEST[Math.floor(Math.random() * COURIER_DEST.length)]; tries++; }
+    while (tries < 20 && s.loaded.some(function (x) { return x.d === d; }));
+    return { d: d, price: Math.round(Math.max(60, Math.min(140, 50 + dist(JOBS.courier.base, d[1], d[2], d[3]) / 45))) };
+}
+mp.events.add('srv:job:boxres', function (p, ok) {
+    const s = p.job;
+    if (!s || s.id !== 'courier' || !s.sorting) return;
+    clearTimeout(s.sorting); s.sorting = null; s.busy = false;
+    if (!ok || ok === '0' || ok === 'false') { notify(p, 'warn', 'Посылка ушла не в ту ячейку — попробуйте ещё раз'); return; }
+    s.hands = 'load';
+    p.call('job:anim', ['box', 0]);
+    courierToTrunk(p);
+});
+mp.events.add('srv:job:trunk', function (p) {
+    const s = p.job;
+    if (!s || s.id !== 'courier' || s.busy || p.vehicle) return;
+    if (!nearRear(p, s)) return;
+    if (s.phase === 'load' && s.hands === 'load') {
+        s.busy = true;
+        p.call('job:anim', ['put', 1200]);
+        setTimeout(function () {
+            if (!mp.players.exists(p) || p.job !== s) return;
+            s.busy = false; s.hands = null;
+            s.loaded.push(newParcel(s));
+            notify(p, 'ok', '📦 Ящик в фургоне: ' + s.loaded.length + '/' + VAN_CAP);
+            if (s.loaded.length >= VAN_CAP) { notify(p, 'ok', 'Фургон полный! Садитесь за руль'); courierRoute(p); }
+            else courierPick(p);
+        }, 1200);
+    } else if (s.phase === 'deliver' && !s.hands) {
+        const d = s.dest;
+        if (!d || dist(s.veh.position, d[1], d[2], d[3]) > 60) return notify(p, 'warn', 'Подъедьте ближе к адресу доставки');
+        s.busy = true;
+        p.call('job:anim', ['box', 0]);
+        setTimeout(function () { if (!mp.players.exists(p) || p.job !== s) return; s.busy = false; s.hands = 'deliver'; courierRoute(p); }, 700);
+    } else if (s.phase === 'deliver' && s.hands === 'deliver') {
+        s.busy = true;
+        p.call('job:anim', ['put', 1200]);
+        setTimeout(function () { if (!mp.players.exists(p) || p.job !== s) return; s.busy = false; s.hands = null; notify(p, 'warn', 'Посылка возвращена в фургон'); courierRoute(p); }, 1200);
+    }
+});
 
 /* ---------- автобус ---------- */
 function busNext(p) {
@@ -312,22 +383,30 @@ mp.events.add('srv:job:here', function (p) {
         }, c.ms);
     } else if (s.id === 'courier') {
         if (p.vehicle) return notify(p, 'warn', 'Выйдите из фургона и подойдите пешком');
-        if (!s.has) {
+        if (s.phase === 'load') {
+            if (s.hands) return notify(p, 'warn', 'Сначала погрузите ящик в фургон');
+            if (s.loaded.length >= VAN_CAP) return notify(p, 'warn', 'Фургон полный — садитесь за руль');
             if (dist(p.position, JOBS.courier.base.x, JOBS.courier.base.y, JOBS.courier.base.z) > 4) return;
             s.busy = true;
-            p.call('job:anim', ['box', 2500]);
-            setTimeout(function () { if (mp.players.exists(p) && p.job === s) { s.busy = false; courierDrop(p); notify(p, 'ok', 'Посылка у вас. Адрес отмечен на карте'); } }, 2500);
+            const n = 3 + Math.min(3, Math.floor(s.loaded.length / 2) + Math.floor(Math.random() * 2));
+            p.call('job:sort', [n]);
+            s.sorting = setTimeout(function () { if (mp.players.exists(p) && p.job === s && s.sorting) { s.sorting = null; s.busy = false; } }, 15000);
         } else {
             const d = s.dest;
-            if (dist(p.position, d[1], d[2], d[3]) > 4) return;
+            if (!d || dist(p.position, d[1], d[2], d[3]) > 4) return;
+            if (s.hands !== 'deliver') return notify(p, 'warn', 'Сначала достаньте посылку из задних дверей фургона');
             s.busy = true;
             p.call('job:anim', ['give', 2000]);
             setTimeout(function () {
                 if (!mp.players.exists(p) || p.job !== s) return;
-                s.busy = false;
-                pay(p, s.price, 'courier');
-                notify(p, 'ok', 'Доставлено! +$' + s.price);
-                courierPick(p);
+                s.busy = false; s.hands = null;
+                const it = s.loaded.shift();
+                let sum = it.price;
+                if (s.fullRun) sum = Math.round(sum * 1.15);
+                pay(p, sum, 'courier');
+                notify(p, 'ok', 'Доставлено! +$' + sum + (s.fullRun ? ' (бонус за полный фургон)' : ''));
+                if (s.loaded.length) courierRoute(p);
+                else { s.fullRun = false; notify(p, 'ok', 'Все посылки доставлены — возвращайтесь на склад'); courierPick(p); }
             }, 2000);
         }
     }
@@ -375,6 +454,11 @@ mp.events.add('playerExitVehicle', function (p, v) {
 });
 mp.events.add('playerEnterVehicle', function (p, v) {
     if (p.job && v === p.job.veh) p.job.leftAt = 0;
+    const cs = p.job;
+    if (cs && cs.id === 'courier' && v === cs.veh) {
+        if (cs.hands) { try { p.removeFromVehicle(); } catch (e) {} notify(p, 'warn', 'Сначала положите ящик в фургон'); return; }
+        if (cs.phase === 'load' && cs.loaded && cs.loaded.length) { cs.fullRun = cs.loaded.length >= VAN_CAP; courierRoute(p); }
+    }
     if (v.jobOwner !== undefined && v.jobOwner !== p.id && p.seat === 0) { try { p.removeFromVehicle(); } catch (e) {} notify(p, 'warn', 'Это рабочий транспорт другого игрока'); }
 });
 setInterval(function () {

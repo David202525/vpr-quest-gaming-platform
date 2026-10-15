@@ -446,6 +446,15 @@ mp.events.add('job:bases', function (json) {
 
 var jobPlant = null;
 var jobQte = null;
+var jobVanId = -1;
+var jobSorting = false;
+mp.events.add('job:van', function (id) { jobVanId = Number(id); });
+function jobVanRear() {
+    if (jobVanId < 0) return null;
+    var v = mp.vehicles.atRemoteId ? mp.vehicles.atRemoteId(jobVanId) : mp.vehicles.at(jobVanId);
+    if (!v || !v.handle) return null;
+    try { return v.getOffsetFromInWorldCoords(0, -4.3, 0); } catch (e) { return null; }
+}
 function jobPlantClear() { if (jobPlant) { try { jobPlant.destroy(); } catch (e) {} jobPlant = null; } }
 function jobSnapBus(x, y, z) {
     var best = null;
@@ -485,6 +494,8 @@ mp.events.add('job:state', function (s) {
     if (jobBlip) { try { jobBlip.destroy(); } catch (e) {} jobBlip = null; }
     jobBusUntil = 0;
     jobQte = null;
+    jobVanId = -1;
+    if (jobSorting) { jobSorting = false; if (typeof uiExec === 'function') uiExec('window.jobSort && window.jobSort(0);'); if (typeof cursorSync === 'function') cursorSync(); }
     jobPlantClear();
     jobDropCarry();
     try { mp.players.local.clearTasks(); } catch (e) {}
@@ -501,6 +512,17 @@ mp.events.add('job:qte', function (lvl) {
     mp.game.audio.playSoundFrontend(-1, 'NAV_UP_DOWN', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true);
 });
 function jobQtePos() { var t = (Date.now() - jobQte.start) / 1000 * jobQte.speed; var m = t % 2; return m < 1 ? m : 2 - m; }
+mp.events.add('job:sort', function (n) {
+    if (typeof uiExec !== 'function') return mp.events.callRemote('srv:job:boxres', 1);
+    jobSorting = true;
+    uiExec('window.jobSort && window.jobSort(' + Number(n) + ');');
+    mp.gui.cursor.show(true, true);
+});
+mp.events.add('cef:job:sort', function (ok) {
+    jobSorting = false;
+    if (typeof cursorSync === 'function') cursorSync(); else mp.gui.cursor.show(false, false);
+    mp.events.callRemote('srv:job:boxres', Number(ok) ? 1 : 0);
+});
 mp.events.add('job:busStop', function (ms) { jobBusUntil = Date.now() + Number(ms); });
 
 function jobLoadAnim(dict, cb) {
@@ -529,6 +551,10 @@ mp.events.add('job:anim', function (kind, ms) {
                 if (jobCarry && jobCarry.handle) jobCarry.attachTo(p.handle, p.getBoneIndex(60309), 0.025, 0.08, 0.255, -145, 290, 0, true, true, false, true, 1, true);
             }, 300);
         });
+    } else if (kind === 'put') {
+        p.clearTasks();
+        jobLoadAnim('anim@heists@narcotics@trash', function () { p.taskPlayAnim('anim@heists@narcotics@trash', 'drop_side', 8, -8, Number(ms), 0, 0, false, false, false); });
+        setTimeout(jobDropCarry, 500);
     } else if (kind === 'give') {
         jobDropCarry();
         p.clearTasks();
@@ -545,9 +571,14 @@ mp.keys.bind(0x45, false, function () {
         mp.events.callRemote('srv:job:qte', ok ? 1 : 0);
         return;
     }
-    if (jobBusy()) return;
+    if (jobBusy() || jobSorting) return;
     var p = mp.players.local;
-    if (jobPt && jobPt.kind !== 'bus') {
+    if (jobPt && !p.vehicle && (jobPt.kind === 'trunk' || jobPt.kind === 'drop')) {
+        var rr = jobVanRear();
+        if (rr && mp.game.system.vdist(p.position.x, p.position.y, p.position.z, rr.x, rr.y, rr.z) < 3) { mp.events.callRemote('srv:job:trunk'); return; }
+        if (jobPt.kind === 'trunk') return mp.events.call('hud:notify', 'warn', 'Подойдите к задним дверям фургона', 2500);
+    }
+    if (jobPt && jobPt.kind !== 'bus' && jobPt.kind !== 'trunk') {
         var d = mp.game.system.vdist(p.position.x, p.position.y, p.position.z, jobPt.x, jobPt.y, jobPt.z);
         if (d <= Math.max(2.5, jobPt.r + 1)) { mp.events.callRemote('srv:job:here'); return; }
     }
@@ -593,6 +624,10 @@ mp.events.add('render', function () {
             mp.game.graphics.drawRect(bx - bw / 2 + jobQtePos() * bw, by, 0.004, bh + 0.012, 255, 255, 255, 255, false);
             mp.game.graphics.drawText('Нажмите E, когда отметка в зелёной зоне', [0.5, 0.735], { font: 4, color: [255, 255, 255, 230], scale: [0.42, 0.42], outline: true });
         }
+    }
+    if (jobPt && (jobPt.kind === 'trunk' || jobPt.kind === 'drop')) {
+        var vr = jobVanRear();
+        if (vr && mp.game.system.vdist(pos.x, pos.y, pos.z, vr.x, vr.y, vr.z) < 40) mp.game.graphics.drawMarker(2, vr.x, vr.y, vr.z + 0.4, 0, 0, 0, 180, 0, 0, 0.3, 0.3, 0.3, 143, 209, 79, 210, true, true, 2, false, null, null, false);
     }
     if (jobBusUntil > Date.now()) {
         mp.game.controls.disableControlAction(0, 71, true);
