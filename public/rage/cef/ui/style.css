@@ -2231,3 +2231,4 @@ textarea {
 .pc-btns{position:absolute;bottom:90px;display:flex;gap:60px}
 .pc-btns button{width:68px;height:68px;border-radius:50%;border:0;font-size:28px;cursor:pointer}
 .pc-ok{background:#34c759}.pc-no{background:#ff3b30;transform:rotate(135deg)}
+.pc-hint{margin-top:18px;font-size:12px;color:#9aa6b4}

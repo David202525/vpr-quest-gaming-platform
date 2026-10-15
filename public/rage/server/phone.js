@@ -113,16 +113,16 @@ function state(p) {
     const other = c.a === p ? c.b : c.a;
     const u = U();
     const num = u.data(other).phone;
-    return { st: c.st, out: c.a === p, num: num, name: nameFor(p, num), since: c.since || 0 };
+    return { st: c.st, out: c.a === p, num: num, name: nameFor(p, num), since: c.since || 0, rid: other.id, el: c.since ? Date.now() - c.since : 0 };
 }
 function push(c) {
     [c.a, c.b].forEach(function (x) { if (x && mp.players.exists(x)) { x.call('phone:call', [JSON.stringify(state(x))]); } });
 }
 function voice(c, on) {
-    try {
-        if (on) { c.a.enableVoiceTo(c.b); c.b.enableVoiceTo(c.a); }
-        else { if (mp.players.exists(c.a) && mp.players.exists(c.b)) { c.a.disableVoiceTo(c.b); c.b.disableVoiceTo(c.a); } }
-    } catch (e) {}
+    [[c.a, c.b], [c.b, c.a]].forEach(function (x) {
+        if (!mp.players.exists(x[0]) || !mp.players.exists(x[1])) return;
+        try { if (on) x[0].enableVoiceTo(x[1]); else x[0].disableVoiceTo(x[1]); } catch (e) { console.log('[phone] voice: ' + e.message); }
+    });
 }
 function end(c, why) {
     if (!calls[c.id]) return;
@@ -131,7 +131,7 @@ function end(c, why) {
     if (c.st === 'talk') voice(c, false);
     [c.a, c.b].forEach(function (x) {
         if (!x || !mp.players.exists(x)) return;
-        x.callId = 0;
+        if (x.callId === c.id) x.callId = 0;
         x.call('phone:call', ['null']);
         if (why) notify(x, 'warn', why);
     });
@@ -169,7 +169,7 @@ mp.events.add('srv:call:answer', function (p) {
 });
 mp.events.add('srv:call:end', function (p) {
     const c = p.callId && calls[p.callId];
-    if (!c) return;
+    if (!c) { p.callId = 0; return p.call('phone:call', ['null']); }
     end(c, c.st === 'ring' && c.b === p ? 'Абонент отклонил вызов' : 'Звонок завершён');
 });
 mp.events.add('playerQuit', function (p) { const c = p.callId && calls[p.callId]; if (c) end(c, 'Связь прервалась'); });

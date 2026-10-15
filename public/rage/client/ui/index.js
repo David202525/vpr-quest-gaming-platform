@@ -693,18 +693,44 @@ mp.events.add('sim:check', function (n, ok) { uiExec('window.simCheck && window.
 mp.events.add('cef:call:start', function (n) { mp.events.callRemote('srv:call:start', String(n)); });
 mp.events.add('cef:call:answer', function () { mp.events.callRemote('srv:call:answer'); });
 mp.events.add('cef:call:end', function () { mp.events.callRemote('srv:call:end'); });
-var callState = null, ringT = null;
+var callState = null, ringSnd = -1, callPeer = null;
+function ringStop() {
+    if (ringSnd >= 0) { try { mp.game.audio.stopSound(ringSnd); mp.game.audio.releaseSoundId(ringSnd); } catch (e) {} }
+    ringSnd = -1;
+}
+function callVoice(c) {
+    if (callPeer && mp.players.exists(callPeer)) { try { callPeer.voice3d = true; callPeer.voiceVolume = 1.0; } catch (e) {} }
+    callPeer = null;
+    if (c && c.st === 'talk') {
+        callPeer = mp.players.atRemoteId(Number(c.rid));
+        try { mp.voiceChat.muted = false; } catch (e) {}
+        if (callPeer) { try { callPeer.voice3d = false; callPeer.voiceVolume = 1.0; } catch (e) {} }
+    } else {
+        try { mp.voiceChat.muted = true; } catch (e) {}
+    }
+}
 mp.events.add('phone:call', function (json) {
     var c = null;
     try { c = JSON.parse(json); } catch (e) {}
+    var was = callState;
     callState = c;
+    ringStop();
+    callVoice(c);
     uiExec('window.phoneCall && window.phoneCall(' + JSON.stringify(json) + ');');
-    clearInterval(ringT); ringT = null;
     if (c && c.st === 'ring') {
-        var snd = function () { mp.game.audio.playSoundFrontend(-1, c.out ? 'Dial_and_Remote_Ring' : 'Remote_Ring', 'Phone_SoundSet_Default', true); };
-        snd(); ringT = setInterval(snd, 3000);
-        if (!c.out) mp.events.call('hud:notify', 'warn', 'Входящий звонок: ' + c.name + ' · откройте телефон (F3)', 6000);
+        try { ringSnd = mp.game.audio.getSoundId(); mp.game.audio.playSoundFrontend(ringSnd, c.out ? 'Dial_and_Remote_Ring' : 'Remote_Ring', 'Phone_SoundSet_Default', true); } catch (e) {}
+        if (!c.out) {
+            mp.events.call('hud:notify', 'warn', 'Входящий звонок: ' + c.name + ' · Y — ответить, N — сбросить', 6000);
+            if (!uiOpen) openUi('phone');
+        }
     }
-    if (c && c.st === 'talk') mp.game.audio.playSoundFrontend(-1, 'Menu_Accept', 'Phone_SoundSet_Default', true);
-    if (!c) mp.game.audio.playSoundFrontend(-1, 'Hang_Up', 'Phone_SoundSet_Michael', true);
+    if (c && c.st === 'talk') mp.events.call('hud:notify', 'ok', 'Разговор начат — говорите в микрофон', 3000);
+    if (!c && was) { try { mp.game.audio.playSoundFrontend(-1, 'Hang_Up', 'Phone_SoundSet_Michael', true); } catch (e) {} }
 });
+global.phoneCallState = function () { return callState; };
+setInterval(function () {
+    if (!callState || callState.st !== 'talk') return;
+    try { if (mp.voiceChat.muted) mp.voiceChat.muted = false; } catch (e) {}
+    if (!callPeer || !callPeer.handle) callPeer = mp.players.atRemoteId(Number(callState.rid));
+    if (callPeer) { try { callPeer.voice3d = false; callPeer.voiceVolume = 1.0; } catch (e) {} }
+}, 1000);

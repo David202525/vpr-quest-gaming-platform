@@ -44,12 +44,11 @@ const FLATS = [
 ];
 
 const FAC_INT = [
-    { f: ['lspd'], n: 'Полиция LSPD', out: [434.1, -981.9, 30.7, 90], in: [-1579.756, -565.066, 108.523, 0], ipl: 'ex_sm_13_office_02b', pub: true },
-    { f: ['sheriff'], n: 'Офис шерифа', out: [1853.2, 3686.4, 34.27, 210], in: [-1392.667, -480.474, 72.042, 0], ipl: 'ex_sm_15_office_02b', pub: true },
-    { f: ['fib'], n: 'Штаб FIB', out: [105.6, -744.9, 45.75, 160], in: [136.0, -749.6, 258.15, 70], pub: false },
-    { f: ['army'], n: 'Штаб армии', out: [-2344.0, 3267.0, 32.8, 240], in: [-141.199, -620.913, 168.820, 0], ipl: 'ex_dt1_02_office_02b', pub: false },
-    { f: ['gov'], n: 'Правительство', out: [-545.2, -204.0, 38.2, 210], in: [-75.847, -826.989, 243.386, 0], ipl: 'ex_dt1_11_office_02b', pub: true },
-    { f: ['news'], n: 'Weazel News', out: [-598.0, -929.9, 23.9, 90], in: [-1579.756, -565.066, 108.523, 0], ipl: 'ex_sm_13_office_02b', pub: false, dimOff: 50 }
+    { k: 'sheriff', f: ['sheriff'], n: 'Офис шерифа', out: [1853.2, 3686.4, 34.27, 210], in: [-1392.667, -480.474, 72.042, 0], ipl: 'ex_sm_15_office_02b', pub: true },
+    { k: 'fib', f: ['fib'], n: 'Штаб FIB', out: [105.6, -744.9, 45.75, 160], in: [136.0, -749.6, 258.15, 70], pub: false },
+    { k: 'army', f: ['army'], n: 'Штаб армии', out: [-2344.0, 3267.0, 32.8, 240], in: [-141.199, -620.913, 168.820, 0], ipl: 'ex_dt1_02_office_02b', pub: false },
+    { k: 'gov', f: ['gov'], n: 'Правительство', out: [-545.2, -204.0, 38.2, 210], in: [-75.847, -826.989, 243.386, 0], ipl: 'ex_dt1_11_office_02b', pub: true },
+    { k: 'news', f: ['news'], n: 'Weazel News', out: [-598.0, -929.9, 23.9, 90], in: [-1579.756, -565.066, 108.523, 0], ipl: 'ex_sm_13_office_01a', pub: false }
 ];
 
 let D = (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { return null; } })();
@@ -59,6 +58,7 @@ if (!D || !Array.isArray(D.houses)) {
     FLATS.forEach(function (b) { for (let i = 1; i <= b[6]; i++) D.houses.push({ id: D.seq++, n: b[0] + ', кв. ' + i, x: b[1], y: b[2], z: b[3], h: 0, int: b[4], price: b[5] + i * 10000, owner: 0, on: '', locked: true, flat: 1 }); });
 }
 if (!D.fac) D.fac = {};
+Object.keys(D.fac).forEach(function (k) { if (/^\d+$/.test(k)) delete D.fac[k]; });
 if (!D.ints) D.ints = {};
 let dirty = true;
 setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FILE, JSON.stringify(D)); } catch (e) {} } }, 5000);
@@ -70,7 +70,7 @@ function notify(p, type, text) { if (typeof global.hudNotify === 'function') glo
 function admLvl(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0; }
 function M() { return global.MoneySystem; }
 function intOf(k) { return Object.assign({}, INTS[k] || INTS.low, D.ints[k] || {}); }
-function facInt(i) { const f = FAC_INT[i]; const o = D.fac[i] || {}; return { f: f.f, n: f.n, pub: f.pub, ipl: f.ipl, out: o.out || f.out, in: o.in || f.in, dim: DIM_FAC + i + (f.dimOff || 0) }; }
+function facInt(i) { const f = FAC_INT[i]; const o = D.fac[f.k] || {}; return { f: f.f, n: f.n, pub: f.pub, ipl: f.ipl, out: o.out || f.out, in: o.in || f.in, dim: DIM_FAC + 100 + i }; }
 function byId(id) { return D.houses.find(function (h) { return h.id === Number(id); }) || null; }
 function mine(p) { const s = sid(p); return s ? D.houses.find(function (h) { return h.owner === s; }) || null : null; }
 function near(p, x, y, z, r) { return Math.hypot(p.position.x - x, p.position.y - y) <= r && Math.abs(p.position.z - z) < 4; }
@@ -277,8 +277,9 @@ mp.events.addCommand('facdoor', function (p, full) {
     const a = String(full || '').trim().split(/\s+/);
     const i = Number(a[0]);
     if (!FAC_INT[i] || (a[1] !== 'in' && a[1] !== 'out')) return p.outputChatBox('!{#ffcc66}/facdoor [номер] [out/in] — ' + FAC_INT.map(function (f, k) { return k + ' ' + f.n; }).join(', '));
-    if (!D.fac[i]) D.fac[i] = {};
-    D.fac[i][a[1]] = [p.position.x, p.position.y, p.position.z, p.heading || 0];
+    const fk = FAC_INT[i].k;
+    if (!D.fac[fk]) D.fac[fk] = {};
+    D.fac[fk][a[1]] = [p.position.x, p.position.y, p.position.z, p.heading || 0];
     dirty = true;
     mp.players.forEach(sendStatic);
     p.outputChatBox('!{#8fd14f}Точка ' + a[1] + ' для «' + FAC_INT[i].n + '» сохранена');

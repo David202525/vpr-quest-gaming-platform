@@ -1407,10 +1407,11 @@ window.phoneCall = function (json) {
     var st = c.st === 'ring' ? (c.out ? 'Вызов…' : 'Входящий звонок') : '00:00';
     el.className = 'ph-call ' + c.st;
     el.innerHTML = '<div class="pc-av">' + esc(String(c.name)[0] || '?') + '</div><b class="pc-n">' + esc(c.name) + '</b><div class="pc-num">' + esc(c.num) + '</div><div class="pc-st" id="pcSt">' + st + '</div>' +
-        '<div class="pc-btns">' + (c.st === 'ring' && !c.out ? '<button class="pc-ok" data-pc="ok">📞</button>' : '') + '<button class="pc-no" data-pc="no">📞</button></div>';
+        (c.st === 'talk' ? '<div class="pc-hint">🎙 Говорите — собеседник вас слышит</div>' : c.out ? '' : '<div class="pc-hint">Y — ответить · N — сбросить</div>') + '<div class="pc-btns">' + (c.st === 'ring' && !c.out ? '<button class="pc-ok" data-pc="ok">📞</button>' : '') + '<button class="pc-no" data-pc="no">📞</button></div>';
     el.querySelectorAll('[data-pc]').forEach(function (b) { b.onclick = function () { trig(b.dataset.pc === 'ok' ? 'cef:call:answer' : 'cef:call:end'); }; });
+    var t0 = Date.now() - (c.el || 0);
     if (c.st === 'talk') callT = setInterval(function () {
-        var s = Math.floor((Date.now() - c.since) / 1000), e = document.getElementById('pcSt');
+        var s = Math.floor((Date.now() - t0) / 1000), e = document.getElementById('pcSt');
         if (e) e.textContent = pad(Math.floor(s / 60)) + ':' + pad(s % 60);
     }, 1000);
 };
