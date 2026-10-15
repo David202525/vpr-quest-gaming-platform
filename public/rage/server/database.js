@@ -98,6 +98,20 @@ async function init() {
         },
         logs: { account_id: "INT NULL", type: "VARCHAR(32) NOT NULL DEFAULT ''", text: "TEXT NULL", created_at: "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP" }
     };
+    try {
+        const [idc] = await pool.query("SELECT COLUMN_KEY AS k, EXTRA AS e FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'accounts' AND COLUMN_NAME = 'id'");
+        if (!idc.length) {
+            await pool.query('ALTER TABLE accounts ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST')
+                .then(() => console.log('[DB] Добавлена колонка accounts.id (автонумерация)'))
+                .catch((e) => console.error('[DB] accounts.id: ' + e.message + ' — уберите старый PRIMARY KEY и повторите'));
+        } else if (String(idc[0].e).indexOf('auto_increment') < 0) {
+            if (idc[0].k !== 'PRI') await pool.query('ALTER TABLE accounts ADD PRIMARY KEY (id)').catch((e) => console.error('[DB] accounts.id PK: ' + e.message));
+            await pool.query('ALTER TABLE accounts MODIFY id INT NOT NULL AUTO_INCREMENT')
+                .then(() => console.log('[DB] accounts.id: включена автонумерация'))
+                .catch((e) => console.error('[DB] accounts.id: ' + e.message));
+        }
+    } catch (e) { console.error('[DB] ' + e.message); }
+    await pool.query('ALTER TABLE accounts MODIFY password VARCHAR(255) NOT NULL').catch((e) => console.error('[DB] password: ' + e.message));
     for (const t of Object.keys(NEED)) {
         let have = [];
         try {
