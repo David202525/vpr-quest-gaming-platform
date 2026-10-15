@@ -69,6 +69,7 @@ mp.events.add('creator:finish', async function (p, firstname, lastname, gender, 
         console.log('[creator] создан персонаж ' + nick);
         p.call('creator:done');
         global.AuthSystem.spawn(p);
+        if (global.IntroSystem) global.IntroSystem.onNewCharacter(p);
     } catch (e) {
         console.log('[creator] ' + e.message);
         p.call('creator:error', ['Ошибка сервера, попробуйте позже']);

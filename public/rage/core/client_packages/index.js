@@ -7,3 +7,4 @@ require('./hud/index.js');
 require('./ui/index.js');
 require('./admin/index.js');
 require('./social/index.js');
+require('./intro/index.js');

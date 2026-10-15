@@ -1,0 +1,242 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: Montserrat, Arial, sans-serif;
+  color: #fff;
+  user-select: none;
+}
+#stage {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s;
+}
+#stage.on {
+  opacity: 1;
+}
+.slide {
+  position: absolute;
+  inset: -4%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 1.6s ease;
+  filter: saturate(1.05) contrast(1.05);
+}
+.slide.show {
+  opacity: 1;
+  animation: kb 14s ease-out forwards;
+}
+.slide.alt.show {
+  animation: kb2 14s ease-out forwards;
+}
+@keyframes kb {
+  from {
+    transform: scale(1.02) translate(0, 0);
+  }
+  to {
+    transform: scale(1.14) translate(-1.5%, -1%);
+  }
+}
+@keyframes kb2 {
+  from {
+    transform: scale(1.14) translate(1%, 1%);
+  }
+  to {
+    transform: scale(1.03) translate(0, 0);
+  }
+}
+.vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(0, 0, 0, 0) 35%,
+      rgba(0, 0, 0, 0.75) 100%
+    ),
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.85) 100%);
+}
+.bars {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #000;
+  z-index: 3;
+}
+.bars.top {
+  top: 0;
+}
+.bars.bot {
+  bottom: 0;
+}
+#chapter {
+  position: absolute;
+  top: 13vh;
+  left: 7vw;
+  z-index: 4;
+  font-size: 1.4vh;
+  letter-spacing: 0.6em;
+  text-transform: uppercase;
+  color: #e8c27a;
+  opacity: 0;
+  transition: opacity 0.8s;
+}
+#chapter.show {
+  opacity: 1;
+}
+#chapter b {
+  display: block;
+  font-family: "Playfair Display", serif;
+  font-size: 4.4vh;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: #fff;
+  margin-top: 1vh;
+  font-weight: 800;
+}
+#text {
+  position: absolute;
+  left: 7vw;
+  right: 30vw;
+  bottom: 15vh;
+  z-index: 4;
+}
+#date {
+  font-size: 1.5vh;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: #c9a0ff;
+  margin-bottom: 1.4vh;
+  opacity: 0;
+  transition: opacity 0.6s;
+}
+#date.show {
+  opacity: 1;
+}
+#line {
+  font-family: "Playfair Display", serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 3vh;
+  line-height: 1.55;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+  min-height: 14vh;
+}
+#line .c {
+  display: inline-block;
+  width: 0.12em;
+  height: 1em;
+  background: #e8c27a;
+  margin-left: 0.15em;
+  vertical-align: -0.12em;
+  animation: bl 0.9s steps(1) infinite;
+}
+@keyframes bl {
+  50% {
+    opacity: 0;
+  }
+}
+#title {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.4s;
+}
+#title.show {
+  opacity: 1;
+}
+#title small {
+  font-size: 1.8vh;
+  letter-spacing: 0.8em;
+  text-transform: uppercase;
+  color: #e8c27a;
+}
+#title h1 {
+  font-family: "Playfair Display", serif;
+  font-weight: 800;
+  font-size: 13vh;
+  line-height: 1;
+  margin: 1.5vh 0;
+  background: linear-gradient(180deg, #fff 0%, #ffe1a8 45%, #c13dff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 30px rgba(193, 61, 255, 0.45));
+  transform: scale(0.92);
+  transition: transform 6s ease-out;
+}
+#title.show h1 {
+  transform: scale(1);
+}
+#title .sub {
+  font-size: 2.2vh;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+#title .next {
+  margin-top: 3vh;
+  font-size: 1.6vh;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.1em;
+}
+#hint {
+  position: absolute;
+  right: 3vw;
+  bottom: 3vh;
+  z-index: 6;
+  font-size: 1.3vh;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.1em;
+}
+#dots {
+  position: absolute;
+  left: 7vw;
+  bottom: 3.4vh;
+  z-index: 6;
+  display: flex;
+  gap: 0.8vh;
+}
+#dots i {
+  width: 3.5vh;
+  height: 0.4vh;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 1vh;
+  overflow: hidden;
+  position: relative;
+}
+#dots i.done {
+  background: #e8c27a;
+}
+#dots i.cur::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #e8c27a;
+  transform-origin: left;
+  animation: prog var(--d, 8s) linear forwards;
+}
+@keyframes prog {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

@@ -30,6 +30,7 @@ function busy() {
 
 var jobMenuOpen = false;
 function cursorSync() {
+    if (global.introOpen) { mp.gui.cursor.show(false, false); return; }
     if (global.authOpen || global.creatorOpen || global.intOpen || global.chatOpen) { mp.gui.cursor.show(true, true); return; }
     var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (typeof admOpen !== 'undefined' && admOpen);
     mp.gui.cursor.show(need, need);
