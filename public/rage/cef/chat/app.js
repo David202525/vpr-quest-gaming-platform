@@ -85,6 +85,7 @@ document.addEventListener('keydown', function (e) {
 });
 
 function invoke(name, a) { if (window.mp && mp.invoke) mp.invoke(name, a); }
+function trig(name, a) { if (window.mp && mp.trigger) mp.trigger(name, a); }
 
 function setActive(on) {
     on = !!on && shown && allowed;
@@ -93,15 +94,14 @@ function setActive(on) {
     chat.classList.toggle('active', active);
     invoke('focus', active);
     invoke('setTypingInChatState', active);
+    trig('cef:chat:state', active);
     if (active) {
         hPos = -1; draft = '';
-        if (window.mp && mp.trigger) mp.trigger('cef:chat:opened');
         setTimeout(function () { inp.focus(); }, 10);
     } else {
         inp.value = '';
         inp.blur();
         toBottom();
-        if (window.mp && mp.trigger) mp.trigger('cef:chat:closed');
     }
 }
 
@@ -116,7 +116,17 @@ function send() {
     setActive(false);
 }
 
-window.addEventListener('keydown', function (e) {
+document.addEventListener('keyup', function (e) {
+    if (active || !shown || !allowed) return;
+    if (e.keyCode === 84) { e.preventDefault(); setActive(true); }
+    else if (e.keyCode === 191) {
+        e.preventDefault();
+        setActive(true);
+        setTimeout(function () { if (active) { inp.value = '/'; inp.setSelectionRange(1, 1); } }, 15);
+    }
+});
+
+document.addEventListener('keydown', function (e) {
     if (!active) return;
     if (e.keyCode === 13) { e.preventDefault(); send(); }
     else if (e.keyCode === 27) { e.preventDefault(); setActive(false); }
@@ -135,21 +145,18 @@ window.addEventListener('keydown', function (e) {
     else if (e.keyCode === 34) { e.preventDefault(); list.scrollTop += list.clientHeight - 30; }
 });
 
-list.addEventListener('mousedown', function () { if (!active) return; });
 list.addEventListener('mouseup', function () {
     if (!active) return;
     var sel = window.getSelection ? String(window.getSelection()) : '';
     if (!sel) inp.focus();
 });
 
-window.chatAPI = {
+var chatAPI = {
     push: push,
     clear: function () { list.innerHTML = ''; },
-    activate: function (on) { allowed = !!on; if (!allowed) setActive(false); },
-    open: function (slash) {
-        if (!shown || !allowed) { if (window.mp && mp.trigger) mp.trigger('cef:chat:closed'); return; }
-        setActive(true);
-        if (slash) setTimeout(function () { inp.value = '/'; inp.setSelectionRange(1, 1); }, 15);
+    activate: function (on) {
+        allowed = !!on;
+        if (!allowed) setActive(false);
     },
     show: function (on) {
         shown = !!on;
@@ -157,8 +164,11 @@ window.chatAPI = {
         if (!shown) setActive(false);
     }
 };
+window.chatAPI = chatAPI;
 
-if (window.mp && mp.events && mp.events.add) {
-    mp.events.add('chat:push', window.chatAPI.push);
-    mp.events.add('chat:clear', window.chatAPI.clear);
+if (window.mp && mp.events) {
+    mp.events.add('chat:push', chatAPI.push);
+    mp.events.add('chat:clear', chatAPI.clear);
+    mp.events.add('chat:activate', chatAPI.activate);
+    mp.events.add('chat:show', chatAPI.show);
 }

@@ -1,4 +1,4 @@
-require('./social/index.js');
+require('./chat/index.js');
 require('./modules/vehicle_names.js');
 require('./modules/appearance.js');
 require('./modules/creator.js');
@@ -6,3 +6,4 @@ require('./auth/index.js');
 require('./hud/index.js');
 require('./ui/index.js');
 require('./admin/index.js');
+require('./social/index.js');
