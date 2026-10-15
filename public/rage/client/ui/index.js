@@ -12,6 +12,7 @@ var uiReady = false;
 var uiSet = { hud: true, chat: true, sound: true, hints: true };
 
 function uiExec(code) { if (uiBrowser) uiBrowser.execute(code); }
+global.uiExecG = uiExec;
 function uiCall(fn, a, b) {
     uiExec('window.' + fn + ' && window.' + fn + '(' + JSON.stringify(a) + (b !== undefined ? ',' + JSON.stringify(b) : '') + ');');
 }
@@ -32,10 +33,12 @@ var jobMenuOpen = false;
 function cursorSync() {
     if (global.introOpen) { mp.gui.cursor.show(false, false); return; }
     if (global.authOpen || global.creatorOpen || global.intOpen || global.chatOpen) { mp.gui.cursor.show(true, true); return; }
-    var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (typeof admOpen !== 'undefined' && admOpen);
+    var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (global.houseMenuOpen && global.houseMenuOpen()) || (typeof admOpen !== 'undefined' && admOpen);
     mp.gui.cursor.show(need, need);
 }
 
+global.cursorSyncG = function () { cursorSync(); };
+global.uiOpenG = function () { return uiOpen; };
 function nearVeh() {
     var p = mp.players.local;
     var best = null, bd = 4.5;
@@ -100,6 +103,7 @@ mp.keys.bind(0x71, false, function () {
     if (uiOpen) { closeUi(); return; }
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (jobMenuOpen) { jobMenuClose(); return; }
+    if (global.houseMenuOpen && global.houseMenuOpen()) { mp.events.call('house:menuClose'); return; }
     if (mp.gui.cursor.visible) {
         freeCursor = false; uiTyping = false;
         mp.gui.cursor.show(false, false);
@@ -680,3 +684,27 @@ mp.events.add('job:findSpot', function (x, y, z, h) {
 });
 
 mp.events.add('cef:ui:kbbusy', function (k) { mp.events.call('hud:notify', 'warn', 'Клавиша ' + k + ' уже занята другой функцией', 3000); });
+
+mp.events.add('cef:sim:buy', function (k, n) { mp.events.callRemote('srv:sim:buy', k, n || ''); });
+mp.events.add('cef:sim:check', function (n) { mp.events.callRemote('srv:sim:check', n); });
+mp.events.add('cef:sim:topup', function (i) { mp.events.callRemote('srv:sim:topup', Number(i)); });
+mp.events.add('cef:sim:cash', function (s) { mp.events.callRemote('srv:sim:cash', Number(s)); });
+mp.events.add('sim:check', function (n, ok) { uiExec('window.simCheck && window.simCheck(' + JSON.stringify(n) + ',' + (Number(ok) ? 'true' : 'false') + ');'); });
+mp.events.add('cef:call:start', function (n) { mp.events.callRemote('srv:call:start', String(n)); });
+mp.events.add('cef:call:answer', function () { mp.events.callRemote('srv:call:answer'); });
+mp.events.add('cef:call:end', function () { mp.events.callRemote('srv:call:end'); });
+var callState = null, ringT = null;
+mp.events.add('phone:call', function (json) {
+    var c = null;
+    try { c = JSON.parse(json); } catch (e) {}
+    callState = c;
+    uiExec('window.phoneCall && window.phoneCall(' + JSON.stringify(json) + ');');
+    clearInterval(ringT); ringT = null;
+    if (c && c.st === 'ring') {
+        var snd = function () { mp.game.audio.playSoundFrontend(-1, c.out ? 'Dial_and_Remote_Ring' : 'Remote_Ring', 'Phone_SoundSet_Default', true); };
+        snd(); ringT = setInterval(snd, 3000);
+        if (!c.out) mp.events.call('hud:notify', 'warn', 'Входящий звонок: ' + c.name + ' · откройте телефон (F3)', 6000);
+    }
+    if (c && c.st === 'talk') mp.game.audio.playSoundFrontend(-1, 'Menu_Accept', 'Phone_SoundSet_Default', true);
+    if (!c) mp.game.audio.playSoundFrontend(-1, 'Hang_Up', 'Phone_SoundSet_Michael', true);
+});

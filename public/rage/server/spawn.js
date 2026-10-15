@@ -46,7 +46,7 @@ function apply(p, choice) {
     let pos = null, dim = 0;
     if (choice === 'last') { const q = S.quit[id]; if (q && Date.now() - q.t < LAST_MIN * 60000) { pos = q; dim = q.dim || 0; } }
     else if (choice === 'home') { const h = global.HouseSystem && global.HouseSystem.home ? global.HouseSystem.home(p) : null; if (h) { pos = h; dim = h.dim || 0; } }
-    else if (choice === 'hotel') { if (hotelLeft(id)) pos = hotelPos(); }
+    else if (choice === 'hotel') { if (hotelLeft(id)) { const r = global.HouseSystem ? global.HouseSystem.hotelRoom(p) : null; pos = r || hotelPos(); dim = r ? r.dim : 0; } }
     if (!pos) pos = AIRPORT;
     a.pos_x = pos.x; a.pos_y = pos.y; a.pos_z = pos.z; a.heading = pos.h || 0; a.dimension = dim;
 }
@@ -90,15 +90,30 @@ mp.events.addCommand('hotel', function (p, full) {
     dirty = true;
     notify(p, 'ok', 'Номер оплачен на ' + days + ' дн. (-$' + cost + '). Теперь при входе можно появляться в гостинице');
 });
+mp.events.add('srv:hotel:rent', function (p, days) {
+    const h = hotelPos();
+    if (Math.hypot(p.position.x - h.x, p.position.y - h.y) > 8) return;
+    days = Math.floor(Number(days));
+    if (!(days >= 1 && days <= HOTEL_MAX_DAYS)) return;
+    const id = sid(p), cost = days * HOTEL_DAY, M = global.MoneySystem;
+    if (!M || M.get(p) < cost) return notify(p, 'error', 'Нужно $' + cost + ' наличными');
+    M.add(p, -cost);
+    S.hotel[id] = Math.max(Date.now(), S.hotel[id] || 0) + days * 86400000;
+    dirty = true;
+    p.call('house:menuClose');
+    notify(p, 'ok', 'Номер оплачен на ' + days + ' дн. (-$' + cost + '). Нажмите E у входа, чтобы зайти в номер');
+});
+mp.events.add('srv:hotel:out', function (p) { delete S.hotel[sid(p)]; dirty = true; p.call('house:menuClose'); notify(p, 'warn', 'Вы выселились из гостиницы'); });
 mp.events.addCommand('sethotel', function (p) {
     const lv = global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0;
     if (lv < 7) return;
     S.hotelPos = { x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, n: (S.hotelPos || HOTEL_DEF).n };
     dirty = true;
-    p.outputChatBox('!{#8fd14f}Точка гостиницы (ресепшен и спавн) сохранена');
+    mp.players.forEach(sendHotel);
+    p.outputChatBox('!{#8fd14f}Точка входа в гостиницу сохранена');
 });
 function sendHotel(p) { const h = hotelPos(); p.call('spawn:hotel', [h.x, h.y, h.z, h.n]); }
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendHotel(p); }, 4000); });
 
-global.SpawnSystem = { offer: offer, options: options, hotelLeft: function (p) { return hotelLeft(sid(p)); } };
+global.SpawnSystem = { offer: offer, options: options, hotelLeft: function (p) { return hotelLeft(sid(p)); }, hotelPos: hotelPos, HOTEL_DAY: HOTEL_DAY, HOTEL_MAX: HOTEL_MAX_DAYS };
 console.log('[spawn] выбор места появления загружен');

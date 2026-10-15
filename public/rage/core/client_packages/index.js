@@ -8,3 +8,4 @@ require('./ui/index.js');
 require('./admin/index.js');
 require('./social/index.js');
 require('./intro/index.js');
+require('./houses/index.js');

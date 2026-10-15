@@ -79,7 +79,7 @@ window.uiData = function (kind, d) {
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
     if (kind === 'menu') { d = fill(d, emptyMenu()); d.offline = false; d.name = String(d.name); d.bp = fill(d.bp, { lvl: 0, exp: 0, need: 30, rewards: [] }); }
     if (kind === 'inv') { d = fill(d, emptyInv()); d.offline = false; d.side = fill(d.side, emptyInv().side); }
-    if (kind === 'phone') d = fill(d, { number: '—', name: '—', money: 0, bank: 0, contacts: [], sms: [], online: [], gps: [] });
+    if (kind === 'phone') { d = fill(d, { number: '—', name: '—', money: 0, bank: 0, contacts: [], sms: [], online: [], gps: [], pbal: 0 }); if (d.call) setTimeout(function () { window.phoneCall(d.call); }, 0); }
     DATA[kind] = d;
     var ww = document.querySelector('.srv-warn');
     if (ww) ww.remove();
@@ -337,6 +337,7 @@ document.addEventListener('mousedown', function (e) {
 
 /* ================= PHONE ================= */
 var APPS = [
+    { id: 'dial', n: 'Телефон', i: '📞', bg: 'linear-gradient(135deg,#34c759,#0a8f3a)' },
     { id: 'contacts', n: 'Контакты', i: '👤', bg: 'linear-gradient(135deg,#8e8e93,#5a5a60)' },
     { id: 'sms', n: 'Сообщения', i: '💬', bg: 'linear-gradient(135deg,#34c759,#1f9e43)' },
     { id: 'bank', n: 'Банк', i: '💳', bg: 'linear-gradient(135deg,#e3194f,#8f1fd1)' },
@@ -348,10 +349,12 @@ var APPS = [
     { id: 'menu', n: 'Меню', i: '🎮', bg: 'linear-gradient(135deg,#d93bc8,#7b2bb5)' },
     { id: 'settings', n: 'О телефоне', i: '⚙️', bg: 'linear-gradient(135deg,#aeaeb2,#636366)' }
 ];
-var DOCK = ['contacts', 'sms', 'bank', 'camera'];
+var DOCK = ['dial', 'contacts', 'sms', 'bank'];
 var phApp = null;
 var gpsTab = 'places';
 var phChat = null;
+var dialNum = '';
+var callT = null;
 var lastSeen = Number(LS.get('sms_seen') || 0);
 
 function unread() {
@@ -469,8 +472,10 @@ function _renderApp() {
             b.onclick = function () { trig('cef:phone:bank', b.dataset.op, Number($('bSum').value), $('bTo').value); };
         });
     } else if (phApp === 'gps') {
-        var tabs = '<div class="row2" style="margin-bottom:10px"><button class="btn' + (gpsTab === 'places' ? '' : ' ghost') + '" data-gt="places">Места</button><button class="btn' + (gpsTab === 'jobs' ? '' : ' ghost') + '" data-gt="jobs">Работы</button></div>';
-        if (gpsTab === 'jobs') {
+        var tabs = '<div class="row3" style="margin-bottom:10px"><button class="btn' + (gpsTab === 'places' ? '' : ' ghost') + '" data-gt="places">Места</button><button class="btn' + (gpsTab === 'homes' ? '' : ' ghost') + '" data-gt="homes">Жильё</button><button class="btn' + (gpsTab === 'jobs' ? '' : ' ghost') + '" data-gt="jobs">Работы</button></div>';
+        if (gpsTab === 'homes') {
+            phoneHomesTab(body, tabs);
+        } else if (gpsTab === 'jobs') {
             var J = DATA.jobs;
             if (!J) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:job:phone'); }
             else {
@@ -487,7 +492,8 @@ function _renderApp() {
                 p.gps.map(function (g, i) { return '<div class="gps-i" data-g="' + i + '"><span>📍</span><span>' + esc(g.n) + '</span></div>'; }).join('');
         }
         body.querySelectorAll('[data-g]').forEach(function (el) { el.onclick = function () { trig('cef:phone:gps', Number(el.dataset.g)); }; });
-        body.querySelectorAll('[data-gt]').forEach(function (el) { el.onclick = function () { gpsTab = el.dataset.gt; if (gpsTab === 'jobs') { DATA.jobs = null; } renderApp(); }; });
+        body.querySelectorAll('[data-gt]').forEach(function (el) { el.onclick = function () { gpsTab = el.dataset.gt; if (gpsTab === 'jobs') { DATA.jobs = null; } if (gpsTab === 'homes') { DATA.houses = null; } renderApp(); }; });
+        body.querySelectorAll('[data-hg]').forEach(function (el) { el.onclick = function () { trig('cef:house:gps', el.dataset.hg, Number(el.dataset.id)); }; });
         body.querySelectorAll('[data-jg]').forEach(function (el) { el.onclick = function () { trig('cef:job:gps', el.dataset.jg); }; });
         body.querySelectorAll('[data-jq]').forEach(function (el) { el.onclick = function () { trig('cef:job:quit'); setTimeout(function () { DATA.jobs = null; renderApp(); }, 400); }; });
     } else if (phApp === 'players') {
@@ -497,6 +503,19 @@ function _renderApp() {
         body.querySelectorAll('[data-n]').forEach(function (el) {
             el.onclick = function () { if (el.dataset.n === p.number) return; phApp = 'sms'; phChat = el.dataset.n; $('appTitle').textContent = 'Сообщения'; renderApp(); };
         });
+    } else if (phApp === 'dial') {
+        var dk = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
+        body.innerHTML = '<div class="dl-n" id="dlN">' + esc(dialNum || '') + '</div><div class="dl-bal">Баланс: $' + (p.pbal || 0) + ' · звонок $' + (p.tariff ? p.tariff.callMin : 5) + '/мин</div><div class="dl-k">' +
+            dk.map(function (k) { return k ? '<button data-dk="' + k + '">' + k + '</button>' : '<span></span>'; }).join('') + '</div><button class="dl-go" id="dlGo">📞</button>';
+        body.querySelectorAll('[data-dk]').forEach(function (b) {
+            b.onclick = function () {
+                var raw = (dialNum || '').replace('-', '');
+                if (b.dataset.dk === '⌫') raw = raw.slice(0, -1); else if (raw.length < 6) raw += b.dataset.dk;
+                dialNum = raw.length > 3 ? raw.slice(0, 3) + '-' + raw.slice(3) : raw;
+                $('dlN').textContent = dialNum;
+            };
+        });
+        $('dlGo').onclick = function () { if (/^\d{3}-\d{3}$/.test(dialNum)) trig('cef:call:start', dialNum); };
     } else if (phApp === 'calc') {
         calcRender();
     } else if (phApp === 'notes') {
@@ -505,7 +524,11 @@ function _renderApp() {
     } else if (phApp === 'settings') {
         body.innerHTML = '<div style="text-align:center;font-size:60px;margin:20px 0 6px">📱</div><div style="text-align:center;font-weight:700;font-size:16px;margin-bottom:20px">RPhone 15</div>' +
             '<div class="kv"><span>Владелец</span><b>' + esc(p.name) + '</b></div><div class="kv"><span>Номер</span><b>' + esc(p.number) + '</b></div>' +
-            '<div class="kv"><span>Контактов</span><b>' + p.contacts.length + '</b></div><div class="kv"><span>Сообщений</span><b>' + p.sms.length + '</b></div>';
+            '<div class="kv"><span>Контактов</span><b>' + p.contacts.length + '</b></div><div class="kv"><span>Сообщений</span><b>' + p.sms.length + '</b></div>' +
+            '<div class="kv"><span>Баланс телефона</span><b>$' + (p.pbal || 0) + '</b></div>' +
+            '<input class="f-in" id="pbSum" type="number" placeholder="Сумма с банковского счёта" style="margin-top:12px"><button class="btn" id="pbGo">Пополнить баланс</button>' +
+            '<div class="empty-t" style="margin-top:6px">SMS $' + (p.tariff ? p.tariff.sms : 2) + ' · звонок $' + (p.tariff ? p.tariff.callMin : 5) + '/мин. Новый номер — M → Донат → Связь</div>';
+        $('pbGo').onclick = function () { trig('cef:sim:cash', Number($('pbSum').value)); };
     }
 }
 
@@ -562,8 +585,9 @@ function contactCard(num) {
     var body = $('appBody');
     $('appTitle').textContent = c.name;
     body.innerHTML = '<div style="text-align:center;margin:20px 0"><div class="av" style="width:90px;height:90px;font-size:36px;margin:0 auto 12px">' + esc(c.name[0]) + '</div><b style="font-size:20px">' + esc(c.name) + '</b><div style="color:#888;margin-top:4px">' + esc(c.number) + '</div></div>' +
-        '<button class="btn" id="ccM">💬 Написать</button><button class="btn ghost" id="ccE">Изменить</button><button class="btn ghost" id="ccD" style="color:#ff5a7a">Удалить контакт</button>';
+        '<div class="row2"><button class="btn" id="ccC">📞 Позвонить</button><button class="btn" id="ccM">💬 Написать</button></div><button class="btn ghost" id="ccE">Изменить</button><button class="btn ghost" id="ccD" style="color:#ff5a7a">Удалить контакт</button>';
     $('ccM').onclick = function () { phApp = 'sms'; phChat = c.number; renderApp(); };
+    $('ccC').onclick = function () { trig('cef:call:start', c.number); };
     $('ccE').onclick = function () { contactForm(c); };
     $('ccD').onclick = function () { trig('cef:phone:contact', JSON.stringify({ number: c.number, del: 1 })); };
 }
@@ -677,7 +701,7 @@ function menuAch(d) {
 var shopSec = 'vip', exN = 10;
 function menuShop(d) {
     var coins = d.coins || 0;
-    var secs = [['vip', '👑', 'VIP-статус'], ['coins', '💎', 'Коины'], ['items', '🛒', 'Предметы']];
+    var secs = [['vip', '👑', 'VIP-статус'], ['coins', '💎', 'Коины'], ['sim', '📶', 'Связь'], ['items', '🛒', 'Предметы']];
     var head = '<div class="dn-hero" style="background-image:linear-gradient(90deg,rgba(20,8,30,.96) 30%,rgba(20,8,30,.35)),url(img/banner.jpg)">' +
         '<div class="dn-h-l"><span class="dn-tag">ДОНАТ-МАГАЗИН</span><h2>Поддержи сервер — получи бонусы</h2><p>VIP ускоряет прокачку и Battle Pass, коины меняются на игровую валюту</p></div>' +
         '<div class="dn-bal"><div class="dn-coin"><img src="img/bp_coins.jpg"><div><small>Баланс</small><b>' + coins.toLocaleString('ru-RU') + ' RC</b></div></div>' +
@@ -693,6 +717,16 @@ function menuShop(d) {
                 '<ul>' + v.perks.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>' +
                 '<button data-vip="' + v.k + '"' + (coins < v.price ? ' class="poor"' : '') + '>' + (mine ? 'Продлить · ' : '') + v.price + ' RC</button></div>';
         }).join('') + '</div>';
+    } else if (shopSec === 'sim') {
+        body = '<div class="sim-top"><div class="sim-now"><small>Ваш номер</small><b>' + esc(d.number || '—') + '</b></div><div class="sim-now"><small>Баланс телефона</small><b>$' + (d.pbal || 0).toLocaleString('ru-RU') + '</b></div></div>' +
+            '<div class="sim-t">SIM-карты</div><div class="sim-grid">' + (d.sims || []).map(function (s) {
+                return '<div class="sim-c"><div class="sim-chip">📶</div><b>' + esc(s.n) + '</b><small>' + esc(s.d) + '</small>' +
+                    (s.k === 'custom' ? '<input class="sim-in" id="simIn" placeholder="123-456" maxlength="7"><div class="sim-ok" id="simOk"></div>' : '') +
+                    '<button data-sim="' + s.k + '"' + (coins < s.price ? ' class="poor"' : '') + '>' + s.price + ' RC</button></div>';
+            }).join('') + '</div><p class="pk-note">При покупке новой SIM старый номер отключается. Контакты и сообщения сохраняются.</p>' +
+            '<div class="sim-t">Пополнить баланс телефона</div><div class="sim-grid four">' + (d.topup || []).map(function (t, i) {
+                return '<div class="sim-c"><b>$' + t[1].toLocaleString('ru-RU') + '</b><small>на счёт телефона</small><button data-top="' + i + '"' + (coins < t[0] ? ' class="poor"' : '') + '>' + t[0] + ' RC</button></div>';
+            }).join('') + '</div><p class="pk-note">Тариф: SMS — $2, звонок — $5 за минуту (платит звонящий). Пополнить с банковского счёта можно в телефоне → О телефоне.</p>';
     } else if (shopSec === 'coins') {
         body = '<div class="ex-box"><div class="ex-l"><b>Обмен коинов</b><small>1 RC = ' + money(d.rate) + '</small></div>' +
             '<div class="ex-ctl"><button data-exm="1">−</button><input id="exIn" type="number" min="1" value="' + exN + '"><button data-exp="1">+</button></div>' +
@@ -708,6 +742,13 @@ function menuShop(d) {
     }
     return '<div class="dn">' + head + body + '</div>';
 }
+
+window.simCheck = function (n, ok) {
+    var el = document.getElementById('simOk'), inp = document.getElementById('simIn');
+    if (!el || !inp || inp.value !== n) return;
+    el.textContent = ok ? '✓ Номер свободен' : '✗ Номер занят или неверный';
+    el.className = 'sim-ok ' + (ok ? 'y' : 'n');
+};
 
 function menuBp(d) {
     var bp = d.bp, pct = bp.lvl >= 30 ? 100 : bp.exp / bp.need * 100;
@@ -782,6 +823,10 @@ function bindMenu() {
     if (ei) ei.onchange = function () { exN = Math.max(1, Math.floor(Number(ei.value) || 1)); renderMenu(); };
     b.querySelectorAll('[data-ex]').forEach(function (x) { x.onclick = function () { trig('cef:menu:exchange', exN); }; });
     b.querySelectorAll('[data-claim]').forEach(function (x) { x.onclick = function () { trig('cef:menu:claim', Number(x.dataset.claim)); }; });
+    b.querySelectorAll('[data-sim]').forEach(function (x) { x.onclick = function () { var inp = b.querySelector('#simIn'); trig('cef:sim:buy', x.dataset.sim, x.dataset.sim === 'custom' && inp ? inp.value.trim() : ''); }; });
+    b.querySelectorAll('[data-top]').forEach(function (x) { x.onclick = function () { trig('cef:sim:topup', Number(x.dataset.top)); }; });
+    var si = b.querySelector('#simIn');
+    if (si) si.oninput = function () { var v = si.value.replace(/[^0-9]/g, '').slice(0, 6); if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3); si.value = v; $('simOk').textContent = ''; if (v.length === 7) trig('cef:sim:check', v); };
     b.querySelectorAll('[data-kb]').forEach(function (x) { x.onclick = function () { kbWait = x.dataset.kb; renderMenu(); }; });
     b.querySelectorAll('[data-kbreset]').forEach(function (x) { x.onclick = function () { LS.set('cop_keys', '{}'); kbWait = null; copKeysSend(); renderMenu(); }; });
     b.querySelectorAll('[data-set]').forEach(function (x) {
@@ -1298,4 +1343,74 @@ window.jobSort = function (n) {
         if (k <= 0) return finish(false);
         requestAnimationFrame(tick);
     })();
+};
+
+window.houseMenu = function (json) {
+    var box = document.getElementById('houseMenu');
+    if (!json) { if (box) box.remove(); return; }
+    var w = typeof json === 'string' ? JSON.parse(json) : json, d = w.d;
+    if (!box) { box = document.createElement('div'); box.id = 'houseMenu'; document.body.appendChild(box); }
+    var html = '';
+    if (w.t === 'hotel') {
+        html = '<div class="hm-h"><span class="hm-i">🛏️</span><div><b>' + esc(d.n) + '</b><small>' + money(d.price) + ' / сутки · оплата наличными</small></div></div>' +
+            '<p class="hm-p">Снимите номер — в нём можно отдохнуть, а при входе в игру появляться прямо в номере.</p>' +
+            '<div class="hm-days">' + [1, 3, 7, d.max].map(function (n) { return '<button class="hm-o" data-rent="' + n + '"><b>' + n + ' ' + (n === 1 ? 'сутки' : 'суток') + '</b><small>' + money(n * d.price) + '</small></button>'; }).join('') + '</div>' +
+            '<div class="hm-cash">Наличные: <b>' + money(d.money) + '</b></div>';
+    } else {
+        html = '<div class="hm-h"><span class="hm-i">' + (d.list.length > 1 ? '🏢' : '🏠') + '</span><div><b>' + esc(d.title) + '</b><small>Наличные ' + money(d.money) + ' · Банк ' + money(d.bank) + '</small></div></div>' +
+            '<div class="hm-list">' + d.list.map(function (h) {
+                var st = h.mine ? '<span class="hm-st me">Ваш</span>' : h.owner ? '<span class="hm-st busy">Владелец: ' + esc(h.owner) + '</span>' : '<span class="hm-st free">Продаётся</span>';
+                var btns = '';
+                if (h.mine) btns = '<button class="btn" data-ha="enter" data-id="' + h.id + '">Войти</button><button class="btn ghost" data-ha="lock" data-id="' + h.id + '">' + (h.locked ? '🔒 Заперто' : '🔓 Открыто') + '</button><button class="btn ghost hm-sell" data-ha="sell" data-id="' + h.id + '">Продать за ' + money(h.price * 0.6) + '</button>';
+                else if (h.owner) btns = (h.locked ? '<button class="btn ghost" data-ha="knock" data-id="' + h.id + '">Постучать</button>' : '<button class="btn" data-ha="enter" data-id="' + h.id + '">Войти в гости</button>');
+                else btns = '<button class="btn' + (h.canBuy ? '' : ' ghost') + '" data-ha="buy" data-id="' + h.id + '"' + (h.canBuy ? '' : ' disabled') + '>' + (h.canBuy ? 'Купить за ' + money(h.price) : 'У вас уже есть жильё') + '</button>';
+                return '<div class="hm-c"><div class="hm-ct"><b>' + esc(h.n) + '</b>' + st + '</div><small>Интерьер: ' + esc(h.int) + ' · Цена ' + money(h.price) + '</small><div class="hm-b">' + btns + '</div></div>';
+            }).join('') + '</div>';
+    }
+    box.innerHTML = '<div class="hm-box">' + html + '<button class="btn ghost" data-hc="1">Закрыть</button></div>';
+    box.querySelectorAll('[data-ha]').forEach(function (b) {
+        b.onclick = function () {
+            if (b.dataset.ha === 'sell' && !b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно продать? Нажмите ещё раз'; return; }
+            trig('cef:house:act', b.dataset.ha, Number(b.dataset.id));
+        };
+    });
+    box.querySelectorAll('[data-rent]').forEach(function (b) { b.onclick = function () { trig('cef:hotel:rent', Number(b.dataset.rent)); }; });
+    box.querySelector('[data-hc]').onclick = function () { trig('cef:house:close'); };
+};
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('houseMenu')) trig('cef:house:close'); });
+
+window.phoneHouses = function (json) {
+    DATA.houses = typeof json === 'string' ? JSON.parse(json) : json;
+    if (current === 'phone' && phApp === 'gps' && gpsTab === 'homes') renderApp();
+};
+function phoneHomesTab(body, tabs) {
+    var H = DATA.houses;
+    if (!H) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:house:phone'); return; }
+    var my = H.my ? '<div class="job-c"><div class="job-h"><span class="job-i">🏠</span><div><b>' + esc(H.my.n) + '</b><small>Ваше жильё · ' + esc(H.my.int) + '</small></div></div><button class="btn" data-hg="house" data-id="' + H.my.id + '">📍 Маршрут домой</button></div>'
+        : '<div class="empty-t" style="text-align:left;margin:4px 0 10px">У вас пока нет жилья. Свободные дома видны на мини-карте зелёным, когда вы рядом.</div>';
+    var ht = '<div class="job-c"><div class="job-h"><span class="job-i">🛏️</span><div><b>' + esc(H.hotel.n) + '</b><small>' + (H.hotel.left ? 'Номер оплачен ещё ' + H.hotel.left + ' дн.' : money(H.hotel.price) + ' / сутки') + '</small></div></div><button class="btn" data-hg="hotel" data-id="0">📍 Маршрут в гостиницу</button></div>';
+    var fac = '<div class="gps-sub">Фракции</div>' + H.fac.map(function (f) { return '<div class="gps-i" data-hg="fac" data-id="' + f.i + '"><span>🏛️</span><span>' + esc(f.n) + '</span></div>'; }).join('');
+    var free = '<div class="gps-sub">Свободные дома рядом</div>' + (H.free.length ? H.free.map(function (h) {
+        return '<div class="gps-i" data-hg="house" data-id="' + h.id + '"><span>🟢</span><span style="flex:1">' + esc(h.n) + '<small style="display:block;color:#888;font-size:11px">' + esc(h.int) + ' · ' + money(h.price) + '</small></span><span style="color:#888;font-size:11px">' + (h.d > 1000 ? (h.d / 1000).toFixed(1) + ' км' : h.d + ' м') + '</span></div>';
+    }).join('') : '<div class="empty-t">Свободных домов нет</div>');
+    body.innerHTML = tabs + my + ht + free + fac;
+}
+
+window.phoneCall = function (json) {
+    var c = typeof json === 'string' ? (json === 'null' ? null : JSON.parse(json)) : json;
+    var el = document.getElementById('phCall');
+    clearInterval(callT); callT = null;
+    if (!c) { if (el) el.remove(); return; }
+    var fr = document.querySelector('#phone .ph-frame');
+    if (!fr) return;
+    if (!el) { el = document.createElement('div'); el.id = 'phCall'; fr.appendChild(el); }
+    var st = c.st === 'ring' ? (c.out ? 'Вызов…' : 'Входящий звонок') : '00:00';
+    el.className = 'ph-call ' + c.st;
+    el.innerHTML = '<div class="pc-av">' + esc(String(c.name)[0] || '?') + '</div><b class="pc-n">' + esc(c.name) + '</b><div class="pc-num">' + esc(c.num) + '</div><div class="pc-st" id="pcSt">' + st + '</div>' +
+        '<div class="pc-btns">' + (c.st === 'ring' && !c.out ? '<button class="pc-ok" data-pc="ok">📞</button>' : '') + '<button class="pc-no" data-pc="no">📞</button></div>';
+    el.querySelectorAll('[data-pc]').forEach(function (b) { b.onclick = function () { trig(b.dataset.pc === 'ok' ? 'cef:call:answer' : 'cef:call:end'); }; });
+    if (c.st === 'talk') callT = setInterval(function () {
+        var s = Math.floor((Date.now() - c.since) / 1000), e = document.getElementById('pcSt');
+        if (e) e.textContent = pad(Math.floor(s / 60)) + ':' + pad(s % 60);
+    }, 1000);
 };

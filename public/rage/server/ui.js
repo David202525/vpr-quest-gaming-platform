@@ -731,7 +731,8 @@ async function menuPayload(p) {
             rewards: BP.map(function (r) { return { lvl: r.lvl, text: r.money ? '$' + r.money.toLocaleString('en-US') : ITEMS[r.item].n + (r.c > 1 ? ' x' + r.c : ''), img: r.money ? 'money' : (BP_IMG[r.item] || 'money'), big: r.lvl % 5 === 0, claimed: d.bpClaimed.indexOf(r.lvl) >= 0, open: r.lvl <= bpLvl }; })
         },
         shop: shop,
-        coins: d.coins || 0, rate: COIN_RATE,
+        sims: global.PhoneSystem ? global.PhoneSystem.SIMS : [], topup: global.PhoneSystem ? global.PhoneSystem.TOPUP : [],
+        coins: d.coins || 0, rate: COIN_RATE, pbal: Math.floor(d.pbal === undefined ? 200 : d.pbal),
         vip: vipOf(d) ? { t: d.vip.t, n: VIPS[d.vip.t].n, color: VIPS[d.vip.t].color, left: Math.ceil((d.vip.until - Date.now()) / 86400000) } : null,
         vips: Object.keys(VIPS).map(function (k) { const v = VIPS[k]; return { k: k, n: v.n, price: v.price, days: v.days, color: v.color, img: v.img, perks: v.perks }; }),
         packs: COIN_PACKS
@@ -848,6 +849,7 @@ function phonePayload(p) {
         money: getMoney(p), bank: getBank(p),
         contacts: d.contacts, sms: d.sms.slice(-150),
         online: mp.players.toArray().map(function (x) { return { id: x.id, name: x.name, number: data(x).phone }; }),
+        pbal: Math.floor(d.pbal === undefined ? 200 : d.pbal), tariff: global.PhoneSystem ? global.PhoneSystem.TARIFF : null, call: global.PhoneSystem ? global.PhoneSystem.state(p) : null,
         gps: GPS.map(function (g) { return { n: g.n }; })
     };
 }
@@ -866,6 +868,7 @@ mp.events.add('srv:phone:sms', function (p, to, text) {
     const d = data(p);
     const tk = store._numbers[to];
     if (!tk || !store[tk]) return notify(p, 'error', 'Номер ' + to + ' не существует');
+    if (global.PhoneSystem && !global.PhoneSystem.charge(p, 'sms')) return;
     const now = Date.now();
     d.sms.push({ w: to, me: 1, t: text, at: now });
     if (d.sms.length > 300) d.sms.splice(0, d.sms.length - 300);
@@ -1404,6 +1407,7 @@ global.AtmSystem = {
     }
 };
 
+global.UiPhone = { data: data, store: store, mark: mark, sendPhone: sendPhone, sendMenu: sendMenu, key: key, online: online };
 global.UiSystem = { showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
