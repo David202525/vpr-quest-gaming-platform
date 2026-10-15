@@ -18,6 +18,7 @@ window.tabData = function (json) {
     $('meName').textContent = D.me.n;
     $('meRank').textContent = D.me.rn + (D.me.lead ? ' · Лидер' : D.me.dep ? ' · Заместитель' : '');
     $('meAv').textContent = D.me.n[0] || '?';
+    if (D.web) { $('close').textContent = 'Выйти'; document.querySelector('.logo-s').textContent = 'Веб-планшет'; }
     render();
 };
 window.tabSearch = function (json) { found = typeof json === 'string' ? JSON.parse(json) : json; page = 'db'; render(); };
@@ -37,9 +38,15 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if
 
 function nav() {
     var items = [['home', '🏠', 'Главная'], ['members', '👥', 'Состав'], ['squads', '🛡️', 'Отряды']];
-    if (D.police) items.push(['sep', '', 'База данных'], ['wanted', '⭐', 'Розыск'], ['db', '🔎', 'Пробить по базе'], ['fines', '🧾', 'Штрафы']);
+    var C = D.can || {};
+    if (C.search || C.wantedList || C.plate) {
+        items.push(['sep', '', 'База данных']);
+        if (C.wantedList) items.push(['wanted', '⭐', 'Розыск']);
+        if (C.search || C.plate) items.push(['db', '🔎', 'Пробить по базе']);
+        if (C.search) items.push(['fines', '🧾', 'Штрафы']);
+    }
     items.push(['sep', '', 'Управление']);
-    if (D.me.lead) items.push(['ranks', '🎖️', 'Ранги']);
+    if (D.me.lead) items.push(['ranks', '🎖️', 'Ранги'], ['perms', '🔐', 'Права доступа']);
     items.push(['stock', '🗄️', 'Склад'], ['log', '📜', 'Журнал']);
     $('nav').innerHTML = items.map(function (x) { return x[0] === 'sep' ? '<div class="sep">' + x[2] + '</div>' : '<button data-p="' + x[0] + '" class="' + (page === x[0] ? 'on' : '') + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('');
     $('nav').querySelectorAll('[data-p]').forEach(function (b) { b.onclick = function () { page = b.dataset.p; render(); }; });
@@ -77,17 +84,23 @@ function render() {
         h = '<h2>Ранги</h2><div class="sub">Названия рангов вашей организации. Последний — ранг лидера</div><div class="card">' + D.ranks.map(function (r, i) {
             return '<div class="rk"><em>' + (i + 1) + '</em><input class="in" data-ri="' + i + '" value="' + esc(r) + '" maxlength="32"><button class="btn ghost sm" data-rs="' + i + '">Сохранить</button>' + (i > 0 && i < D.ranks.length - 1 ? '<button class="btn red sm" data-rd="' + i + '">✕</button>' : '') + '</div>';
         }).join('') + '<div class="row" style="margin-top:12px;margin-bottom:0"><input class="in" id="rN" placeholder="Новый ранг (встанет перед лидером)" style="flex:1"><button class="btn" id="rAdd">Добавить ранг</button></div></div>';
+    } else if (page === 'perms') {
+        h = '<h2>Права доступа</h2><div class="sub">С какого ранга сотрудникам доступны функции базы данных. Лидер и заместители имеют полный доступ</div><div class="card">' +
+            D.perms.map(function (x) {
+                return '<div class="rk"><span style="flex:1;font-size:13px">' + esc(x.n) + (x.pol ? ' <span class="tag">только полиция</span>' : '') + '</span><select class="in" data-pk="' + x.k + '" style="width:260px">' +
+                    D.ranks.map(function (r, i) { return '<option value="' + (i + 1) + '"' + (x.r === i + 1 ? ' selected' : '') + '>с ' + (i + 1) + ' · ' + esc(r) + '</option>'; }).join('') + '</select></div>';
+            }).join('') + '</div>';
     } else if (page === 'wanted') {
         var W = D.wanted || [];
         h = '<h2>База разыскиваемых</h2><div class="sub">Отслеживание показывает лишь примерную зону ~300 м — найдите подозреваемого сами</div>' +
             (W.length ? '<table><tr><th>Подозреваемый</th><th>Розыск</th><th>Причина</th><th>Штрафы</th><th>Объявил</th><th></th></tr>' + W.map(function (w) {
                 return '<tr><td><span class="dot' + (w.on ? ' on' : '') + '"></span>' + esc(w.n) + ' <small style="color:var(--mut)">#' + w.s + '</small></td><td>' + stars(w.stars) + '</td><td>' + esc(w.r) + '</td><td>' + (w.fines ? w.fines + ' неоплач.' : '—') + '</td><td>' + esc(w.by) + '<br><small style="color:var(--mut)">' + ago(w.d) + '</small></td>' +
-                    '<td><div class="acts"><button class="btn sm" data-tr="' + w.s + '"' + (w.on ? '' : ' disabled') + '>📡 Отследить</button><button class="btn ghost sm" data-dos="' + w.s + '">Досье</button><button class="btn green sm" data-wc="' + w.s + '">Снять</button></div></td></tr>';
+                    '<td><div class="acts">' + (D.can.track ? '<button class="btn sm" data-tr="' + w.s + '"' + (w.on ? '' : ' disabled') + '>📡 Отследить</button>' : '') + (D.can.search ? '<button class="btn ghost sm" data-dos="' + w.s + '">Досье</button>' : '') + (D.can.wanted ? '<button class="btn green sm" data-wc="' + w.s + '">Снять</button>' : '') + '</div></td></tr>';
             }).join('') + '</table>' : '<div class="empty">Сейчас никто не в розыске</div>');
     } else if (page === 'db') {
-        h = '<h2>Пробить по базе</h2><div class="sub">Поиск по имени, номеру телефона (123-456) или ID (#15). Отдельно — по номеру машины</div>' +
-            '<div class="row"><input class="in" id="q" placeholder="Имя Фамилия / 123-456 / #ID" style="flex:1"><button class="btn" id="qGo">Найти человека</button></div>' +
-            '<div class="row"><input class="in" id="pq" placeholder="Номерной знак" style="flex:1" maxlength="8"><button class="btn ghost" id="pGo">Пробить номер</button></div>';
+        h = '<h2>Пробить по базе</h2><div class="sub">' + (D.can.dossier ? 'Поиск по имени, номеру телефона (123-456) или ID (#15). Отдельно — по номеру машины' : 'Ограниченный доступ: личность, документы, розыск, штрафы и нарушения') + '</div>' +
+            (D.can.search ? '<div class="row"><input class="in" id="q" placeholder="Имя Фамилия / 123-456 / #ID" style="flex:1"><button class="btn" id="qGo">Найти человека</button></div>' : '') +
+            (D.can.plate ? '<div class="row"><input class="in" id="pq" placeholder="Номерной знак" style="flex:1" maxlength="8"><button class="btn ghost" id="pGo">Пробить номер</button></div>' : '');
         if (plate) h += '<div class="card"><h3>🚗 ' + esc(plate.plate) + '</h3><div class="kv"><span>Модель</span><b>' + esc(plate.model) + '</b></div><div class="kv"><span>Владелец</span><b>' + esc(plate.owner) + '</b></div>' + (plate.s ? '<button class="btn ghost" style="margin-top:10px" data-dos="' + plate.s + '">Открыть досье владельца</button>' : '') + '</div>';
         if (found) h += found.map(dossier).join('');
     } else if (page === 'fines') {
@@ -106,15 +119,17 @@ function render() {
 function dossier(x) {
     var DOC = { passport: 'Паспорт', drive: 'Вод. удостоверение', military: 'Военный билет', med: 'Мед. книжка', psych: 'Справка психиатра', gun: 'Лицензия на оружие', faction: 'Служебное удостоверение' };
     var unpaid = x.fines.filter(function (f) { return !f.paid; });
+    var C = D.can || {};
+    var lim = '<span style="color:var(--mut)">🔒 нет доступа</span>';
     return '<div class="card"><h3>🪪 ' + esc(x.n) + ' <span class="tag">#' + x.s + '</span><span class="dot' + (x.on ? ' on' : '') + '" style="margin-left:6px"></span>' + (x.wanted ? stars(x.wanted.stars) : '<span class="tag duty">не в розыске</span>') + '</h3>' +
         '<div class="grid2"><div>' +
-        '<div class="kv"><span>Пол</span><b>' + x.g + '</b></div><div class="kv"><span>Работа</span><b>' + esc(x.job) + '</b></div><div class="kv"><span>Телефон</span><b>' + esc(x.phone || '—') + '</b></div>' +
-        '<div class="kv"><span>Жильё</span><b>' + esc(x.house || 'нет') + '</b></div><div class="kv"><span>Транспорт</span><b>' + (x.veh.length ? esc(x.veh.join(', ')) : 'нет') + '</b></div>' +
+        '<div class="kv"><span>Пол</span><b>' + x.g + '</b></div><div class="kv"><span>Работа</span><b>' + esc(x.job) + '</b></div><div class="kv"><span>Телефон</span><b>' + (x.full ? esc(x.phone || '—') : lim) + '</b></div>' +
+        '<div class="kv"><span>Жильё</span><b>' + (x.full ? esc(x.house || 'нет') : lim) + '</b></div><div class="kv"><span>Транспорт</span><b>' + (x.full ? (x.veh.length ? esc(x.veh.join(', ')) : 'нет') : lim) + '</b></div>' +
         '<div class="kv"><span>Документы</span><b>' + (x.docs.length ? x.docs.map(function (d) { return esc(DOC[d.t] || d.t); }).join(', ') : 'нет') + '</b></div>' +
         (x.wanted ? '<div class="kv"><span>Причина розыска</span><b>' + esc(x.wanted.r) + '</b></div>' : '') +
         '<div class="kv"><span>Штрафы</span><b>' + (unpaid.length ? unpaid.length + ' на ' + money(unpaid.reduce(function (s, f) { return s + f.sum; }, 0)) : 'нет') + '</b></div>' +
         '</div><div><b style="font-size:12px;color:var(--mut)">История</b>' + (x.notes.length ? x.notes.map(function (n) { return '<div class="log"><span>' + dt(n.t) + '</span>' + esc(n.x) + ' <small style="color:var(--mut)">— ' + esc(n.by) + '</small></div>'; }).join('') : '<div class="empty" style="padding:16px 0">Записей нет</div>') + '</div></div>' +
-        '<div class="row" style="margin:12px 0 0"><button class="btn red" data-ws="' + x.s + '" data-n="' + esc(x.n) + '">⭐ Розыск</button><button class="btn ghost" data-fi="' + x.s + '" data-n="' + esc(x.n) + '">🧾 Штраф</button><button class="btn ghost" data-no="' + x.s + '">📝 Запись</button><button class="btn" data-tr="' + x.s + '"' + (x.on ? '' : ' disabled') + '>📡 Отследить</button>' + (x.wanted ? '<button class="btn green" data-wc="' + x.s + '">Снять розыск</button>' : '') + '</div></div>';
+        '<div class="row" style="margin:12px 0 0">' + (C.wanted ? '<button class="btn red" data-ws="' + x.s + '" data-n="' + esc(x.n) + '">⭐ Розыск</button>' : '') + (C.fine ? '<button class="btn ghost" data-fi="' + x.s + '" data-n="' + esc(x.n) + '">🧾 Штраф</button>' : '') + (C.note ? '<button class="btn ghost" data-no="' + x.s + '">📝 Запись</button>' : '') + (C.track ? '<button class="btn" data-tr="' + x.s + '"' + (x.on ? '' : ' disabled') + '>📡 Отследить</button>' : '') + (x.wanted && C.wanted ? '<button class="btn green" data-wc="' + x.s + '">Снять розыск</button>' : '') + '</div></div>';
 }
 
 function bind(m) {
@@ -133,6 +148,7 @@ function bind(m) {
     on('[data-sl]', function (b) { act({ a: 'sqlead', i: Number(b.dataset.sl), id: Number(b.dataset.id) }); });
     on('[data-rs]', function (b) { act({ a: 'rname', i: Number(b.dataset.rs), n: m.querySelector('[data-ri="' + b.dataset.rs + '"]').value }); });
     on('[data-rd]', function (b) { act({ a: 'rdel', i: Number(b.dataset.rd) }); });
+    m.querySelectorAll('[data-pk]').forEach(function (s) { s.onchange = function () { act({ a: 'perm', k: s.dataset.pk, r: Number(s.value) }); }; });
     var ra = $('rAdd'); if (ra) ra.onclick = function () { var n = $('rN').value.trim(); if (n) act({ a: 'radd', n: n }); };
     on('[data-tr]', function (b) { act({ a: 'track', s: Number(b.dataset.tr) }); toast('Запрос сигнала…'); });
     on('[data-wc]', function (b) { act({ a: 'wanted', s: Number(b.dataset.wc), stars: 0 }); setTimeout(function () { if (page === 'db' && found) act({ a: 'search', q: '#' + b.dataset.wc }); }, 300); });

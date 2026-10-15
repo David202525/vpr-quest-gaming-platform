@@ -720,7 +720,7 @@ function menuAch(d) {
 var shopSec = 'vip', exN = 10;
 function menuShop(d) {
     var coins = d.coins || 0;
-    var secs = [['vip', '👑', 'VIP-статус'], ['coins', '💎', 'Коины'], ['sim', '📶', 'Связь'], ['items', '🛒', 'Предметы']];
+    var secs = [['vip', '👑', 'VIP-статус'], ['coins', '💎', 'Коины'], ['sim', '📶', 'Связь'], ['lic', '📄', 'Лицензии'], ['items', '🛒', 'Предметы']];
     var head = '<div class="dn-hero" style="background-image:linear-gradient(90deg,rgba(20,8,30,.96) 30%,rgba(20,8,30,.35)),url(img/banner.jpg)">' +
         '<div class="dn-h-l"><span class="dn-tag">ДОНАТ-МАГАЗИН</span><h2>Поддержи сервер — получи бонусы</h2><p>VIP ускоряет прокачку и Battle Pass, коины меняются на игровую валюту</p></div>' +
         '<div class="dn-bal"><div class="dn-coin"><img src="img/bp_coins.jpg"><div><small>Баланс</small><b>' + coins.toLocaleString('ru-RU') + ' RC</b></div></div>' +
@@ -736,6 +736,11 @@ function menuShop(d) {
                 '<ul>' + v.perks.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>' +
                 '<button data-vip="' + v.k + '"' + (coins < v.price ? ' class="poor"' : '') + '>' + (mine ? 'Продлить · ' : '') + v.price + ' RC</button></div>';
         }).join('') + '</div>';
+    } else if (shopSec === 'lic') {
+        body = '<div class="sim-t">Документы и лицензии</div><div class="sim-grid four">' + (d.lics || []).map(function (l) {
+            return '<div class="sim-c"><div class="sim-chip" style="background:linear-gradient(135deg,#3a7bd5,#1c3f7a)">' + l.img + '</div><b>' + esc(l.n) + '</b><small>' + esc(l.d) + '</small>' +
+                (l.own ? '<button disabled style="opacity:.5;background:#2a2a33">✓ Уже есть</button>' : '<button data-lic="' + l.k + '"' + (coins < l.price ? ' class="poor"' : '') + '>' + l.price + ' RC</button>') + '</div>';
+        }).join('') + '</div><p class="pk-note">Документ сразу появляется в папке документов (инвентарь → «Папка документов»). Его можно показать полиции. Если лицензию отобрала администрация, купить её до конца срока нельзя.</p>';
     } else if (shopSec === 'sim') {
         body = '<div class="sim-top"><div class="sim-now"><small>Ваш номер</small><b>' + esc(d.number || '—') + '</b></div><div class="sim-now"><small>Баланс телефона</small><b>$' + (d.pbal || 0).toLocaleString('ru-RU') + '</b></div></div>' +
             '<div class="sim-t">SIM-карты</div><div class="sim-grid">' + (d.sims || []).map(function (s) {
@@ -842,6 +847,7 @@ function bindMenu() {
     if (ei) ei.onchange = function () { exN = Math.max(1, Math.floor(Number(ei.value) || 1)); renderMenu(); };
     b.querySelectorAll('[data-ex]').forEach(function (x) { x.onclick = function () { trig('cef:menu:exchange', exN); }; });
     b.querySelectorAll('[data-claim]').forEach(function (x) { x.onclick = function () { trig('cef:menu:claim', Number(x.dataset.claim)); }; });
+    b.querySelectorAll('[data-lic]').forEach(function (x) { x.onclick = function () { trig('cef:menu:lic', x.dataset.lic); }; });
     b.querySelectorAll('[data-sim]').forEach(function (x) { x.onclick = function () { var inp = b.querySelector('#simIn'); trig('cef:sim:buy', x.dataset.sim, x.dataset.sim === 'custom' && inp ? inp.value.trim() : ''); }; });
     b.querySelectorAll('[data-top]').forEach(function (x) { x.onclick = function () { trig('cef:sim:topup', Number(x.dataset.top)); }; });
     var si = b.querySelector('#simIn');
@@ -1448,7 +1454,7 @@ window.govMenu = function (json) {
             }).join('') + '</div><button class="btn ghost" data-gr="1">Сдать всё снаряжение</button>';
     } else if (d.t === 'locker') {
         h = '<div class="hm-h"><span class="hm-i">👮</span><div><b>Раздевалка · ' + esc(d.f) + '</b><small>' + (d.on ? 'Вы на смене' : 'Вы не на смене') + '</small></div></div><div class="hm-days">' +
-            d.list.map(function (u) { return '<button class="hm-o" data-gu="' + u.i + '"><b>' + esc(u.n) + '</b><small>Надеть и заступить на смену</small></button>'; }).join('') + '</div>' +
+            d.list.map(function (u) { return '<button class="hm-o" data-gu="' + u.i + '"' + (u.lock ? ' disabled style="opacity:.45"' : '') + '><b>' + esc(u.n) + '</b><small>' + (u.lock ? 'С ранга «' + esc(u.lock) + '»' : 'Надеть и заступить на смену') + '</small></button>'; }).join('') + '</div>' +
             (d.on ? '<button class="btn ghost" data-gu="-1">Гражданская одежда (закончить смену)</button>' : '');
     } else if (d.t === 'garage') {
         h = '<div class="hm-h"><span class="hm-i">🚓</span><div><b>Автопарк · ' + esc(d.f) + '</b><small>' + (d.out ? 'Сейчас у вас: ' + esc(d.out) : 'Выберите служебный транспорт') + '</small></div></div><div class="gv-list">' +

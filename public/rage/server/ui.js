@@ -740,6 +740,7 @@ async function menuPayload(p) {
             rewards: BP.map(function (r) { return { lvl: r.lvl, text: r.money ? '$' + r.money.toLocaleString('en-US') : ITEMS[r.item].n + (r.c > 1 ? ' x' + r.c : ''), img: r.money ? 'money' : (BP_IMG[r.item] || 'money'), big: r.lvl % 5 === 0, claimed: d.bpClaimed.indexOf(r.lvl) >= 0, open: r.lvl <= bpLvl }; })
         },
         shop: shop,
+        lics: DON_LICS.map(function (l) { return { k: l.k, n: l.n, d: l.d, price: l.price, img: l.img, own: hasDoc(d, l.k) }; }),
         sims: global.PhoneSystem ? global.PhoneSystem.SIMS : [], topup: global.PhoneSystem ? global.PhoneSystem.TOPUP : [],
         coins: d.coins || 0, rate: COIN_RATE, pbal: Math.floor(d.pbal === undefined ? 200 : d.pbal),
         vip: vipOf(d) ? { t: d.vip.t, n: VIPS[d.vip.t].n, color: VIPS[d.vip.t].color, left: Math.ceil((d.vip.until - Date.now()) / 86400000) } : null,
@@ -796,6 +797,28 @@ mp.events.add('srv:menu:exchange', function (p, n) {
     addMoney(p, n * COIN_RATE);
     mark();
     notify(p, 'ok', 'Обменяно ' + n + ' RC на $' + (n * COIN_RATE).toLocaleString('ru-RU'));
+    sendMenu(p);
+});
+const DON_LICS = [
+    { k: 'drive', n: 'Водительское удостоверение', d: 'Категории A, B, C · на 10 лет', price: 150, img: '🚗', blk: 'drive' },
+    { k: 'gun', n: 'Лицензия на оружие', d: 'Покупка оружия в Ammu-Nation · на 5 лет', price: 400, img: '🔫', blk: 'gun' },
+    { k: 'med', n: 'Медицинская книжка', d: 'Нужна для трудоустройства · на 1 год', price: 80, img: '🩺' },
+    { k: 'psych', n: 'Справка от психиатра', d: 'Нужна для лицензии на оружие · на 1 год', price: 80, img: '🧠' }
+];
+mp.events.add('srv:menu:lic', function (p, k) {
+    const L = DON_LICS.find(function (x) { return x.k === k; });
+    if (!L) return;
+    const d = data(p);
+    if (hasDoc(d, L.k)) return notify(p, 'warn', 'У вас уже есть: ' + L.n);
+    const A = global.AdminSystem;
+    if (L.blk && A && A.licBlocked && A.licBlocked(p, L.blk)) return notify(p, 'error', 'Лицензия отобрана администрацией — купить нельзя до окончания срока');
+    if (L.k === 'gun' && global.WantedSystem && global.WantedSystem.get(p) > 0) return notify(p, 'error', 'Вы в розыске — лицензия на оружие недоступна');
+    if ((d.coins || 0) < L.price) return notify(p, 'error', 'Недостаточно коинов: нужно ' + L.price + ' RC');
+    d.coins -= L.price;
+    giveDoc(p, L.k, {}, L.k === 'gun' ? 'LSPD · Отдел лицензирования' : L.k === 'drive' ? 'DMV Лос-Сантоса' : 'Pillbox Hill Medical Center');
+    mark();
+    if (global.SLog) try { global.SLog.add('donate', { actor: p, action: 'license', amount: L.price, details: L.n }); } catch (e) {}
+    notify(p, 'ok', 'Получено: ' + L.n + '. Документ лежит в папке документов');
     sendMenu(p);
 });
 mp.events.add('srv:menu:pack', function (p) {

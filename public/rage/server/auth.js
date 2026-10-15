@@ -146,5 +146,5 @@ mp.events.add('playerQuit', function (p) {
     if (p.account && online[p.account.id] === p) delete online[p.account.id];
 });
 
-global.AuthSystem = { spawn: spawnPlayer, save: save };
+global.AuthSystem = { spawn: spawnPlayer, save: save, check: check };
 module.exports = global.AuthSystem;

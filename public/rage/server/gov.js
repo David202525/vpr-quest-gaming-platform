@@ -4,6 +4,7 @@ let db = null;
 try { db = require('../database'); } catch (e) { try { db = require('./database'); } catch (e2) { db = null; } }
 
 const FILE = path.join(__dirname, 'gov_data.json');
+if (!fs.existsSync(path.join(__dirname, 'gov_web.json'))) { try { fs.writeFileSync(path.join(__dirname, 'gov_web.json'), JSON.stringify({ enabled: true, port: 22011, host: '' }, null, 2)); } catch (e) {} }
 const G = Object.assign({ fac: {}, fines: [], seq: 1, records: {}, notes: {} }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
 let dirty = false;
 setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FILE, JSON.stringify(G)); } catch (e) {} } }, 5000);
@@ -11,6 +12,7 @@ function mark() { dirty = true; }
 
 const POLICE = ['lspd', 'sheriff', 'fib'];
 const NAMES = { lspd: 'LSPD', sheriff: 'Шериф', fib: 'FIB', army: 'Армия', gov: 'Правительство', news: 'Weazel News', medic: 'EMS', ems: 'EMS' };
+function female(p) { return p.model === mp.joaat('mp_f_freemode_01'); }
 const DEF_RANKS = {
     lspd: ['Кадет', 'Офицер I', 'Офицер II', 'Офицер III', 'Сержант I', 'Сержант II', 'Лейтенант', 'Капитан', 'Заместитель шефа', 'Шеф полиции'],
     sheriff: ['Кадет', 'Помощник шерифа', 'Старший помощник', 'Капрал', 'Сержант', 'Лейтенант', 'Капитан', 'Майор', 'Заместитель шерифа', 'Шериф'],
@@ -33,20 +35,64 @@ const SUPPLY_PACK = { g_stungun: 10, g_pistol: 10, g_carbine: 5, ammo_pistol: 30
 const GOV_KEYS = Object.keys(ARMORY_ITEMS).filter(function (k) { return k.indexOf('ammo_') !== 0; }).concat(['ammo_pistol', 'ammo_rifle']);
 
 const UNIFORMS = {
-    m: [
-        { n: 'Патрульная форма', c: { 11: [55, 0], 8: [58, 0], 3: [0, 0], 4: [35, 0], 6: [25, 0] }, p: {} },
-        { n: 'Форма с курткой', c: { 11: [53, 0], 8: [58, 0], 3: [0, 0], 4: [35, 0], 6: [25, 0] }, p: {} },
-        { n: 'Тактическая (SWAT)', c: { 11: [49, 0], 8: [15, 0], 3: [17, 0], 4: [31, 0], 6: [25, 0], 9: [16, 0] }, p: { 0: [39, 0] } },
-        { n: 'Парадная', c: { 11: [118, 0], 8: [58, 0], 3: [4, 0], 4: [25, 0], 6: [10, 0] }, p: { 0: [46, 0] } }
-    ],
-    f: [
-        { n: 'Патрульная форма', c: { 11: [48, 0], 8: [35, 0], 3: [14, 0], 4: [34, 0], 6: [25, 0] }, p: {} },
-        { n: 'Форма с курткой', c: { 11: [43, 0], 8: [35, 0], 3: [14, 0], 4: [34, 0], 6: [25, 0] }, p: {} },
-        { n: 'Тактическая (SWAT)', c: { 11: [42, 0], 8: [14, 0], 3: [18, 0], 4: [30, 0], 6: [25, 0], 9: [18, 0] }, p: { 0: [38, 0] } },
-        { n: 'Парадная', c: { 11: [111, 0], 8: [35, 0], 3: [3, 0], 4: [34, 0], 6: [29, 0] }, p: { 0: [45, 0] } }
-    ]
+    lspd: {
+        m: [
+            { n: 'Патрульная форма (кадет)', r: 1, c: { 3: [41, 0], 4: [25, 0], 6: [25, 0], 8: [59, 1], 11: [55, 0], 10: [0, 0] }, p: { 0: [46, 0] } },
+            { n: 'Патрульная форма', r: 2, c: { 3: [41, 0], 4: [25, 0], 6: [25, 0], 8: [58, 0], 11: [55, 0], 10: [0, 0] }, p: { 0: [46, 0] } },
+            { n: 'Форма сержанта', r: 5, c: { 3: [41, 0], 4: [25, 0], 6: [25, 0], 8: [58, 0], 11: [55, 0], 10: [8, 1] }, p: { 0: [46, 0] } },
+            { n: 'Форма лейтенанта', r: 7, c: { 3: [41, 0], 4: [25, 0], 6: [25, 0], 8: [58, 0], 11: [55, 0], 10: [8, 2] }, p: { 0: [46, 0] } },
+            { n: 'Форма капитана и выше', r: 8, c: { 3: [41, 0], 4: [25, 0], 6: [25, 0], 8: [58, 0], 11: [55, 0], 10: [8, 3] }, p: { 0: [46, 0] } },
+            { n: 'Патруль + бронежилет', r: 2, c: { 3: [41, 0], 4: [25, 0], 6: [25, 0], 8: [58, 0], 11: [55, 0], 9: [11, 1] }, p: { 0: [46, 0] } },
+            { n: 'SWAT', r: 5, c: { 1: [52, 0], 3: [17, 0], 4: [31, 0], 6: [25, 0], 8: [15, 0], 11: [53, 0], 9: [16, 0] }, p: { 0: [117, 0] } },
+            { n: 'Мотопатруль', r: 3, c: { 3: [41, 0], 4: [32, 0], 6: [13, 0], 8: [58, 0], 11: [55, 0] }, p: { 0: [17, 1] } }
+        ],
+        f: [
+            { n: 'Патрульная форма (кадет)', r: 1, c: { 3: [44, 0], 4: [34, 0], 6: [27, 0], 8: [36, 1], 11: [48, 0], 10: [0, 0] }, p: { 0: [45, 0] } },
+            { n: 'Патрульная форма', r: 2, c: { 3: [44, 0], 4: [34, 0], 6: [27, 0], 8: [35, 0], 11: [48, 0], 10: [0, 0] }, p: { 0: [45, 0] } },
+            { n: 'Форма сержанта', r: 5, c: { 3: [44, 0], 4: [34, 0], 6: [27, 0], 8: [35, 0], 11: [48, 0], 10: [7, 1] }, p: { 0: [45, 0] } },
+            { n: 'Форма лейтенанта', r: 7, c: { 3: [44, 0], 4: [34, 0], 6: [27, 0], 8: [35, 0], 11: [48, 0], 10: [7, 2] }, p: { 0: [45, 0] } },
+            { n: 'Форма капитана и выше', r: 8, c: { 3: [44, 0], 4: [34, 0], 6: [27, 0], 8: [35, 0], 11: [48, 0], 10: [7, 3] }, p: { 0: [45, 0] } },
+            { n: 'Патруль + бронежилет', r: 2, c: { 3: [44, 0], 4: [34, 0], 6: [27, 0], 8: [35, 0], 11: [48, 0], 9: [13, 1] }, p: { 0: [45, 0] } },
+            { n: 'SWAT', r: 5, c: { 1: [52, 0], 3: [18, 0], 4: [30, 0], 6: [25, 0], 8: [14, 0], 11: [46, 0], 9: [18, 0] }, p: { 0: [116, 0] } }
+        ]
+    },
+    sheriff: {
+        m: [
+            { n: 'Форма помощника шерифа', r: 1, c: { 3: [41, 0], 4: [25, 1], 6: [25, 0], 8: [58, 0], 11: [55, 1] }, p: { 0: [13, 2] } },
+            { n: 'Форма + бронежилет', r: 2, c: { 3: [41, 0], 4: [25, 1], 6: [25, 0], 8: [58, 0], 11: [55, 1], 9: [11, 2] }, p: { 0: [13, 2] } },
+            { n: 'Форма сержанта', r: 5, c: { 3: [41, 0], 4: [25, 1], 6: [25, 0], 8: [58, 0], 11: [55, 1], 10: [8, 1] }, p: { 0: [13, 2] } }
+        ],
+        f: [
+            { n: 'Форма помощника шерифа', r: 1, c: { 3: [44, 0], 4: [34, 1], 6: [27, 0], 8: [35, 0], 11: [48, 1] }, p: { 0: [13, 2] } },
+            { n: 'Форма + бронежилет', r: 2, c: { 3: [44, 0], 4: [34, 1], 6: [27, 0], 8: [35, 0], 11: [48, 1], 9: [13, 2] }, p: { 0: [13, 2] } }
+        ]
+    },
+    fib: {
+        m: [
+            { n: 'Деловой костюм агента', r: 1, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 7: [22, 0], 8: [31, 0], 11: [4, 0] }, p: {} },
+            { n: 'Костюм без пиджака', r: 1, c: { 3: [11, 0], 4: [10, 0], 6: [10, 0], 7: [22, 0], 8: [31, 0], 11: [31, 0] }, p: {} },
+            { n: 'Полевая форма FIB', r: 3, c: { 3: [17, 0], 4: [31, 0], 6: [25, 0], 8: [15, 0], 11: [49, 0], 9: [12, 0] }, p: { 0: [113, 0] } },
+            { n: 'Штурмовая (HRT)', r: 5, c: { 1: [52, 0], 3: [17, 0], 4: [31, 0], 6: [25, 0], 8: [15, 0], 11: [53, 1], 9: [16, 2] }, p: { 0: [117, 0] } }
+        ],
+        f: [
+            { n: 'Деловой костюм агента', r: 1, c: { 3: [3, 0], 4: [6, 0], 6: [13, 0], 8: [38, 0], 11: [7, 0] }, p: {} },
+            { n: 'Полевая форма FIB', r: 3, c: { 3: [18, 0], 4: [30, 0], 6: [25, 0], 8: [14, 0], 11: [42, 0], 9: [12, 0] }, p: { 0: [112, 0] } },
+            { n: 'Штурмовая (HRT)', r: 5, c: { 1: [52, 0], 3: [18, 0], 4: [30, 0], 6: [25, 0], 8: [14, 0], 11: [46, 1], 9: [18, 2] }, p: { 0: [116, 0] } }
+        ]
+    },
+    army: {
+        m: [
+            { n: 'Полевая форма', r: 1, c: { 3: [17, 0], 4: [86, 0], 6: [35, 0], 8: [15, 0], 11: [220, 0] }, p: { 0: [106, 20] } },
+            { n: 'Форма + бронежилет', r: 2, c: { 3: [17, 0], 4: [86, 0], 6: [35, 0], 8: [15, 0], 11: [220, 0], 9: [16, 0] }, p: { 0: [106, 20] } },
+            { n: 'Парадная форма', r: 6, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 8: [31, 0], 11: [118, 0] }, p: { 0: [46, 0] } }
+        ],
+        f: [
+            { n: 'Полевая форма', r: 1, c: { 3: [18, 0], 4: [89, 0], 6: [36, 0], 8: [14, 0], 11: [230, 0] }, p: { 0: [105, 20] } },
+            { n: 'Форма + бронежилет', r: 2, c: { 3: [18, 0], 4: [89, 0], 6: [36, 0], 8: [14, 0], 11: [230, 0], 9: [18, 0] }, p: { 0: [105, 20] } }
+        ]
+    }
 };
-
+function uniformsOf(p) { const u = UNIFORMS[fac(p)] || UNIFORMS.lspd; return u[female(p) ? 'f' : 'm']; }
 const DEF_POINTS = {
     lspd: { armory: [452.1, -980.1, 30.69], locker: [458.2, -992.9, 30.69], garage: [454.6, -1017.4, 28.4], spawns: [[446.0, -1025.0, 28.6, 2], [442.4, -1025.6, 28.7, 2], [438.6, -1026.0, 28.8, 2], [434.9, -1026.5, 28.9, 2], [431.2, -1027.0, 29.0, 2]] },
     sheriff: { armory: [1851.1, 3690.0, 34.27], locker: [1849.2, 3694.5, 34.27], garage: [1866.0, 3695.0, 33.9], spawns: [[1870.0, 3700.0, 33.6, 210], [1873.0, 3703.0, 33.6, 210]] },
@@ -60,6 +106,22 @@ const DEF_FLEET = {
     army: [['mesa3', 1], ['crusader', 2], ['barracks', 4], ['insurgent', 6]]
 };
 
+const PERMS = {
+    search: { n: 'Поиск по базе граждан', r: 1 },
+    dossier: { n: 'Полное досье (телефон, жильё, транспорт)', r: 3 },
+    plate: { n: 'Пробив номера машины', r: 1 },
+    wantedList: { n: 'Просмотр списка розыска', r: 1 },
+    note: { n: 'Записи в досье', r: 2, pol: 1 },
+    fine: { n: 'Выписывать штрафы', r: 2, pol: 1 },
+    wanted: { n: 'Объявлять / снимать розыск', r: 3, pol: 1 },
+    track: { n: 'Отслеживание сигнала', r: 4, pol: 1 }
+};
+function can(p, k) {
+    if (!PERMS[k]) return false;
+    if (PERMS[k].pol && !isPolice(p)) return false;
+    if (canManage(p)) return true;
+    return rank(p) >= (F(fac(p)).perms[k] || PERMS[k].r);
+}
 function F(f) {
     if (!G.fac[f]) G.fac[f] = {};
     const x = G.fac[f];
@@ -69,6 +131,8 @@ function F(f) {
     if (!x.stock) x.stock = {};
     if (!x.points) x.points = DEF_POINTS[f] ? JSON.parse(JSON.stringify(DEF_POINTS[f])) : null;
     if (!x.log) x.log = [];
+    if (!x.perms) x.perms = {};
+    Object.keys(PERMS).forEach(function (k) { if (x.perms[k] === undefined) x.perms[k] = PERMS[k].r; });
     return x;
 }
 
@@ -168,20 +232,20 @@ mp.events.addCommand('supply', function (p) {
 });
 
 /* ================= РАЗДЕВАЛКА ================= */
-function female(p) { return p.model === mp.joaat('mp_f_freemode_01'); }
 function lockerOpen(p) {
-    const list = UNIFORMS[female(p) ? 'f' : 'm'];
-    p.call('gov:menu', [JSON.stringify({ t: 'locker', f: NAMES[fac(p)], on: !!p.getVariable('duty'), list: list.map(function (u, i) { return { i: i, n: u.n }; }) })]);
+    const list = uniformsOf(p), r = rank(p);
+    p.call('gov:menu', [JSON.stringify({ t: 'locker', f: NAMES[fac(p)], on: !!p.getVariable('duty'), list: list.map(function (u, i) { return { i: i, n: u.n, lock: r < (u.r || 1) ? rankName(fac(p), u.r) : '' }; }) })]);
 }
 function setDuty(p, on, idx) {
     p.setVariable('duty', !!on);
     if (on) {
-        const u = UNIFORMS[female(p) ? 'f' : 'm'][idx || 0];
+        const u = uniformsOf(p)[idx || 0];
         if (!u) return;
+        try { [1, 7, 9, 10].forEach(function (c) { p.setClothes(c, 0, 0, 0); }); p.setProp(0, -1, 0); p.call('inv:clearProp', [0]); } catch (e) {}
         Object.keys(u.c).forEach(function (c) { try { p.setClothes(Number(c), u.c[c][0], u.c[c][1], 0); } catch (e) {} });
         Object.keys(u.p).forEach(function (c) { try { p.setProp(Number(c), u.p[c][0], u.p[c][1]); } catch (e) {} });
     } else {
-        try { p.setClothes(9, 0, 0, 0); p.setProp(0, -1, 0); p.call('inv:clearProp', [0]); } catch (e) {}
+        try { [1, 7, 9, 10].forEach(function (c) { p.setClothes(c, 0, 0, 0); }); p.setProp(0, -1, 0); p.call('inv:clearProp', [0]); } catch (e) {}
         if (U() && U().redress) U().redress(p);
     }
 }
@@ -189,6 +253,8 @@ mp.events.add('srv:gov:uniform', function (p, i) {
     const x = F(fac(p));
     if (!x.points || !near(p, x.points.locker, 3)) return;
     i = Number(i);
+    const un = uniformsOf(p)[i];
+    if (i >= 0 && (!un || rank(p) < (un.r || 1))) return notify(p, 'warn', 'Эта форма доступна с ранга «' + rankName(fac(p), un ? un.r : 1) + '»');
     if (i < 0) { setDuty(p, false); notify(p, 'ok', 'Вы переоделись в гражданское. Смена окончена'); }
     else { setDuty(p, true, i); notify(p, 'ok', 'Вы на смене. Форма надета'); }
     lockerOpen(p);
@@ -325,9 +391,12 @@ async function tabletData(p) {
     const out = {
         f: f, fn: NAMES[f] || f, me: { id: sid(p), n: nick(p), r: rank(p), rn: isLeader(p) ? x.ranks[x.ranks.length - 1] : rankName(f, rank(p)), lead: isLeader(p), dep: isDep(p), manage: canManage(p) },
         ranks: x.ranks, squads: x.squads.map(function (s, i) { return { i: i, n: s.n, lead: s.l, m: s.m, minR: s.r || 1 }; }),
-        members: mem, stock: Object.keys(ARMORY_ITEMS).map(function (k) { return { n: ARMORY_ITEMS[k].n, c: x.stock[k] || 0 }; }), log: x.log.slice(0, 40), police: pol
+        members: mem, stock: Object.keys(ARMORY_ITEMS).map(function (k) { return { n: ARMORY_ITEMS[k].n, c: x.stock[k] || 0 }; }), log: x.log.slice(0, 40), police: pol,
+        web: !!p.web, can: {}, perms: Object.keys(PERMS).map(function (k) { return { k: k, n: PERMS[k].n, r: x.perms[k], pol: !!PERMS[k].pol }; })
     };
-    if (pol && W) {
+    Object.keys(PERMS).forEach(function (k) { out.can[k] = can(p, k); });
+    if (p.web) out.can.track = false;
+    if (out.can.wantedList && W) {
         const wl = W.list();
         const ids = wl.map(function (w) { return w.s; });
         const nm = ids.length ? await q('SELECT id, nick, login FROM accounts WHERE id IN (' + ids.map(Number).join(',') + ')') : [];
@@ -336,13 +405,13 @@ async function tabletData(p) {
             const o = online(w.s);
             return { s: w.s, n: r ? String(r.nick || r.login).replace(/_/g, ' ') : '#' + w.s, stars: w.stars, r: w.r, by: w.by, d: w.d, on: !!o, pid: o ? o.id : -1, fines: finesOf(w.s).length };
         }).sort(function (a, b) { return b.stars - a.stars; });
-        out.fines = G.fines.filter(function (z) { return !z.paid; }).slice(-60).reverse();
+        out.fines = out.can.search ? G.fines.filter(function (z) { return !z.paid; }).slice(-60).reverse() : [];
     }
     return out;
 }
 async function sendTablet(p) {
     const d = await tabletData(p);
-    if (mp.players.exists(p)) p.call('gov:tablet', [JSON.stringify(d)]);
+    if (p.web || mp.players.exists(p)) p.call('gov:tablet', [JSON.stringify(d)]);
 }
 mp.events.add('srv:tab:open', function (p) {
     if (!isGovF(fac(p))) return notify(p, 'warn', 'Планшет доступен только сотрудникам гос. структур');
@@ -351,18 +420,27 @@ mp.events.add('srv:tab:open', function (p) {
 mp.events.addCommand('tablet', function (p) { mp.events.call('srv:tab:open', p); });
 
 function tabErr(p, t) { p.call('gov:tabToast', [t, 0]); }
-mp.events.add('srv:tab:act', async function (p, json) {
+mp.events.add('srv:tab:act', function (p, json) { tabAct(p, json); });
+async function tabAct(p, json) {
     let d; try { d = JSON.parse(json); } catch (e) { return; }
     const f = fac(p);
     if (!isGovF(f)) return;
     const x = F(f);
     const a = d.a;
     const mgr = canManage(p);
-    const done = function (t) { if (t) p.call('gov:tabToast', [t, 1]); sendTablet(p); };
+    const done = function (t) { if (t) p.call('gov:tabToast', [t, 1]); return sendTablet(p); };
 
     if (['rankup', 'rankdown', 'fire', 'dep', 'invite', 'rname', 'radd', 'rdel', 'sqadd', 'sqdel', 'sqjoin', 'sqkick', 'sqlead', 'sqren'].indexOf(a) >= 0 && !mgr) return tabErr(p, 'Только лидер или заместитель');
 
+    if (a === 'perm') {
+        if (!isLeader(p)) return tabErr(p, 'Права доступа меняет только лидер');
+        if (!PERMS[d.k]) return;
+        x.perms[d.k] = Math.max(1, Math.min(x.ranks.length, Number(d.r) || 1));
+        mark(); flog(f, nick(p) + ' изменил доступ «' + PERMS[d.k].n + '» → с ранга ' + x.perms[d.k]);
+        return done('Права обновлены');
+    }
     if (a === 'invite') {
+        if (p.web) return tabErr(p, 'Приглашать можно только в игре (игрок должен стоять рядом)');
         const t = mp.players.at(Number(d.id));
         if (!t || !mp.players.exists(t) || !t.account) return tabErr(p, 'Игрок не найден');
         if (t.position.subtract(p.position).length() > 5) return tabErr(p, 'Игрок должен стоять рядом');
@@ -451,9 +529,12 @@ mp.events.add('srv:tab:act', async function (p, json) {
     if (a === 'sqkick' && sq) { const id = Number(d.id); sq.m = sq.m.filter(function (z) { return z !== id; }); if (sq.l === id) sq.l = 0; mark(); return done('Исключён из отряда'); }
     if (a === 'sqlead' && sq) { const id = Number(d.id); if (sq.m.indexOf(id) < 0) sq.m.push(id); sq.l = id; mark(); return done('Командир отряда назначен'); }
 
-    /* ---- полиция ---- */
-    if (!isPolice(p)) return;
+    /* ---- база данных ---- */
+    const need = { search: 'search', plate: 'plate', wanted: 'wanted', fine: 'fine', note: 'note', track: 'track' }[a];
+    if (!need) return;
+    if (!can(p, need)) return tabErr(p, PERMS[need].pol && !isPolice(p) ? 'Доступно только полиции, шерифу и FIB' : 'Недостаточно прав: «' + PERMS[need].n + '» с ' + (x.perms[need] || PERMS[need].r) + ' ранга');
     if (a === 'search') {
+        const full = can(p, 'dossier');
         const s = String(d.q || '').trim();
         if (s.length < 2) return tabErr(p, 'Введите минимум 2 символа');
         let rows;
@@ -466,19 +547,19 @@ mp.events.add('srv:tab:act', async function (p, json) {
         for (const r of rows) {
             const id = Number(r.id);
             const docs = U() && U().docsOf ? U().docsOf('a' + id) : [];
-            const veh = await q('SELECT model, plate FROM vehicles WHERE owner_id = ? LIMIT 10', [id]);
+            const veh = full ? await q('SELECT model, plate FROM vehicles WHERE owner_id = ? LIMIT 10', [id]) : [];
             const H = global.HouseSystem;
             const w = W ? W.info(id) : null;
             res.push({
                 s: id, n: String(r.nick || r.login).replace(/_/g, ' '), g: Number(r.gender) === 1 ? 'Ж' : 'М',
-                job: r.job ? (NAMES[r.job] || r.job) : 'Безработный', phone: U() && U().phoneOf ? U().phoneOf('a' + id) : null,
+                job: r.job ? (NAMES[r.job] || r.job) : 'Безработный', phone: full && U() && U().phoneOf ? U().phoneOf('a' + id) : null, full: full,
                 docs: docs.map(function (z) { return { t: z.t, num: z.num || '', until: z.until || '' }; }),
                 veh: veh.map(function (v) { return v.model + ' · ' + v.plate; }),
-                house: H && H.byOwner ? H.byOwner(id) : null,
+                house: full && H && H.byOwner ? H.byOwner(id) : null,
                 wanted: w ? { stars: w.s, r: w.r, by: w.by } : null,
                 fines: G.fines.filter(function (z) { return z.s === id; }).slice(-20).reverse(),
                 notes: (G.records[id] || []).slice(-20).reverse(),
-                on: !!online(id)
+                on: full ? !!online(id) : false
             });
         }
         if (!res.length) return tabErr(p, 'Ничего не найдено');
@@ -523,6 +604,7 @@ mp.events.add('srv:tab:act', async function (p, json) {
         return done('Запись добавлена в досье');
     }
     if (a === 'track') {
+        if (p.web) return tabErr(p, 'Отслеживание доступно только в игре');
         const t = online(Number(d.s));
         if (!t) return tabErr(p, 'Абонент вне сети — отследить невозможно');
         if (t.dimension !== 0) return tabErr(p, 'Сигнал потерян (абонент в помещении). Попробуйте позже');
@@ -534,7 +616,7 @@ mp.events.add('srv:tab:act', async function (p, json) {
         flog(f, nick(p) + ' отследил сигнал #' + sid(t));
         return notify(p, 'ok', 'Сигнал засечён: ' + nick(t) + ' где-то в красной зоне (~300 м). Ищите сами');
     }
-});
+}
 function syncCop(p) {
     const f = fac(p);
     if ((p.getVariable('fac') || '') !== f) p.setVariable('fac', f);
@@ -599,6 +681,76 @@ mp.events.addCommand('fines', function (p, full) {
 
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendPoints(p); }, 5000); });
 setTimeout(function () { mp.players.forEach(sendPoints); }, 3000);
+
+/* ================= ВЕБ-ПЛАНШЕТ ================= */
+const WEB = Object.assign({ enabled: true, port: 22011, host: '' }, (function () { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'gov_web.json'), 'utf8')); } catch (e) { return {}; } })());
+const sessions = {};
+function webFile(n) {
+    const tries = [path.join(__dirname, 'tablet_web', n), path.join(__dirname, '..', '..', '..', 'client_packages', 'cef', 'tablet', n)];
+    for (const f of tries) { try { return fs.readFileSync(f, 'utf8'); } catch (e) {} }
+    return '';
+}
+function webPage() {
+    const html = webFile('index.html'), css = webFile('style.css'), js = webFile('app.js'), bridge = webFile('web.js');
+    return html.replace('<link rel="stylesheet" href="style.css">', function () { return '<meta name="viewport" content="width=device-width, initial-scale=1"><style>' + css + '</style>'; })
+        .replace('<script src="app.js"></script>', function () { return '<script>' + bridge + '</script><script>' + js + '</script>'; });
+}
+async function webUser(id) {
+    const r = (await q('SELECT id, nick, login, job, job_rank, leader, banned FROM accounts WHERE id = ? LIMIT 1', [id]))[0];
+    if (!r || Number(r.banned) === 1 || !isGovF(r.job)) return null;
+    const out = [];
+    return {
+        web: true, out: out, id: -1, name: String(r.nick || r.login), dimension: 0, position: { x: 0, y: 0, z: 0, subtract: function () { return { length: function () { return 9999; } }; } },
+        account: { id: Number(r.id), nick: r.nick || r.login, job: r.job, job_rank: Number(r.job_rank) || 1, leader: Number(r.leader) || 0 },
+        call: function (ev, args) { out.push([ev, args || []]); }, getVariable: function () { return null; }, setVariable: function () {}, outputChatBox: function () {}
+    };
+}
+if (WEB.enabled) {
+    try {
+        const http = require('http'), crypto = require('crypto');
+        const hits = {};
+        http.createServer(function (req, res) {
+            const ip = req.socket.remoteAddress;
+            hits[ip] = (hits[ip] || []).filter(function (t) { return Date.now() - t < 10000; });
+            hits[ip].push(Date.now());
+            if (hits[ip].length > 60) { res.writeHead(429); return res.end('slow down'); }
+            const send = function (code, o) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(o)); };
+            if (req.method === 'GET' && (req.url === '/' || req.url.indexOf('/?') === 0)) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(webPage()); }
+            if (req.method !== 'POST' || req.url !== '/api') { res.writeHead(404); return res.end(); }
+            let body = '';
+            req.on('data', function (c) { body += c; if (body.length > 6000) req.destroy(); });
+            req.on('end', async function () {
+                let d; try { d = JSON.parse(body); } catch (e) { return send(400, { err: 'bad json' }); }
+                if (d.op === 'login') {
+                    const lg = String(d.login || '').trim().slice(0, 32);
+                    const r = (await q('SELECT id, password, job, banned FROM accounts WHERE login = ? OR username = ? LIMIT 1', [lg, lg]))[0];
+                    const A = global.AuthSystem;
+                    if (!r || !A || !A.check || !A.check(String(d.pass || ''), r.password)) { await new Promise(function (ok) { setTimeout(ok, 800); }); return send(403, { err: 'Неверный логин или пароль' }); }
+                    if (Number(r.banned) === 1) return send(403, { err: 'Аккаунт заблокирован' });
+                    if (!isGovF(r.job)) return send(403, { err: 'Веб-планшет доступен только сотрудникам гос. структур' });
+                    const tk = crypto.randomBytes(20).toString('hex');
+                    sessions[tk] = { id: Number(r.id), exp: Date.now() + 12 * 3600000 };
+                    const u = await webUser(r.id);
+                    await sendTablet(u);
+                    if (global.SLog) try { global.SLog.add('connect', { actor: lg, action: 'web-tablet', details: 'вход в веб-планшет', ip: ip }); } catch (e) {}
+                    return send(200, { token: tk, ev: u.out });
+                }
+                const ss = sessions[String(d.token || '')];
+                if (!ss || ss.exp < Date.now()) return send(401, { err: 'Сессия истекла — войдите снова' });
+                if (d.op === 'logout') { delete sessions[d.token]; return send(200, { ok: 1 }); }
+                const u = await webUser(ss.id);
+                if (!u) { delete sessions[d.token]; return send(401, { err: 'Вы больше не состоите в гос. структуре' }); }
+                if (d.op === 'refresh') { await sendTablet(u); return send(200, { ev: u.out }); }
+                if (d.op === 'act') { await tabAct(u, String(d.json || '{}')); return send(200, { ev: u.out }); }
+                send(400, { err: 'unknown' });
+            });
+        }).listen(WEB.port, function () { console.log('[gov] веб-планшет: порт ' + WEB.port); }).on('error', function (e) { console.log('[gov] веб-планшет не запущен: ' + e.message); });
+    } catch (e) { console.log('[gov] веб-планшет: ' + e.message); }
+}
+mp.events.addCommand('webtablet', function (p) {
+    if (!isGovF(fac(p))) return notify(p, 'warn', 'Только для сотрудников гос. структур');
+    p.outputChatBox('!{#7fd4ff}Веб-планшет: !{#ffffff}http://' + (WEB.host || 'IP_СЕРВЕРА') + ':' + WEB.port + '/ !{#9a9aa8}— вход по логину и паролю от игрового аккаунта');
+});
 
 global.GovFaction = { rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');

@@ -734,3 +734,4 @@ setInterval(function () {
     if (!callPeer || !callPeer.handle) callPeer = mp.players.atRemoteId(Number(callState.rid));
     if (callPeer) { try { callPeer.voice3d = false; callPeer.voiceVolume = 1.0; } catch (e) {} }
 }, 1000);
+mp.events.add('cef:menu:lic', function (k) { mp.events.callRemote('srv:menu:lic', String(k)); });
