@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+let bcrypt = null;
+try { bcrypt = require('bcryptjs'); } catch (e) {}
 const db = require('../database');
 const cfg = require('../config');
 
@@ -13,19 +15,35 @@ function hash(pass) {
     const salt = crypto.randomBytes(16).toString('hex');
     return 'scrypt$' + salt + '$' + crypto.scryptSync(String(pass), salt, 64).toString('hex');
 }
+function same(a, b) {
+    a = Buffer.from(String(a)); b = Buffer.from(String(b));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 function check(pass, stored) {
-    const s = String(stored || '').split('$');
-    if (s[0] !== 'scrypt' || s.length !== 3) return false;
-    const h = crypto.scryptSync(String(pass), s[1], 64);
-    const b = Buffer.from(s[2], 'hex');
-    return b.length === h.length && crypto.timingSafeEqual(b, h);
+    pass = String(pass);
+    stored = String(stored || '');
+    if (!stored) return false;
+    const s = stored.split('$');
+    if (s[0] === 'scrypt' && s.length === 3) {
+        const h = crypto.scryptSync(pass, s[1], 64);
+        const b = Buffer.from(s[2], 'hex');
+        return b.length === h.length && crypto.timingSafeEqual(b, h);
+    }
+    if (/^\$2[aby]\$/.test(stored)) return bcrypt ? bcrypt.compareSync(pass, stored) : false;
+    const low = stored.toLowerCase();
+    if (/^[0-9a-f]{64}$/.test(low)) return same(crypto.createHash('sha256').update(pass).digest('hex'), low);
+    if (/^[0-9a-f]{40}$/.test(low)) return same(crypto.createHash('sha1').update(pass).digest('hex'), low);
+    if (/^[0-9a-f]{32}$/.test(low)) return same(crypto.createHash('md5').update(pass).digest('hex'), low);
+    return same(pass, stored);
 }
 
 function err(p, text) { p.call('auth:error', [text]); }
 
 function hidden(p) {
     p.dimension = 1000 + p.id;
-    p.position = new mp.Vector3(cfg.spawn.x, cfg.spawn.y, cfg.spawn.z + 200);
+    p.model = mp.joaat('mp_m_freemode_01');
+    p.spawn(new mp.Vector3(cfg.spawn.x, cfg.spawn.y, cfg.spawn.z));
+    p.heading = cfg.spawn.heading;
 }
 
 mp.events.add('playerJoin', function (p) {
@@ -71,7 +89,7 @@ mp.events.add('auth:login', async function (p, login, pass) {
     login = String(login || '').trim();
     if (!login || !pass) return err(p, 'Введите логин и пароль');
     try {
-        const rows = await q('SELECT * FROM accounts WHERE login = ? LIMIT 1', [login]);
+        const rows = await q('SELECT * FROM accounts WHERE login = ? OR username = ? ORDER BY id LIMIT 1', [login, login]);
         if (!rows.length || !check(pass, rows[0].password)) return err(p, 'Неверный логин или пароль');
         await enter(p, rows[0]);
     } catch (e) {
@@ -86,7 +104,7 @@ mp.events.add('auth:register', async function (p, login, pass) {
     if (!/^[A-Za-z0-9_]{3,32}$/.test(login)) return err(p, 'Логин: 3–32 символа, латиница, цифры и _');
     if (String(pass || '').length < 6) return err(p, 'Пароль: минимум 6 символов');
     try {
-        const ex = await q('SELECT id FROM accounts WHERE login = ? LIMIT 1', [login]);
+        const ex = await q('SELECT id FROM accounts WHERE login = ? OR username = ? LIMIT 1', [login, login]);
         if (ex.length) return err(p, 'Такой логин уже занят');
         const r = await q('INSERT INTO accounts (login, username, password, social, social_club, serial, money) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [login, login, hash(pass), p.socialClub || null, p.socialClub || null, p.serial || null, cfg.startMoney]);

@@ -29,6 +29,7 @@ function busy() {
 
 var jobMenuOpen = false;
 function cursorSync() {
+    if (global.authOpen || global.creatorOpen) { mp.gui.cursor.show(true, true); return; }
     var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (typeof admOpen !== 'undefined' && admOpen);
     mp.gui.cursor.show(need, need);
 }
@@ -92,6 +93,7 @@ mp.keys.bind(0xC0, false, function () { openUi('inv', { trunk: !!(mp.players.loc
 mp.keys.bind(0x72, false, function () { openUi('phone'); });
 mp.keys.bind(0x4D, false, function () { openUi('menu'); });
 mp.keys.bind(0x71, false, function () {
+    if (global.authOpen || global.creatorOpen) { mp.gui.cursor.show(true, true); return; }
     if (mp.players.local.isTypingInTextChat || deadState) return;
     if (uiOpen) { closeUi(); return; }
     if (typeof admOpen !== 'undefined' && admOpen) return;
@@ -107,6 +109,7 @@ mp.keys.bind(0x71, false, function () {
     cursorSync();
 });
 mp.keys.bind(0x1B, false, function () {
+    if (global.authOpen || global.creatorOpen) return;
     if (uiOpen || deadState || mp.players.local.isTypingInTextChat) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (jobMenuOpen) { jobMenuClose(); return; }

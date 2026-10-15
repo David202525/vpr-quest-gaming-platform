@@ -43,6 +43,7 @@ function camTo(zone) {
 }
 
 mp.events.add('creator:start', function () {
+    global.creatorOpen = true;
     current = defaultAppearance(0);
     const local = mp.players.local;
     local.freezePosition(true);
@@ -110,6 +111,10 @@ mp.events.add('creator:done', function () {
     mp.players.local.freezePosition(false);
     mp.game.ui.displayRadar(true);
     mp.gui.chat.show(true);
+    global.creatorOpen = false;
     mp.gui.cursor.show(false, false);
     current = null;
+});
+mp.events.add('render', function () {
+    if (global.creatorOpen && creatorBrowser && !mp.gui.cursor.visible) mp.gui.cursor.show(true, true);
 });

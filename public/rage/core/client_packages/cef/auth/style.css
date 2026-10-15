@@ -1,7 +1,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", Roboto, sans-serif; }
 :root { --acc: #8b3dff; --acc2: #c13dff; --bg: rgba(12, 12, 20, 0.9); --line: rgba(255, 255, 255, 0.08); --mut: #8c8ca0; }
-body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; color: #fff; user-select: none; display: flex; align-items: center; justify-content: center; }
-.vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.2) 30%, rgba(0,0,0,.75) 100%); }
+body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; color: #fff; user-select: none; display: flex; align-items: center; justify-content: flex-end; padding-right: 8vw; }
+.vignette { position: fixed; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.65) 100%); }
 .card { position: relative; width: 380px; padding: 28px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .brand { display: flex; gap: 14px; align-items: center; margin-bottom: 22px; }
 .brand-mark { width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, var(--acc), var(--acc2)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
