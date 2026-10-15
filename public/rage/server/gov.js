@@ -777,6 +777,7 @@ async function adminFac(p, d, by) {
         };
     };
     if (d.op === 'load') return pack();
+    return { err: 'Администрация назначает только лидера. Составом управляет лидер через планшет' };
     const id = Number(d.s) || 0;
     if (d.op === 'add') {
         let t = d.id !== undefined && d.id !== '' ? mp.players.at(Number(d.id)) : null;

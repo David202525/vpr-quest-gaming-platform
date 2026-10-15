@@ -583,12 +583,18 @@ async function setLeader(p, target, staticId, f) {
     if (!id) return 'Аккаунт не найден';
     if (f && !FACTIONS[f]) return 'Фракции: ' + Object.keys(FACTIONS).join(', ');
     if (f && S.facOff[f]) return 'Фракция отключена';
+    const prev = (await q('SELECT job FROM accounts WHERE id = ? LIMIT 1', [id]))[0];
+    if (!prev) return 'Аккаунт не найден';
+    if (f) {
+        const old = (await q('SELECT id FROM accounts WHERE job = ? AND leader = 1 AND id <> ? LIMIT 1', [f, id]))[0];
+        if (old) return 'У фракции уже есть лидер (#' + old.id + '). Сначала снимите его';
+    }
     await q('UPDATE accounts SET job = ?, job_rank = ?, leader = ? WHERE id = ?', [f || null, f ? 10 : 0, f ? 1 : 0, id]);
     const t = target || online(id);
     const GF = global.GovFaction;
     const topR = f && GF && GF.F && GF.isGov && GF.isGov(f) ? GF.F(f).ranks.length : 10;
     if (f) await q('UPDATE accounts SET job_rank = ? WHERE id = ?', [topR, id]);
-    if (!f) await q('UPDATE accounts SET leader = 0 WHERE id = ?', [id]);
+    if (!f && GF && GF.log && prev.job && GF.isGov(prev.job)) GF.log(prev.job, 'Администрация сняла лидера: ' + (t ? nick(t) : '#' + id));
     if (t && t.account) { t.account.job = f || null; t.account.job_rank = f ? topR : 0; t.account.leader = f ? 1 : 0; }
     if (GF && GF.sync && t) GF.sync(t);
     if (GF && GF.log && f) GF.log(f, 'Администрация назначила лидером: ' + (t ? nick(t) : '#' + id));

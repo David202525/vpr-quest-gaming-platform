@@ -112,17 +112,14 @@
                     <select id="fSel" class="search" style="max-width:220px"></select>
                 </header>
                 <div class="card">
-                    <h3>Состав фракции <span class="badge" id="fmCount">0</span> <button class="btn" id="fmLoad" style="margin-left:auto">Обновить</button></h3>
-                    <div class="row3"><input id="fmId" placeholder="ID в сети или #static"><select id="fmR" class="search" style="max-width:none"></select><button class="btn ok" id="fmAdd">Зачислить</button></div>
+                    <h3>Состав и лидер <span class="badge" id="fmCount">0</span> <button class="btn" id="fmLoad" style="margin-left:auto">Обновить</button></h3>
+                    <div class="row3"><input id="fmId" placeholder="ID в сети или #static"><button class="btn primary" id="fmAdd">Назначить лидером</button></div>
+                    <p class="hint" style="margin-top:6px">Администрация назначает и снимает только лидера. Приём, ранги, заместителей и увольнения ведёт сам лидер в планшете (F6).</p>
                     <div class="table" id="fmList" style="margin-top:8px;max-height:340px;overflow:auto"><div class="empty">Загрузка…</div></div>
                     <div class="hint" id="fmInfo" style="margin-top:8px"></div>
                 </div>
                 <div class="grid2">
-                    <div class="card">
-                        <h3>Лидер</h3>
-                        <div class="row3"><input id="fLeader" placeholder="ID в сети или #static"><button class="btn primary" id="fSetLeader">Поставить лидера</button><button class="btn danger" id="fUnLeader">Снять</button></div>
-                        <p class="hint">Назначение админом не попадает в трудовую книжку.</p>
-                    </div>
+                    <input type="hidden" id="fLeader"><span id="fSetLeader"></span><span id="fUnLeader"></span>
                     <div class="card">
                         <h3>ОЧС (чёрный список)</h3>
                         <div class="row3"><input id="oStatic" placeholder="static"><input id="oMin" type="number" placeholder="минут (0 — навсегда)"><button class="btn danger" id="oAdd">Внести</button></div>

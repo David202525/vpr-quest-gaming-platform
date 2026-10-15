@@ -792,3 +792,6 @@ label.check input {
 .tab[data-tab="factions"] #flList, .tab[data-tab="factions"] #fwList, .tab[data-tab="factions"] #oList { margin-top: 10px; max-height: 220px; overflow-y: auto; }
 .tab[data-tab="factions"] .head .search { width: 220px; }
 @media (max-width: 1100px) { .tab[data-tab="factions"] .grid2 { grid-template-columns: 1fr; } }
+.tab[data-tab="factions"] .tr > .btn.primary { width: auto; flex: none; padding: 7px 12px; }
+.tab[data-tab="factions"] .row3 { flex-wrap: nowrap; }
+.tab[data-tab="factions"] .row3 > .btn { width: auto; }
