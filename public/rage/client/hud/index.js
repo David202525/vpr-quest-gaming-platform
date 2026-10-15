@@ -47,14 +47,8 @@ function hudTick() {
     if (!hudOn) return;
     var p = mp.players.local;
     var pos = p.position;
-    var h = 12, mi = 0, d = 1, mo = 1, y = 2022;
-    try {
-        h = mp.game.clock.getClockHours();
-        mi = mp.game.clock.getClockMinutes();
-        d = mp.game.clock.getClockDayOfMonth();
-        mo = mp.game.clock.getClockMonth() + 1;
-        y = mp.game.clock.getClockYear();
-    } catch (e) {}
+    var t = new Date(Date.now() + 3 * 3600000);
+    var h = t.getUTCHours(), mi = t.getUTCMinutes(), d = t.getUTCDate(), mo = t.getUTCMonth() + 1, y = t.getUTCFullYear();
     hudPush({
         id: p.remoteId,
         online: hudSrv.online || mp.players.length,
