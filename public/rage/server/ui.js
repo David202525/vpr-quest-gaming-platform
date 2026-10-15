@@ -207,9 +207,10 @@ function getBank(p) {
     if (p.account && p.account.bank !== undefined && p.account.bank !== null) return Number(p.account.bank) || 0;
     return Number(data(p).bank) || 0;
 }
-function setMB(p, money, bank) {
+function setMB(p, money, bank, why) {
     money = Math.max(0, Math.floor(money)); bank = Math.max(0, Math.floor(bank));
     const id = accId(p);
+    if (global.SLog && mp.players.exists(p)) { try { global.SLog.money(p, getMoney(p), getBank(p), money, bank, why || global.__moneyWhy || null); } catch (e) {} }
     syncObjs(p, money, bank);
     if (id) {
         MONEY[id] = { money: money, bank: bank };
@@ -348,6 +349,10 @@ function applyAll(p) {
 }
 
 function addItem(p, k, c) {
+    if (global.SLog) { try { global.SLog.add('item', { actor: p, action: 'receive', details: (ITEMS[k] ? ITEMS[k].n || k : k) + ' x' + (c || 1) }); } catch (e) {} }
+    return addItem0(p, k, c);
+}
+function addItem0(p, k, c) {
     const d = data(p);
     const it = ITEMS[k];
     if (!it) return c;
@@ -590,6 +595,20 @@ mp.events.add('srv:inv:open', function (p, side, vehId, vehName) {
 mp.events.add('srv:inv:act', function (p, json) {
     let a;
     try { a = JSON.parse(json); } catch (e) { return; }
+    if (global.SLog && a.a !== 'move') {
+        try {
+            const s0 = ref(p, a.from);
+            const it = s0 && s0.item;
+            if (it) global.SLog.add('item', { actor: p, action: a.a === 'use' ? 'use' : a.a === 'drop' ? 'drop' : 'destroy', details: (ITEMS[it.k] ? ITEMS[it.k].n || it.k : it.k) + ' x' + (a.count || it.c || 1) });
+        } catch (e) {}
+    }
+    if (global.SLog && a.a === 'move' && a.to && a.to.b && a.to.b !== 'inv' && a.to.b !== 'equip') {
+        try {
+            const s0 = ref(p, a.from);
+            const it = s0 && s0.item;
+            if (it) global.SLog.add('item', { actor: p, action: 'move:' + a.to.b, details: (ITEMS[it.k] ? ITEMS[it.k].n || it.k : it.k) + ' x' + (a.count || it.c || 1) });
+        } catch (e) {}
+    }
     if (a.a === 'move') move(p, a.from, a.to, a.count);
     else if (a.a === 'use') useItem(p, a.from);
     else if (a.a === 'drop') move(p, a.from, { b: 'ground', i: 'new' }, a.count);

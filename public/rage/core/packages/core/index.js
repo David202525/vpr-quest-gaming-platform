@@ -5,6 +5,7 @@ function load(file) {
     try { require(file); return true; } catch (e) { console.log('[CORE] ' + file + ': ' + e.message); return false; }
 }
 
+load('./modules/logs.js');
 load('./modules/admin.js');
 load('./modules/help.js');
 load('./modules/hud.js');

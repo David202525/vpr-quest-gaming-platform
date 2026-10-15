@@ -58,6 +58,7 @@ A.banHistory = function (rec, type) {
         reason: rec.reason || '', admin: rec.admin, date: rec.date || Date.now(), until: rec.until || 0 });
     if (S.banHist.length > 5000) S.banHist.length = 5000;
     save();
+    if (global.SLog) global.SLog.add('ban', { tag: type, actor: rec.admin, target: rec.login, action: type, details: (rec.reason || '') + (type === 'ban' ? ' | ' + (rec.until ? 'до ' + new Date(rec.until).toLocaleString('ru-RU') : 'навсегда') : '') + (rec.ip ? ' | ip ' + rec.ip : ''), ip: rec.ip });
 };
 function trackNick(p) {
     const id = sid(p);
@@ -77,6 +78,7 @@ A.addReport = function (p, text) {
     const r = { id: ++repSeq, pid: p.id, name: who(p), text: text.slice(0, 250), time: Date.now(), done: false, by: null, answer: null };
     reports.unshift(r);
     if (reports.length > 200) reports.pop();
+    if (global.SLog) global.SLog.add('report', { actor: p, action: 'report', details: '#' + r.id + ' ' + r.text });
     staff('!{#ffcc66}[РЕПОРТ #' + r.id + '] ' + r.name + ': !{#ffffff}' + r.text + ' !{#888}(/ans ' + r.id + ' текст)');
     msg(p, 'Репорт #' + r.id + ' отправлен администрации', '#8fd14f');
 };
@@ -85,6 +87,7 @@ function answer(p, rid, text) {
     if (!r) return 'Репорт не найден';
     if (r.done) return 'На репорт уже ответил ' + r.by;
     r.done = true; r.by = login(p); r.answer = text; r.answeredAt = Date.now();
+    if (global.SLog) global.SLog.add('report', { actor: p, target: r.name, action: 'answer', details: '#' + r.id + ' «' + r.text + '» → ' + text });
     p.admLastAnswer = Date.now();
     p.admAnswers = (p.admAnswers || 0) + 1;
     const t = mp.players.at(r.pid);
@@ -365,6 +368,7 @@ cmd('setname', 'setname', '/setname [id] [Имя_Фамилия]', function (p, 
     if (!need(p, t && /^[A-Za-zА-Яа-яЁё]{2,16}_[A-Za-zА-Яа-яЁё]{2,20}$/.test(n), u)) return;
     if (!touch(p, t)) return;
     const old = nick(t);
+    if (global.SLog) global.SLog.add('name', { actor: p, target: t, action: 'setname', details: old + ' → ' + n });
     t.name = n;
     if (acc(t)) { acc(t).nick = n.replace(/_/g, ' '); q('UPDATE accounts SET nick = ? WHERE id = ?', [acc(t).nick, sid(t)]); }
     if (t.account) t.account.nick = n.replace(/_/g, ' ');
@@ -1037,7 +1041,7 @@ if (CONSOLE_CFG.enabled) {
             const ip = req.socket.remoteAddress;
             hits[ip] = (hits[ip] || []).filter(function (t) { return Date.now() - t < 10000; });
             hits[ip].push(Date.now());
-            if (hits[ip].length > 40) { res.writeHead(429); return res.end('slow down'); }
+            if (hits[ip].length > 80) { res.writeHead(429); return res.end('slow down'); }
             const send = function (code, obj) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
             if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(page); }
             if (req.method !== 'POST' || req.url !== '/api') { res.writeHead(404); return res.end(); }
@@ -1068,6 +1072,40 @@ if (CONSOLE_CFG.enabled) {
                 }
                 if (d.op === 'offban') { if (!d.login) return send(400, { err: 'Логин?' }); A.doBan(u.login, null, Math.max(0, Number(d.minutes) || 0), text || 'нарушение', String(d.login)); return send(200, { ok: 1 }); }
                 if (d.op === 'unban') { if (!d.login) return send(400, { err: 'Логин?' }); A.doUnban(u.login, String(d.login)); return send(200, { ok: 1 }); }
+                if (d.op === 'logs') {
+                    const CATS = ['admin', 'ban', 'connect', 'chat', 'cmd', 'money', 'item', 'kill', 'vehicle', 'name', 'report', 'social'];
+                    const where = [], args = [];
+                    if (d.cat === 'arrest') { where.push("cat = 'admin' AND tag = 'arrest'"); }
+                    else if (CATS.indexOf(d.cat) >= 0) { where.push('cat = ?'); args.push(d.cat); }
+                    const like = function (v) { return '%' + String(v).replace(/[%_\\]/g, '\\$&').slice(0, 60) + '%'; };
+                    if (d.actor) { where.push('actor LIKE ?'); args.push(like(d.actor)); }
+                    if (d.target) { where.push('target LIKE ?'); args.push(like(d.target)); }
+                    if (d.player) { where.push('(actor LIKE ? OR target LIKE ?)'); args.push(like(d.player), like(d.player)); }
+                    if (d.text) { where.push('(details LIKE ? OR action LIKE ?)'); args.push(like(d.text), like(d.text)); }
+                    if (d.sid) { where.push('(actor_id = ? OR target_id = ?)'); args.push(Number(d.sid) || 0, Number(d.sid) || 0); }
+                    const per = 50, page = Math.max(0, Math.min(2000, Number(d.page) || 0));
+                    const ord = d.asc ? 'ASC' : 'DESC';
+                    const w = where.length ? ' WHERE ' + where.join(' AND ') : '';
+                    try {
+                        const rows = await q('SELECT id, t, cat, tag, actor, actor_id, target, target_id, action, details, amount, ip FROM server_logs' + w + ' ORDER BY id ' + ord + ' LIMIT ' + (per + 1) + ' OFFSET ' + page * per, args);
+                        return send(200, { rows: rows.slice(0, per).map(function (r) { if (L < 9) r.ip = null; return r; }), more: rows.length > per, page: page });
+                    } catch (e) { return send(500, { err: 'Логи недоступны: ' + e.message }); }
+                }
+                if (d.op === 'accounts') {
+                    const where = [], args = [];
+                    const like = function (v) { return '%' + String(v).replace(/[%_\\]/g, '\\$&').slice(0, 60) + '%'; };
+                    if (d.sid) { where.push('id = ?'); args.push(Number(d.sid) || 0); }
+                    if (d.login) { where.push('(login LIKE ? OR username LIKE ?)'); args.push(like(d.login), like(d.login)); }
+                    if (d.nick) { where.push('nick LIKE ?'); args.push(like(d.nick)); }
+                    if (d.banned) where.push('banned = 1');
+                    const SORT = { id: 'id', money: 'money', bank: 'bank', admin: 'admin', playtime: 'playtime', created_at: 'created_at', last_login: 'last_login' };
+                    const col = SORT[d.sort] || 'id';
+                    const per = 50, page = Math.max(0, Math.min(2000, Number(d.page) || 0));
+                    try {
+                        const rows = await q('SELECT id, login, nick, gender, money, bank, admin, banned, ban_reason, ban_until, playtime, job, created_at, last_login' + (L >= 9 ? ', social_club, serial' : '') + ' FROM accounts' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY ' + col + ' ' + (d.asc ? 'ASC' : 'DESC') + ' LIMIT ' + (per + 1) + ' OFFSET ' + page * per, args);
+                        return send(200, { rows: rows.slice(0, per), more: rows.length > per, page: page });
+                    } catch (e) { return send(500, { err: e.message }); }
+                }
                 if (d.op === 'ans') {
                     const r = reports.find(function (x) { return x.id === Number(d.rid); });
                     if (!r || r.done) return send(400, { err: 'Репорт закрыт' });

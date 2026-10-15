@@ -140,6 +140,7 @@ mp.events.add('srv:int:answer', function (p, yes) {
     } catch (e) {}
     learn(p, from);
     learn(from, p);
+    if (global.SLog) global.SLog.add('social', { actor: from, target: p, action: 'handshake', details: 'познакомились' });
     notify(p, 'ok', 'Вы познакомились: ' + nick(from));
     notify(from, 'ok', 'Вы познакомились: ' + nick(p));
 });
@@ -164,8 +165,12 @@ mp.events.add('srv:int:pay', function (p, rid, amount) {
     const n = Math.floor(Number(amount) || 0);
     if (n < 1 || n > 100000) return notify(p, 'error', 'Сумма от $1 до $100 000');
     if (M.get(p) < n) return notify(p, 'error', 'Недостаточно наличных');
+    global.__moneyWhy = 'передал ' + nick(t);
     M.add(p, -n);
+    global.__moneyWhy = 'получил от ' + nick(p);
     M.add(t, n);
+    global.__moneyWhy = null;
+    if (global.SLog) global.SLog.add('money', { tag: 'transfer', actor: p, target: t, action: 'pay', amount: n, details: 'передал наличные' });
     try {
         p.playAnimation('mp_common', 'givetake1_a', 8, 0);
         t.playAnimation('mp_common', 'givetake1_b', 8, 0);
@@ -241,6 +246,7 @@ rpCmd('w', function (p, t) {
 });
 
 function docRp(p, to, type) {
+    if (global.SLog) global.SLog.add('social', { actor: p, target: to, action: 'show-doc', details: type });
     const r = DOC_RP[type] || DOC_RP.passport;
     nearby(p, RP_RADIUS, function (x) {
         const tn = x === to ? 'вам' : seen(x, to);

@@ -90,7 +90,11 @@ mp.events.add('auth:login', async function (p, login, pass) {
     if (!login || !pass) return err(p, 'Введите логин и пароль');
     try {
         const rows = await q('SELECT * FROM accounts WHERE login = ? OR username = ? ORDER BY id LIMIT 1', [login, login]);
-        if (!rows.length || !check(pass, rows[0].password)) return err(p, 'Неверный логин или пароль');
+        if (!rows.length || !check(pass, rows[0].password)) {
+            if (global.SLog) global.SLog.add('connect', { actor: login, target_id: rows.length ? rows[0].id : null, action: 'login-fail', details: 'неверный пароль | SC: ' + (p.socialClub || '-'), ip: p.ip });
+            return err(p, 'Неверный логин или пароль');
+        }
+        if (global.SLog) global.SLog.add('connect', { actor: login, action: 'login', details: 'аккаунт #' + rows[0].id + ' | SC: ' + (p.socialClub || '-'), ip: p.ip });
         await enter(p, rows[0]);
     } catch (e) {
         console.log('[auth] login: ' + e.message);
@@ -110,6 +114,7 @@ mp.events.add('auth:register', async function (p, login, pass) {
             [login, login, hash(pass), p.socialClub || null, p.socialClub || null, p.serial || null, cfg.startMoney]);
         const rows = await q('SELECT * FROM accounts WHERE id = ? LIMIT 1', [r.insertId]);
         console.log('[auth] новый аккаунт: ' + login);
+        if (global.SLog) global.SLog.add('connect', { actor: login, action: 'register', details: 'аккаунт #' + r.insertId + ' | SC: ' + (p.socialClub || '-'), ip: p.ip });
         await enter(p, rows[0]);
     } catch (e) {
         console.log('[auth] register: ' + e.message);

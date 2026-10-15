@@ -56,6 +56,7 @@ mp.events.add('creator:finish', async function (p, firstname, lastname, gender, 
     if (!re.test(firstname) || !re.test(lastname)) return p.call('creator:error', ['Имя и фамилия: только буквы, от 2 до 16 символов']);
     const cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); };
     const nick = cap(firstname) + ' ' + cap(lastname);
+    if (global.SLog) global.SLog.add('name', { actor: a.login || p.name, action: 'create', details: 'создан персонаж ' + nick });
     const look = parse(json);
     if (!look) return p.call('creator:error', ['Ошибка внешности, попробуйте ещё раз']);
     try {

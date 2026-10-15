@@ -3,84 +3,211 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Админ-консоль</title>
+<title>Админ-панель</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Segoe UI,Arial,sans-serif;background:#0d0d14;color:#eee;font-size:14px}
-.wrap{max-width:1200px;margin:0 auto;padding:20px}
-h1{font-size:20px;margin-bottom:14px;color:#c13dff}
-.card{background:#16161f;border:1px solid #262636;border-radius:12px;padding:16px;margin-bottom:14px}
-h3{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#c13dff;margin-bottom:10px}
-input,select,textarea{background:#0d0d14;border:1px solid #2c2c40;color:#fff;border-radius:8px;padding:9px 11px;font:inherit;width:100%}
-button{background:#7a2bd9;border:0;color:#fff;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer}
-button.r{background:#a8263c}button.g{background:#1f8a4c}button.s{background:#2c2c40}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;background:#0b0b0d;color:#e8e8ec;font-size:13px}
+a{color:inherit;text-decoration:none}
+input,select{background:#1b1b1f;border:1px solid #2a2a30;color:#fff;border-radius:7px;padding:9px 11px;font:inherit;width:100%;outline:none}
+input:focus,select:focus{border-color:#8b3dff}
+button{background:#7a2bd9;border:0;color:#fff;border-radius:7px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.r{background:#a8263c}button.g{background:#1f8a4c}button.s{background:#26262c}
+button:disabled{opacity:.4;cursor:default}
+.layout{display:flex;min-height:100vh}
+.side{width:230px;flex:none;background:#0e0e11;border-right:1px solid #1d1d22;padding:16px 10px;position:sticky;top:0;height:100vh;overflow:auto}
+.logo{font-size:20px;font-weight:900;padding:2px 8px 16px;letter-spacing:.5px}
+.logo span{color:#c13dff}
+.grp{font-size:11px;color:#77778a;padding:14px 8px 6px;font-weight:600}
+.nav{display:block;padding:8px 10px;border-radius:7px;color:#cfcfd6;cursor:pointer}
+.nav:hover{background:#17171c}
+.nav.on{background:#1f1f26;color:#fff;font-weight:600}
+.main{flex:1;min-width:0}
+.top{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #1d1d22}
+.top b{color:#c13dff}
+.page{padding:18px 20px}
+.card{background:#141417;border:1px solid #222228;border-radius:12px;padding:16px;margin-bottom:14px}
+h3{font-size:14px;margin-bottom:12px;font-weight:700}
+.fl{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.fl label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:#cfcfd6}
+.pager{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px}
+table{width:100%;border-collapse:collapse;background:#111114;border:1px solid #222228;border-radius:12px;overflow:hidden}
+th{text-align:left;font-size:12px;color:#a8a8b4;font-weight:600;padding:11px 12px;border-bottom:1px solid #222228;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:#fff}
+td{padding:8px 12px;border-bottom:1px solid #1a1a1f;vertical-align:top}
+tr:hover td{background:#16161a}
+.mono{font-family:Consolas,Menlo,monospace;font-size:12.5px}
+.fn{color:#5aa9ff}.num{color:#ffb357}.str{color:#9fe07a}
+.mut{color:#77778a;font-size:12px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#26262c}
+.pill.ban{background:#4a1520;color:#ff8a9a}.pill.unban{background:#163a24;color:#7fe0a0}
+.plus{color:#6fe07a}.minus{color:#ff6b6b}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .row{display:flex;gap:8px;margin-bottom:8px}.row>*{flex:1}.row>button{flex:none}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.list{max-height:340px;overflow:auto}
-.it{display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #20202c}
-.it b{min-width:150px}.mut{color:#888;font-size:12px}
-.chat .it{display:block}
-#login{max-width:420px;margin:12vh auto}
-#toast{position:fixed;right:20px;bottom:20px;background:#1f8a4c;padding:12px 16px;border-radius:8px;display:none}
+.list{max-height:320px;overflow:auto}
+.it{display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #1d1d22}
+.it b{min-width:150px}
+#login{max-width:420px;margin:14vh auto}
+#toast{position:fixed;right:20px;bottom:20px;background:#1f8a4c;padding:12px 16px;border-radius:8px;display:none;z-index:9}
 #toast.bad{background:#a8263c}
-@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.empty{padding:30px;text-align:center;color:#77778a}
+@media(max-width:900px){.side{display:none}.fl,.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div id="login" class="card">
-    <h1>Админ-консоль</h1>
+    <h3 style="font-size:18px;color:#c13dff">Админ-панель</h3>
     <p class="mut" style="margin-bottom:12px">Ключ выдаётся в игре: F4 → Руководство → «Получить ключ доступа». Доступ с ЗГА (7).</p>
     <div class="row"><input id="tk" type="password" placeholder="Ключ доступа"><button id="go">Войти</button></div>
 </div>
-<div class="wrap" id="app" style="display:none">
-    <h1 id="me">—</h1>
-    <div class="grid">
-        <div class="card"><h3>Онлайн <span id="cnt"></span></h3><div class="list" id="online"></div></div>
-        <div class="card chat"><h3>Админ-чат</h3><div class="list" id="chat"></div>
-            <div class="row" style="margin-top:8px"><input id="msg" placeholder="Сообщение в админ-чат"><button id="send">Отправить</button></div></div>
-        <div class="card"><h3>Наказание онлайн-игрока</h3>
-            <div class="row"><input id="pid" placeholder="ID на сервере"><input id="min" type="number" placeholder="Минут (бан 0 = навсегда)"></div>
-            <div class="row"><input id="reason" placeholder="Причина"></div>
-            <div class="row"><button class="s" data-op="kick">Кик</button><button class="s" data-op="mute">Мут</button><button class="r" data-op="ban">Бан</button></div>
-        </div>
-        <div class="card"><h3>Офлайн-бан / разбан</h3>
-            <div class="row"><input id="lg" placeholder="Логин"><input id="omin" type="number" placeholder="Минут (0 = навсегда)"></div>
-            <div class="row"><input id="oreason" placeholder="Причина"></div>
-            <div class="row"><button class="r" id="offban">Забанить</button><button class="g" id="unban">Разбанить</button></div>
-        </div>
-        <div class="card"><h3>Объявление всем игрокам</h3>
-            <div class="row"><input id="ann" placeholder="Текст объявления"><button id="annb">Отправить</button></div></div>
-        <div class="card"><h3>Открытые репорты</h3><div class="list" id="reps"></div></div>
+<div class="layout" id="app" style="display:none">
+    <aside class="side">
+        <div class="logo">RAGE<span>RP</span></div>
+        <div class="grp">Управление</div>
+        <a class="nav" data-p="dash">Панель</a>
+        <a class="nav" data-p="accounts">Аккаунты</a>
+        <a class="nav" data-p="banned">Забаненные</a>
+        <div class="grp">Логи</div>
+        <a class="nav" data-p="log:all">Все события</a>
+        <a class="nav" data-p="log:admin">Действия администрации</a>
+        <a class="nav" data-p="log:arrest">Лог арестов</a>
+        <a class="nav" data-p="log:ban">Лог банов</a>
+        <a class="nav" data-p="log:connect">Входы и выходы</a>
+        <a class="nav" data-p="log:chat">Лог чата</a>
+        <a class="nav" data-p="log:cmd">Лог команд</a>
+        <a class="nav" data-p="log:money">Лог денег</a>
+        <a class="nav" data-p="log:item">Лог предметов</a>
+        <a class="nav" data-p="log:kill">Лог убийств</a>
+        <a class="nav" data-p="log:vehicle">Лог транспорта</a>
+        <a class="nav" data-p="log:name">Лог имён</a>
+        <a class="nav" data-p="log:report">Лог репортов</a>
+        <a class="nav" data-p="log:social">Взаимодействия</a>
+    </aside>
+    <div class="main">
+        <div class="top"><span id="ptitle">Панель</span><span id="me"></span></div>
+        <div class="page" id="page"></div>
     </div>
-    <div class="card"><h3>Активные баны</h3><div class="list" id="bans"></div></div>
 </div>
 <div id="toast"></div>
 <script>
-var TK = sessionStorage.getItem('tk') || '';
+var TK=sessionStorage.getItem('tk')||'';
+var CUR='dash',ST={page:0,asc:false,f:{}},STATE=null,timer=null;
+var TITLES={dash:'Панель',accounts:'Аккаунты',banned:'Забаненные пользователи','log:all':'Все события','log:admin':'Действия администрации','log:arrest':'Лог арестов','log:ban':'Лог банов','log:connect':'Входы и выходы','log:chat':'Лог чата','log:cmd':'Лог команд','log:money':'Лог денег','log:item':'Лог предметов','log:kill':'Лог убийств','log:vehicle':'Лог транспорта','log:name':'Лог имён','log:report':'Лог репортов','log:social':'Взаимодействия'};
+var CATN={admin:'Админ',ban:'Бан',connect:'Вход',chat:'Чат',cmd:'Команда',money:'Деньги',item:'Предмет',kill:'Убийство',vehicle:'Транспорт',name:'Имя',report:'Репорт',social:'Взаимод.'};
+var ACT={join:'Подключился',quit:'Вышел',login:'Вход в аккаунт','login-fail':'Неверный пароль',register:'Регистрация',kill:'Убил',death:'Погиб',drive:'Сел за руль',receive:'Получил',use:'Использовал',drop:'Выбросил',destroy:'Уничтожил',pay:'Передал деньги',handshake:'Рукопожатие','show-doc':'Показал документ',report:'Репорт',answer:'Ответ на репорт',setname:'Смена ника',create:'Создание персонажа',chat:'Сообщение'};
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function toast(t,bad){var e=$('toast');e.textContent=t;e.className=bad?'bad':'';e.style.display='block';setTimeout(function(){e.style.display='none'},2600)}
 function api(o){o.token=TK;return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(function(r){return r.json()})}
-function load(){api({op:'state'}).then(function(d){
-    if(d.err){$('app').style.display='none';$('login').style.display='';sessionStorage.removeItem('tk');return toast(d.err,true)}
-    $('login').style.display='none';$('app').style.display='';
-    $('me').textContent=d.me.login+' · '+d.me.rank;
+function dt(t){var d=new Date(typeof t==='number'?t:Date.parse(t));if(isNaN(d))return '—';function z(n){return('0'+n).slice(-2)}return z(d.getDate())+'.'+z(d.getMonth()+1)+'.'+d.getFullYear()+', '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds())}
+function money(n){return Number(n||0).toLocaleString('ru-RU')}
+function hl(s){s=esc(s);return s.replace(/(-?\d+(?:\.\d+)?)/g,'<span class="num">$1</span>')}
+function actHtml(r){
+    if(r.cat==='admin'){return '<span class="mono"><span class="fn">'+esc(r.action)+'</span>'+(r.details?'(<span class="str">'+hl(r.details)+'</span>)':'')+'</span>'}
+    if(r.cat==='cmd'){return '<span class="mono"><span class="fn">'+esc(r.action)+'</span> '+hl(r.details||'')+'</span>'}
+    if(r.cat==='ban'){return '<span class="pill '+(r.action==='unban'?'unban':'ban')+'">'+(r.action==='unban'?'РАЗБАН':'БАН')+'</span> '+esc(r.details||'')}
+    var a=ACT[r.action]||r.action;
+    return '<b>'+esc(a)+'</b>'+(r.details?' <span class="mut">'+hl(r.details)+'</span>':'')
+}
+function nm(n,id){if(!n)return '<span class="mut">—</span>';return esc(n)+(id?' <span class="mut">#'+id+'</span>':'')}
+
+function nav(p){CUR=p;ST={page:0,asc:false,f:{}};document.querySelectorAll('.nav').forEach(function(a){a.classList.toggle('on',a.dataset.p===p)});$('ptitle').textContent=TITLES[p]||'';render()}
+document.querySelectorAll('.nav').forEach(function(a){a.onclick=function(){nav(a.dataset.p)}});
+
+function render(){
+    clearInterval(timer);
+    if(CUR==='dash'){renderDash();timer=setInterval(function(){if(CUR==='dash')loadState()},4000);return}
+    if(CUR==='accounts'||CUR==='banned'){renderAccounts();return}
+    renderLogs();
+}
+
+function filters(defs){
+    return '<div class="card"><h3>Поиск</h3><div class="fl">'+defs.map(function(d){return '<div><label>'+d[1]+'</label><input data-f="'+d[0]+'" value="'+esc(ST.f[d[0]]||'')+'"></div>'}).join('')+'</div></div>'
+}
+function pager(more){return '<div class="pager"><span class="mut" style="align-self:center;margin-right:auto">Страница '+(ST.page+1)+'</span><button class="s" id="prev" '+(ST.page?'':'disabled')+'>Previous</button><button class="s" id="next" '+(more?'':'disabled')+'>Next</button></div>'}
+function bindCommon(reload){
+    var t=null;
+    document.querySelectorAll('[data-f]').forEach(function(i){i.oninput=function(){ST.f[i.dataset.f]=i.value.trim();ST.page=0;clearTimeout(t);t=setTimeout(reload,350)}});
+    if($('prev'))$('prev').onclick=function(){ST.page=Math.max(0,ST.page-1);reload()};
+    if($('next'))$('next').onclick=function(){ST.page++;reload()};
+    document.querySelectorAll('th[data-s]').forEach(function(th){th.onclick=function(){if(ST.sort===th.dataset.s)ST.asc=!ST.asc;else{ST.sort=th.dataset.s;ST.asc=false}reload()}});
+}
+
+function renderLogs(){
+    var cat=CUR.slice(4);
+    var defs=[['player','Игрок (ник или логин)'],['text','Действие / текст'],['sid','Static (#)']];
+    if(cat==='admin'||cat==='arrest'||cat==='ban')defs=[['actor','Админ'],['target','Игрок'],['text','Действие / причина']];
+    $('page').innerHTML=filters(defs)+'<div id="tbl"><div class="empty">Загрузка…</div></div>';
+    var load=function(){
+        api(Object.assign({op:'logs',cat:cat,page:ST.page,asc:ST.asc},ST.f)).then(function(d){
+            if(d.err){$('tbl').innerHTML='<div class="empty">'+esc(d.err)+'</div>';return}
+            var showCat=cat==='all';
+            var isAdm=cat==='admin'||cat==='arrest';
+            var h='<tr><th data-s="t">Время '+(ST.asc?'↑':'↓')+'</th>'+(showCat?'<th>Тип</th>':'')+'<th>'+(isAdm||cat==='ban'?'Админ':'Игрок')+'</th><th>Действие</th><th>'+(isAdm||cat==='ban'?'Игрок':'Цель')+'</th>'+(cat==='money'?'<th>Сумма</th>':'')+'<th>IP</th></tr>';
+            var b=d.rows.map(function(r){
+                return '<tr><td style="white-space:nowrap">'+dt(Number(r.t))+'</td>'+(showCat?'<td><span class="pill">'+(CATN[r.cat]||r.cat)+'</span></td>':'')+'<td>'+nm(r.actor,r.actor_id)+'</td><td>'+actHtml(r)+'</td><td>'+nm(r.target,r.target_id)+'</td>'+(cat==='money'?'<td class="'+(r.amount>=0?'plus':'minus')+'">'+(r.amount>0?'+':'')+money(r.amount)+' $</td>':'')+'<td class="mut">'+esc(r.ip||'')+'</td></tr>'
+            }).join('');
+            $('tbl').innerHTML=pager(d.more)+'<table>'+h+(b||'<tr><td colspan="7" class="empty">Записей нет</td></tr>')+'</table>';
+            bindCommon(load);
+        });
+    };
+    bindCommon(load);load();
+}
+
+function renderAccounts(){
+    if(CUR==='banned')ST.f.banned=1;
+    $('page').innerHTML=filters([['sid','Static (#)'],['login','Логин'],['nick','Ник']])+'<div id="tbl"><div class="empty">Загрузка…</div></div>';
+    var load=function(){
+        api(Object.assign({op:'accounts',page:ST.page,asc:ST.asc,sort:ST.sort||'id'},ST.f)).then(function(d){
+            if(d.err){$('tbl').innerHTML='<div class="empty">'+esc(d.err)+'</div>';return}
+            var s=function(k,t){return '<th data-s="'+k+'">'+t+((ST.sort||'id')===k?(ST.asc?' ↑':' ↓'):' ⇅')+'</th>'};
+            var h='<tr>'+s('id','Static')+'<th>Логин</th><th>Ник</th><th>Пол</th>'+s('admin','Админ')+s('money','Наличные')+s('bank','Банк')+s('playtime','Часов')+(CUR==='banned'?'<th>Бан</th>':'')+s('last_login','Последний вход')+s('created_at','Создан')+'</tr>';
+            var b=d.rows.map(function(r){
+                return '<tr><td>#'+r.id+'</td><td>'+esc(r.login)+'</td><td>'+esc(r.nick||'—')+'</td><td>'+(Number(r.gender)?'Ж':'М')+'</td><td>'+(r.admin||0)+'</td><td>'+money(r.money)+'</td><td>'+money(r.bank)+'</td><td>'+Math.round((r.playtime||0)/60)+'</td>'+(CUR==='banned'?'<td>'+esc(r.ban_reason||'')+' <span class="mut">'+(Number(r.ban_until)?'до '+dt(Number(r.ban_until)):'навсегда')+'</span></td>':'')+'<td>'+(r.last_login?dt(r.last_login):'—')+'</td><td>'+dt(r.created_at)+'</td></tr>'
+            }).join('');
+            $('tbl').innerHTML=pager(d.more)+'<table>'+h+(b||'<tr><td colspan="11" class="empty">Нет аккаунтов</td></tr>')+'</table>';
+            bindCommon(load);
+        });
+    };
+    bindCommon(load);load();
+}
+
+function renderDash(){
+    $('page').innerHTML='<div class="grid2">'+
+    '<div class="card"><h3>Онлайн <span id="cnt"></span></h3><div class="list" id="online"></div></div>'+
+    '<div class="card"><h3>Админ-чат</h3><div class="list" id="chat"></div><div class="row" style="margin-top:8px"><input id="msg" placeholder="Сообщение в админ-чат"><button id="send">Отправить</button></div></div>'+
+    '<div class="card"><h3>Наказание онлайн-игрока</h3><div class="row"><input id="pid" placeholder="ID на сервере"><input id="min" type="number" placeholder="Минут (бан 0 = навсегда)"></div><div class="row"><input id="reason" placeholder="Причина"></div><div class="row"><button class="s" data-op="kick">Кик</button><button class="s" data-op="mute">Мут</button><button class="r" data-op="ban">Бан</button></div></div>'+
+    '<div class="card"><h3>Офлайн-бан / разбан</h3><div class="row"><input id="lg" placeholder="Логин"><input id="omin" type="number" placeholder="Минут (0 = навсегда)"></div><div class="row"><input id="oreason" placeholder="Причина"></div><div class="row"><button class="r" id="offban">Забанить</button><button class="g" id="unban">Разбанить</button></div></div>'+
+    '<div class="card"><h3>Объявление всем игрокам</h3><div class="row"><input id="ann" placeholder="Текст объявления"><button id="annb">Отправить</button></div></div>'+
+    '<div class="card"><h3>Открытые репорты</h3><div class="list" id="reps"></div></div>'+
+    '</div>';
+    $('send').onclick=function(){api({op:'achat',text:$('msg').value}).then(done);$('msg').value=''};
+    $('annb').onclick=function(){if(confirm('Отправить объявление всем?'))api({op:'announce',text:$('ann').value}).then(done)};
+    document.querySelectorAll('[data-op]').forEach(function(b){b.onclick=function(){api({op:b.dataset.op,id:Number($('pid').value),minutes:Number($('min').value)||0,text:$('reason').value}).then(done)}});
+    $('offban').onclick=function(){api({op:'offban',login:$('lg').value.trim(),minutes:Number($('omin').value)||0,text:$('oreason').value}).then(done)};
+    $('unban').onclick=function(){api({op:'unban',login:$('lg').value.trim()}).then(done)};
+    if(STATE)fillDash(STATE);
+    loadState();
+}
+function fillDash(d){
+    if(!$('online'))return;
     $('cnt').textContent='('+d.online.length+')';
     $('online').innerHTML=d.online.map(function(p){return '<div class="it"><b>['+p.id+'] '+esc(p.name)+'</b><span class="mut">#'+p.s+(p.lvl?' · админ '+p.lvl:'')+' · пинг '+p.ping+'</span></div>'}).join('')||'<p class="mut">Никого</p>';
-    $('chat').innerHTML=d.chat.map(function(m){return '<div class="it"><b>'+esc(m.from)+'</b> '+esc(m.text)+' <span class="mut">'+new Date(m.t).toLocaleTimeString('ru-RU')+'</span></div>'}).join('')||'<p class="mut">Пусто</p>';
+    $('chat').innerHTML=d.chat.map(function(m){return '<div class="it" style="display:block"><b>'+esc(m.from)+'</b> '+esc(m.text)+' <span class="mut">'+new Date(m.t).toLocaleTimeString('ru-RU')+'</span></div>'}).join('')||'<p class="mut">Пусто</p>';
     $('reps').innerHTML=d.reports.map(function(r){return '<div class="it"><b>#'+r.id+' '+esc(r.name)+'</b><span style="flex:1">'+esc(r.text)+'</span><button class="s" data-rep="'+r.id+'">Ответ</button></div>'}).join('')||'<p class="mut">Нет</p>';
-    $('bans').innerHTML=d.bans.map(function(b){return '<div class="it"><b>'+esc(b.login)+'</b><span style="flex:1">'+esc(b.reason)+'</span><span class="mut">'+(b.until?'до '+new Date(b.until).toLocaleString('ru-RU'):'навсегда')+' · '+esc(b.admin)+'</span></div>'}).join('')||'<p class="mut">Нет</p>';
+}
+function loadState(){api({op:'state'}).then(function(d){
+    if(d.err){$('app').style.display='none';$('login').style.display='';sessionStorage.removeItem('tk');return toast(d.err,true)}
+    var first=$('app').style.display==='none';
+    $('login').style.display='none';$('app').style.display='';
+    $('me').innerHTML='<b>'+esc(d.me.login)+'</b> · '+esc(d.me.rank);
+    STATE=d;fillDash(d);
+    if(first)nav(CUR);
 })}
-function done(d){if(d.err)toast(d.err,true);else{toast('Готово');load()}}
-$('go').onclick=function(){TK=$('tk').value.trim();sessionStorage.setItem('tk',TK);load()};
-$('send').onclick=function(){api({op:'achat',text:$('msg').value}).then(done);$('msg').value=''};
-$('annb').onclick=function(){if(confirm('Отправить объявление всем?'))api({op:'announce',text:$('ann').value}).then(done)};
-document.querySelectorAll('[data-op]').forEach(function(b){b.onclick=function(){api({op:b.dataset.op,id:Number($('pid').value),minutes:Number($('min').value)||0,text:$('reason').value}).then(done)}});
-$('offban').onclick=function(){api({op:'offban',login:$('lg').value.trim(),minutes:Number($('omin').value)||0,text:$('oreason').value}).then(done)};
-$('unban').onclick=function(){api({op:'unban',login:$('lg').value.trim()}).then(done)};
+function done(d){if(d.err)toast(d.err,true);else{toast('Готово');loadState()}}
 document.addEventListener('click',function(e){var b=e.target.closest('[data-rep]');if(!b)return;var t=prompt('Ответ на репорт #'+b.dataset.rep);if(t)api({op:'ans',rid:Number(b.dataset.rep),text:t}).then(done)});
-if(TK)load();
-setInterval(function(){if(TK&&$('app').style.display!=='none')load()},4000);
+$('go').onclick=function(){TK=$('tk').value.trim();sessionStorage.setItem('tk',TK);loadState()};
+$('tk').onkeydown=function(e){if(e.key==='Enter')$('go').click()};
+if(TK)loadState();
 </script>
 </body>
 </html>

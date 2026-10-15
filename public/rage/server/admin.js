@@ -298,6 +298,7 @@ function log(admin, action, target, details) {
     logs.unshift(row);
     if (logs.length > 3000) logs.pop();
     logsDirty = true;
+    if (global.SLog) global.SLog.admin(row.admin, row.lvl, action, row.target, row.details);
     console.log('[admin] ' + row.admin + ' ' + action + ' ' + row.target + ' ' + row.details);
 }
 function canTouch(admin, target) {
