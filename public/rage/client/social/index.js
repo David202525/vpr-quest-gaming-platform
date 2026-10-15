@@ -8,15 +8,20 @@ var chatAllowed = true;
 function chatExec(code) { if (chatBrowser) chatBrowser.execute(code); }
 try {
     mp.gui.chat.show = function (on) {
-        nativeShow(!!on);
+        nativeShow(false);
         chatExec('window.chatAPI && window.chatAPI.show(' + (on ? 'true' : 'false') + ');');
     };
     mp.gui.chat.activate = function (on) {
         chatAllowed = !!on;
-        nativeActivate(!!on);
+        nativeActivate(false);
         chatExec('window.chatAPI && window.chatAPI.activate(' + (on ? 'true' : 'false') + ');');
     };
 } catch (e) {}
+
+function killNative() { try { nativeShow(false); nativeActivate(false); } catch (e) {} }
+killNative();
+setInterval(killNative, 1000);
+mp.events.add('playerReady', killNative);
 
 function chatOpen(slash) {
     if (global.chatOpen || !chatAllowed) return;

@@ -161,6 +161,4 @@ window.chatAPI = {
 if (window.mp && mp.events && mp.events.add) {
     mp.events.add('chat:push', window.chatAPI.push);
     mp.events.add('chat:clear', window.chatAPI.clear);
-    mp.events.add('chat:activate', function (on) { if (on) window.chatAPI.open(false); });
-    mp.events.add('chat:show', window.chatAPI.show);
 }
