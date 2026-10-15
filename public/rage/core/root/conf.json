@@ -1,0 +1,21 @@
+{
+    "maxplayers": 100,
+    "name": "My RageMP RP Server",
+    "gamemode": "roleplay",
+    "stream-distance": 500.0,
+    "announce": false,
+    "csharp": "disabled",
+    "bind": "0.0.0.0",
+    "port": 22005,
+    "voice-chat": true,
+    "allow-cef-debugging": false,
+    "enable-nodejs": true,
+    "sync-rate": 40,
+    "resource-scan-thread-limit": 0,
+    "max-ping": 300,
+    "min-fps": 30,
+    "max-packet-loss": 0.5,
+    "fastdl-host": "",
+    "allow-voice-chat-input": 1,
+    "enable-http-security": false
+}

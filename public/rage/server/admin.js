@@ -227,7 +227,7 @@ async function loadAcc(p) {
 }
 
 setInterval(function () {
-    mp.players.forEach(function (p) { if (!p.admAcc) loadAcc(p); });
+    mp.players.forEach(function (p) { if (!p.admAcc && (p.account || OWNERS[p.name])) loadAcc(p); });
 }, 3000);
 
 function realLvl(p) {

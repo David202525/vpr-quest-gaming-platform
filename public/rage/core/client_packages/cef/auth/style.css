@@ -1,0 +1,20 @@
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", Roboto, sans-serif; }
+:root { --acc: #8b3dff; --acc2: #c13dff; --bg: rgba(12, 12, 20, 0.9); --line: rgba(255, 255, 255, 0.08); --mut: #8c8ca0; }
+body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; color: #fff; user-select: none; display: flex; align-items: center; justify-content: center; }
+.vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.2) 30%, rgba(0,0,0,.75) 100%); }
+.card { position: relative; width: 380px; padding: 28px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.brand { display: flex; gap: 14px; align-items: center; margin-bottom: 22px; }
+.brand-mark { width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, var(--acc), var(--acc2)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
+.brand-title { font-size: 18px; font-weight: 700; }
+.brand-sub { font-size: 12px; color: var(--mut); margin-top: 2px; }
+.tabs { display: flex; gap: 6px; padding: 4px; background: rgba(255,255,255,.04); border-radius: 10px; margin-bottom: 18px; }
+.tab { flex: 1; padding: 9px; border: 0; border-radius: 8px; background: transparent; color: var(--mut); font-size: 14px; font-weight: 600; cursor: pointer; }
+.tab.active { background: rgba(139, 61, 255, .25); color: #fff; }
+label { display: block; font-size: 12px; color: var(--mut); margin: 10px 0 6px; }
+input { width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: #fff; font-size: 14px; outline: none; }
+input:focus { border-color: var(--acc); }
+.reg-only { display: none; }
+.card.reg .reg-only { display: block; }
+.error { min-height: 18px; margin-top: 12px; font-size: 13px; color: #ff6b6b; }
+.go { width: 100%; margin-top: 8px; padding: 12px; border: 0; border-radius: 10px; background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+.go:disabled { opacity: .6; cursor: default; }

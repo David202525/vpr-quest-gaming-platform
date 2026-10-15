@@ -25,7 +25,7 @@ async function init() {
             console.error('[DB] Повтор через 5 секунд...');
             setTimeout(init, 5000);
         } else {
-            console.error('[DB] Проверь: запущена ли MariaDB и создана ли база sunrise_rp');
+            console.error('[DB] Проверь: запущена ли MariaDB и создана ли база ' + cfg.db.database + '');
         }
         return;
     }
@@ -81,7 +81,16 @@ async function init() {
     const cols = [
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS job VARCHAR(32) NULL",
         "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS job_rank INT NOT NULL DEFAULT 0",
-        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deaths INT NOT NULL DEFAULT 0"
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deaths INT NOT NULL DEFAULT 0",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS username VARCHAR(32) NULL",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS social_club VARCHAR(64) NULL",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS serial VARCHAR(128) NULL",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nick VARCHAR(64) NULL",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gender TINYINT NOT NULL DEFAULT 0",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS appearance TEXT NULL",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS dimension INT NOT NULL DEFAULT 0",
+        "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS phone VARCHAR(16) NULL",
+        "ALTER TABLE accounts ADD UNIQUE INDEX IF NOT EXISTS uq_nick (nick)"
     ];
     for (const sql of cols) {
         await pool.query(sql).catch((e) => console.error('[DB] ' + e.message));
@@ -90,9 +99,10 @@ async function init() {
     console.log('[DB] Таблицы готовы');
 }
 
-init();
+const ready = init();
 
 module.exports = pool;
+module.exports.ready = ready;
 module.exports.log = async (accountId, type, text) => {
     await pool.query(
         'INSERT INTO logs (account_id, type, text) VALUES (?, ?, ?)',

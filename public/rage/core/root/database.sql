@@ -1,0 +1,64 @@
+CREATE DATABASE IF NOT EXISTS ragemp_rp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE ragemp_rp;
+
+CREATE TABLE IF NOT EXISTS accounts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    login VARCHAR(32) NOT NULL UNIQUE,
+    username VARCHAR(32) NULL,
+    password VARCHAR(255) NOT NULL,
+    social VARCHAR(64),
+    social_club VARCHAR(64) NULL,
+    serial VARCHAR(128) NULL,
+    nick VARCHAR(64) NULL,
+    gender TINYINT NOT NULL DEFAULT 0,
+    appearance TEXT NULL,
+    phone VARCHAR(16) NULL,
+    money BIGINT NOT NULL DEFAULT 5000,
+    bank INT NOT NULL DEFAULT 0,
+    admin TINYINT NOT NULL DEFAULT 0,
+    banned TINYINT NOT NULL DEFAULT 0,
+    ban_reason VARCHAR(255) NULL,
+    ban_until BIGINT NOT NULL DEFAULT 0,
+    job VARCHAR(32) NULL,
+    job_rank INT NOT NULL DEFAULT 0,
+    leader TINYINT NOT NULL DEFAULT 0,
+    deaths INT NOT NULL DEFAULT 0,
+    pos_x FLOAT NOT NULL DEFAULT -1035.7,
+    pos_y FLOAT NOT NULL DEFAULT -2731.8,
+    pos_z FLOAT NOT NULL DEFAULT 13.7,
+    heading FLOAT NOT NULL DEFAULT 0,
+    dimension INT NOT NULL DEFAULT 0,
+    health INT NOT NULL DEFAULT 100,
+    skin VARCHAR(32) NOT NULL DEFAULT 'mp_m_freemode_01',
+    playtime INT NOT NULL DEFAULT 0,
+    last_login TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_nick (nick),
+    INDEX idx_login (login)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS vehicles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    owner_id INT NOT NULL,
+    model VARCHAR(32) NOT NULL,
+    plate VARCHAR(8) NOT NULL,
+    color1 INT NOT NULL DEFAULT 0,
+    color2 INT NOT NULL DEFAULT 0,
+    pos_x FLOAT, pos_y FLOAT, pos_z FLOAT, heading FLOAT,
+    fuel INT NOT NULL DEFAULT 100,
+    fuel_type VARCHAR(10) NULL,
+    dimension INT NOT NULL DEFAULT 0,
+    locked TINYINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_owner (owner_id),
+    CONSTRAINT fk_veh_owner FOREIGN KEY (owner_id) REFERENCES accounts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    account_id INT,
+    type VARCHAR(32) NOT NULL,
+    text TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_type (type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -958,8 +958,8 @@ let vehColsOk = false;
 async function vehCols() {
     if (vehColsOk) return;
     vehColsOk = true;
-    try { await q('ALTER TABLE vehicles ADD COLUMN fuel_type VARCHAR(10) NULL'); } catch (e) {}
-    try { await q('ALTER TABLE vehicles ADD COLUMN dimension INT NOT NULL DEFAULT 0'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(10) NULL'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS dimension INT NOT NULL DEFAULT 0'); } catch (e) {}
 }
 function saveVeh(v) {
     if (!v || !mp.vehicles.exists(v) || !v.dbId) return;

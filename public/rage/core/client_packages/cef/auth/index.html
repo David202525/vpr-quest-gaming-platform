@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Вход</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="vignette"></div>
+<div class="card">
+    <div class="brand">
+        <div class="brand-mark">S</div>
+        <div>
+            <div class="brand-title">My RageMP RP Server</div>
+            <div class="brand-sub" id="social">Добро пожаловать</div>
+        </div>
+    </div>
+    <div class="tabs">
+        <button class="tab active" data-tab="login">Вход</button>
+        <button class="tab" data-tab="register">Регистрация</button>
+    </div>
+    <label>Логин</label>
+    <input id="login" maxlength="32" autocomplete="off" spellcheck="false">
+    <label>Пароль</label>
+    <input id="pass" type="password" maxlength="64">
+    <div class="reg-only">
+        <label>Повторите пароль</label>
+        <input id="pass2" type="password" maxlength="64">
+    </div>
+    <div class="error" id="error"></div>
+    <button class="go" id="go">Войти</button>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
