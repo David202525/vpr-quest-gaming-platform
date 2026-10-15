@@ -31,6 +31,7 @@ function knows(viewer, x) {
     return !!(known[a] && known[a].has(b));
 }
 function seen(viewer, x) {
+    if (!sid(x)) return nick(x);
     return knows(viewer, x) ? nick(x) : (female(x) ? 'Гражданка' : 'Гражданин') + ' #' + sid(x);
 }
 function notify(p, type, text) {

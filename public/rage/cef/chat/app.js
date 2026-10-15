@@ -49,8 +49,10 @@ function push(text) {
     d.className = 'msg';
     d.innerHTML = colorize(text);
     d.dataset.raw = plain(text);
+    d.dataset.at = Date.now();
     list.appendChild(d);
     while (list.children.length > MAX) list.removeChild(list.firstChild);
+    fadeTick();
     if (keep) toBottom();
 }
 
@@ -92,6 +94,7 @@ function setActive(on) {
     if (on === active) return;
     active = on;
     chat.classList.toggle('active', active);
+    setTimeout(fadeTick, 0);
     invoke('focus', active);
     invoke('setTypingInChatState', active);
     trig('cef:chat:state', active);
@@ -173,3 +176,13 @@ if (window.mp && mp.events) {
     mp.events.add('chat:activate', chatAPI.activate);
     mp.events.add('chat:show', chatAPI.show);
 }
+
+var FADE_MS = 15000;
+function fadeTick() {
+    var now = Date.now();
+    for (var i = 0; i < list.children.length; i++) {
+        var m = list.children[i];
+        m.classList.toggle('old', !active && now - Number(m.dataset.at || 0) > FADE_MS);
+    }
+}
+setInterval(fadeTick, 1000);
