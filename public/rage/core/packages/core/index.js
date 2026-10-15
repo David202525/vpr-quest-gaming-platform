@@ -11,6 +11,7 @@ load('./modules/help.js');
 load('./modules/hud.js');
 load('./modules/ui.js');
 load('./modules/intro.js');
+load('./modules/wanted.js');
 
 const core = ['vehicles', 'auth', 'creator'].filter(function (n) { return load('./modules/' + n + '.js'); });
 console.log('[CORE] Modules loaded: ' + core.join(', ') + '.');

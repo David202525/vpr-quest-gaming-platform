@@ -338,7 +338,7 @@ mp.events.add('adm:jail', function (type, ms, reason) { jailType = type; jailUnt
 mp.events.add('render', function () {
     if (!jailUntil) return;
     var left = Math.max(0, Math.ceil((jailUntil - Date.now()) / 1000));
-    mp.game.graphics.drawText((jailType === 'demorgan' ? 'ДЕМОРГАН' : 'КПЗ') + ': ' + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2) + '  ·  ' + jailReason, [0.5, 0.05], { font: 4, color: [255, 159, 67, 230], scale: [0.45, 0.45], outline: true });
+    mp.game.graphics.drawText(({ demorgan: 'ДЕМОРГАН', prison: 'ТЮРЬМА' }[jailType] || 'КПЗ') + ': ' + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2) + '  ·  ' + jailReason, [0.5, 0.05], { font: 4, color: [255, 159, 67, 230], scale: [0.45, 0.45], outline: true });
     [24, 25, 37, 140, 141, 142, 257, 263].forEach(function (k) { mp.game.controls.disableControlAction(0, k, true); });
 });
 

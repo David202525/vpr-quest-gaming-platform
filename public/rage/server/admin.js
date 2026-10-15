@@ -546,7 +546,10 @@ function playersData() {
             ping: p.ping,
             muted: !!(muted[p.id] && muted[p.id] > Date.now()),
             frozen: !!frozen[p.id],
-            warns: warns[login(p).toLowerCase()] || 0
+            warns: warns[login(p).toLowerCase()] || 0,
+            wanted: global.WantedSystem ? global.WantedSystem.get(p) : 0,
+            cuffed: !!(p.getVariable && p.getVariable('cuffed')),
+            jail: global.JailSystem && global.JailSystem.info ? (function (j) { return j ? { type: j.type, officer: !!j.officer } : null; })(global.JailSystem.info(p)) : null
         });
     });
     return out;

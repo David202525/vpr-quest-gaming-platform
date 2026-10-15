@@ -122,6 +122,9 @@ function renderDetail() {
         '<div class="act-btns" style="margin-top:6px;grid-template-columns:1fr">' + btn('Забанить', 'ban', 'danger') + '</div></div>' +
         '<div class="act-group"><div class="g">Контроль</div><div class="act-btns">' +
         btn('Следить', 'spec') + btn('Глазами', 'screen') + btn('Высадить', 'eject') + btn('Ремонт авто', 'fixp') + btn('Измерение', 'dim') + btn('Сменить ник', 'setname') + '</div></div>' +
+        '<div class="act-group"><div class="g">Полиция · розыск ' + '<span class="stars">' + [1, 2, 3, 4, 5].map(function (i) { return '<i class="' + (i <= (p.wanted || 0) ? 'on' : '') + '">★</i>'; }).join('') + '</span>' + (p.cuffed ? ' · в наручниках' : '') + '</div><div class="act-btns">' +
+        btn('Выдать розыск', 'wantedset', 'danger') + btn('Снять розыск', 'wantedclear', 'ok') + btn(p.cuffed ? 'Раскафнуть' : 'Кафнуть', p.cuffed ? 'uncuff' : 'cuff') +
+        (p.jail && p.jail.type === 'prison' && p.jail.officer ? btn('Выпустить из тюрьмы', 'prisonrelease', 'ok') : '') + '</div></div>' +
         '<div class="act-group"><div class="g">Наказания 2</div><div class="act-btns">' +
         btn('Деморган', 'jail', 'danger') + btn('Отнять лиц.', 'takelic') + btn('Глоб. бан', 'permban', 'danger') + '</div></div>' +
         '<div class="act-group"><div class="g">Руководство</div><div class="act-btns">' +
@@ -213,6 +216,12 @@ function playerAction(a) {
         modal('Выдать оружие', who, '<label>Оружие</label><input id="mW" placeholder="weapon_pistol"><label>Патроны</label><input id="mA" type="number" value="120">', 'Выдать', function () {
             act({ action: 'weapon', id: p.id, w: $('mW').value.trim(), ammo: Number($('mA').value) });
         });
+    } else if (a === 'wantedset') {
+        modal('Выдать розыск', who + ' · 1★ = ' + 10 + ' мин тюрьмы', '<label>Звёзды</label>' + chipsHtml([[1, '★'], [2, '★★'], [3, '★★★'], [4, '★★★★'], [5, '★★★★★']], 'ws', p.wanted || 1) + reasonField, 'Выдать', function () {
+            var r = $('mReason').value.trim();
+            if (!r) { window.admToast('Укажи причину', false); return false; }
+            act({ action: 'wantedset', id: p.id, stars: chipValue('ws'), reason: r });
+        });
     } else if (a === 'money2') {
         modal('Деньги', who, '<label>Сумма (минус — забрать)</label><input id="mSum" type="number"><label class="check"><input type="checkbox" id="mBank"> На банковский счёт</label>', 'Применить', function () {
             act({ action: 'money2', id: p.id, sum: Number($('mSum').value), bank: $('mBank').checked });
@@ -221,7 +230,7 @@ function playerAction(a) {
         act({ action: a, id: p.id });
     }
 }
-var EXT_PERM = { spec: 1, screen: 6, eject: 4, fixp: 3, dim: 3, setname: 3, jail: 3, takelic: 3, permban: 7, hpset: 6, armourset: 6, weapon: 6, skin: 7, bankinfo: 7, nickhist: 7, money2: 9 };
+var EXT_PERM = { wantedset: 3, wantedclear: 3, cuff: 3, uncuff: 3, prisonrelease: 3, spec: 1, screen: 6, eject: 4, fixp: 3, dim: 3, setname: 3, jail: 3, takelic: 3, permban: 7, hpset: 6, armourset: 6, weapon: 6, skin: 7, bankinfo: 7, nickhist: 7, money2: 9 };
 
 function rowsHtml(list, fn, empty) { return list.length ? list.map(fn).join('') : '<div class="empty">' + (empty || 'Пусто') + '</div>'; }
 function ago(ms) { var s = Math.floor(ms / 1000); if (s < 60) return s + ' сек'; if (s < 3600) return Math.floor(s / 60) + ' мин'; return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' м'; }
@@ -236,7 +245,7 @@ function renderExt() {
             (r.done ? '<span class="mut">✓ ' + esc(r.by) + ': ' + esc(r.answer || '') + '</span>' : '<button class="btn primary" data-rep="' + r.id + '">Ответить</button>') + '</div>';
     }, 'Репортов нет');
     $('jailList').innerHTML = rowsHtml(X.jail || [], function (j) {
-        return '<div class="tr"><b>' + esc(j.name) + '</b><span>' + (j.type === 'demorgan' ? 'Деморган' : 'КПЗ') + ' · ' + esc(j.reason) + '</span><span class="mut">осталось ' + ago(j.left) + ' · ' + esc(j.by) + '</span><button class="btn ok" data-rel="' + j.s + '">Выпустить</button></div>';
+        return '<div class="tr"><b>' + esc(j.name) + '</b><span>' + ({ demorgan: 'Деморган', prison: 'Тюрьма' }[j.type] || 'КПЗ') + ' · ' + esc(j.reason) + '</span><span class="mut">осталось ' + ago(j.left) + ' · ' + esc(j.by) + '</span><button class="btn ok" data-rel="' + j.s + '">Выпустить</button></div>';
     }, 'Никого');
     if (!FSEL && X.factions) FSEL = Object.keys(X.factions)[0];
     if (X.factions) {

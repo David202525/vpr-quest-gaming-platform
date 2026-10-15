@@ -770,3 +770,5 @@ label.check input {
 .gov-g small { display: block; font-size: 11px; color: rgba(255,255,255,.5); }
 .gov-g b { font-size: 24px; color: #f2c25a; }
 .z-kinds { flex-wrap: wrap; }
+
+.stars{letter-spacing:1px;margin-left:4px}.stars i{font-style:normal;color:rgba(255,255,255,.18)}.stars i.on{color:#ffcc33;text-shadow:0 0 6px rgba(255,204,51,.6)}

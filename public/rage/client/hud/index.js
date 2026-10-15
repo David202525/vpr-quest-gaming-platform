@@ -247,3 +247,23 @@ setInterval(function () {
     badgeLast = js;
     hudExec('window.hudBadges && window.hudBadges(' + js + ');');
 }, 40);
+
+mp.events.add('hud:wanted', function (n) { hudExec('window.hudWanted && window.hudWanted(' + (Number(n) || 0) + ');'); });
+
+var cuffDict = 'mp_arresting';
+mp.events.add('render', function () {
+    var me = mp.players.local;
+    if (!me.getVariable('cuffed')) return;
+    [21, 22, 24, 25, 37, 44, 45, 47, 58, 140, 141, 142, 143, 257, 263, 264, 23, 75].forEach(function (k) { mp.game.controls.disableControlAction(0, k, true); });
+});
+setInterval(function () {
+    mp.players.forEachInStreamRange(function (p) {
+        if (!p.handle) return;
+        var c = !!p.getVariable('cuffed');
+        if (c && !p.isPlayingAnim(cuffDict, 'idle', 3)) {
+            mp.game.streaming.requestAnimDict(cuffDict);
+            if (mp.game.streaming.hasAnimDictLoaded(cuffDict)) p.taskPlayAnim(cuffDict, 'idle', 8, -8, -1, 49, 0, false, false, false);
+            p._cuffAnim = true;
+        } else if (!c && p._cuffAnim) { p._cuffAnim = false; p.clearTasks(); }
+    });
+}, 700);

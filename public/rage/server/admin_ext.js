@@ -25,6 +25,8 @@ const LICS = { drive: 'Водительские права', bus: 'Лиценз�
 const AZ = { x: -75.2, y: -818.9, z: 326.2 };
 const DEMORGAN = { x: 1691.4, y: 2565.7, z: 45.6, dim: 999, r: 45 };
 const KPZ = { x: 459.9, y: -994.2, z: 24.9, out: { x: 432.1, y: -981.4, z: 30.7 }, r: 12 };
+const PRISON = { x: 1691.6, y: 2531.0, z: 45.6, out: { x: 1852.0, y: 2586.0, z: 45.7 }, r: 70 };
+const JAIL_N = { demorgan: 'ДЕМОРГАН', kpz: 'КПЗ', prison: 'ТЮРЬМА' };
 const GOV_MODELS = ['police', 'police2', 'police3', 'police4', 'policeb', 'policet', 'polmav', 'sheriff', 'sheriff2', 'fbi', 'fbi2', 'riot', 'riot2', 'pranger', 'ambulance', 'firetruk', 'lguard', 'pbus', 'predator',
     'barracks', 'barracks2', 'barracks3', 'crusader', 'rhino', 'khanjali', 'apc', 'insurgent', 'insurgent2', 'insurgent3', 'hydra', 'lazer', 'buzzard', 'savage', 'annihilator', 'valkyrie', 'valkyrie2',
     'oppressor', 'oppressor2', 'deluxo', 'vigilante', 'thruster', 'akula', 'hunter', 'strikeforce', 'chernobog', 'halftrack', 'nightshark', 'scramjet', 'toreador', 'stromberg', 'ruiner2'];
@@ -315,13 +317,13 @@ mp.events.addCommand('prefix', function (p) {
 });
 
 /* ================= LEVEL 3 — МЛАДШАЯ АДМИНИСТРАЦИЯ ================= */
-function jailPlayer(p, t, type, min, reason) {
+function jailPlayer(p, t, type, min, reason, extra) {
     const id = sid(t);
     if (!id) return 'У игрока нет аккаунта';
-    S.jail[id] = { type: type, until: Date.now() + min * 60000, reason: reason, by: login(p) };
+    S.jail[id] = Object.assign({ type: type, until: Date.now() + min * 60000, reason: reason, by: extra && extra.officer ? nick(p) : login(p) }, extra || {});
     save();
     applyJail(t);
-    mp.players.broadcast('!{#ff9f43}[' + (type === 'demorgan' ? 'ДЕМОРГАН' : 'КПЗ') + '] !{#ffffff}' + login(p) + ' отправил ' + nick(t) + ' на ' + min + ' мин. Причина: ' + reason);
+    mp.players.broadcast('!{#ff9f43}[' + (JAIL_N[type] || 'КПЗ') + '] !{#ffffff}' + (extra && extra.officer ? 'Офицер ' + nick(p) : login(p)) + ' отправил ' + nick(t) + ' на ' + min + ' мин. Причина: ' + reason);
     log(p, type, login(t), min + ' мин | ' + reason);
     return null;
 }
@@ -331,6 +333,7 @@ function applyJail(t) {
     if (t.vehicle) try { t.removeFromVehicle(); } catch (e) {}
     t.removeAllWeapons();
     if (j.type === 'demorgan') { t.dimension = DEMORGAN.dim; t.position = V(DEMORGAN.x, DEMORGAN.y, DEMORGAN.z); }
+    else if (j.type === 'prison') { t.dimension = 0; t.position = V(PRISON.x, PRISON.y, PRISON.z); }
     else { t.dimension = 0; t.position = V(KPZ.x, KPZ.y, KPZ.z); }
     t.call('adm:jail', [j.type, Math.max(0, j.until - Date.now()), j.reason]);
 }
@@ -340,7 +343,7 @@ function release(t, why) {
     delete S.jail[sid(t)];
     save();
     t.dimension = 0;
-    t.position = j.type === 'demorgan' ? V(-1037.7, -2737.8, 20.2) : V(KPZ.out.x, KPZ.out.y, KPZ.out.z);
+    t.position = j.type === 'demorgan' ? V(-1037.7, -2737.8, 20.2) : j.type === 'prison' ? V(PRISON.out.x, PRISON.out.y, PRISON.out.z) : V(KPZ.out.x, KPZ.out.y, KPZ.out.z);
     t.call('adm:jail', ['', 0, '']);
     msg(t, 'Вы освобождены' + (why ? ' (' + why + ')' : ''), '#8fd14f');
 }
@@ -350,7 +353,7 @@ setInterval(function () {
         const j = id && S.jail[id];
         if (!j) return;
         if (Date.now() >= j.until) return release(t, 'срок истёк');
-        const c = j.type === 'demorgan' ? DEMORGAN : KPZ;
+        const c = j.type === 'demorgan' ? DEMORGAN : j.type === 'prison' ? PRISON : KPZ;
         const far = t.position.subtract(V(c.x, c.y, c.z)).length() > (c.r || 12);
         if (far || (j.type === 'demorgan' && t.dimension !== DEMORGAN.dim)) applyJail(t);
     });
@@ -358,7 +361,9 @@ setInterval(function () {
 mp.events.add('playerSpawn', function (t) { if (S.jail[sid(t)]) setTimeout(function () { if (mp.players.exists(t)) applyJail(t); }, 500); });
 global.JailSystem = {
     kpz: function (officer, t, min, reason) { return jailPlayer(officer, t, 'kpz', min, reason); },
-    release: release, isJailed: function (t) { return !!S.jail[sid(t)]; }
+    release: release, isJailed: function (t) { return !!S.jail[sid(t)]; },
+    prison: function (officer, t, min, reason) { return jailPlayer(officer, t, 'prison', min, reason, { officer: 1 }); },
+    info: function (t) { return S.jail[sid(t)] || null; }
 };
 cmd('demorgan', 'demorgan', '/demorgan [id] [минуты] [причина]', function (p, a, u) {
     const t = find(a[0]), min = Math.floor(Number(a[1]));
@@ -964,6 +969,7 @@ A.panelExt = function (p) {
 };
 function pact(p, d, t) {
     const a = d.action;
+    if (global.WantedSystem && global.WantedSystem.pact(p, d, t)) return true;
     const T = function (e, ok) { toast(p, e, ok); A.sendPanel(p); return true; };
     const chk = function (perm) { if (!can(p, perm)) { T(A.whyNot(p, perm), false); return false; } return true; };
     if (a === 'ans') { if (!chk('reports')) return true; const e = answer(p, d.rid, String(d.text || '').slice(0, 250)); return T(e || 'Ответ отправлен', !e); }

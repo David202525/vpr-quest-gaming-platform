@@ -137,3 +137,11 @@ window.hudBadges = function (list) {
         el.style.left = b[1] + 'vw'; el.style.top = b[2] + 'vh'; el.style.width = b[3] + 'px';
     }
 };
+
+window.hudWanted = function (n) {
+    var el = document.getElementById('wanted');
+    if (!el) return;
+    n = Number(n) || 0;
+    for (var i = 0; i < el.children.length; i++) el.children[i].classList.toggle('on', i < n);
+    el.title = n ? n * 10 + ' мин тюрьмы' : '';
+};
