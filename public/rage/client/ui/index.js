@@ -444,8 +444,36 @@ mp.events.add('job:bases', function (json) {
     });
 });
 
-mp.events.add('job:point', function (x, y, z, r, label, kind) {
+var jobPlant = null;
+var jobQte = null;
+function jobPlantClear() { if (jobPlant) { try { jobPlant.destroy(); } catch (e) {} jobPlant = null; } }
+function jobSnapBus(x, y, z) {
+    var best = null;
+    try {
+        var r = mp.game.pathfind.getClosestVehicleNodeWithHeading(x, y, z, 0, 0, 1, 3, 0);
+        if (r && r.outPosition && Math.abs(r.outPosition.x) + Math.abs(r.outPosition.y) > 1) best = { p: r.outPosition, h: r.outHeading };
+    } catch (e) {}
+    if (!best) return;
+    var rad = (Number(best.h) || 0) * Math.PI / 180;
+    var rx = Math.cos(rad), ry = Math.sin(rad);
+    var nx = best.p.x + rx * 3.2, ny = best.p.y + ry * 3.2;
+    var gz = 0;
+    try { gz = mp.game.gameplay.getGroundZFor3dCoord(nx, ny, best.p.z + 3, 0, false); } catch (e) {}
+    var nz = gz > 0 ? gz : best.p.z;
+    if (jobPt) { jobPt.x = nx; jobPt.y = ny; jobPt.z = nz; }
+    if (jobBlip) { try { jobBlip.setCoords(new mp.Vector3(nx, ny, nz)); jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {} }
+    mp.events.callRemote('srv:job:busfix', nx, ny, nz);
+}
+mp.events.add('job:point', function (x, y, z, r, label, kind, extra) {
     jobPt = { x: x, y: y, z: z, r: r, label: label, kind: kind };
+    jobPlantClear();
+    if (kind === 'pick' && extra) {
+        try {
+            var gz = mp.game.gameplay.getGroundZFor3dCoord(x, y, z + 2, 0, false);
+            jobPlant = mp.objects.new(mp.game.joaat(extra), new mp.Vector3(x, y, (gz > 0 ? gz : z - 1)), { dimension: mp.players.local.dimension });
+        } catch (e) {}
+    }
+    if (kind === 'bus' && extra !== 'nosnap') setTimeout(function () { jobSnapBus(x, y, z); }, 50);
     if (jobBlip) { try { jobBlip.destroy(); } catch (e) {} }
     jobBlip = mp.blips.new(kind === 'bus' ? 513 : 1, new mp.Vector3(x, y, z), { name: label, color: 5, shortRange: false, scale: 0.9 });
     try { jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {}
@@ -456,6 +484,8 @@ mp.events.add('job:state', function (s) {
     jobPt = null;
     if (jobBlip) { try { jobBlip.destroy(); } catch (e) {} jobBlip = null; }
     jobBusUntil = 0;
+    jobQte = null;
+    jobPlantClear();
     jobDropCarry();
     try { mp.players.local.clearTasks(); } catch (e) {}
 });
@@ -464,6 +494,13 @@ mp.events.add('job:paid', function (sum) {
     mp.game.audio.playSoundFrontend(-1, 'PICK_UP', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true);
 });
 
+mp.events.add('job:qte', function (lvl) {
+    lvl = Math.max(1, Math.min(3, Number(lvl) || 1));
+    var w = [0.26, 0.18, 0.12][lvl - 1];
+    jobQte = { start: Date.now(), speed: [0.9, 1.25, 1.6][lvl - 1], w: w, c: 0.2 + Math.random() * (0.6 - w), until: Date.now() + 8000 };
+    mp.game.audio.playSoundFrontend(-1, 'NAV_UP_DOWN', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true);
+});
+function jobQtePos() { var t = (Date.now() - jobQte.start) / 1000 * jobQte.speed; var m = t % 2; return m < 1 ? m : 2 - m; }
 mp.events.add('job:busStop', function (ms) { jobBusUntil = Date.now() + Number(ms); });
 
 function jobLoadAnim(dict, cb) {
@@ -500,6 +537,14 @@ mp.events.add('job:anim', function (kind, ms) {
 });
 
 mp.keys.bind(0x45, false, function () {
+    if (jobQte) {
+        var pos = jobQtePos();
+        var ok = pos >= jobQte.c && pos <= jobQte.c + jobQte.w;
+        jobQte = null;
+        mp.game.audio.playSoundFrontend(-1, ok ? 'SELECT' : 'ERROR', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true);
+        mp.events.callRemote('srv:job:qte', ok ? 1 : 0);
+        return;
+    }
     if (jobBusy()) return;
     var p = mp.players.local;
     if (jobPt && jobPt.kind !== 'bus') {
@@ -536,6 +581,17 @@ mp.events.add('render', function () {
             var r = jobPt.r * 2;
             mp.game.graphics.drawMarker(1, jobPt.x, jobPt.y, jobPt.z - 1, 0, 0, 0, 0, 0, 0, r, r, 0.6, 255, 204, 102, 120, false, false, 2, false, null, null, false);
             if (jobPt.kind !== 'bus') mp.game.graphics.drawMarker(2, jobPt.x, jobPt.y, jobPt.z + 0.6, 0, 0, 0, 180, 0, 0, 0.35, 0.35, 0.35, 255, 204, 102, 200, true, true, 2, false, null, null, false);
+        }
+    }
+    if (jobQte) {
+        if (Date.now() > jobQte.until) { jobQte = null; mp.events.callRemote('srv:job:qte', 0); }
+        else {
+            var bx = 0.5, by = 0.78, bw = 0.3, bh = 0.022;
+            mp.game.graphics.drawRect(bx, by, bw + 0.006, bh + 0.01, 0, 0, 0, 170, false);
+            mp.game.graphics.drawRect(bx, by, bw, bh, 60, 60, 70, 220, false);
+            mp.game.graphics.drawRect(bx - bw / 2 + (jobQte.c + jobQte.w / 2) * bw, by, jobQte.w * bw, bh, 90, 200, 90, 230, false);
+            mp.game.graphics.drawRect(bx - bw / 2 + jobQtePos() * bw, by, 0.004, bh + 0.012, 255, 255, 255, 255, false);
+            mp.game.graphics.drawText('Нажмите E, когда отметка в зелёной зоне', [0.5, 0.735], { font: 4, color: [255, 255, 255, 230], scale: [0.42, 0.42], outline: true });
         }
     }
     if (jobBusUntil > Date.now()) {

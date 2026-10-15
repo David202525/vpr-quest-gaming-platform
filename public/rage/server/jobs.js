@@ -8,7 +8,7 @@ setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FIL
 
 const JOBS = {
     farm: {
-        n: 'Ферма', i: '🌾', lvl: 0, pay: '15–25$ за пучок', d: 'Собирай урожай на поле и сдавай фермеру. Без машины и опыта — лучшее начало.',
+        n: 'Ферма', i: '🌾', lvl: 0, pay: 'от 12$ за единицу урожая', d: 'Собирай урожай и сдавай фермеру. С каждым уровнем мастерства открываются новые культуры — дороже и сложнее в сборе.',
         base: { x: 2029.8, y: 4980.6, z: 42.1 }, blip: 85, color: 2
     },
     courier: {
@@ -16,17 +16,34 @@ const JOBS = {
         base: { x: -424.9, y: -2789.4, z: 6.0 }, blip: 478, color: 5, car: 'boxville2', carPos: { x: -431.6, y: -2794.6, z: 5.6, h: 45 }
     },
     bus: {
-        n: 'Водитель автобуса', i: '🚌', lvl: 0, pay: '20$ за остановку + бонус за круг', d: 'Возьми автобус в депо, выбери маршрут и проезжай остановки. Права не нужны — достаточно не иметь запрета.',
+        n: 'Водитель автобуса', i: '🚌', lvl: 0, pay: 'от 14$ за остановку + бонус за круг', d: 'Возьми автобус в депо и проезжай остановки: мэрия, полиция, больницы. Чем больше остановок за плечами — тем длиннее и дороже маршруты.',
         base: { x: 453.2, y: -600.9, z: 28.6 }, blip: 513, color: 3, car: 'bus', carPos: { x: 462.2, y: -605.5, z: 28.5, h: 214 }, lic: 'drive'
     }
 };
 
-const FIELD = [
-    [2034.5, 4927.0, 41.0], [2042.3, 4918.4, 41.0], [2050.9, 4910.2, 41.0], [2026.8, 4934.9, 41.0], [2019.6, 4942.7, 41.0],
-    [2010.7, 4934.1, 41.0], [2018.3, 4925.9, 41.0], [2026.1, 4917.6, 41.0], [2034.7, 4909.6, 41.0], [2043.1, 4901.2, 41.0],
-    [2002.3, 4926.0, 41.0], [2009.9, 4917.7, 41.0], [2017.8, 4909.5, 41.0], [2026.2, 4901.1, 41.0], [2034.4, 4892.9, 41.0]
-];
 const FARM_DROP = { x: 2029.8, y: 4980.6, z: 42.1 };
+
+const FARM_LV = [0, 40, 120, 280, 550];
+const BUS_LV = [0, 30, 90, 200, 400];
+const MASTER = [1, 1.15, 1.3, 1.5, 1.75];
+
+function grid(cx, cy, z, rows, cols, step) {
+    const out = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const u = (r - (rows - 1) / 2) * step, w = (c - (cols - 1) / 2) * step;
+        out.push([cx + (u + w) * 0.7071, cy + (w - u) * 0.7071, z]);
+    }
+    return out;
+}
+const CROPS = {
+    lettuce: { n: 'Салат', i: '🥬', lvl: 1, ms: 3000, cap: 6, pay: [12, 16], qte: 0, model: 'prop_veg_crop_04_leaf', field: grid(2026.5, 4918.0, 41.0, 3, 5, 8) },
+    cabbage: { n: 'Капуста', i: '🥦', lvl: 2, ms: 3500, cap: 6, pay: [18, 24], qte: 0, model: 'prop_veg_crop_03_cab', field: grid(2049.0, 4895.0, 41.0, 3, 5, 7) },
+    corn: { n: 'Кукуруза', i: '🌽', lvl: 3, ms: 4000, cap: 8, pay: [26, 34], qte: 1, model: 'prop_veg_corn_01', field: grid(2004.0, 4941.0, 41.0, 3, 5, 7) },
+    pumpkin: { n: 'Тыква', i: '🎃', lvl: 4, ms: 4500, cap: 5, pay: [58, 72], qte: 2, model: 'prop_veg_crop_03_pump_01', field: grid(2071.0, 4873.0, 41.0, 3, 4, 8) },
+    orange: { n: 'Апельсины', i: '🍊', lvl: 5, ms: 5000, cap: 10, pay: [44, 54], qte: 3, model: 'prop_veg_crop_orange', field: grid(1982.0, 4963.0, 42.0, 3, 4, 9) }
+};
+if (!store._fields) store._fields = {};
+function cropField(k) { const f = store._fields[k]; return f && f.length >= 3 ? f : CROPS[k].field; }
 
 const COURIER_DEST = [
     ['Vinewood Hills, особняк', -1286.4, 438.1, 97.4], ['Rockford Hills, офис', -1379.8, -478.3, 31.6], ['Del Perro, кафе', -1197.0, -891.3, 13.9],
@@ -36,26 +53,55 @@ const COURIER_DEST = [
     ['Downtown, небоскрёб', -70.4, -800.5, 44.2], ['Textile City, склад', 431.9, -808.9, 29.5], ['Chamberlain Hills, дом', -150.5, -1622.6, 33.7]
 ];
 
+const DEPOT = ['Автовокзал (депо)', 433.6, -647.4, 28.7];
+const DEPOT_END = ['Депо — конец круга', 450.0, -625.0, 28.5];
 const ROUTES = {
-    city: { n: 'Маршрут №1 «Центр»', bonus: 250, stops: [
-        ['Депо', 433.6, -647.4, 28.7], ['Pillbox', 307.4, -766.8, 29.3], ['Legion Square', 237.3, -862.0, 29.9], ['Alta St', 116.2, -785.0, 31.4],
-        ['Mission Row', 404.4, -995.4, 29.3], ['Strawberry', 266.5, -1222.6, 29.3], ['Davis', 115.5, -1621.5, 29.2], ['Депо (конец)', 450.0, -625.0, 28.5]
+    r1: { n: '№1 «Центр»', lvl: 1, stopPay: 14, bonus: 120, stops: [
+        DEPOT, ['Больница Pillbox', 298.0, -603.0, 43.0], ['Legion Square', 237.3, -862.0, 29.9], ['ЛСПД Mission Row', 404.4, -995.4, 29.3], DEPOT_END
     ] },
-    beach: { n: 'Маршрут №2 «Побережье»', bonus: 400, stops: [
-        ['Депо', 433.6, -647.4, 28.7], ['Burton', -258.5, -338.8, 30.0], ['Rockford Hills', -684.8, -381.8, 34.4], ['Del Perro', -1214.5, -603.9, 26.6],
-        ['Vespucci Beach', -1167.3, -1452.6, 4.4], ['Vespucci Canals', -1048.8, -1053.1, 2.1], ['Little Seoul', -713.0, -827.0, 23.4], ['Депо (конец)', 450.0, -625.0, 28.5]
+    r2: { n: '№2 «Мэрия»', lvl: 2, stopPay: 20, bonus: 260, stops: [
+        DEPOT, ['Больница Pillbox', 298.0, -603.0, 43.0], ['Burton', -258.5, -338.8, 30.0], ['Мэрия', -520.0, -263.0, 35.5],
+        ['Little Seoul', -713.0, -827.0, 23.4], ['Legion Square', 237.3, -862.0, 29.9], ['ЛСПД Mission Row', 404.4, -995.4, 29.3], DEPOT_END
     ] },
-    sandy: { n: 'Маршрут №3 «Междугородний»', bonus: 900, stops: [
-        ['Депо', 433.6, -647.4, 28.7], ['Mirror Park', 1043.2, -479.4, 63.9], ['Route 68', 1205.8, 2683.7, 37.7], ['Harmony', 557.6, 2680.6, 42.1],
-        ['Sandy Shores', 1852.0, 3696.8, 34.2], ['Grapeseed', 1697.2, 4850.2, 42.0], ['Route 68 (обратно)', 1183.2, 2700.4, 37.9], ['Депо (конец)', 450.0, -625.0, 28.5]
+    r3: { n: '№3 «Больницы и полиция»', lvl: 3, stopPay: 26, bonus: 450, stops: [
+        DEPOT, ['ЛСПД Mission Row', 404.4, -995.4, 29.3], ['Больница Central LS', 297.0, -1390.0, 31.8], ['Шериф Davis', 370.0, -1600.0, 29.3],
+        ['ЛСПД Vespucci', -1075.0, -790.0, 19.2], ['Del Perro', -1214.5, -603.9, 26.6], ['Мэрия', -520.0, -263.0, 35.5],
+        ['Больница Pillbox', 298.0, -603.0, 43.0], DEPOT_END
+    ] },
+    r4: { n: '№4 «Междугородний»', lvl: 4, stopPay: 45, bonus: 1200, stops: [
+        DEPOT, ['Mirror Park', 1043.2, -479.4, 63.9], ['Route 68', 1205.8, 2683.7, 37.7], ['Больница Sandy Shores', 1830.0, 3680.0, 34.2],
+        ['Шериф Sandy Shores', 1853.0, 3700.0, 34.0], ['Grapeseed', 1697.2, 4850.2, 42.0], ['Шериф Paleto Bay', -440.0, 6030.0, 31.3],
+        ['Больница Paleto Bay', -240.0, 6320.0, 31.4], ['Great Ocean Hwy', -2190.0, 4280.0, 49.0], ['Del Perro', -1214.5, -603.9, 26.6],
+        ['Мэрия', -520.0, -263.0, 35.5], DEPOT_END
     ] }
 };
-const BUS_STOP_PAY = 20;
+if (!store._routes) store._routes = {};
+function routeStops(k) { const c = store._routes[k]; return c && c.length >= 3 ? c : ROUTES[k].stops; }
 
 function V(x, y, z) { return new mp.Vector3(x, y, z); }
 function accOf(p) { return p.account || p.admAcc || null; }
 function key(p) { const a = accOf(p); return a && a.id ? 'a' + a.id : 'n' + p.name; }
-function rec(p) { const k = key(p); if (!store[k]) store[k] = { job: null, earned: {}, done: {} }; return store[k]; }
+function rec(p) { const k = key(p); if (!store[k]) store[k] = { job: null, earned: {}, done: {} }; if (!store[k].xp) store[k].xp = {}; return store[k]; }
+function lvlInfo(p, id) {
+    const T = id === 'farm' ? FARM_LV : id === 'bus' ? BUS_LV : null;
+    if (!T) return null;
+    const r = rec(p);
+    if (r.xp[id] === undefined) r.xp[id] = id === 'farm' ? (r.done.farm || 0) * 5 : (r.done.bus || 0);
+    const xp = r.xp[id];
+    let l = 1;
+    for (let i = 0; i < T.length; i++) if (xp >= T[i]) l = i + 1;
+    return { lvl: l, xp: xp, cur: T[l - 1], next: T[l] === undefined ? null : T[l], max: T.length, mult: MASTER[l - 1] };
+}
+function addXp(p, id, n) {
+    const before = lvlInfo(p, id).lvl;
+    rec(p).xp[id] += n;
+    dirty = true;
+    const now = lvlInfo(p, id);
+    if (now.lvl > before) {
+        notify(p, 'ok', 'Новый уровень мастерства: ' + now.lvl + '! Оплата ×' + now.mult.toFixed(2) + (id === 'farm' ? '. Открыта новая культура' : '. Открыт новый маршрут'));
+        if (global.SLog) global.SLog.add('job', { actor: p, action: 'level-up', details: id + ' → ' + now.lvl });
+    }
+}
 function notify(p, type, text) { if (typeof global.hudNotify === 'function') global.hudNotify(p, type, text); else p.outputChatBox(text); }
 function quest(p, title, tasks) { if (typeof global.hudQuest === 'function') global.hudQuest(p, title, tasks); }
 function pay(p, sum, jobId) {
@@ -106,9 +152,20 @@ function startJob(p, id, opt) {
     if (id === 'bus' && !hasLic(p, 'bus')) return 'Лицензия на автобус отобрана администрацией';
     const s = { id: id, step: 0, since: Date.now() };
     p.job = s;
-    if (id === 'farm') { s.carry = 0; nextFarm(p); }
+    if (id === 'farm') {
+        const lv = lvlInfo(p, 'farm').lvl;
+        const ck = CROPS[opt] ? opt : 'lettuce';
+        if (CROPS[ck].lvl > lv) { p.job = null; return 'Культура «' + CROPS[ck].n + '» откроется на ' + CROPS[ck].lvl + ' уровне мастерства'; }
+        s.crop = ck; s.carry = 0; s.units = [];
+        nextFarm(p);
+    }
     if (id === 'courier' || id === 'bus') {
-        if (id === 'bus') { s.route = ROUTES[opt] ? opt : 'city'; s.stop = 1; }
+        if (id === 'bus') {
+            const lv = lvlInfo(p, 'bus').lvl;
+            const rk = ROUTES[opt] ? opt : 'r1';
+            if (ROUTES[rk].lvl > lv) { p.job = null; return 'Маршрут ' + ROUTES[rk].n + ' откроется на ' + ROUTES[rk].lvl + ' уровне мастерства'; }
+            s.route = rk; s.stop = 1;
+        }
         s.has = false;
         const saved = store._spots[id];
         const go = function (spot) {
@@ -157,18 +214,37 @@ mp.events.addCommand('resetjobcar', function (p, full) {
 /* ---------- ферма ---------- */
 function nextFarm(p) {
     const s = p.job;
-    if (s.carry >= 5) {
-        p.call('job:point', [FARM_DROP.x, FARM_DROP.y, FARM_DROP.z, 2.5, 'Сдать урожай фермеру (E)', 'drop']);
-        quest(p, 'Ферма', ['Урожай в руках: ' + s.carry + '/5', 'Отнесите урожай фермеру — метка на карте']);
+    const c = CROPS[s.crop];
+    if (s.carry >= c.cap) {
+        p.call('job:point', [FARM_DROP.x, FARM_DROP.y, FARM_DROP.z, 2.5, 'Сдать урожай фермеру (E)', 'drop', '']);
+        quest(p, 'Ферма · ' + c.n, ['Урожай: ' + s.carry + '/' + c.cap, 'Отнесите урожай фермеру — метка на карте']);
         return;
     }
+    const F = cropField(s.crop);
     let i;
-    do { i = Math.floor(Math.random() * FIELD.length); } while (i === s.last && FIELD.length > 1);
+    do { i = Math.floor(Math.random() * F.length); } while (i === s.last && F.length > 1);
     s.last = i;
-    const f = FIELD[i];
-    p.call('job:point', [f[0], f[1], f[2], 1.6, 'Собрать урожай (E)', 'pick']);
-    quest(p, 'Ферма', ['Соберите урожай: ' + s.carry + '/5', 'Метка на поле — подойдите и нажмите E']);
+    const f = F[i];
+    s.pt = f;
+    p.call('job:point', [f[0], f[1], f[2], 1.6, 'Собрать: ' + c.n + ' (E)', 'pick', c.model]);
+    quest(p, 'Ферма · ' + c.n, ['Собрано: ' + s.carry + '/' + c.cap, c.qte ? 'Нажмите E, когда ползунок в зелёной зоне' : 'Подойдите к растению и нажмите E']);
 }
+function farmPicked(p, s, ok) {
+    const c = CROPS[s.crop];
+    s.busy = false; s.qte = null;
+    if (!ok) { notify(p, 'warn', c.n + ': растение повреждено, урожай пропал'); return nextFarm(p); }
+    s.carry++;
+    s.units.push(c.pay[0] + Math.random() * (c.pay[1] - c.pay[0]));
+    addXp(p, 'farm', 1);
+    notify(p, 'ok', c.i + ' ' + c.n + ': ' + s.carry + '/' + c.cap);
+    nextFarm(p);
+}
+mp.events.add('srv:job:qte', function (p, ok) {
+    const s = p.job;
+    if (!s || s.id !== 'farm' || !s.qte) return;
+    clearTimeout(s.qte);
+    farmPicked(p, s, !!ok && ok !== 'false' && ok !== '0');
+});
 
 /* ---------- курьер ---------- */
 function courierPick(p) {
@@ -191,10 +267,21 @@ function courierDrop(p) {
 function busNext(p) {
     const s = p.job;
     const r = ROUTES[s.route];
-    const st = r.stops[s.stop];
-    p.call('job:point', [st[1], st[2], st[3], 6, 'Остановка: ' + st[0], 'bus']);
-    quest(p, r.n, ['Остановка ' + s.stop + '/' + (r.stops.length - 1) + ': ' + st[0], 'Остановитесь в круге на автобусе — пассажиры сядут сами']);
+    const S = routeStops(s.route);
+    const st = S[s.stop];
+    s.cur = { n: st[0], x: st[1], y: st[2], z: st[3] };
+    p.call('job:point', [st[1], st[2], st[3], 7, 'Остановка: ' + st[0], 'bus', store._routes[s.route] ? 'nosnap' : '']);
+    const nx = S[s.stop + 1];
+    quest(p, 'Автобус ' + r.n, ['Остановка ' + s.stop + '/' + (S.length - 1) + ': ' + st[0], nx ? 'Следующая: ' + nx[0] : 'Последняя — возврат в депо', 'Остановитесь в круге — пассажиры сядут сами']);
 }
+mp.events.add('srv:job:busfix', function (p, x, y, z) {
+    const s = p.job;
+    if (!s || s.id !== 'bus' || !s.cur) return;
+    x = Number(x); y = Number(y); z = Number(z);
+    if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return;
+    if (dist(s.cur, x, y, z) > 45) return;
+    s.cur.x = x; s.cur.y = y; s.cur.z = z;
+});
 
 /* ---------- действие игрока в точке ---------- */
 mp.events.add('srv:job:here', function (p) {
@@ -202,25 +289,27 @@ mp.events.add('srv:job:here', function (p) {
     if (!s || s.busy) return;
     if (s.id === 'farm') {
         if (p.vehicle) return notify(p, 'warn', 'Выйдите из транспорта');
-        if (s.carry >= 5) {
+        const c = CROPS[s.crop];
+        if (s.carry >= c.cap) {
             if (dist(p.position, FARM_DROP.x, FARM_DROP.y, FARM_DROP.z) > 4) return;
-            const sum = s.carry * (15 + Math.floor(Math.random() * 11));
-            s.carry = 0;
+            const lv = lvlInfo(p, 'farm');
+            const sum = Math.round(s.units.reduce(function (a, b) { return a + b; }, 0) * lv.mult);
+            const n = s.carry;
+            s.carry = 0; s.units = [];
             pay(p, sum, 'farm');
-            notify(p, 'ok', 'Фермер заплатил $' + sum);
+            notify(p, 'ok', 'Фермер заплатил $' + sum + ' за ' + n + ' шт. (' + c.n + ', ур. ' + lv.lvl + ', ×' + lv.mult.toFixed(2) + ')');
             return nextFarm(p);
         }
-        const f = FIELD[s.last];
-        if (!f || dist(p.position, f[0], f[1], f[2]) > 3) return;
+        const f = s.pt;
+        if (!f || Math.hypot(p.position.x - f[0], p.position.y - f[1]) > 3) return;
         s.busy = true;
-        p.call('job:anim', ['pick', 4000]);
+        p.call('job:anim', ['pick', c.ms]);
         setTimeout(function () {
             if (!mp.players.exists(p) || p.job !== s) return;
-            s.busy = false;
-            s.carry++;
-            notify(p, 'ok', 'Собрано: ' + s.carry + '/5');
-            nextFarm(p);
-        }, 4000);
+            if (!c.qte) return farmPicked(p, s, true);
+            p.call('job:qte', [c.qte]);
+            s.qte = setTimeout(function () { if (mp.players.exists(p) && p.job === s) farmPicked(p, s, false); }, 9000);
+        }, c.ms);
     } else if (s.id === 'courier') {
         if (p.vehicle) return notify(p, 'warn', 'Выйдите из фургона и подойдите пешком');
         if (!s.has) {
@@ -250,19 +339,26 @@ setInterval(function () {
         const v = p.vehicle;
         if (!v || v !== s.veh) return;
         const r = ROUTES[s.route];
-        const st = r.stops[s.stop];
-        if (dist(v.position, st[1], st[2], st[3]) > 7) return;
+        const S = routeStops(s.route);
+        const st = s.cur;
+        if (!st || Math.hypot(v.position.x - st.x, v.position.y - st.y) > 8 || Math.abs(v.position.z - st.z) > 6) return;
+        let spd = 0;
+        try { spd = v.velocity ? Math.hypot(v.velocity.x, v.velocity.y) : 0; } catch (e) {}
+        if (spd > 4) return;
         s.busy = true;
-        notify(p, 'ok', 'Остановка «' + st[0] + '» — посадка пассажиров…');
+        notify(p, 'ok', 'Остановка «' + st.n + '» — посадка пассажиров…');
         p.call('job:busStop', [5000]);
         setTimeout(function () {
             if (!mp.players.exists(p) || p.job !== s) return;
             s.busy = false;
-            pay(p, BUS_STOP_PAY, 'bus');
+            const lv = lvlInfo(p, 'bus');
+            pay(p, r.stopPay * lv.mult, 'bus');
+            addXp(p, 'bus', 1);
             s.stop++;
-            if (s.stop >= r.stops.length) {
-                pay(p, r.bonus, 'bus');
-                notify(p, 'ok', 'Маршрут пройден! Бонус $' + r.bonus + '. Начинаем новый круг');
+            if (s.stop >= S.length) {
+                const b = Math.round(r.bonus * lvlInfo(p, 'bus').mult);
+                pay(p, b, 'bus');
+                notify(p, 'ok', 'Круг пройден! Бонус $' + b + '. Начинаем новый круг');
                 s.stop = 1;
             }
             busNext(p);
@@ -293,6 +389,35 @@ setInterval(function () {
 mp.events.add('playerQuit', function (p) { stopJob(p, true); });
 mp.events.add('playerDeath', function (p) { if (p.job) stopJob(p); });
 
+/* ---------- настройка полей и маршрутов (админ 5+) ---------- */
+function admLv(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0; }
+mp.events.addCommand('farmpt', function (p, full) {
+    if (admLv(p) < 5) return p.outputChatBox('!{#e05555}Доступно со Старшей администрации (5)');
+    const a = String(full || '').trim().split(/\s+/);
+    const k = a[0];
+    if (!CROPS[k]) return p.outputChatBox('!{#ffcc66}/farmpt [' + Object.keys(CROPS).join('/') + '] — добавить точку грядки здесь. /farmpt [культура] clear — вернуть стандартное поле');
+    if (a[1] === 'clear') { delete store._fields[k]; dirty = true; return p.outputChatBox('!{#8fd14f}Поле «' + CROPS[k].n + '» сброшено к стандартному'); }
+    const L = store._fields[k] || (store._fields[k] = []);
+    L.push([p.position.x, p.position.y, p.position.z]);
+    dirty = true;
+    p.outputChatBox('!{#8fd14f}Точка ' + L.length + ' для «' + CROPS[k].n + '» добавлена' + (L.length < 3 ? ' (поле включится от 3 точек)' : ''));
+});
+mp.events.addCommand('busstop', function (p, full) {
+    if (admLv(p) < 5) return p.outputChatBox('!{#e05555}Доступно со Старшей администрации (5)');
+    const m = String(full || '').trim().match(/^(\S+)\s*(.*)$/);
+    const k = m && m[1];
+    if (!k || !ROUTES[k]) return p.outputChatBox('!{#ffcc66}/busstop [r1-r4] [название] — добавить остановку на месте автобуса (по порядку). /busstop [маршрут] clear — сброс, /busstop [маршрут] list — список');
+    const arg = m[2];
+    if (arg === 'clear') { delete store._routes[k]; dirty = true; return p.outputChatBox('!{#8fd14f}Маршрут ' + ROUTES[k].n + ' сброшен к стандартному'); }
+    if (arg === 'list') return routeStops(k).forEach(function (st, i) { p.outputChatBox('!{#ffffff}' + i + '. ' + st[0] + ' !{#888}(' + st[1].toFixed(1) + ', ' + st[2].toFixed(1) + ')'); });
+    if (!arg) return p.outputChatBox('!{#ffcc66}Укажите название остановки');
+    const L = store._routes[k] || (store._routes[k] = []);
+    const e = p.vehicle || p;
+    L.push([arg.slice(0, 40), e.position.x, e.position.y, e.position.z]);
+    dirty = true;
+    p.outputChatBox('!{#8fd14f}Остановка ' + L.length + ' «' + arg + '» добавлена в ' + ROUTES[k].n + (L.length < 3 ? ' (маршрут включится от 3 точек; первая — депо, последняя — конец круга)' : ''));
+});
+
 /* ---------- старт у NPC/места ---------- */
 mp.events.add('srv:job:base', function (p, id) {
     const j = JOBS[id];
@@ -304,9 +429,21 @@ function menuData(p, id) {
     const j = JOBS[id], r = rec(p);
     return {
         id: id, n: j.n, i: j.i, d: j.d, pay: j.pay, off: jobOff(id), working: p.job ? p.job.id : null,
-        earned: r.earned[id] || 0, done: r.done[id] || 0,
-        routes: id === 'bus' ? Object.keys(ROUTES).map(function (k) { return { id: k, n: ROUTES[k].n, stops: ROUTES[k].stops.length - 1, bonus: ROUTES[k].bonus }; }) : null
+        earned: r.earned[id] || 0, done: r.done[id] || 0, lv: lvlInfo(p, id),
+        opts: optsFor(p, id)
     };
+}
+function optsFor(p, id) {
+    const lv = lvlInfo(p, id);
+    if (id === 'farm') return Object.keys(CROPS).map(function (k) {
+        const c = CROPS[k];
+        return { id: k, n: c.i + ' ' + c.n, sub: 'по ' + c.cap + ' шт. · ' + Math.round(c.pay[0] * lv.mult) + '–' + Math.round(c.pay[1] * lv.mult) + '$ за шт.' + (c.qte ? ' · сложность ' + '★'.repeat(c.qte) : ''), need: c.lvl, locked: c.lvl > lv.lvl };
+    });
+    if (id === 'bus') return Object.keys(ROUTES).map(function (k) {
+        const r = ROUTES[k];
+        return { id: k, n: '🚌 ' + r.n, sub: (routeStops(k).length - 1) + ' ост. · ' + Math.round(r.stopPay * lv.mult) + '$ за остановку · бонус ' + Math.round(r.bonus * lv.mult) + '$', need: r.lvl, locked: r.lvl > lv.lvl };
+    });
+    return null;
 }
 mp.events.add('srv:job:start', function (p, id, opt) {
     const e = startJob(p, String(id), String(opt || ''));
@@ -325,7 +462,7 @@ function phoneJobs(p) {
     const r = rec(p);
     return {
         working: p.job ? { id: p.job.id, n: JOBS[p.job.id].n, since: p.job.since } : null,
-        list: Object.keys(JOBS).map(function (k) { const j = JOBS[k]; return { id: k, n: j.n, i: j.i, d: j.d, pay: j.pay, off: jobOff(k), earned: r.earned[k] || 0, done: r.done[k] || 0, x: j.base.x, y: j.base.y }; }),
+        list: Object.keys(JOBS).map(function (k) { const j = JOBS[k]; const L = lvlInfo(p, k); return { id: k, n: j.n + (L ? ' · ур. ' + L.lvl : ''), i: j.i, d: j.d, pay: j.pay, off: jobOff(k), earned: r.earned[k] || 0, done: r.done[k] || 0, x: j.base.x, y: j.base.y }; }),
         total: Object.keys(r.earned).reduce(function (s, k) { return s + r.earned[k]; }, 0)
     };
 }
@@ -343,5 +480,5 @@ function sendBases(p) {
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendBases(p); }, 4000); });
 setTimeout(function () { mp.players.forEach(sendBases); }, 3000);
 
-global.JobSystem = { JOBS: JOBS, stop: stopJob, phone: phoneJobs, current: function (p) { return p.job ? p.job.id : null; } };
+global.JobSystem = { level: lvlInfo, JOBS: JOBS, stop: stopJob, phone: phoneJobs, current: function (p) { return p.job ? p.job.id : null; } };
 console.log('[jobs] работы загружены: ' + Object.keys(JOBS).join(', '));

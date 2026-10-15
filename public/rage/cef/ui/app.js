@@ -1207,10 +1207,10 @@ window.jobMenu = function (json) {
     if (d.off) start = '<div class="job-st" style="color:#ff6b6b">Работа временно закрыта администрацией</div>';
     else if (d.working === d.id) start = '<button class="btn ghost" data-jm="quit">Закончить смену</button>';
     else if (d.working) start = '<div class="job-st">Сначала закончите текущую смену</div>';
-    else if (d.routes) start = d.routes.map(function (r) { return '<button class="btn" data-jm="start" data-r="' + r.id + '">' + esc(r.n) + ' · ' + r.stops + ' ост. · бонус ' + money(r.bonus) + '</button>'; }).join('');
+    else if (d.opts) start = '<div class="jm-sel">' + d.opts.map(function (r) { return '<button class="jm-opt' + (r.locked ? ' lk' : '') + '" ' + (r.locked ? 'disabled' : 'data-jm="start" data-r="' + r.id + '"') + '><b>' + esc(r.n) + '</b><small>' + (r.locked ? '🔒 Откроется на ' + r.need + ' уровне' : esc(r.sub)) + '</small></button>'; }).join('') + '</div>';
     else start = '<button class="btn" data-jm="start">Начать работу</button>';
     box.innerHTML = '<div class="jm-box"><div class="job-h"><span class="job-i">' + d.i + '</span><div><b>' + esc(d.n) + '</b><small>' + esc(d.pay) + '</small></div></div>' +
-        '<p>' + esc(d.d) + '</p>' + (d.done ? '<div class="job-st">Вы выполнили: ' + d.done + ' · заработали ' + money(d.earned) + '</div>' : '') +
+        '<p>' + esc(d.d) + '</p>' + (d.lv ? '<div class="jm-lv"><div class="jm-lvh"><b>Мастерство: ' + d.lv.lvl + ' / ' + d.lv.max + '</b><span>оплата ×' + d.lv.mult.toFixed(2) + '</span></div><div class="jm-bar"><i style="width:' + (d.lv.next === null ? 100 : Math.round((d.lv.xp - d.lv.cur) / (d.lv.next - d.lv.cur) * 100)) + '%"></i></div><small>' + (d.lv.next === null ? 'Максимальный уровень' : 'До следующего уровня: ' + (d.lv.next - d.lv.xp) + (d.id === 'bus' ? ' ост.' : ' шт. урожая')) + '</small></div>' : '') + (d.done ? '<div class="job-st">Вы выполнили: ' + d.done + ' · заработали ' + money(d.earned) + '</div>' : '') +
         start + '<button class="btn ghost" data-jm="close">Закрыть</button></div>';
     box.querySelectorAll('[data-jm]').forEach(function (b) {
         b.onclick = function () {

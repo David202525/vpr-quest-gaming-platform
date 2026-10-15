@@ -2142,3 +2142,17 @@ textarea {
 .bp2.big{border-color:rgba(255,201,60,.5);background:linear-gradient(180deg,rgba(255,201,60,.1),rgba(255,255,255,.03))}
 .bp2.big .bp2-n{color:#ffc93c}
 .bp2.big.open{border-color:#ffc93c;box-shadow:0 0 20px -6px #ffc93c}
+
+.jm-lv{background:#1b1b22;border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.jm-lvh{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.jm-lvh span{color:#8fd14f;font-weight:700}
+.jm-bar{height:6px;background:#2a2a33;border-radius:4px;overflow:hidden}
+.jm-bar i{display:block;height:100%;background:linear-gradient(90deg,#8fd14f,#c13dff)}
+.jm-lv small{display:block;font-size:11px;color:#9a9aa6;margin-top:6px}
+.jm-sel{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto;margin-bottom:8px}
+.jm-opt{text-align:left;background:#22222b;border:1px solid #2e2e3a;border-radius:10px;padding:9px 12px;color:#fff;cursor:pointer;font:inherit}
+.jm-opt:hover{border-color:#8fd14f}
+.jm-opt b{display:block;font-size:13px}
+.jm-opt small{font-size:11px;color:#9a9aa6}
+.jm-opt.lk{opacity:.45;cursor:default}
+.jm-opt.lk:hover{border-color:#2e2e3a}
