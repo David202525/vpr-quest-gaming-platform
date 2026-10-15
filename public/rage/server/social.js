@@ -151,6 +151,7 @@ mp.events.add('srv:int:passport', function (p, rid) {
     if (!U || !U.hasDoc(p, 'passport')) return notify(p, 'error', 'У вас нет паспорта');
     if (typeof U.showDoc === 'function') U.showDoc(p, t, 'passport');
     learn(t, p);
+    docRp(p, t, 'passport');
     notify(p, 'ok', 'Вы показали паспорт');
     notify(t, 'warn', nick(p) + ' показывает вам паспорт');
 });
@@ -178,6 +179,80 @@ mp.events.add('srv:int:wave', function (p) {
     try { p.playAnimation('friends@frj@ig_1', 'wave_a', 8, 48); } catch (e) {}
 });
 
-global.SocialSystem = { learn: learn, seen: seen, knows: knows, sid: sid };
-console.log('[social] ники, статики и меню взаимодействия (G) загружены');
+const RP_RADIUS = 15;
+const DOC_RP = {
+    passport: ['достал(а) паспорт из кармана и показал(а) его {t}', 'В руках паспорт гражданина. Видна фотография и данные владельца'],
+    drive: ['достал(а) водительское удостоверение и показал(а) его {t}', 'Пластиковая карточка водительского удостоверения с фотографией'],
+    military: ['достал(а) военный билет и раскрыл(а) его перед {t}', 'Военный билет в зелёной обложке, видны печати воинской части'],
+    med: ['достал(а) медицинскую книжку и протянул(а) её {t}', 'Медицинская книжка с отметками врачей и печатью больницы'],
+    psych: ['достал(а) справку от психиатра и показал(а) её {t}', 'Бланк справки с печатью психоневрологического диспансера'],
+    gun: ['достал(а) разрешение на оружие и показал(а) его {t}', 'Лицензия на ношение оружия с голографической печатью'],
+    faction: ['достал(а) служебное удостоверение и раскрыл(а) его перед {t}', 'Служебное удостоверение с жетоном и гербом штата']
+};
+function g(p, text) {
+    return String(text).replace(/\(а\)/g, female(p) ? 'а' : '').replace(/\(ла\)/g, female(p) ? 'ла' : 'л');
+}
+function nearby(p, r, fn) {
+    mp.players.forEach(function (x) {
+        if (!sid(x) && x !== p) return;
+        if (x !== p && !near(p, x, r || RP_RADIUS)) return;
+        fn(x);
+    });
+}
+function muted(p) { return !!(global.AdminCore && global.AdminCore.muted && global.AdminCore.muted[p.id] && Date.now() < global.AdminCore.muted[p.id]); }
+function rpMe(p, text) {
+    nearby(p, RP_RADIUS, function (x) { x.outputChatBox('!{#c78bff}' + seen(x, p) + ' ' + g(p, text)); });
+}
+function rpDo(p, text) {
+    nearby(p, RP_RADIUS, function (x) { x.outputChatBox('!{#7fd4ff}' + g(p, text) + ' (( ' + seen(x, p) + ' ))'); });
+}
+function clean(t) { return String(t || '').replace(/!\{[^}]*\}/g, '').replace(/[<>]/g, '').trim().slice(0, 180); }
+function rpCmd(name, fn) {
+    mp.events.addCommand(name, function (p, full) {
+        if (!sid(p)) return;
+        if (muted(p)) return p.outputChatBox('!{#e05555}Вы в муте');
+        const t = clean(full);
+        if (!t) return p.outputChatBox('!{#ffc93c}Использование: /' + name + ' [текст]');
+        fn(p, t);
+    });
+}
+rpCmd('me', rpMe);
+rpCmd('do', rpDo);
+rpCmd('try', function (p, t) {
+    const ok = Math.random() < 0.5;
+    nearby(p, RP_RADIUS, function (x) {
+        x.outputChatBox('!{#c78bff}' + seen(x, p) + ' ' + t + ' ' + (ok ? '!{#6fe07a}[Удачно]' : '!{#ff6b6b}[Неудачно]'));
+    });
+});
+rpCmd('todo', function (p, t) {
+    const i = t.indexOf('*');
+    if (i < 1) return p.outputChatBox('!{#ffc93c}Использование: /todo Фраза*действие');
+    const say = t.slice(0, i).trim(), act = t.slice(i + 1).trim();
+    nearby(p, RP_RADIUS, function (x) { x.outputChatBox('!{#ffffff}— ' + say + ', !{#c78bff}— сказал' + (female(p) ? 'а' : '') + ' ' + seen(x, p) + ', ' + g(p, act)); });
+});
+rpCmd('b', function (p, t) {
+    nearby(p, RP_RADIUS, function (x) { x.outputChatBox('!{#9a9aa8}(( ' + seen(x, p) + ' [' + p.id + ']: ' + t + ' ))'); });
+});
+rpCmd('s', function (p, t) {
+    nearby(p, 35, function (x) { x.outputChatBox('!{#ffffff}' + seen(x, p) + ' кричит: ' + t + '!'); });
+});
+rpCmd('w', function (p, t) {
+    nearby(p, 3, function (x) { x.outputChatBox('!{#bdbdbd}' + seen(x, p) + ' шепчет: ' + t); });
+});
+
+function docRp(p, to, type) {
+    const r = DOC_RP[type] || DOC_RP.passport;
+    nearby(p, RP_RADIUS, function (x) {
+        const tn = x === to ? 'вам' : seen(x, to);
+        x.outputChatBox('!{#c78bff}' + seen(x, p) + ' ' + g(p, r[0].replace('{t}', tn)));
+    });
+    setTimeout(function () {
+        if (!mp.players.exists(p)) return;
+        nearby(p, RP_RADIUS, function (x) { x.outputChatBox('!{#7fd4ff}' + r[1] + ' (( ' + seen(x, p) + ' ))'); });
+    }, 700);
+    try { p.playAnimation('mp_common', 'givetake1_a', 8, 48); } catch (e) {}
+}
+
+global.SocialSystem = { learn: learn, seen: seen, knows: knows, sid: sid, me: rpMe, do: rpDo, docRp: docRp };
+console.log('[social] ники, статики, меню (G) и отыгровки /me /do /try /todo /b /s /w загружены');
 module.exports = global.SocialSystem;

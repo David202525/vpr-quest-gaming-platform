@@ -95,11 +95,13 @@ function setActive(on) {
     invoke('setTypingInChatState', active);
     if (active) {
         hPos = -1; draft = '';
+        if (window.mp && mp.trigger) mp.trigger('cef:chat:opened');
         setTimeout(function () { inp.focus(); }, 10);
     } else {
         inp.value = '';
         inp.blur();
         toBottom();
+        if (window.mp && mp.trigger) mp.trigger('cef:chat:closed');
     }
 }
 
@@ -115,14 +117,7 @@ function send() {
 }
 
 window.addEventListener('keydown', function (e) {
-    if (!active) {
-        if ((e.keyCode === 84 || e.keyCode === 191) && shown && !e.ctrlKey) {
-            e.preventDefault();
-            setActive(true);
-            if (e.keyCode === 191) setTimeout(function () { inp.value = '/'; }, 15);
-        }
-        return;
-    }
+    if (!active) return;
     if (e.keyCode === 13) { e.preventDefault(); send(); }
     else if (e.keyCode === 27) { e.preventDefault(); setActive(false); }
     else if (e.keyCode === 38) {
@@ -151,7 +146,11 @@ window.chatAPI = {
     push: push,
     clear: function () { list.innerHTML = ''; },
     activate: function (on) { allowed = !!on; if (!allowed) setActive(false); },
-    open: function () { setActive(true); },
+    open: function (slash) {
+        if (!shown || !allowed) { if (window.mp && mp.trigger) mp.trigger('cef:chat:closed'); return; }
+        setActive(true);
+        if (slash) setTimeout(function () { inp.value = '/'; inp.setSelectionRange(1, 1); }, 15);
+    },
     show: function (on) {
         shown = !!on;
         chat.classList.toggle('hidden', !shown);
@@ -162,6 +161,6 @@ window.chatAPI = {
 if (window.mp && mp.events && mp.events.add) {
     mp.events.add('chat:push', window.chatAPI.push);
     mp.events.add('chat:clear', window.chatAPI.clear);
-    mp.events.add('chat:activate', window.chatAPI.activate);
+    mp.events.add('chat:activate', function (on) { if (on) window.chatAPI.open(false); });
     mp.events.add('chat:show', window.chatAPI.show);
 }

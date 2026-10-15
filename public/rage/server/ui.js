@@ -2229,8 +2229,13 @@ mp.events.add('srv:docs:show', function (p, idx) {
     });
     if (!best) return notify(p, 'error', 'Рядом никого нет');
     sendDocs(best, p, Number(idx));
-    notify(p, 'ok', 'Вы показали «' + (DOC_TYPES[doc.t] || 'документ') + '» игроку ' + best.name);
-    notify(best, 'warn', p.name + ' показывает вам документ');
+    const S = global.SocialSystem;
+    if (S) {
+        if (doc.t === 'passport') S.learn(best, p);
+        S.docRp(p, best, doc.t);
+    }
+    notify(p, 'ok', 'Вы показали «' + (DOC_TYPES[doc.t] || 'документ') + '» игроку ' + (S ? S.seen(p, best) : best.name));
+    notify(best, 'warn', (S ? S.seen(best, p) : p.name) + ' показывает вам документ');
 });
 
 function findPl(s) {

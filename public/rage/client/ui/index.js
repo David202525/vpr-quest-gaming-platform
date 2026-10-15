@@ -24,13 +24,13 @@ function busy() {
     if (!uiOpen && mp.gui.cursor.visible && !freeCursor) return true;
     if (mp.players.local.isTypingInTextChat) return true;
     if (typeof admOpen !== 'undefined' && admOpen) return true;
-    if (global.intOpen) return true;
+    if (global.intOpen || global.chatOpen) return true;
     return false;
 }
 
 var jobMenuOpen = false;
 function cursorSync() {
-    if (global.authOpen || global.creatorOpen || global.intOpen) { mp.gui.cursor.show(true, true); return; }
+    if (global.authOpen || global.creatorOpen || global.intOpen || global.chatOpen) { mp.gui.cursor.show(true, true); return; }
     var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (typeof admOpen !== 'undefined' && admOpen);
     mp.gui.cursor.show(need, need);
 }

@@ -1,21 +1,46 @@
-mp.gui.chat.show(false);
-mp.gui.chat.activate(false);
 var chatBrowser = mp.browsers.new('package://cef/chat/index.html');
 chatBrowser.markAsChat();
+global.chatOpen = false;
 
 var nativeShow = mp.gui.chat.show.bind(mp.gui.chat);
 var nativeActivate = mp.gui.chat.activate.bind(mp.gui.chat);
+var chatAllowed = true;
+function chatExec(code) { if (chatBrowser) chatBrowser.execute(code); }
 try {
     mp.gui.chat.show = function (on) {
-        nativeShow(false);
-        chatBrowser.execute('window.chatAPI && window.chatAPI.show(' + (on ? 'true' : 'false') + ');');
+        nativeShow(!!on);
+        chatExec('window.chatAPI && window.chatAPI.show(' + (on ? 'true' : 'false') + ');');
     };
     mp.gui.chat.activate = function (on) {
-        nativeActivate(false);
-        chatBrowser.execute('window.chatAPI && window.chatAPI.activate(' + (on ? 'true' : 'false') + ');');
+        chatAllowed = !!on;
+        nativeActivate(!!on);
+        chatExec('window.chatAPI && window.chatAPI.activate(' + (on ? 'true' : 'false') + ');');
     };
 } catch (e) {}
-setTimeout(function () { nativeShow(false); nativeActivate(false); }, 1500);
+
+function chatOpen(slash) {
+    if (global.chatOpen || !chatAllowed) return;
+    if (global.authOpen || global.creatorOpen || global.intOpen) return;
+    if (mp.gui.cursor.visible) return;
+    if (typeof global.uiBusy === 'function' && global.uiBusy()) return;
+    if (typeof admOpen !== 'undefined' && admOpen) return;
+    global.chatOpen = true;
+    mp.gui.cursor.show(true, true);
+    chatExec('window.chatAPI && window.chatAPI.open(' + (slash ? 'true' : 'false') + ');');
+}
+mp.keys.bind(0x54, false, function () { chatOpen(false); });
+mp.keys.bind(0xBF, false, function () { chatOpen(true); });
+
+mp.events.add('cef:chat:opened', function () {
+    global.chatOpen = true;
+    if (!mp.gui.cursor.visible) mp.gui.cursor.show(true, true);
+});
+
+mp.events.add('cef:chat:closed', function () {
+    if (!global.chatOpen) return;
+    global.chatOpen = false;
+    if (typeof cursorSync === 'function') cursorSync(); else mp.gui.cursor.show(false, false);
+});
 
 mp.events.add('render', function () {
     mp.game.controls.disableControlAction(0, 245, true);
