@@ -12,6 +12,14 @@ var draft = '';
 var stick = true;
 
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function normalize(text) {
+    return String(text)
+        .replace(/<span[^>]*color\s*:\s*#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})[^>]*>/gi, '!{#$1}')
+        .replace(/<\/span>/gi, '!{#ffffff}')
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+}
 function colorize(text) {
     var out = '';
     var open = false;
@@ -35,6 +43,7 @@ function atBottom() { return list.scrollHeight - list.scrollTop - list.clientHei
 function toBottom() { list.scrollTop = list.scrollHeight; }
 
 function push(text) {
+    text = normalize(text);
     var keep = !active || atBottom();
     var d = document.createElement('div');
     d.className = 'msg';

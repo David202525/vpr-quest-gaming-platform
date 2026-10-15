@@ -1,5 +1,29 @@
+mp.gui.chat.show(false);
+mp.gui.chat.activate(false);
 var chatBrowser = mp.browsers.new('package://cef/chat/index.html');
 chatBrowser.markAsChat();
+
+var nativeShow = mp.gui.chat.show.bind(mp.gui.chat);
+var nativeActivate = mp.gui.chat.activate.bind(mp.gui.chat);
+try {
+    mp.gui.chat.show = function (on) {
+        nativeShow(false);
+        chatBrowser.execute('window.chatAPI && window.chatAPI.show(' + (on ? 'true' : 'false') + ');');
+    };
+    mp.gui.chat.activate = function (on) {
+        nativeActivate(false);
+        chatBrowser.execute('window.chatAPI && window.chatAPI.activate(' + (on ? 'true' : 'false') + ');');
+    };
+} catch (e) {}
+setTimeout(function () { nativeShow(false); nativeActivate(false); }, 1500);
+
+mp.events.add('render', function () {
+    mp.game.controls.disableControlAction(0, 245, true);
+    mp.game.controls.disableControlAction(0, 246, true);
+    mp.game.controls.disableControlAction(0, 247, true);
+    mp.game.controls.disableControlAction(0, 249, true);
+    mp.game.controls.disableControlAction(2, 245, true);
+});
 
 mp.nametags.enabled = false;
 
