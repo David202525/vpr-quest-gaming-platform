@@ -267,3 +267,59 @@ setInterval(function () {
         } else if (!c && p._cuffAnim) { p._cuffAnim = false; p.clearTasks(); }
     });
 }, 700);
+
+/* ===== быстрые действия полиции ===== */
+var copKeys = { cuff: 0x55, escort: 0x4A, car: 0x4B };
+var copBound = {};
+function copNearest(max) {
+    var me = mp.players.local, best = -1, bd = max;
+    mp.players.forEachInStreamRange(function (p) {
+        if (p === me || !p.handle || p.dimension !== me.dimension) return;
+        var d = mp.game.system.vdist(me.position.x, me.position.y, me.position.z, p.position.x, p.position.y, p.position.z);
+        if (d < bd) { bd = d; best = p.remoteId; }
+    });
+    return best;
+}
+function copBlocked() {
+    return global.chatOpen || global.authOpen || global.creatorOpen || global.introOpen || mp.gui.cursor.visible || mp.players.local.isTypingInTextChat;
+}
+function copFire(act) {
+    if (copBlocked() || !mp.players.local.getVariable('cop') || mp.players.local.vehicle) return;
+    mp.events.callRemote('srv:cop:act', act, copNearest(act === 'car' ? 6 : 3));
+}
+var copHandlers = { cuff: function () { copFire('cuff'); }, escort: function () { copFire('escort'); }, car: function () { copFire('car'); } };
+function copRebind() {
+    Object.keys(copBound).forEach(function (k) { try { mp.keys.unbind(copBound[k], false, copHandlers[k]); } catch (e) {} });
+    copBound = {};
+    Object.keys(copKeys).forEach(function (k) { if (copKeys[k]) { mp.keys.bind(copKeys[k], false, copHandlers[k]); copBound[k] = copKeys[k]; } });
+}
+copRebind();
+mp.events.add('cef:ui:keys', function (json) {
+    try {
+        var d = JSON.parse(json) || {};
+        ['cuff', 'escort', 'car'].forEach(function (k) { var c = Number(d[k]); if (c > 0 && c < 255) copKeys[k] = c; });
+        copRebind();
+    } catch (e) {}
+});
+
+var escortAttached = false;
+setInterval(function () {
+    var me = mp.players.local;
+    var by = me.getVariable('escortBy');
+    var cop = (by !== undefined && by !== null && by >= 0) ? mp.players.atRemoteId(by) : null;
+    if (cop && cop.handle && !me.vehicle) {
+        if (!escortAttached) {
+            me.attachTo(cop.handle, cop.getBoneIndex(11816), 0.3, 0.55, 0.0, 0, 0, 0, false, false, false, false, 2, true);
+            escortAttached = true;
+        }
+    } else if (escortAttached) {
+        me.detach(true, false);
+        escortAttached = false;
+    }
+}, 300);
+
+var hotelBlip = null;
+mp.events.add('spawn:hotel', function (x, y, z, n) {
+    if (hotelBlip) { try { hotelBlip.destroy(); } catch (e) {} }
+    hotelBlip = mp.blips.new(475, new mp.Vector3(x, y, z), { name: n + ' (/hotel)', color: 27, shortRange: true, scale: 0.8 });
+});

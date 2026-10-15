@@ -35,3 +35,27 @@ window.authInit = function (social) {
     ($('login').value ? $('pass') : $('login')).focus();
 };
 $('login').addEventListener('change', function () { try { localStorage.setItem('lastLogin', $('login').value.trim()); } catch (e) {} });
+
+var spSel = null;
+window.authSpawns = function (json) {
+    var d = typeof json === 'string' ? JSON.parse(json) : json;
+    card.style.display = 'none';
+    $('spawn').classList.add('show');
+    $('spName').textContent = d.name;
+    $('spList').innerHTML = d.list.map(function (o) {
+        return '<div class="sp-o" data-id="' + o.id + '"><span class="sp-i">' + o.i + '</span><div><b>' + o.n + '</b><small>' + o.d + '</small></div></div>';
+    }).join('');
+    var items = $('spList').querySelectorAll('.sp-o');
+    items.forEach(function (el) {
+        el.onclick = function () { spSel = el.dataset.id; items.forEach(function (x) { x.classList.toggle('on', x === el); }); $('spGo').disabled = false; };
+        el.ondblclick = function () { el.onclick(); spawnGo(); };
+    });
+    if (items[0]) items[0].onclick();
+};
+function spawnGo() {
+    if (!spSel) return;
+    $('spGo').disabled = true;
+    if (window.mp && mp.trigger) mp.trigger('cef:auth:spawn', spSel);
+}
+$('spGo').onclick = spawnGo;
+document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && $('spawn').classList.contains('show')) { e.stopImmediatePropagation(); spawnGo(); } }, true);

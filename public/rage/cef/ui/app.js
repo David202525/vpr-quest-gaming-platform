@@ -724,6 +724,34 @@ function menuBp(d) {
         }).join('') + '</div>';
 }
 
+var KB_DEF = { cuff: 85, escort: 74, car: 75 };
+var KB_BUSY = { 77: 'M', 73: 'I', 192: 'Ё', 69: 'E', 84: 'T', 71: 'G', 66: 'B', 76: 'L', 90: 'Z', 89: 'Y', 78: 'N', 87: 'W', 65: 'A', 83: 'S', 68: 'D', 70: 'F', 27: 'Esc', 13: 'Enter', 32: 'Пробел', 8: 'Backspace', 113: 'F2', 114: 'F3', 115: 'F4', 116: 'F5', 118: 'F7' };
+var kbWait = null;
+function copKeysGet() { try { return Object.assign({}, KB_DEF, JSON.parse(LS.get('cop_keys') || '{}')); } catch (e) { return Object.assign({}, KB_DEF); } }
+function keyName(c) {
+    if (c >= 65 && c <= 90) return String.fromCharCode(c);
+    if (c >= 48 && c <= 57) return String.fromCharCode(c);
+    if (c >= 96 && c <= 105) return 'Num ' + (c - 96);
+    if (c >= 112 && c <= 123) return 'F' + (c - 111);
+    return { 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 9: 'Tab', 20: 'Caps', 45: 'Insert', 46: 'Delete', 36: 'Home', 35: 'End', 33: 'PgUp', 34: 'PgDn', 186: ';', 222: "'", 188: ',', 190: '.', 191: '/', 219: '[', 221: ']', 220: '\\', 189: '-', 187: '=' }[c] || ('#' + c);
+}
+function copKeysSend() { trig('cef:ui:keys', JSON.stringify(copKeysGet())); }
+setTimeout(copKeysSend, 1600);
+document.addEventListener('keydown', function (e) {
+    if (!kbWait) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var c = e.keyCode, k = kbWait;
+    kbWait = null;
+    if (c === 27) return renderMenu();
+    if (KB_BUSY[c]) { trig('cef:ui:kbbusy', KB_BUSY[c]); return renderMenu(); }
+    var cur = copKeysGet();
+    Object.keys(cur).forEach(function (x) { if (x !== k && cur[x] === c) cur[x] = cur[k]; });
+    cur[k] = c;
+    LS.set('cop_keys', JSON.stringify(cur));
+    copKeysSend();
+    renderMenu();
+}, true);
+
 function menuSet() {
     var opts = [
         ['hud', 'Интерфейс на экране', 'Деньги, локация, время (то же, что F7)'],
@@ -732,9 +760,13 @@ function menuSet() {
         ['sound', 'Звук SMS', 'Звуковой сигнал при новом сообщении']
     ];
     var keys = [['M', 'Меню сервера'], ['I', 'Инвентарь'], ['Ё', 'Предметы рядом / багажник'], ['F3', 'Телефон'], ['F2', 'Курсор'], ['F7', 'Скрыть интерфейс'], ['T', 'Чат'], ['ESC', 'Закрыть окно'], ['Shift', 'Перетащить половину']];
+    var ck = copKeysGet();
+    var cops = [['cuff', 'Надеть / снять наручники'], ['escort', 'Вести за собой / отпустить'], ['car', 'Посадить в машину / вытащить']];
     return '<div class="set-grid">' + opts.map(function (o) {
         return '<div class="opt"><div><b>' + o[1] + '</b><small>' + o[2] + '</small></div><div class="sw' + (settings[o[0]] ? ' on' : '') + '" data-set="' + o[0] + '"></div></div>';
-    }).join('') + '</div><div class="keys">' + keys.map(function (k) { return '<div><kbd>' + k[0] + '</kbd>' + k[1] + '</div>'; }).join('') + '</div>';
+    }).join('') + '</div><div class="kb-h">Клавиши сотрудника полиции <small>Нажмите на клавишу, затем нужную кнопку на клавиатуре. Esc — отмена</small></div><div class="set-grid">' +
+        cops.map(function (c) { return '<div class="opt"><div><b>' + c[1] + '</b><small>Действие с ближайшим человеком</small></div><button class="kb' + (kbWait === c[0] ? ' wait' : '') + '" data-kb="' + c[0] + '">' + (kbWait === c[0] ? '...' : keyName(ck[c[0]])) + '</button></div>'; }).join('') +
+        '</div><button class="kb-reset" data-kbreset="1">Сбросить по умолчанию (U · J · K)</button><div class="keys">' + keys.map(function (k) { return '<div><kbd>' + k[0] + '</kbd>' + k[1] + '</div>'; }).join('') + '</div>';
 }
 
 function bindMenu() {
@@ -750,6 +782,8 @@ function bindMenu() {
     if (ei) ei.onchange = function () { exN = Math.max(1, Math.floor(Number(ei.value) || 1)); renderMenu(); };
     b.querySelectorAll('[data-ex]').forEach(function (x) { x.onclick = function () { trig('cef:menu:exchange', exN); }; });
     b.querySelectorAll('[data-claim]').forEach(function (x) { x.onclick = function () { trig('cef:menu:claim', Number(x.dataset.claim)); }; });
+    b.querySelectorAll('[data-kb]').forEach(function (x) { x.onclick = function () { kbWait = x.dataset.kb; renderMenu(); }; });
+    b.querySelectorAll('[data-kbreset]').forEach(function (x) { x.onclick = function () { LS.set('cop_keys', '{}'); kbWait = null; copKeysSend(); renderMenu(); }; });
     b.querySelectorAll('[data-set]').forEach(function (x) {
         x.onclick = function () {
             var k = x.dataset.set;

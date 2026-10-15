@@ -678,3 +678,5 @@ mp.events.add('job:findSpot', function (x, y, z, h) {
     try { gz = mp.game.gameplay.getGroundZFor3dCoord(best.p.x, best.p.y, best.p.z + 3, 0, false); } catch (e) {}
     mp.events.callRemote('srv:job:spot', best.p.x, best.p.y, gz > 0 ? gz : best.p.z, Number(best.h) || h);
 });
+
+mp.events.add('cef:ui:kbbusy', function (k) { mp.events.call('hud:notify', 'warn', 'Клавиша ' + k + ' уже занята другой функцией', 3000); });

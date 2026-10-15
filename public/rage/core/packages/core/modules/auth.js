@@ -81,6 +81,7 @@ async function enter(p, row) {
     p.accountId = row.id;
     await q('UPDATE accounts SET last_login = NOW(), social_club = ?, serial = ? WHERE id = ?', [p.socialClub || null, p.serial || null, row.id]);
     if (!row.nick) return global.CreatorSystem.start(p);
+    if (global.SpawnSystem && global.SpawnSystem.offer(p)) return;
     spawnPlayer(p);
 }
 
@@ -124,7 +125,7 @@ mp.events.add('auth:register', async function (p, login, pass) {
 
 function save(p, quit) {
     const a = p.account;
-    if (!a || !a.id || p.getVariable('creating')) return;
+    if (!a || !a.id || p.getVariable('creating') || p.spawnChoices) return;
     const pos = p.position;
     const mins = p.joinedAt ? Math.floor((Date.now() - p.joinedAt) / 60000) : 0;
     if (mins) p.joinedAt += mins * 60000;

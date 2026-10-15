@@ -37,6 +37,11 @@ mp.events.add('auth:show', function (social) {
     }, 700);
 });
 
+mp.events.add('auth:spawns', function (json) {
+    if (authBrowser) authBrowser.execute('window.authSpawns && window.authSpawns(' + JSON.stringify(json) + ');');
+});
+mp.events.add('cef:auth:spawn', function (id) { mp.events.callRemote('srv:auth:spawn', String(id)); });
+
 mp.events.add('auth:error', function (text) {
     if (authBrowser) authBrowser.execute('window.authError && window.authError(' + JSON.stringify(text) + ');');
 });
