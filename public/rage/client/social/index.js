@@ -112,7 +112,7 @@ function answer(yes) {
     mp.events.callRemote('srv:int:answer', yes);
 }
 mp.keys.bind(0x59, false, function () { var c = global.phoneCallState && global.phoneCallState(); if (c && c.st === 'ring' && !c.out && !mp.players.local.isTypingInTextChat) return mp.events.callRemote('srv:call:answer'); answer(true); });
-mp.keys.bind(0x4E, false, function () { var c = global.phoneCallState && global.phoneCallState(); if (c && !mp.players.local.isTypingInTextChat && (c.st === 'ring' || c.st === 'talk')) return mp.events.callRemote('srv:call:end'); answer(false); });
+mp.keys.bind(0x4E, false, function () { if (global.nDownAt && Date.now() - global.nDownAt > 350) return; var c = global.phoneCallState && global.phoneCallState(); if (c && !mp.players.local.isTypingInTextChat && (c.st === 'ring' || c.st === 'talk')) return mp.events.callRemote('srv:call:end'); answer(false); });
 
 mp.events.add('render', function () {
     if (!global.intOpen) return;

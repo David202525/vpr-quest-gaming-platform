@@ -343,3 +343,5 @@ mp.events.add('spawn:hotel', function (x, y, z, n) {
 });
 
 mp.events.add('hud:gm', function (on) { hudExec('window.hudGm && window.hudGm(' + (on ? 'true' : 'false') + ');'); });
+
+mp.events.add('hud:voice', function (json) { hudExec('window.hudVoice && window.hudVoice(' + json + ');'); });

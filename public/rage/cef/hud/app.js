@@ -151,3 +151,11 @@ window.hudGm = function (on) {
     if (!on) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'hudGm'; el.textContent = 'GM'; document.body.appendChild(el); }
 };
+
+window.hudVoice = function (d) {
+    var m = document.getElementById('vmic'); if (!m) return;
+    m.className = 'vmic' + (d.on ? ' on' : '') + (d.mega ? ' mega' : '') + (d.call ? ' call' : '');
+    if (d.x) m.style.left = d.x + '%';
+    if (d.y !== undefined) m.style.bottom = d.y + '%';
+    m.title = d.mega ? 'Мегафон' : 'Голосовой чат';
+};
