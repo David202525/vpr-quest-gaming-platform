@@ -17,6 +17,11 @@ function hotelPos() { return S.hotelPos || HOTEL_DEF; }
 function notify(p, type, text) { if (typeof global.hudNotify === 'function') global.hudNotify(p, type, text); else p.outputChatBox(text); }
 function hotelLeft(id) { const u = S.hotel[id]; return u && u > Date.now() ? u - Date.now() : 0; }
 
+function facHome(p) {
+    const G = global.GovFaction;
+    if (!G || typeof G.home !== 'function') return null;
+    try { const h = G.home(p); return h && isFinite(h.x) ? h : null; } catch (e) { return null; }
+}
 function options(p) {
     const id = sid(p), a = p.account, out = [];
     const q = S.quit[id];
@@ -25,6 +30,8 @@ function options(p) {
     }
     const home = global.HouseSystem && typeof global.HouseSystem.home === 'function' ? global.HouseSystem.home(p) : null;
     if (home && isFinite(home.x)) out.push({ id: 'home', n: home.n || 'Мой дом', d: home.d || 'Ваша недвижимость', i: home.flat ? '🏢' : '🏠' });
+    const fh = facHome(p);
+    if (fh) out.push({ id: 'faction', n: 'Фракция · ' + fh.n, d: fh.d, i: '🏛️' });
     const hl = hotelLeft(id);
     if (hl) out.push({ id: 'hotel', n: 'Гостиница', d: hotelPos().n + ' · ещё ' + Math.ceil(hl / 86400000) + ' дн.', i: '🛏️' });
     out.push({ id: 'airport', n: 'Аэропорт', d: 'Международный аэропорт Лос-Сантоса', i: '✈️' });
@@ -46,6 +53,7 @@ function apply(p, choice) {
     let pos = null, dim = 0;
     if (choice === 'last') { const q = S.quit[id]; if (q && Date.now() - q.t < LAST_MIN * 60000) { pos = q; dim = q.dim || 0; } }
     else if (choice === 'home') { const h = global.HouseSystem && global.HouseSystem.home ? global.HouseSystem.home(p) : null; if (h) { pos = h; dim = h.dim || 0; } }
+    else if (choice === 'faction') { const h = facHome(p); if (h) { pos = h; dim = 0; } }
     else if (choice === 'hotel') { if (hotelLeft(id)) { const r = global.HouseSystem ? global.HouseSystem.hotelRoom(p) : null; pos = r || hotelPos(); dim = r ? r.dim : 0; } }
     if (!pos) pos = AIRPORT;
     a.pos_x = pos.x; a.pos_y = pos.y; a.pos_z = pos.z; a.heading = pos.h || 0; a.dimension = dim;

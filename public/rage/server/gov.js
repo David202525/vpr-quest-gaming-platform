@@ -332,16 +332,37 @@ mp.events.add('srv:gov:point', function (p, f, k) {
     if (k === 'locker') return lockerOpen(p);
     if (k === 'garage') return garageOpen(p);
 });
+const DEF_HOME = {
+    lspd: [457.0, -990.5, 30.69, 90, 'Полицейский участок Mission Row'],
+    sheriff: [1853.5, 3687.0, 34.27, 210, 'Офис шерифа Sandy Shores'],
+    fib: [120.0, -735.5, 242.15, 340, 'Штаб FIB'],
+    army: [-2345.0, 3268.0, 32.8, 240, 'Военная база Форт Занкудо'],
+    gov: [-544.8, -204.4, 38.2, 210, 'Мэрия Лос-Сантоса'],
+    news: [-598.5, -929.7, 23.87, 90, 'Офис Weazel News'],
+    medic: [311.5, -593.5, 43.28, 340, 'Больница Pillbox Hill'],
+    ems: [311.5, -593.5, 43.28, 340, 'Больница Pillbox Hill']
+};
+function factionHome(p) {
+    const f = p.account && p.account.job;
+    if (!f || !NAMES[f]) return null;
+    if (global.AdminCore && global.AdminCore.factionOff && global.AdminCore.factionOff(f)) return null;
+    const d = DEF_HOME[f];
+    const x = isGovF(f) ? F(f) : null;
+    const h = x && x.points && x.points.home ? x.points.home : (d || (x && x.points && x.points.locker ? x.points.locker : null));
+    if (!h) return null;
+    return { x: h[0], y: h[1], z: h[2], h: h[3] || 0, n: NAMES[f], d: (d && d[4]) || 'База фракции', dim: 0 };
+}
 mp.events.addCommand('govpoint', function (p, full) {
     if (admLvl(p) < 7) return;
     const a = String(full || '').trim().split(/\s+/);
     const f = a[0], k = a[1];
-    if (!DEF_RANKS[f] || ['armory', 'locker', 'garage', 'spawn', 'clearspawns'].indexOf(k) < 0) return p.outputChatBox('!{#ffcc66}/govpoint [' + Object.keys(DEF_RANKS).join('/') + '] [armory/locker/garage/spawn/clearspawns]');
+    if (!DEF_RANKS[f] || ['armory', 'locker', 'garage', 'spawn', 'clearspawns', 'home'].indexOf(k) < 0) return p.outputChatBox('!{#ffcc66}/govpoint [' + Object.keys(DEF_RANKS).join('/') + '] [armory/locker/garage/spawn/clearspawns/home] — home: место появления сотрудников');
     const x = F(f);
     if (!x.points) x.points = { spawns: [] };
     const pos = [p.position.x, p.position.y, p.position.z];
     if (k === 'spawn') { x.points.spawns.push([pos[0], pos[1], pos[2], p.heading || 0]); }
     else if (k === 'clearspawns') x.points.spawns = [];
+    else if (k === 'home') x.points.home = [pos[0], pos[1], pos[2], p.heading || 0];
     else x.points[k] = pos;
     mark();
     mp.players.forEach(sendPoints);
@@ -828,5 +849,5 @@ async function adminFac(p, d, by) {
     return { err: 'Неизвестное действие' };
 }
 
-global.GovFaction = { rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac };
+global.GovFaction = { rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');
