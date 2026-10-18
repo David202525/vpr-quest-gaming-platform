@@ -999,6 +999,12 @@ function pact(p, d, t) {
     if (a === 'skin') { if (!chk('skin')) return true; if (!t) return T('Нет игрока', false); t.model = mp.joaat(String(d.value)); log(p, 'skin', login(t), d.value); return T('Скин выдан', true); }
     if (a === 'screen') { if (!chk('screen')) return true; A.runCmd(p, 'screen ' + d.id); return T('Запрос отправлен', true); }
     if (a === 'takelic') { if (!chk('takelic')) return true; A.runCmd(p, 'takelic ' + d.id + ' ' + d.type + ' ' + (Number(d.minutes) || 0) + ' ' + (d.reason || '')); return T('Лицензия отобрана', true); }
+    if (a === 'coins') {
+        if (A.lvl(p) < 8) return T('Выдача доната — с 8 уровня', false);
+        if (!global.UiSystem || !global.UiSystem.addCoins) return T('Модуль доната не загружен', false);
+        const r = global.UiSystem.addCoins(p, t ? String(t.id) : '#' + d.s, Number(d.sum));
+        return typeof r === 'string' ? T(r, false) : T(r.ok, true);
+    }
     if (a === 'money2') { if (!chk('givemoney')) return true; moneyOp(p, t, d.s, Number(d.sum), !!d.bank).then(function (e) { T(e || 'Готово', !e); }); return true; }
     if (a === 'bankinfo') { if (!chk('bankcheck')) return true; if (!t) return T('Нет игрока', false); const MS = global.MoneySystem; return T(nick(t) + ': наличные ' + money(MS ? MS.get(t) : 0) + ', банк ' + money(MS ? MS.bank(t) : 0), true); }
     if (a === 'nickhist') { if (!chk('nickhistory')) return true; const l = S.nicks[t ? sid(t) : d.s] || []; return T(l.length ? l.map(function (x) { return x.n; }).join(' → ') : 'Истории нет', true); }

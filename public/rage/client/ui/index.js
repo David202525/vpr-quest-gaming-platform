@@ -478,8 +478,39 @@ function jobSnapBus(x, y, z) {
     if (jobBlip) { try { jobBlip.setCoords(new mp.Vector3(nx, ny, nz)); jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {} }
     mp.events.callRemote('srv:job:busfix', nx, ny, nz);
 }
+function jobGround(x, y, z) {
+    var best = 0;
+    [z + 3, z + 40, z + 150].some(function (h) {
+        var g = 0;
+        try { g = mp.game.gameplay.getGroundZFor3dCoord(x, y, h, 0, false); } catch (e) {}
+        if (g > 0) { best = g; return true; }
+        return false;
+    });
+    return best;
+}
+function jobSnapDrop(x, y, z) {
+    var best = null;
+    try {
+        var r = mp.game.pathfind.getClosestVehicleNodeWithHeading(x, y, z, 0, 0, 1, 3, 0);
+        if (r && r.outPosition && Math.abs(r.outPosition.x) + Math.abs(r.outPosition.y) > 1) best = { p: r.outPosition, h: r.outHeading };
+    } catch (e) {}
+    var nx = x, ny = y, nz = z;
+    if (best && Math.hypot(best.p.x - x, best.p.y - y) < 60) {
+        var rad = (Number(best.h) || 0) * Math.PI / 180;
+        var sx = Math.cos(rad), sy = Math.sin(rad);
+        var a = { x: best.p.x + sx * 6, y: best.p.y + sy * 6 }, b = { x: best.p.x - sx * 6, y: best.p.y - sy * 6 };
+        var pick = Math.hypot(a.x - x, a.y - y) <= Math.hypot(b.x - x, b.y - y) ? a : b;
+        nx = pick.x; ny = pick.y; nz = best.p.z;
+    }
+    var g = jobGround(nx, ny, nz);
+    if (g > 0) nz = g;
+    if (jobPt && jobPt.kind === 'drop') { jobPt.x = nx; jobPt.y = ny; jobPt.z = nz; }
+    if (jobBlip) { try { jobBlip.setCoords(new mp.Vector3(nx, ny, nz)); jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {} }
+    mp.events.callRemote('srv:job:dropfix', nx, ny, nz);
+}
 mp.events.add('job:point', function (x, y, z, r, label, kind, extra) {
-    jobPt = { x: x, y: y, z: z, r: r, label: label, kind: kind };
+    jobPt = { x: x, y: y, z: z, r: r, label: label, kind: kind, gz: 0 };
+    if (kind === 'drop' && extra === 'snap') setTimeout(function () { jobSnapDrop(x, y, z); }, 50);
     jobPlantClear();
     if (kind === 'pick' && extra) {
         try {
@@ -584,7 +615,7 @@ mp.keys.bind(0x45, false, function () {
         if (jobPt.kind === 'trunk') return mp.events.call('hud:notify', 'warn', 'Подойдите к задним дверям фургона', 2500);
     }
     if (jobPt && jobPt.kind !== 'bus' && jobPt.kind !== 'trunk') {
-        var d = mp.game.system.vdist(p.position.x, p.position.y, p.position.z, jobPt.x, jobPt.y, jobPt.z);
+        var d = jobPt.kind === 'drop' ? Math.hypot(p.position.x - jobPt.x, p.position.y - jobPt.y) : mp.game.system.vdist(p.position.x, p.position.y, p.position.z, jobPt.x, jobPt.y, jobPt.z);
         if (d <= Math.max(2.5, jobPt.r + 1)) { mp.events.callRemote('srv:job:here'); return; }
     }
     if (jobBaseNear) mp.events.callRemote('srv:job:base', jobBaseNear[0]);
@@ -615,6 +646,8 @@ mp.events.add('render', function () {
         var ddx = pos.x - jobPt.x, ddy = pos.y - jobPt.y;
         if (ddx * ddx + ddy * ddy < 6400) {
             var r = jobPt.r * 2;
+            if (!jobPt.gz && ddx * ddx + ddy * ddy < 3600) { var g0 = jobGround(jobPt.x, jobPt.y, jobPt.z); jobPt.gz = g0 > 0 ? g0 : -1; if (g0 > 0 && Math.abs(g0 - jobPt.z) > 2.5 && jobPt.kind === 'bus') jobPt.z = g0; }
+            if (jobPt.kind === 'bus' && Math.abs(pos.z - jobPt.z) > 4 && ddx * ddx + ddy * ddy < 400) jobPt.z = pos.z - (mp.players.local.vehicle ? 0.5 : 0);
             mp.game.graphics.drawMarker(1, jobPt.x, jobPt.y, jobPt.z - 1, 0, 0, 0, 0, 0, 0, r, r, 0.6, 255, 204, 102, 120, false, false, 2, false, null, null, false);
             if (jobPt.kind !== 'bus') mp.game.graphics.drawMarker(2, jobPt.x, jobPt.y, jobPt.z + 0.6, 0, 0, 0, 180, 0, 0, 0.35, 0.35, 0.35, 255, 204, 102, 200, true, true, 2, false, null, null, false);
         }

@@ -275,6 +275,15 @@ function courierToTrunk(p) {
     p.call('job:point', [r.x, r.y, r.z, 1.4, 'Погрузить ящик в фургон (E)', 'trunk', '']);
     quest(p, 'Курьер · погрузка', ['Ящик в руках — несите к задним дверям фургона', 'В фургоне: ' + s.loaded.length + '/' + VAN_CAP, 'С ящиком в руках за руль сесть нельзя']);
 }
+function dp(s) { const d = s.dest; return s.destFix && s.destFix.d === d ? s.destFix : { x: d[1], y: d[2], z: d[3] }; }
+mp.events.add('srv:job:dropfix', function (p, x, y, z) {
+    const s = p.job;
+    if (!s || s.id !== 'courier' || !s.dest) return;
+    x = Number(x); y = Number(y); z = Number(z);
+    if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return;
+    if (Math.hypot(s.dest[1] - x, s.dest[2] - y) > 70) return;
+    s.destFix = { x: x, y: y, z: z, d: s.dest };
+});
 function courierRoute(p) {
     const s = p.job;
     s.phase = 'deliver';
@@ -282,12 +291,13 @@ function courierRoute(p) {
     const pos = s.veh && mp.vehicles.exists(s.veh) ? s.veh.position : p.position;
     s.loaded.sort(function (a, b) { return dist(pos, a.d[1], a.d[2], a.d[3]) - dist(pos, b.d[1], b.d[2], b.d[3]); });
     const t = s.loaded[0];
+    if (s.dest !== t.d) s.destFix = null;
     s.dest = t.d; s.price = t.price;
     if (s.hands === 'deliver') {
-        p.call('job:point', [t.d[1], t.d[2], t.d[3], 2.5, 'Отдать посылку (E)', 'drop', '']);
+        p.call('job:point', [dp(s).x, dp(s).y, dp(s).z, 2.5, 'Отдать посылку (E)', 'drop', s.destFix ? 'fixed' : 'snap']);
         quest(p, 'Курьер · доставка', ['Отнесите посылку: ' + t.d[0], 'Оплата: $' + t.price]);
     } else {
-        p.call('job:point', [t.d[1], t.d[2], t.d[3], 2.5, 'Адрес: ' + t.d[0], 'drop', 'van']);
+        p.call('job:point', [dp(s).x, dp(s).y, dp(s).z, 2.5, 'Адрес: ' + t.d[0], 'drop', s.destFix ? 'fixed' : 'snap']);
         quest(p, 'Курьер · доставка', ['Адрес: ' + t.d[0] + ' ($' + t.price + ')', 'На месте достаньте посылку из задних дверей фургона (E)', 'Осталось посылок: ' + s.loaded.length]);
     }
 }
@@ -323,7 +333,7 @@ mp.events.add('srv:job:trunk', function (p) {
         }, 1200);
     } else if (s.phase === 'deliver' && !s.hands) {
         const d = s.dest;
-        if (!d || dist(s.veh.position, d[1], d[2], d[3]) > 60) return notify(p, 'warn', 'Подъедьте ближе к адресу доставки');
+        if (!d || Math.hypot(s.veh.position.x - dp(s).x, s.veh.position.y - dp(s).y) > 60) return notify(p, 'warn', 'Подъедьте ближе к адресу доставки');
         s.busy = true;
         p.call('job:anim', ['box', 0]);
         setTimeout(function () { if (!mp.players.exists(p) || p.job !== s) return; s.busy = false; s.hands = 'deliver'; courierRoute(p); }, 700);
@@ -393,7 +403,9 @@ mp.events.add('srv:job:here', function (p) {
             s.sorting = setTimeout(function () { if (mp.players.exists(p) && p.job === s && s.sorting) { s.sorting = null; s.busy = false; } }, 15000);
         } else {
             const d = s.dest;
-            if (!d || dist(p.position, d[1], d[2], d[3]) > 4) return;
+            if (!d) return;
+            const pt = dp(s);
+            if (Math.hypot(p.position.x - pt.x, p.position.y - pt.y) > 4.5) return;
             if (s.hands !== 'deliver') return notify(p, 'warn', 'Сначала достаньте посылку из задних дверей фургона');
             s.busy = true;
             p.call('job:anim', ['give', 2000]);
@@ -420,7 +432,7 @@ setInterval(function () {
         const r = ROUTES[s.route];
         const S = routeStops(s.route);
         const st = s.cur;
-        if (!st || Math.hypot(v.position.x - st.x, v.position.y - st.y) > 8 || Math.abs(v.position.z - st.z) > 6) return;
+        if (!st || Math.hypot(v.position.x - st.x, v.position.y - st.y) > 9) return;
         let spd = 0;
         try { spd = v.velocity ? Math.hypot(v.velocity.x, v.velocity.y) : 0; } catch (e) {}
         if (spd > 4) return;

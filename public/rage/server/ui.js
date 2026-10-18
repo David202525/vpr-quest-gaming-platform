@@ -824,17 +824,36 @@ mp.events.add('srv:menu:lic', function (p, k) {
 mp.events.add('srv:menu:pack', function (p) {
     notify(p, 'info', 'Пополнение коинов — через администрацию сервера (/report)');
 });
-mp.events.addCommand('givecoins', function (p, full, id, n) {
-    if (adminLvl(p) < 8) return;
-    const t = mp.players.at(Number(id));
+function coinTarget(s) {
+    s = String(s || '').trim();
+    if (!s) return null;
+    if (s[0] === '#') { const id = Number(s.slice(1)); return { k: 'a' + id, p: mp.players.toArray().find(function (x) { return accId(x) === id; }) || null, name: '#' + id }; }
+    const t = mp.players.at(Number(s));
+    return t && mp.players.exists(t) ? { k: key(t), p: t, name: t.name } : null;
+}
+function addCoins(admin, s, n) {
     n = Math.floor(Number(n));
-    if (!t || !isFinite(n) || !n) return p.outputChatBox('!{#ffcc66}/givecoins [ID] [кол-во] (минус — забрать)');
-    const d = data(t);
+    const T = coinTarget(s);
+    if (!T || !isFinite(n) || !n) return 'Использование: /givedonate [ID или #static] [кол-во RC] (минус — забрать)';
+    let d = T.p ? data(T.p) : store[T.k];
+    if (!d) return 'Игрок ' + T.name + ' не найден в базе';
     d.coins = Math.max(0, (d.coins || 0) + n);
     mark();
-    p.outputChatBox('!{#8fd14f}' + t.name + ': баланс ' + d.coins + ' RC');
-    if (n > 0) notify(t, 'ok', 'Вам начислено ' + n + ' RC');
-    if (global.AdminSystem && global.AdminSystem.log) try { global.AdminSystem.log(p, 'givecoins', t.name + ' ' + n); } catch (e) {}
+    if (T.p) {
+        notify(T.p, n > 0 ? 'ok' : 'warn', n > 0 ? 'Вам начислено ' + n + ' RC (донат)' : 'Списано ' + (-n) + ' RC');
+        sendMenu(T.p);
+    }
+    if (global.SLog) try { global.SLog.add('donate', { actor: admin, action: n > 0 ? 'give' : 'take', amount: n, details: T.name + ' → ' + d.coins + ' RC' }); } catch (e) {}
+    if (global.AdminSystem && global.AdminSystem.log) try { global.AdminSystem.log(admin, 'givecoins', T.name + ' ' + n); } catch (e) {}
+    return { ok: T.name + ': ' + (n > 0 ? '+' : '') + n + ' RC · баланс ' + d.coins + ' RC' };
+}
+['givecoins', 'givedonate', 'donate'].forEach(function (c) {
+    mp.events.addCommand(c, function (p, full, id, n) {
+        if (adminLvl(p) < 8) return p.outputChatBox('!{#e05555}Выдача доната — с 8 уровня администрации');
+        const r = addCoins(p, id, n);
+        if (typeof r === 'string') return p.outputChatBox('!{#ffcc66}' + r);
+        p.outputChatBox('!{#8fd14f}' + r.ok);
+    });
 });
 mp.events.addCommand('givevip', function (p, full, id, k, days) {
     if (adminLvl(p) < 8) return;
@@ -1456,7 +1475,7 @@ function redress(p) {
     SLOTS.forEach(function (s) { if (s !== 'armour' && s !== 'phone') applyCloth(p, s, d.equip[s] || null); });
 }
 global.UiPhone = { data: data, store: store, mark: mark, sendPhone: sendPhone, sendMenu: sendMenu, key: key, online: online };
-global.UiSystem = { showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
+global.UiSystem = { addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 

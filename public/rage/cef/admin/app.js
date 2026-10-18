@@ -30,7 +30,7 @@ var CMDS = [
     [6, '/hpmarker [hp/armour], /hpmarkerdel', 'Маркеры'], [6, '/traffic', 'Светофоры'],
     [7, '/unban [логин]', 'Разбан'], [7, '/permban [id|#static] [причина]', 'Глобальный бан'], [7, '/nickhistory [id|#static]', 'История ников'], [7, '/bank [id|#static]', 'Деньги игрока'],
     [7, '/aoff, /aon', 'Админка вкл/выкл'], [7, '/skin [id] [модель]', 'Скин'], [7, '/greenzone, /gzadd, /gzdel', 'Зелёные зоны'],
-    [8, '/logs [поиск]', 'Логи'], [8, '/setadmin [id|логин|static] [0-7]', 'Назначить админа (можно офлайн)'], [8, '/factionoff, /factionon', 'Закрыть фракцию'], [8, '/flock [функция]', 'Отключить функцию'],
+    [8, '/logs [поиск]', 'Логи'], [8, '/givedonate [id|#static] [RC]', 'Выдать/забрать донат (минус — забрать)'], [8, '/setadmin [id|логин|static] [0-7]', 'Назначить админа (можно офлайн)'], [8, '/factionoff, /factionon', 'Закрыть фракцию'], [8, '/flock [функция]', 'Отключить функцию'],
     [9, '/gm2, /takemoney [id|#static] [сумма] [bank]', 'Деньги'], [9, '/exobj [модель]', 'Эксклюзивный маппинг'], [9, '/setga, /unga', 'ГА'], [9, '/joboff [работа]', 'Отключить работу']
 ];
 var MP_WEAPONS = [['weapon_pistol', 'Пистолет'], ['weapon_smg', 'SMG'], ['weapon_carbinerifle', 'Карабин'], ['weapon_pumpshotgun', 'Дробовик'], ['weapon_sniperrifle', 'Снайперка'], ['weapon_knife', 'Нож'], ['weapon_bat', 'Бита'], ['weapon_rpg', 'RPG']];
@@ -130,7 +130,7 @@ function renderDetail() {
         '<div class="act-group"><div class="g">Руководство</div><div class="act-btns">' +
         btn('HP', 'hpset') + btn('Броня', 'armourset') + btn('Оружие', 'weapon') + btn('Скин', 'skin') + btn('Банк', 'bankinfo') + btn('Ники', 'nickhist') + '</div></div>' +
         '<div class="act-group"><div class="g">Экономика</div><div class="act-btns" style="grid-template-columns:1fr 1fr">' +
-        btn('Деньги ±', 'money2') + btn('Выдать машину', 'givecar') + '</div></div>';
+        btn('Деньги ±', 'money2') + btn('Выдать машину', 'givecar') + btn('Донат RC ±', 'coins') + '</div></div>';
 }
 
 function modal(title, sub, body, okText, onOk) {
@@ -222,6 +222,12 @@ function playerAction(a) {
             if (!r) { window.admToast('Укажи причину', false); return false; }
             act({ action: 'wantedset', id: p.id, stars: chipValue('ws'), reason: r });
         });
+    } else if (a === 'coins') {
+        modal('Донат-валюта (RC)', who, '<label>Количество RC (минус — забрать)</label><input id="mSum" type="number" placeholder="500">', 'Применить', function () {
+            var n = Number($('mSum').value);
+            if (!n) { window.admToast('Укажи количество', false); return false; }
+            act({ action: 'coins', id: p.id, sum: n });
+        });
     } else if (a === 'money2') {
         modal('Деньги', who, '<label>Сумма (минус — забрать)</label><input id="mSum" type="number"><label class="check"><input type="checkbox" id="mBank"> На банковский счёт</label>', 'Применить', function () {
             act({ action: 'money2', id: p.id, sum: Number($('mSum').value), bank: $('mBank').checked });
@@ -230,7 +236,7 @@ function playerAction(a) {
         act({ action: a, id: p.id });
     }
 }
-var EXT_PERM = { wantedset: 3, wantedclear: 3, cuff: 3, uncuff: 3, prisonrelease: 3, spec: 1, screen: 6, eject: 4, fixp: 3, dim: 3, setname: 3, jail: 3, takelic: 3, permban: 7, hpset: 6, armourset: 6, weapon: 6, skin: 7, bankinfo: 7, nickhist: 7, money2: 9 };
+var EXT_PERM = { wantedset: 3, wantedclear: 3, cuff: 3, uncuff: 3, prisonrelease: 3, spec: 1, screen: 6, eject: 4, fixp: 3, dim: 3, setname: 3, jail: 3, takelic: 3, permban: 7, hpset: 6, armourset: 6, weapon: 6, skin: 7, bankinfo: 7, nickhist: 7, money2: 9, coins: 8 };
 
 function rowsHtml(list, fn, empty) { return list.length ? list.map(fn).join('') : '<div class="empty">' + (empty || 'Пусто') + '</div>'; }
 function ago(ms) { var s = Math.floor(ms / 1000); if (s < 60) return s + ' сек'; if (s < 3600) return Math.floor(s / 60) + ' мин'; return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' м'; }

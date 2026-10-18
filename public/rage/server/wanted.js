@@ -162,6 +162,40 @@ mp.events.addCommand('arrest', function (p, full) {
     slog(p, 'arrest', nick(t));
 });
 
+/* ---------- изъятие лицензий ---------- */
+const COP_LICS = { drive: 'Водительское удостоверение', gun: 'Лицензия на оружие' };
+function revokeLic(p, t, type, reason) {
+    if (!isCop(p)) return 'Доступно только LSPD, FIB и шерифу';
+    if (!COP_LICS[type]) return '/revoke [id] [drive/gun] [причина]';
+    if (!near(p, t, 4)) return 'Подойдите к человеку ближе';
+    const U = global.UiSystem;
+    if (!U || !U.hasDoc || !U.takeDoc) return 'Модуль документов не загружен';
+    if (!U.hasDoc(t, type)) return 'У ' + nick(t) + ' нет документа: ' + COP_LICS[type];
+    U.takeDoc(t, type);
+    reason = String(reason || '').replace(/[<>!{}]/g, '').trim().slice(0, 80) || 'нарушение';
+    notify(t, 'error', 'Офицер ' + nick(p) + ' изъял у вас: ' + COP_LICS[type] + ' (' + reason + ')');
+    notify(p, 'ok', 'Изъято у ' + nick(t) + ': ' + COP_LICS[type]);
+    mp.players.forEachInRange(p.position, 15, function (x) { if (x.dimension === p.dimension) x.outputChatBox('!{#c78bff}' + nick(p) + ' изъял ' + (type === 'gun' ? 'лицензию на оружие' : 'водительское удостоверение') + ' у ' + nick(t)); });
+    slog(p, 'revoke', nick(t) + ' · ' + type + ' · ' + reason);
+    return null;
+}
+['revoke', 'takelicense', 'izyat'].forEach(function (c) {
+    mp.events.addCommand(c, function (p, full) {
+        if (!copOnly(p)) return;
+        const a = String(full || '').trim().split(/\s+/);
+        const t = find(a[0]);
+        if (!t || !COP_LICS[String(a[1] || '').toLowerCase()]) return notify(p, 'warn', '/revoke [id] [drive/gun] [причина]');
+        const e = revokeLic(p, t, String(a[1]).toLowerCase(), a.slice(2).join(' '));
+        if (e) notify(p, 'warn', e);
+    });
+});
+mp.events.add('srv:cop:revoke', function (p, tid, type) {
+    const t = mp.players.at(Number(tid));
+    if (!t || !mp.players.exists(t)) return;
+    const e = revokeLic(p, t, String(type), '');
+    if (e) notify(p, 'warn', e);
+});
+
 /* ---------- быстрые клавиши полиции ---------- */
 function freeSeat(v) {
     const occ = (v.getOccupants ? v.getOccupants() : []).map(function (x) { return x.seat; });

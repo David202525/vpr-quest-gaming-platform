@@ -228,15 +228,17 @@ mp.events.add('render', function () {
 });
 
 /* ===== слежка ===== */
-var specId = -1, specCam = null;
+var specId = -1, specCam = null, specYaw = 0, specPitch = 15, specZoom = 4;
 mp.events.add('adm:spec', function (id, name) {
     specId = Number(id);
+    specPitch = 15; specZoom = 4;
+    try { var gr = mp.game.cam.getGameplayCamRot(2); specYaw = gr.z; } catch (e) { specYaw = 0; }
     var lp = mp.players.local;
     lp.freezePosition(true); lp.setAlpha(0); lp.setCollision(false, false); lp.setInvincible(true);
     if (!specCam) specCam = mp.cameras.new('admSpec', lp.position, new mp.Vector3(0, 0, 0), 60);
     specCam.setActive(true);
     mp.game.cam.renderScriptCams(true, false, 0, true, false);
-    mp.gui.chat.push('!{#7fd4ff}Слежка за ' + name + '. /specoff или Backspace — выйти');
+    mp.gui.chat.push('!{#7fd4ff}Слежка за ' + name + '. Мышь — вращать камеру, колесо — приблизить/отдалить. /specoff или Backspace — выйти');
 });
 mp.events.add('adm:specOff', function () {
     specId = -1;
@@ -252,10 +254,22 @@ mp.events.add('render', function () {
     var t = mp.players.atRemoteId ? mp.players.atRemoteId(specId) : mp.players.at(specId);
     if (!t || !t.handle) return;
     var tp = t.vehicle ? t.vehicle.position : t.position;
-    var r = mp.game.cam.getGameplayCamRot(2);
-    var rad = r.z * Math.PI / 180, dist = t.vehicle ? 7 : 4;
-    specCam.setCoord(tp.x + Math.sin(rad) * dist, tp.y - Math.cos(rad) * dist, tp.z + (t.vehicle ? 2.2 : 1.2));
-    specCam.pointAtCoord(tp.x, tp.y, tp.z + 0.5);
+    if (!mp.gui.cursor.visible) {
+        var mx = mp.game.controls.getDisabledControlNormal(0, 1), my = mp.game.controls.getDisabledControlNormal(0, 2);
+        specYaw -= mx * 8; specPitch = Math.max(-75, Math.min(70, specPitch - my * 6));
+        if (mp.game.controls.isDisabledControlPressed(0, 241)) specZoom = Math.max(1.5, specZoom - 0.4);
+        if (mp.game.controls.isDisabledControlPressed(0, 242)) specZoom = Math.min(25, specZoom + 0.4);
+    }
+    [1, 2, 24, 25, 14, 15, 16, 17, 241, 242, 261, 262, 37, 140, 141, 142].forEach(function (c) { mp.game.controls.disableControlAction(0, c, true); });
+    var dist = specZoom * (t.vehicle ? 1.8 : 1);
+    var yr = specYaw * Math.PI / 180, pr = specPitch * Math.PI / 180;
+    var fz = tp.z + (t.vehicle ? 1.0 : 0.6);
+    var cx = tp.x + Math.sin(yr) * Math.cos(pr) * dist, cy = tp.y - Math.cos(yr) * Math.cos(pr) * dist, cz = fz + Math.sin(pr) * dist;
+    var g = 0;
+    try { g = mp.game.gameplay.getGroundZFor3dCoord(cx, cy, cz + 1, 0, false); } catch (e) {}
+    if (g > 0 && cz < g + 0.3) cz = g + 0.3;
+    specCam.setCoord(cx, cy, cz);
+    specCam.pointAtCoord(tp.x, tp.y, fz);
     mp.game.streaming.setFocusArea(tp.x, tp.y, tp.z, 0, 0, 0);
     mp.game.graphics.drawText('СЛЕЖКА: ' + t.name + ' [' + specId + ']  HP ' + t.getHealth() + '  AR ' + t.getArmour(), [0.5, 0.92], { font: 4, color: [127, 212, 255, 230], scale: [0.42, 0.42], outline: true });
 });
