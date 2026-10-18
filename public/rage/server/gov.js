@@ -850,5 +850,30 @@ async function adminFac(p, d, by) {
     return { err: 'Неизвестное действие' };
 }
 
+/* ---- дорожные камеры: проезд на красный ---- */
+const RED_FINE = 300;
+mp.events.add('playerReady', function (p) { p.call('traffic:sync', [Date.now()]); });
+setInterval(function () { const t = Date.now(); mp.players.forEach(function (p) { p.call('traffic:sync', [t]); }); }, 300000);
+mp.events.add('srv:traffic:red', function (p, x, y) {
+    const v = p.vehicle;
+    if (!v || !mp.vehicles.exists(v) || (p.seat !== 0 && p.seat !== -1)) return;
+    const id = sid(p);
+    if (!id) return;
+    if (p._redAt && Date.now() - p._redAt < 45000) return;
+    if ((Number(v.getVariable('siren')) || 0) > 0) return;
+    x = Number(x); y = Number(y);
+    if (!isFinite(x) || !isFinite(y) || Math.hypot(p.position.x - x, p.position.y - y) > 60) return;
+    p._redAt = Date.now();
+    const plate = String(v.numberPlate || '').trim();
+    const fn = { id: G.seq++, s: id, sum: RED_FINE, r: 'Проезд на красный свет' + (plate ? ' (' + plate + ')' : ''), by: 'Дорожная камера', f: 'lspd', at: Date.now(), paid: false };
+    G.fines.push(fn);
+    if (G.fines.length > 3000) G.fines.splice(0, G.fines.length - 3000);
+    if (!G.records[id]) G.records[id] = [];
+    G.records[id].push({ t: Date.now(), x: 'Штраф ' + money(RED_FINE) + ': проезд на красный', by: 'Дорожная камера', f: NAMES.lspd || 'LSPD' });
+    mark();
+    notify(p, 'warn', '📸 Дорожная камера: проезд на красный. Штраф ' + money(RED_FINE) + '. Оплатить: /fines');
+    p.call('traffic:flash');
+});
+
 global.GovFaction = { rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');
