@@ -9,6 +9,14 @@ setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FIL
 const MAX = 5;
 const MIN_PER_STAR = 10;
 const COPS = ['lspd', 'sheriff', 'fib'];
+const APT_FILE = path.join(__dirname, 'arrest_points.json');
+const APT_DEF = [{ n: 'КПЗ Mission Row', x: 459.9, y: -994.2, z: 24.9 }];
+let APT = (function () { try { const a = JSON.parse(fs.readFileSync(APT_FILE, 'utf8')); return Array.isArray(a) && a.length ? a : null; } catch (e) { return null; } })() || APT_DEF.slice();
+const APT_R = 8;
+function aptSave() { try { fs.writeFileSync(APT_FILE, JSON.stringify(APT)); } catch (e) {} }
+function aptSend(p) { const j = JSON.stringify(APT); if (p) p.call('cop:arrestPts', [j]); else mp.players.forEach(function (x) { x.call('cop:arrestPts', [j]); }); }
+function atKpz(p) { return APT.some(function (a) { return Math.hypot(p.position.x - a.x, p.position.y - a.y) <= APT_R && Math.abs(p.position.z - a.z) <= 4; }); }
+mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) aptSend(p); }, 4000); });
 const STATIONS = [[441.0, -982.0, 30.7], [1853.0, 3686.0, 34.3], [-447.0, 6013.0, 31.7], [-1092.0, -809.0, 19.3], [370.0, -1608.0, 29.3]];
 
 function acc(p) { return p.account || p.admAcc || null; }
@@ -154,8 +162,13 @@ mp.events.addCommand('arrest', function (p, full) {
     const t = find(full);
     if (!near(p, t, 4)) return notify(p, 'warn', '/arrest [id] — задержанный должен быть рядом');
     if (!t.getVariable('cuffed')) return notify(p, 'warn', 'Сначала наденьте наручники (/cuff)');
-    const st = STATIONS.some(function (s) { return Math.hypot(p.position.x - s[0], p.position.y - s[1]) < 35; });
-    if (!st) return notify(p, 'warn', 'Арестовать можно только у полицейского участка');
+    const a = acc(p);
+    if (a && a.job === 'lspd') {
+        if (!atKpz(p)) return notify(p, 'warn', 'Сотрудники LSPD оформляют арест только у КПЗ в отделе (жёлтая метка, подвал Mission Row)');
+    } else {
+        const st = STATIONS.some(function (s) { return Math.hypot(p.position.x - s[0], p.position.y - s[1]) < 35; });
+        if (!st) return notify(p, 'warn', 'Арестовать можно только у полицейского участка');
+    }
     const e = arrest(p, t);
     if (e) return notify(p, 'error', e);
     notify(p, 'ok', 'Задержанный отправлен в тюрьму');
@@ -281,5 +294,25 @@ function setById(id, stars, reason, by) {
 }
 function list() { return Object.keys(store).map(function (k) { const r = store[k]; return { s: Number(k), stars: r.s, r: r.r, by: r.by, d: r.d }; }); }
 function info(id) { return store[Number(id)] || null; }
+mp.events.addCommand('arrestpt', function (p, full) {
+    if (admLvl(p) < 5) return notify(p, 'error', 'Доступно с 5 уровня администрации');
+    const m = String(full || '').trim().match(/^(\S+)\s*(.*)$/);
+    const cmd = m ? m[1] : '';
+    if (cmd === 'add') {
+        APT.push({ n: (m[2] || 'КПЗ').slice(0, 40), x: p.position.x, y: p.position.y, z: p.position.z });
+        aptSave(); aptSend();
+        return notify(p, 'ok', 'Точка ареста LSPD добавлена (всего ' + APT.length + ')');
+    }
+    if (cmd === 'del') {
+        const i = Number(m[2]) - 1;
+        if (!APT[i]) return notify(p, 'warn', 'Нет точки с таким номером — /arrestpt list');
+        if (APT.length === 1) return notify(p, 'warn', 'Нельзя удалить последнюю точку');
+        APT.splice(i, 1); aptSave(); aptSend();
+        return notify(p, 'ok', 'Точка удалена');
+    }
+    if (cmd === 'reset') { APT = APT_DEF.slice(); aptSave(); aptSend(); return notify(p, 'ok', 'Точки ареста сброшены к стандартной'); }
+    if (cmd === 'list') return APT.forEach(function (a, i) { p.outputChatBox('!{#ffffff}' + (i + 1) + '. ' + a.n + ' !{#888}(' + a.x.toFixed(1) + ', ' + a.y.toFixed(1) + ', ' + a.z.toFixed(1) + ')'); });
+    p.outputChatBox('!{#ffcc66}/arrestpt add [название] — точка ареста на вашем месте · /arrestpt list · /arrestpt del [№] · /arrestpt reset');
+});
 global.WantedSystem = { setById: setById, list: list, info: info, get: get, set: set, add: add, cuff: cuff, arrest: arrest, pact: pact, MIN_PER_STAR: MIN_PER_STAR };
 console.log('[wanted] розыск и наручники загружены');

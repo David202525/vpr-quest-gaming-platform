@@ -92,3 +92,18 @@ mp.events.add('gov:track', function (x, y, r, name) {
     if (tabOpen) tabShow(false);
 });
 mp.events.add('gov:tabToast', function (t, ok) { if (tabBrowser && tabOpen) tabBrowser.execute('window.tabToast && window.tabToast(' + JSON.stringify(t) + ',' + (Number(ok) ? 'true' : 'false') + ');'); else mp.events.call('hud:notify', Number(ok) ? 'ok' : 'error', t, 4000); });
+
+var arrestPts = [];
+mp.events.add('cop:arrestPts', function (j) { try { arrestPts = JSON.parse(j) || []; } catch (e) {} });
+mp.events.add('render', function () {
+    if (!arrestPts.length) return;
+    var me = mp.players.local;
+    if (me.getVariable('fac') !== 'lspd') return;
+    var pos = me.position;
+    arrestPts.forEach(function (a) {
+        var d = Math.hypot(pos.x - a.x, pos.y - a.y);
+        if (d > 30 || Math.abs(pos.z - a.z) > 6) return;
+        mp.game.graphics.drawMarker(1, a.x, a.y, a.z - 1, 0, 0, 0, 0, 0, 0, 16, 16, 0.4, 255, 204, 102, 60, false, false, 2, false, null, null, false);
+        if (d < 10) mp.game.graphics.drawText('Зона ареста · /arrest [id]', [a.x, a.y, a.z + 0.4], { font: 4, color: [255, 204, 102, 230], scale: [0.35, 0.35], outline: true, centre: true });
+    });
+});
