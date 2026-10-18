@@ -61,6 +61,47 @@ function intClose() {
     mp.gui.chat.activate(true);
 }
 
+var SEAT_DOORS = ['door_pside_f', 'door_dside_r', 'door_pside_r'];
+function nearestVehicle(max) {
+    var me = mp.players.local, best = null, bd = max;
+    mp.vehicles.forEachInStreamRange(function (v) {
+        if (!v.handle || v.dimension !== me.dimension) return;
+        var d = mp.game.system.vdist(me.position.x, me.position.y, me.position.z, v.position.x, v.position.y, v.position.z);
+        if (d < bd) { bd = d; best = v; }
+    });
+    return best ? { v: best, d: bd } : null;
+}
+function enterAsPassenger() {
+    var me = mp.players.local;
+    if (me.getVariable('cuffed')) return false;
+    var nv = nearestVehicle(5.5);
+    if (!nv) return false;
+    var pl = nearest();
+    if (pl) {
+        var dp = mp.game.system.vdist(me.position.x, me.position.y, me.position.z, pl.position.x, pl.position.y, pl.position.z);
+        if (dp < 1.6 && dp < nv.d - 1) return false;
+    }
+    var v = nv.v, max = 0;
+    try { max = v.getMaxNumberOfPassengers(); } catch (e) { max = 1; }
+    if (max < 1) { mp.events.call('hud:notify', 'warn', 'В этом транспорте нет мест для пассажира', 2500); return true; }
+    var best = -2, bd = 1e9;
+    for (var s = 0; s < max; s++) {
+        var free = true;
+        try { free = v.isSeatFree(s); } catch (e) {}
+        if (!free) continue;
+        var d = 0;
+        try {
+            var bi = SEAT_DOORS[s] ? v.getBoneIndexByName(SEAT_DOORS[s]) : -1;
+            if (bi >= 0) { var bp = v.getWorldPositionOfBone(bi); d = mp.game.system.vdist(me.position.x, me.position.y, me.position.z, bp.x, bp.y, bp.z); }
+            else d = 50 + s;
+        } catch (e) { d = 50 + s; }
+        if (d < bd) { bd = d; best = s; }
+    }
+    if (best < -1) { mp.events.call('hud:notify', 'warn', 'Свободных мест нет', 2500); return true; }
+    try { me.taskEnterVehicle(v.handle, 6000, best, 1.0, 1, 0); } catch (e) { return false; }
+    return true;
+}
+
 function intOpenMenu() {
     var t = nearest();
     if (!t) { mp.events.call('hud:notify', 'warn', 'Рядом никого нет', 2500); return; }
@@ -86,10 +127,12 @@ mp.keys.bind(0x47, false, function () {
     if (global.authOpen || global.creatorOpen) return;
     if (global.intOpen) { intClose(); return; }
     var me = mp.players.local;
-    if (me.isTypingInTextChat || me.vehicle || me.isDead()) return;
+    if (me.isTypingInTextChat || me.isDead()) return;
+    if (me.vehicle) return;
     if (typeof global.uiBusy === 'function' && global.uiBusy()) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (mp.gui.cursor.visible) return;
+    if (enterAsPassenger()) return;
     intOpenMenu();
 });
 

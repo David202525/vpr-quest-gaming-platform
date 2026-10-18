@@ -80,7 +80,7 @@ async function enter(p, row) {
     p.account = row;
     p.accountId = row.id;
     await q('UPDATE accounts SET last_login = NOW(), social_club = ?, serial = ? WHERE id = ?', [p.socialClub || null, p.serial || null, row.id]);
-    if (!row.nick) return global.CreatorSystem.start(p);
+    if (!row.nick || !row.appearance) return global.CreatorSystem.start(p);
     if (global.SpawnSystem && global.SpawnSystem.offer(p)) return;
     spawnPlayer(p);
 }

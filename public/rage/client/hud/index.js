@@ -166,6 +166,7 @@ setInterval(function () {
     }
     if (now && !atStation) mp.events.call('hud:notify', 'ok', 'Колонка рядом: нажмите E, чтобы заправиться', 5000);
     atStation = now;
+    global.fuelStationNear = !!now;
 }, 500);
 mp.events.add('render', function () {
     var v = mp.players.local.vehicle;

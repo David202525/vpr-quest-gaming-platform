@@ -155,7 +155,8 @@ async function loadAcc(p) {
     if (!p || loading[p.id] || p.admAcc) return;
     loading[p.id] = true;
     let rows = [];
-    const nickVariants = [p.name, String(p.name).replace(/_/g, ' '), String(p.name).replace(/ /g, '_')];
+    if (p.account && p.account.id) rows = await q('SELECT * FROM accounts WHERE id = ? LIMIT 1', [p.account.id]);
+    const nickVariants = p.account ? [] : [p.name, String(p.name).replace(/_/g, ' '), String(p.name).replace(/ /g, '_')];
     for (let i = 0; i < nickVariants.length && !rows.length; i++) {
         rows = await q('SELECT * FROM accounts WHERE nick = ? LIMIT 1', [nickVariants[i]]);
     }
@@ -217,10 +218,6 @@ async function loadAcc(p) {
         ban_reason: r.ban_reason,
         ban_until: Number(r.ban_until) || 0
     };
-    if (p.admAcc.id && !p.admAcc.nick && /^[A-Za-zА-Яа-яЁё]+[ _][A-Za-zА-Яа-яЁё]+$/.test(p.name)) {
-        p.admAcc.nick = String(p.name).replace(/_/g, ' ');
-        q('UPDATE accounts SET nick = ? WHERE id = ? AND (nick IS NULL OR nick = \'\')', [p.admAcc.nick, p.admAcc.id]);
-    }
     if (p.admAcc.admin > 0) {
         msg(p, 'Вы вошли как ' + rankName(p.admAcc.admin) + '. F4 — админ-панель', rankColor(p.admAcc.admin));
     }
@@ -790,29 +787,8 @@ function need(p, t, usage) {
     return true;
 }
 
-mp.events.add('creator:finish', function (p, firstname, lastname) {
-    const nick = String(firstname || '').trim() + ' ' + String(lastname || '').trim();
-    if (nick.trim().length < 3) return;
-    setTimeout(async function () {
-        if (!mp.players.exists(p)) return;
-        let a = acc(p);
-        if (!a || !a.id) {
-            p.admAcc = null;
-            await loadAcc(p);
-            a = acc(p);
-        }
-        if (!a || !a.id) {
-            const r = p.socialClub ? await q('SELECT id FROM accounts WHERE social_club = ? ORDER BY last_login DESC LIMIT 1', [p.socialClub]) : [];
-            if (!r.length) return console.log('[admin] ник ' + nick + ': аккаунт не найден');
-            await q('UPDATE accounts SET nick = ? WHERE id = ?', [nick, r[0].id]);
-        } else {
-            a.nick = nick;
-            await q('UPDATE accounts SET nick = ? WHERE id = ?', [nick, a.id]);
-        }
-        console.log('[admin] ник сохранён: ' + nick);
-        p.admAcc = null;
-        loadAcc(p);
-    }, 2000);
+mp.events.add('creator:finish', function (p) {
+    setTimeout(function () { if (mp.players.exists(p)) { p.admAcc = null; loadAcc(p); } }, 2500);
 });
 
 mp.events.addCommand('alevel', function (p) {
