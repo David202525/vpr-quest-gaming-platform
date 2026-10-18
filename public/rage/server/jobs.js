@@ -350,7 +350,7 @@ function busNext(p) {
     const r = ROUTES[s.route];
     const S = routeStops(s.route);
     const st = S[s.stop];
-    s.cur = { n: st[0], x: st[1], y: st[2], z: st[3] };
+    s.cur = { n: st[0], x: st[1], y: st[2], z: st[3], ox: st[1], oy: st[2] };
     p.call('job:point', [st[1], st[2], st[3], 7, 'Остановка: ' + st[0], 'bus', store._routes[s.route] ? 'nosnap' : '']);
     const nx = S[s.stop + 1];
     quest(p, 'Автобус ' + r.n, ['Остановка ' + s.stop + '/' + (S.length - 1) + ': ' + st[0], nx ? 'Следующая: ' + nx[0] : 'Последняя — возврат в депо', 'Остановитесь в круге — пассажиры сядут сами']);
@@ -360,7 +360,7 @@ mp.events.add('srv:job:busfix', function (p, x, y, z) {
     if (!s || s.id !== 'bus' || !s.cur) return;
     x = Number(x); y = Number(y); z = Number(z);
     if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return;
-    if (dist(s.cur, x, y, z) > 45) return;
+    if (Math.hypot(s.cur.ox - x, s.cur.oy - y) > 80) return;
     s.cur.x = x; s.cur.y = y; s.cur.z = z;
 });
 
@@ -423,39 +423,46 @@ mp.events.add('srv:job:here', function (p) {
         }
     }
 });
-setInterval(function () {
-    mp.players.forEach(function (p) {
-        const s = p.job;
-        if (!s || s.id !== 'bus' || s.busy) return;
-        const v = p.vehicle;
-        if (!v || v !== s.veh) return;
-        const r = ROUTES[s.route];
-        const S = routeStops(s.route);
-        const st = s.cur;
-        if (!st || Math.hypot(v.position.x - st.x, v.position.y - st.y) > 9) return;
-        let spd = 0;
-        try { spd = v.velocity ? Math.hypot(v.velocity.x, v.velocity.y) : 0; } catch (e) {}
-        if (spd > 4) return;
-        s.busy = true;
-        notify(p, 'ok', 'Остановка «' + st.n + '» — посадка пассажиров…');
-        p.call('job:busStop', [5000]);
-        setTimeout(function () {
-            if (!mp.players.exists(p) || p.job !== s) return;
-            s.busy = false;
-            const lv = lvlInfo(p, 'bus');
-            pay(p, r.stopPay * lv.mult, 'bus');
-            addXp(p, 'bus', 1);
-            s.stop++;
-            if (s.stop >= S.length) {
-                const b = Math.round(r.bonus * lvlInfo(p, 'bus').mult);
-                pay(p, b, 'bus');
-                notify(p, 'ok', 'Круг пройден! Бонус $' + b + '. Начинаем новый круг');
-                s.stop = 1;
-            }
-            busNext(p);
-        }, 5000);
-    });
-}, 700);
+function busArrive(p, cx, cy) {
+    const s = p.job;
+    if (!s || s.id !== 'bus' || s.busy) return;
+    const v = p.vehicle;
+    if (!v || !s.veh || !mp.vehicles.exists(s.veh) || v.id !== s.veh.id) return;
+    const r = ROUTES[s.route];
+    const S = routeStops(s.route);
+    const st = s.cur;
+    if (!st) return;
+    let ok = Math.hypot(v.position.x - st.x, v.position.y - st.y) <= 12 || Math.hypot(v.position.x - st.ox, v.position.y - st.oy) <= 12;
+    if (!ok && isFinite(cx) && isFinite(cy) && Math.hypot(cx - st.ox, cy - st.oy) <= 80 && Math.hypot(v.position.x - cx, v.position.y - cy) <= 14) ok = true;
+    if (!ok) return;
+    let spd = 0;
+    try { spd = v.velocity ? Math.hypot(v.velocity.x, v.velocity.y) : 0; } catch (e) {}
+    if (spd > 5) return;
+    s.busy = true;
+    notify(p, 'ok', 'Остановка «' + st.n + '» — посадка пассажиров…');
+    p.call('job:busStop', [5000]);
+    setTimeout(function () {
+        if (!mp.players.exists(p) || p.job !== s) return;
+        s.busy = false;
+        const lv = lvlInfo(p, 'bus');
+        pay(p, r.stopPay * lv.mult, 'bus');
+        addXp(p, 'bus', 1);
+        s.stop++;
+        if (s.stop >= S.length) {
+            const b = Math.round(r.bonus * lvlInfo(p, 'bus').mult);
+            pay(p, b, 'bus');
+            notify(p, 'ok', 'Круг пройден! Бонус $' + b + '. Начинаем новый круг');
+            s.stop = 1;
+        }
+        busNext(p);
+    }, 5000);
+}
+mp.events.add('srv:job:busAt', function (p, x, y) {
+    if (p._busAt && Date.now() - p._busAt < 800) return;
+    p._busAt = Date.now();
+    busArrive(p, Number(x), Number(y));
+});
+setInterval(function () { mp.players.forEach(function (p) { if (p.job && p.job.id === 'bus') busArrive(p, NaN, NaN); }); }, 700);
 
 /* ---------- потеря машины / выход ---------- */
 mp.events.add('playerExitVehicle', function (p, v) {

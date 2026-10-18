@@ -560,6 +560,18 @@ mp.events.add('cef:job:sort', function (ok) {
     mp.events.callRemote('srv:job:boxres', Number(ok) ? 1 : 0);
 });
 mp.events.add('job:busStop', function (ms) { jobBusUntil = Date.now() + Number(ms); });
+setInterval(function () {
+    if (!jobPt || jobPt.kind !== 'bus' || jobBusUntil > Date.now()) return;
+    var p = mp.players.local, v = p.vehicle;
+    if (!v) return;
+    try { if (v.getPedInSeat(-1) !== p.handle) return; } catch (e) { return; }
+    var d = Math.hypot(v.position.x - jobPt.x, v.position.y - jobPt.y);
+    if (d > jobPt.r + 3) return;
+    var sp = 0;
+    try { sp = v.getSpeed(); } catch (e) {}
+    if (sp > 5) return;
+    mp.events.callRemote('srv:job:busAt', jobPt.x, jobPt.y);
+}, 900);
 
 function jobLoadAnim(dict, cb) {
     mp.game.streaming.requestAnimDict(dict);

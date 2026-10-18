@@ -118,7 +118,7 @@ function noclipStart() {
     flyStartPos = p.position;
     var pos = p.position;
     var rot = mp.game.cam.getGameplayCamRot(2);
-    noclipCam = mp.cameras.new('admFly', new mp.Vector3(pos.x, pos.y, pos.z + 1), new mp.Vector3(rot.x, 0, rot.z), 60);
+    noclipCam = mp.cameras.new('DEFAULT_SCRIPTED_CAMERA', new mp.Vector3(pos.x, pos.y, pos.z + 1), new mp.Vector3(rot.x, 0, rot.z), 60);
     noclipCam.setActive(true);
     mp.game.cam.renderScriptCams(true, false, 0, true, false);
     p.freezePosition(true);
@@ -166,6 +166,7 @@ mp.keys.bind(0x08, false, function () { if (noclip && !mp.gui.cursor.visible) no
 mp.events.add('render', function () {
     if (!noclip || !noclipCam) return;
     var p = mp.players.local;
+    try { if (!mp.game.invoke('0x02EC0AF5C5A49B7A', noclipCam.handle)) { noclipCam.setActive(true); mp.game.cam.renderScriptCams(true, false, 0, true, false); } } catch (e) {}
     mp.game.controls.disableAllControlActions(0);
     [245, 249, 1, 2, 241, 242].forEach(function (k) { mp.game.controls.enableControlAction(0, k, true); });
     if (mp.gui.cursor.visible) return;
@@ -207,7 +208,7 @@ mp.events.add('adm:flyWatch', function (id) {
     }
     if (!watchCam) {
         var p = mp.players.local.position;
-        watchCam = mp.cameras.new('admWatch', new mp.Vector3(p.x, p.y, p.z + 2), new mp.Vector3(0, 0, 0), 60);
+        watchCam = mp.cameras.new('DEFAULT_SCRIPTED_CAMERA', new mp.Vector3(p.x, p.y, p.z + 2), new mp.Vector3(0, 0, 0), 60);
         watchCam.setActive(true);
         mp.game.cam.renderScriptCams(true, false, 0, true, false);
     }
@@ -235,7 +236,7 @@ mp.events.add('adm:spec', function (id, name) {
     try { var gr = mp.game.cam.getGameplayCamRot(2); specYaw = gr.z; } catch (e) { specYaw = 0; }
     var lp = mp.players.local;
     lp.freezePosition(true); lp.setAlpha(0); lp.setCollision(false, false); lp.setInvincible(true);
-    if (!specCam) specCam = mp.cameras.new('admSpec', lp.position, new mp.Vector3(0, 0, 0), 60);
+    if (!specCam) specCam = mp.cameras.new('DEFAULT_SCRIPTED_CAMERA', lp.position, new mp.Vector3(0, 0, 0), 60);
     specCam.setActive(true);
     mp.game.cam.renderScriptCams(true, false, 0, true, false);
     mp.gui.chat.push('!{#7fd4ff}Слежка за ' + name + '. Мышь — вращать камеру, колесо — приблизить/отдалить. /specoff или Backspace — выйти');
@@ -251,6 +252,7 @@ mp.events.add('adm:specOff', function () {
 mp.keys.bind(0x08, false, function () { if (specId >= 0 && !mp.gui.cursor.visible) mp.events.callRemote('srv:adm:specoff'); });
 mp.events.add('render', function () {
     if (specId < 0 || !specCam) return;
+    try { if (!mp.game.invoke('0x02EC0AF5C5A49B7A', specCam.handle)) { specCam.setActive(true); mp.game.cam.renderScriptCams(true, false, 0, true, false); } } catch (e) {}
     var t = mp.players.atRemoteId ? mp.players.atRemoteId(specId) : mp.players.at(specId);
     if (!t || !t.handle) return;
     var tp = t.vehicle ? t.vehicle.position : t.position;
