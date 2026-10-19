@@ -319,8 +319,9 @@ mp.events.add('srv:gov:car', function (p, m) {
     const spList = isAir ? (x.points.air && x.points.air.length ? x.points.air : (f === 'army' ? DEF_AIR : [])) : (x.points.spawns || []);
     if (isAir && !spList.length) return notify(p, 'warn', 'Нет площадки для авиации — администратор: /govpoint ' + f + ' air');
     const sp = spList.find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v.dimension === 0 && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < (isAir ? 12 : 3); }); });
+    if (!isAir && !spList.length) return notify(p, 'warn', 'Нет парковки для машин — администратор: /armypark car');
     if (!sp) return notify(p, 'warn', 'Все парковочные места заняты');
-    const v = mp.vehicles.new(mp.joaat(m), V(sp[0], sp[1], sp[2]), { heading: sp[3] || 0, numberPlate: (NAMES[f] || 'GOV').slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: 0, locked: false, engine: false });
+    const v = mp.vehicles.new(mp.joaat(m), V(sp[0], sp[1], sp[2] + (isAir ? 0.5 : 0.3)), { heading: sp[3] || 0, numberPlate: (NAMES[f] || 'GOV').slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: 0, locked: false, engine: false });
     v.setVariable('faction', f); v.setVariable('gov', f); v.setVariable('govModel', m); v.setVariable('govOwner', s);
     try { v.setColor(f === 'fib' ? 0 : 111, f === 'fib' ? 0 : 0); } catch (e) {}
     v.adminSpawned = false;
@@ -399,6 +400,53 @@ mp.events.addCommand('govpoint', function (p, full) {
     mark();
     mp.players.forEach(sendPoints);
     p.outputChatBox('!{#8fd14f}Точка ' + k + ' для ' + f + ' сохранена');
+});
+mp.events.addCommand('armypark', function (p, full) {
+    if (admLvl(p) < 5) return notify(p, 'error', 'Доступно с 5 уровня администрации');
+    const a = String(full || '').trim().split(/\s+/);
+    const x = F('army');
+    if (!x.points) x.points = JSON.parse(JSON.stringify(DEF_POINTS.army));
+    const P = x.points;
+    const m = function (t) { p.outputChatBox('!{#9bd36a}[АРМИЯ] !{#ffffff}' + t); };
+    const isDef = function (l) { return JSON.stringify(l || []) === JSON.stringify(DEF_POINTS.army.spawns); };
+    const pt = function () { return [p.position.x, p.position.y, p.position.z, p.vehicle ? p.vehicle.heading : (p.heading || 0)]; };
+    const done = function (t) { mark(); mp.players.forEach(sendPoints); m(t); };
+    if (a[0] === 'car') {
+        if (isDef(P.spawns)) P.spawns = [];
+        P.spawns.push(pt());
+        return done('Место для машин №' + P.spawns.length + ' добавлено. Машина встанет носом туда, куда смотрите вы');
+    }
+    if (a[0] === 'air') {
+        if (!P.air) P.air = [];
+        P.air.push(pt());
+        return done('Место для авиации №' + P.air.length + ' добавлено. Ставьте места не ближе 15 м друг к другу');
+    }
+    if (a[0] === 'del') {
+        let best = null, bd = 15;
+        [['spawns', 'машин'], ['air', 'авиации']].forEach(function (k) {
+            (P[k[0]] || []).forEach(function (z, i) { const d = Math.hypot(p.position.x - z[0], p.position.y - z[1]); if (d < bd) { bd = d; best = [k[0], i, k[1]]; } });
+        });
+        if (!best) return m('Рядом (15 м) нет мест спавна');
+        P[best[0]].splice(best[1], 1);
+        return done('Ближайшее место для ' + best[2] + ' удалено');
+    }
+    if (a[0] === 'clear') {
+        if (a[1] === 'car') { P.spawns = []; return done('Все места для машин удалены. Добавьте новые: /armypark car'); }
+        if (a[1] === 'air') { P.air = []; return done('Все места для авиации удалены. Добавьте новые: /armypark air'); }
+        return m('/armypark clear car или /armypark clear air');
+    }
+    if (a[0] === 'gps') {
+        const l = a[1] === 'air' ? (P.air && P.air.length ? P.air : DEF_AIR) : P.spawns;
+        const z = l[(Number(a[2]) || 1) - 1];
+        if (!z) return m('Нет такого места');
+        p.call('phone:gps', [z[0], z[1], 'Место спавна']);
+        return m('Метка поставлена на карте');
+    }
+    const air = P.air && P.air.length ? P.air : null;
+    m('Машины: ' + (P.spawns || []).length + ' мест' + (isDef(P.spawns) ? ' (стандартные)' : '') + ' · Авиация: ' + (air ? air.length + ' мест' : 'стандартные ' + DEF_AIR.length));
+    m('Встаньте (или сядьте в технику) на нужном месте лицом по направлению:');
+    m('/armypark car — место для машин · /armypark air — для самолётов и вертолётов');
+    m('/armypark del — удалить ближайшее · clear car / clear air — удалить все · gps car|air [№] — показать на карте');
 });
 mp.events.addCommand('setfaction', async function (p, full) {
     if (admLvl(p) < 5) return;
