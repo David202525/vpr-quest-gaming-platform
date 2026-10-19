@@ -802,7 +802,6 @@ mp.events.add('srv:menu:exchange', function (p, n) {
     sendMenu(p);
 });
 const DON_LICS = [
-    { k: 'drive', n: 'Водительское удостоверение', d: 'Категории A, B, C · на 10 лет', price: 150, img: '🚗', blk: 'drive' },
     { k: 'gun', n: 'Лицензия на оружие', d: 'Покупка оружия в Ammu-Nation · на 5 лет', price: 400, img: '🔫', blk: 'gun' },
     { k: 'med', n: 'Медицинская книжка', d: 'Нужна для трудоустройства · на 1 год', price: 80, img: '🩺' },
     { k: 'psych', n: 'Справка от психиатра', d: 'Нужна для лицензии на оружие · на 1 год', price: 80, img: '🧠' }
@@ -1477,7 +1476,16 @@ function redress(p) {
     SLOTS.forEach(function (s) { if (s !== 'armour' && s !== 'phone') applyCloth(p, s, d.equip[s] || null); });
 }
 global.UiPhone = { data: data, store: store, mark: mark, sendPhone: sendPhone, sendMenu: sendMenu, key: key, online: online };
-global.UiSystem = { addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
+function driveCats(p) { const x = docList(data(p)).find(function (z) { return z.t === 'drive'; }); return x ? (x.cats || ['A', 'B', 'C', 'D']) : []; }
+function addDriveCat(p, cat, by) {
+    const have = driveCats(p).slice();
+    if (have.indexOf(cat) < 0) have.push(cat);
+    if (cat === 'B' && have.indexOf('A') < 0) have.unshift('A');
+    have.sort();
+    giveDoc(p, 'drive', { cats: have }, by);
+    return have;
+}
+global.UiSystem = { driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
@@ -2255,7 +2263,7 @@ function makeDoc(t, opt, by) {
     opt = opt || {};
     const base = { t: t, num: dnum(6), issued: dstr(Date.now()), by: by || 'Мэрия Лос-Сантоса' };
     if (t === 'passport') { base.series = dnum(4); base.until = yearsLater(10); }
-    if (t === 'drive') { base.cats = opt.cats || ['A', 'B', 'C']; base.until = yearsLater(10); }
+    if (t === 'drive') { base.cats = opt.cats || ['A', 'B', 'C', 'D']; base.until = yearsLater(10); }
     if (t === 'military') { base.rank = opt.rank || 'Рядовой'; base.unit = opt.unit || 'В/Ч 2178'; base.fit = opt.fit || 'А — годен'; }
     if (t === 'med') { base.status = opt.status || 'Здоров'; base.until = yearsLater(1); base.blood = ['O(I) Rh+', 'A(II) Rh+', 'B(III) Rh+', 'AB(IV) Rh+'][Math.floor(Math.random() * 4)]; }
     if (t === 'psych') { base.status = opt.status || 'На учёте не состоит'; base.until = yearsLater(1); }

@@ -8,7 +8,7 @@ function stars(n) { var h = ''; for (var i = 1; i <= 5; i++) h += i <= n ? '★'
 function act(o) { trig('cef:tab:act', JSON.stringify(o)); }
 
 var D = null, page = 'home', found = null, plate = null, memFilter = '';
-var COL = { lspd: '#2f6fff', sheriff: '#b8892b', fib: '#555c6b', army: '#4f6b2f', gov: '#b8892b', news: '#d9541e' };
+var COL = { lic: '#2fae9f', lspd: '#2f6fff', sheriff: '#b8892b', fib: '#555c6b', army: '#4f6b2f', gov: '#b8892b', news: '#d9541e' };
 
 window.tabData = function (json) {
     D = typeof json === 'string' ? JSON.parse(json) : json;
@@ -38,6 +38,14 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if
 
 function nav() {
     var items = [['home', '🏠', 'Главная'], ['members', '👥', 'Состав'], ['squads', '🛡️', 'Отряды']];
+    if (D.lite) {
+        items = [['members', '👥', 'Состав']];
+        if (D.me.lead) items.push(['ranks', '🎖️', 'Ранги']);
+        if (['members', 'ranks'].indexOf(page) < 0) page = 'members';
+        $('nav').innerHTML = items.map(function (x) { return '<button data-p="' + x[0] + '" class="' + (page === x[0] ? 'on' : '') + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('');
+        $('nav').querySelectorAll('[data-p]').forEach(function (b) { b.onclick = function () { page = b.dataset.p; render(); }; });
+        return;
+    }
     var C = D.can || {};
     if (C.search || C.wantedList || C.plate) {
         items.push(['sep', '', 'База данных']);
@@ -57,6 +65,7 @@ function nav() {
 function render() {
     if (!D) return;
     nav();
+    if (D.lite && ['members', 'ranks'].indexOf(page) < 0) page = 'members';
     var m = $('main'), h = '';
     var on = D.members.filter(function (x) { return x.on; });
     if (page === 'home') {

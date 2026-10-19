@@ -11,7 +11,7 @@ setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FIL
 function mark() { dirty = true; }
 
 const POLICE = ['lspd', 'sheriff', 'fib'];
-const NAMES = { lspd: 'LSPD', sheriff: 'Шериф', fib: 'FIB', army: 'Армия', gov: 'Правительство', news: 'Weazel News', medic: 'EMS', ems: 'EMS' };
+const NAMES = { lspd: 'LSPD', sheriff: 'Шериф', fib: 'FIB', army: 'Армия', gov: 'Правительство', news: 'Weazel News', lic: 'Лицензионный центр', medic: 'EMS', ems: 'EMS' };
 function female(p) { return p.account ? Number(p.account.gender) === 1 : p.model === mp.joaat('mp_f_freemode_01'); }
 const DEF_RANKS = {
     lspd: ['Кадет', 'Офицер I', 'Офицер II', 'Офицер III', 'Сержант I', 'Сержант II', 'Лейтенант', 'Капитан', 'Заместитель шефа', 'Шеф полиции'],
@@ -19,6 +19,7 @@ const DEF_RANKS = {
     fib: ['Стажёр', 'Агент', 'Специальный агент', 'Старший агент', 'Инспектор', 'Старший инспектор', 'Руководитель отдела', 'Заместитель директора', 'Первый заместитель', 'Директор FIB'],
     army: ['Рядовой', 'Ефрейтор', 'Младший сержант', 'Сержант', 'Старшина', 'Лейтенант', 'Капитан', 'Майор', 'Полковник', 'Генерал'],
     gov: ['Стажёр', 'Секретарь', 'Юрист', 'Адвокат', 'Прокурор', 'Судья', 'Министр', 'Вице-губернатор', 'Заместитель губернатора', 'Губернатор'],
+    lic: ['Стажёр', 'Младший инструктор', 'Инструктор', 'Старший инструктор', 'Экзаменатор', 'Старший экзаменатор', 'Начальник отдела', 'Заместитель директора', 'Директор'],
     news: ['Стажёр', 'Курьер', 'Оператор', 'Репортёр', 'Журналист', 'Ведущий', 'Редактор', 'Главный редактор', 'Заместитель директора', 'Директор']
 };
 
@@ -35,6 +36,17 @@ const SUPPLY_PACK = { g_stungun: 10, g_pistol: 10, g_carbine: 5, ammo_pistol: 30
 const GOV_KEYS = Object.keys(ARMORY_ITEMS).filter(function (k) { return k.indexOf('ammo_') !== 0; }).concat(['ammo_pistol', 'ammo_rifle']);
 
 const UNIFORMS = {
+    lic: {
+        m: [
+            { n: 'Рубашка инструктора', r: 1, c: { 3: [11, 0], 4: [10, 0], 6: [10, 0], 7: [12, 0], 8: [31, 0], 11: [31, 0] }, p: {} },
+            { n: 'Костюм экзаменатора', r: 4, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 7: [12, 0], 8: [31, 0], 11: [4, 0] }, p: {} },
+            { n: 'Скин: Инструктор', r: 1, skin: 'a_m_y_business_02' }
+        ],
+        f: [
+            { n: 'Форма инструктора', r: 1, c: { 3: [3, 0], 4: [6, 0], 6: [13, 0], 8: [38, 0], 11: [7, 0] }, p: {} },
+            { n: 'Скин: Инструктор', r: 1, skin: 'a_f_y_business_04' }
+        ]
+    },
     gov: {
         m: [
             { n: 'Деловой костюм с галстуком', r: 1, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 7: [12, 0], 8: [31, 0], 11: [4, 0] }, p: {} },
@@ -133,6 +145,7 @@ const DEF_POINTS = {
     lspd: { armory: [452.1, -980.1, 30.69], locker: [458.2, -992.9, 30.69], garage: [454.6, -1017.4, 28.4], spawns: [[446.0, -1025.0, 28.6, 2], [442.4, -1025.6, 28.7, 2], [438.6, -1026.0, 28.8, 2], [434.9, -1026.5, 28.9, 2], [431.2, -1027.0, 29.0, 2]] },
     sheriff: { armory: [1851.1, 3690.0, 34.27], locker: [1849.2, 3694.5, 34.27], garage: [1866.0, 3695.0, 33.9], spawns: [[1870.0, 3700.0, 33.6, 210], [1873.0, 3703.0, 33.6, 210]] },
     fib: { armory: [118.9, -729.3, 242.15], locker: [121.5, -733.8, 242.15], garage: [130.0, -712.0, 33.1], spawns: [[136.0, -705.0, 33.1, 160], [140.0, -707.0, 33.1, 160]] },
+    lic: { locker: [228.4, -805.6, 30.6], garage: [222.0, -812.5, 30.6], spawns: [[230.6, -796.6, 30.5, 160], [233.4, -797.6, 30.5, 160], [236.2, -798.6, 30.5, 160], [239.0, -799.6, 30.5, 160]] },
     gov: { locker: [-541.6, -208.6, 37.65], garage: [-550.3, -195.4, 38.22], spawns: [[-558.0, -187.5, 38.0, 300], [-561.5, -190.0, 38.0, 300], [-565.0, -192.5, 38.0, 300]] },
     army: { armory: [-2350.0, 3270.0, 32.8], locker: [-2347.0, 3264.0, 32.8], garage: [-2400.0, 3300.0, 32.8], spawns: [[-2405.0, 3310.0, 32.8, 240], [-2410.0, 3316.0, 32.8, 240]] }
 };
@@ -141,6 +154,7 @@ const DEF_FLEET = {
     lspd: [['police', 1], ['police2', 2], ['police3', 3], ['policeb', 3], ['police4', 6], ['policet', 4], ['riot', 7], ['polmav', 8]],
     sheriff: [['sheriff', 1], ['sheriff2', 3], ['policeb', 3], ['riot', 7]],
     fib: [['fbi', 1], ['fbi2', 3], ['riot', 6]],
+    lic: [['asea', 1], ['blista', 1], ['mule', 2], ['benson', 4], ['bus', 3], ['coach', 5]],
     gov: [['washington', 1], ['schafter2', 2], ['cog55', 4], ['baller6', 6], ['stretch', 8]],
     army: [['mesa3', 1], ['crusader', 2], ['barracks', 2], ['barracks3', 3], ['insurgent', 5], ['cargobob', 5], ['valkyrie', 6], ['buzzard', 6], ['titan', 7], ['lazer', 8], ['hydra', 9]]
 };
@@ -159,7 +173,8 @@ const PERMS = {
     deliver: { n: 'Доставка поставок на склады', r: 2, army: 1 },
     air: { n: 'Авиация (вертолёты и самолёты)', r: 5, army: 1 }
 };
-const NO_DB = ['gov', 'news'];
+const NO_DB = ['gov', 'news', 'lic'];
+const LIC_CAT_OF = { asea: 'B', blista: 'B', mule: 'C', benson: 'C', bus: 'D', coach: 'D' };
 function permVisible(f, k) { if (NO_DB.indexOf(f) >= 0) return false; return f === 'army' ? !!PERMS[k].army : !PERMS[k].army; }
 function can(p, k) {
     if (!PERMS[k]) return false;
@@ -343,7 +358,8 @@ mp.events.add('srv:gov:car', function (p, m) {
     if (!sp) return notify(p, 'warn', 'Все парковочные места заняты');
     const v = mp.vehicles.new(mp.joaat(m), V(sp[0], sp[1], sp[2] + (isAir ? 0.5 : 0.3)), { heading: sp[3] || 0, numberPlate: (NAMES[f] || 'GOV').slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: 0, locked: false, engine: false });
     v.setVariable('faction', f); v.setVariable('gov', f); v.setVariable('govModel', m); v.setVariable('govOwner', s);
-    try { const blk = f === 'fib' || f === 'gov'; v.setColor(blk ? 0 : 111, 0); } catch (e) {}
+    try { const blk = f === 'fib' || f === 'gov'; v.setColor(blk ? 0 : f === 'lic' ? 88 : 111, 0); } catch (e) {}
+    if (f === 'lic') { v.setVariable('licCat', LIC_CAT_OF[m] || 'B'); }
     v.adminSpawned = false;
     fleetCars[s] = v;
     p.call('phone:gps', [sp[0], sp[1], 'Служебная машина']);
@@ -353,6 +369,7 @@ mp.events.add('srv:gov:car', function (p, m) {
 mp.events.add('playerEnterVehicle', function (p, v, seat) {
     const f = v.getVariable('gov');
     if (!f || !isGovF(f) || seat !== 0 && seat !== -1) return;
+    if (v.licStudent && v.licStudent === sid(p)) return;
     if (fac(p) !== f && admLvl(p) < 1) { try { p.removeFromVehicle(); } catch (e) {} notify(p, 'error', 'Служебный транспорт ' + (NAMES[f] || f)); }
 });
 mp.events.add('playerQuit', function (p) {
@@ -389,6 +406,7 @@ const DEF_HOME = {
     fib: [120.0, -735.5, 242.15, 340, 'Штаб FIB'],
     army: [-2345.0, 3268.0, 32.8, 240, 'Военная база Форт Занкудо'],
     gov: [-544.8, -204.4, 38.2, 210, 'Мэрия Лос-Сантоса'],
+    lic: [226.0, -808.5, 30.6, 160, 'Лицензионный центр'],
     news: [-598.5, -929.7, 23.87, 90, 'Офис Weazel News'],
     medic: [311.5, -593.5, 43.28, 340, 'Больница Pillbox Hill'],
     ems: [311.5, -593.5, 43.28, 340, 'Больница Pillbox Hill']
@@ -517,7 +535,7 @@ async function tabletData(p) {
     };
     Object.keys(PERMS).forEach(function (k) { out.can[k] = can(p, k); });
     if (p.web) out.can.track = false;
-    out.treasury = await treasuryData(p);
+    if (f === 'lic') out.lite = true; else out.treasury = await treasuryData(p);
     if (f === 'army' && global.ArmySystem) out.army = global.ArmySystem.info();
     if (out.can.wantedList && W) {
         const wl = W.list();
@@ -538,6 +556,7 @@ async function sendTablet(p) {
 }
 mp.events.add('srv:tab:open', function (p) {
     if (!isGovF(fac(p))) return notify(p, 'warn', 'Планшет доступен только сотрудникам гос. структур');
+    if (fac(p) === 'lic' && !canManage(p)) return notify(p, 'warn', 'Планшет лицензионного центра есть только у директора и заместителей');
     sendTablet(p);
 });
 mp.events.addCommand('tablet', function (p) { mp.events.call('srv:tab:open', p); });
@@ -881,7 +900,7 @@ mp.events.addCommand('webtablet', function (p) {
 /* ================= АДМИН-ПАНЕЛЬ ================= */
 async function adminFac(p, d, by) {
     const f = String(d.f || '');
-    const ALL = { lspd: 1, sheriff: 1, fib: 1, army: 1, gov: 1, news: 1, medic: 1 };
+    const ALL = { lspd: 1, sheriff: 1, fib: 1, army: 1, gov: 1, news: 1, medic: 1, lic: 1 };
     if (!ALL[f]) return { err: 'Неизвестная фракция' };
     const gov = isGovF(f);
     const x = gov ? F(f) : null;
@@ -1110,7 +1129,7 @@ global.Treasury = { info: salaryInfo, payday: govPayday, jobTax: function (sum) 
 
 
 /* ================= РАЦИИ И ГОС. НОВОСТИ ================= */
-const RCOL = { lspd: '#6fa0ff', sheriff: '#d9b25a', fib: '#a9b2c6', army: '#9ccf5a', gov: '#f2c25a', news: '#ff8a4c', medic: '#ff8a8a' };
+const RCOL = { lic: '#5fd3c6', lspd: '#6fa0ff', sheriff: '#d9b25a', fib: '#a9b2c6', army: '#9ccf5a', gov: '#f2c25a', news: '#ff8a4c', medic: '#ff8a8a' };
 function rnOf(p) { const f = fac(p), R = salRanks(f); return isLeader(p) ? R[R.length - 1] : R[Math.max(0, Math.min(R.length, rank(p)) - 1)] || ''; }
 function rClean(t) { return String(t || '').replace(/!\{[^}]*\}/g, '').replace(/[<>]/g, '').trim().slice(0, 180); }
 function rMuted(p) { const A = global.AdminCore; return !!(A && A.muted && A.muted[p.id] && Date.now() < A.muted[p.id]); }
