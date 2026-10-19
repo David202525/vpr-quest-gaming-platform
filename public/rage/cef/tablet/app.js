@@ -48,7 +48,7 @@ function nav() {
     if (D.treasury) { items.push(['sep', '', 'Штат']); items.push(['treasury', '🏛️', D.treasury.gov ? 'Казна и бюджет' : 'Казна и зарплата']); }
     items.push(['sep', '', 'Управление']);
     if (D.me.lead) items.push(['ranks', '🎖️', 'Ранги'], ['perms', '🔐', 'Права доступа']);
-    if (D.army) items.push(['supply', '📦', 'Поставки']); else items.push(['stock', '🗄️', 'Склад']);
+    if (D.army) items.push(['supply', '📦', 'Поставки']); else if (!D.noStock) items.push(['stock', '🗄️', 'Склад']);
     items.push(['log', '📜', 'Журнал']);
     $('nav').innerHTML = items.map(function (x) { return x[0] === 'sep' ? '<div class="sep">' + x[2] + '</div>' : '<button data-p="' + x[0] + '" class="' + (page === x[0] ? 'on' : '') + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('');
     $('nav').querySelectorAll('[data-p]').forEach(function (b) { b.onclick = function () { page = b.dataset.p; render(); }; });

@@ -10,7 +10,7 @@ var LBL = { armory: 'склад оружия', locker: 'раздевалка', g
 mp.events.add('gov:points', function (json) { try { GP = JSON.parse(json) || []; } catch (e) { GP = []; } gBlipKey = ''; });
 var gBlips = [], gBlipKey = '';
 var BLIP = { armory: [110, 1, 'склад оружия'], locker: [366, 3, 'раздевалка'], garage: [357, 5, 'гараж'] };
-var FNM = { lspd: 'LSPD', sheriff: 'Шериф', fib: 'FIB', army: 'Армия' };
+var FNM = { lspd: 'LSPD', sheriff: 'Шериф', fib: 'FIB', army: 'Армия', gov: 'Правительство', news: 'Weazel News' };
 setInterval(function () {
     var f = '';
     try { f = mp.players.local.getVariable('fac') || ''; } catch (e) {}

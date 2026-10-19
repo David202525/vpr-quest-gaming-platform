@@ -35,6 +35,23 @@ const SUPPLY_PACK = { g_stungun: 10, g_pistol: 10, g_carbine: 5, ammo_pistol: 30
 const GOV_KEYS = Object.keys(ARMORY_ITEMS).filter(function (k) { return k.indexOf('ammo_') !== 0; }).concat(['ammo_pistol', 'ammo_rifle']);
 
 const UNIFORMS = {
+    gov: {
+        m: [
+            { n: 'Деловой костюм с галстуком', r: 1, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 7: [12, 0], 8: [31, 0], 11: [4, 0] }, p: {} },
+            { n: 'Костюм без пиджака', r: 1, c: { 3: [11, 0], 4: [10, 0], 6: [10, 0], 7: [12, 0], 8: [31, 0], 11: [31, 0] }, p: {} },
+            { n: 'Скин: Служащий', r: 1, skin: 'a_m_y_business_01' },
+            { n: 'Скин: Юрист', r: 3, skin: 'a_m_y_business_03' },
+            { n: 'Скин: Охрана правительства', r: 2, skin: 's_m_m_highsec_01' },
+            { n: 'Скин: Секретная служба', r: 5, skin: 's_m_m_highsec_02' },
+            { n: 'Скин: Министр', r: 7, skin: 'a_m_m_business_01' }
+        ],
+        f: [
+            { n: 'Деловой костюм', r: 1, c: { 3: [3, 0], 4: [6, 0], 6: [13, 0], 8: [38, 0], 11: [7, 0] }, p: {} },
+            { n: 'Скин: Служащая', r: 1, skin: 'a_f_y_business_01' },
+            { n: 'Скин: Юрист', r: 3, skin: 'a_f_y_business_02' },
+            { n: 'Скин: Министр', r: 7, skin: 'a_f_m_business_02' }
+        ]
+    },
     lspd: {
         m: [
             { n: 'Патрульная форма (кадет)', r: 1, c: { 3: [41, 0], 4: [25, 0], 6: [25, 0], 8: [59, 1], 11: [55, 0], 10: [0, 0] }, p: { 0: [46, 0] } },
@@ -116,6 +133,7 @@ const DEF_POINTS = {
     lspd: { armory: [452.1, -980.1, 30.69], locker: [458.2, -992.9, 30.69], garage: [454.6, -1017.4, 28.4], spawns: [[446.0, -1025.0, 28.6, 2], [442.4, -1025.6, 28.7, 2], [438.6, -1026.0, 28.8, 2], [434.9, -1026.5, 28.9, 2], [431.2, -1027.0, 29.0, 2]] },
     sheriff: { armory: [1851.1, 3690.0, 34.27], locker: [1849.2, 3694.5, 34.27], garage: [1866.0, 3695.0, 33.9], spawns: [[1870.0, 3700.0, 33.6, 210], [1873.0, 3703.0, 33.6, 210]] },
     fib: { armory: [118.9, -729.3, 242.15], locker: [121.5, -733.8, 242.15], garage: [130.0, -712.0, 33.1], spawns: [[136.0, -705.0, 33.1, 160], [140.0, -707.0, 33.1, 160]] },
+    gov: { locker: [-541.6, -208.6, 37.65], garage: [-550.3, -195.4, 38.22], spawns: [[-558.0, -187.5, 38.0, 300], [-561.5, -190.0, 38.0, 300], [-565.0, -192.5, 38.0, 300]] },
     army: { armory: [-2350.0, 3270.0, 32.8], locker: [-2347.0, 3264.0, 32.8], garage: [-2400.0, 3300.0, 32.8], spawns: [[-2405.0, 3310.0, 32.8, 240], [-2410.0, 3316.0, 32.8, 240]] }
 };
 const DEF_AIR = [[-2148.0, 3253.0, 32.8, 240], [-2125.0, 3240.0, 32.8, 240], [-2016.0, 2952.0, 32.8, 60], [-1955.0, 2918.0, 32.8, 60]];
@@ -123,6 +141,7 @@ const DEF_FLEET = {
     lspd: [['police', 1], ['police2', 2], ['police3', 3], ['policeb', 3], ['police4', 6], ['policet', 4], ['riot', 7], ['polmav', 8]],
     sheriff: [['sheriff', 1], ['sheriff2', 3], ['policeb', 3], ['riot', 7]],
     fib: [['fbi', 1], ['fbi2', 3], ['riot', 6]],
+    gov: [['washington', 1], ['schafter2', 2], ['cog55', 4], ['baller6', 6], ['stretch', 8]],
     army: [['mesa3', 1], ['crusader', 2], ['barracks', 2], ['barracks3', 3], ['insurgent', 5], ['cargobob', 5], ['valkyrie', 6], ['buzzard', 6], ['titan', 7], ['lazer', 8], ['hydra', 9]]
 };
 
@@ -140,7 +159,8 @@ const PERMS = {
     deliver: { n: 'Доставка поставок на склады', r: 2, army: 1 },
     air: { n: 'Авиация (вертолёты и самолёты)', r: 5, army: 1 }
 };
-function permVisible(f, k) { return f === 'army' ? !!PERMS[k].army : !PERMS[k].army; }
+const NO_DB = ['gov', 'news'];
+function permVisible(f, k) { if (NO_DB.indexOf(f) >= 0) return false; return f === 'army' ? !!PERMS[k].army : !PERMS[k].army; }
 function can(p, k) {
     if (!PERMS[k]) return false;
     if (!permVisible(fac(p), k)) return false;
@@ -323,7 +343,7 @@ mp.events.add('srv:gov:car', function (p, m) {
     if (!sp) return notify(p, 'warn', 'Все парковочные места заняты');
     const v = mp.vehicles.new(mp.joaat(m), V(sp[0], sp[1], sp[2] + (isAir ? 0.5 : 0.3)), { heading: sp[3] || 0, numberPlate: (NAMES[f] || 'GOV').slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: 0, locked: false, engine: false });
     v.setVariable('faction', f); v.setVariable('gov', f); v.setVariable('govModel', m); v.setVariable('govOwner', s);
-    try { v.setColor(f === 'fib' ? 0 : 111, f === 'fib' ? 0 : 0); } catch (e) {}
+    try { const blk = f === 'fib' || f === 'gov'; v.setColor(blk ? 0 : 111, 0); } catch (e) {}
     v.adminSpawned = false;
     fleetCars[s] = v;
     p.call('phone:gps', [sp[0], sp[1], 'Служебная машина']);
@@ -492,7 +512,7 @@ async function tabletData(p) {
     const out = {
         f: f, fn: NAMES[f] || f, me: { id: sid(p), n: nick(p), r: rank(p), rn: isLeader(p) ? x.ranks[x.ranks.length - 1] : rankName(f, rank(p)), lead: isLeader(p), dep: isDep(p), manage: canManage(p) },
         ranks: x.ranks, squads: x.squads.map(function (s, i) { return { i: i, n: s.n, lead: s.l, m: s.m, minR: s.r || 1 }; }),
-        members: mem, stock: Object.keys(ARMORY_ITEMS).map(function (k) { return { n: ARMORY_ITEMS[k].n, c: x.stock[k] || 0 }; }), log: x.log.slice(0, 40), police: pol,
+        noStock: NO_DB.indexOf(f) >= 0, members: mem, stock: Object.keys(ARMORY_ITEMS).map(function (k) { return { n: ARMORY_ITEMS[k].n, c: x.stock[k] || 0 }; }), log: x.log.slice(0, 40), police: pol,
         web: !!p.web, can: {}, perms: Object.keys(PERMS).filter(function (k) { return permVisible(f, k); }).map(function (k) { return { k: k, n: PERMS[k].n, r: x.perms[k], pol: !!PERMS[k].pol }; })
     };
     Object.keys(PERMS).forEach(function (k) { out.can[k] = can(p, k); });
@@ -1087,6 +1107,55 @@ mp.events.addCommand('govpay', function (p) {
     govPayday().then(function () { notify(p, 'ok', 'Зарплаты и налоги начислены'); });
 });
 global.Treasury = { info: salaryInfo, payday: govPayday, jobTax: function (sum) { const t = Math.floor(sum * BUD().job / 100); if (t > 0) jobTaxBuf += t; return t; } };
+
+
+/* ================= РАЦИИ И ГОС. НОВОСТИ ================= */
+const RCOL = { lspd: '#6fa0ff', sheriff: '#d9b25a', fib: '#a9b2c6', army: '#9ccf5a', gov: '#f2c25a', news: '#ff8a4c', medic: '#ff8a8a' };
+function rnOf(p) { const f = fac(p), R = salRanks(f); return isLeader(p) ? R[R.length - 1] : R[Math.max(0, Math.min(R.length, rank(p)) - 1)] || ''; }
+function rClean(t) { return String(t || '').replace(/!\{[^}]*\}/g, '').replace(/[<>]/g, '').trim().slice(0, 180); }
+function rMuted(p) { const A = global.AdminCore; return !!(A && A.muted && A.muted[p.id] && Date.now() < A.muted[p.id]); }
+function radio(name, fn) {
+    mp.events.addCommand(name, function (p, full) {
+        if (!sid(p)) return;
+        const f = fac(p);
+        if (!f || !paysFac(f)) return notify(p, 'warn', 'Рация есть только у сотрудников гос. структур');
+        if (rMuted(p)) return p.outputChatBox('!{#e05555}Вы в муте');
+        const t = rClean(full);
+        if (!t) return p.outputChatBox('!{#ffc93c}Использование: /' + name + ' [текст]');
+        fn(p, f, t);
+    });
+}
+function toFac(f, line) { mp.players.forEach(function (x) { if (x.account && fac(x) === f) x.outputChatBox(line); }); }
+function toDep(line) { mp.players.forEach(function (x) { const ff = x.account && fac(x); if (ff && paysFac(ff)) x.outputChatBox(line); }); }
+radio('r', function (p, f, t) {
+    toFac(f, '!{' + (RCOL[f] || '#8fd4ff') + '}[R] ' + rnOf(p) + ' ' + nick(p) + ': !{#ffffff}' + t);
+    if (global.SocialSystem) try { mp.players.forEach(function (x) { if (x !== p && fac(x) !== f && x.dimension === p.dimension && x.position.subtract(p.position).length() < 6) x.outputChatBox('!{#bdbdbd}' + global.SocialSystem.seen(x, p) + ' говорит в рацию: ' + t); }); } catch (e) {}
+});
+radio('rb', function (p, f, t) {
+    toFac(f, '!{' + (RCOL[f] || '#8fd4ff') + '}[R] !{#9a9aa8}(( ' + nick(p) + ' [' + p.id + ']: ' + t + ' ))');
+});
+radio('d', function (p, f, t) {
+    toDep('!{#ff6f6f}[D] !{' + (RCOL[f] || '#fff') + '}[' + (NAMES[f] || f) + '] ' + rnOf(p) + ' ' + nick(p) + ': !{#ffffff}' + t);
+});
+['db', 'bd'].forEach(function (n) {
+    radio(n, function (p, f, t) {
+        toDep('!{#ff6f6f}[D] !{#9a9aa8}(( [' + (NAMES[f] || f) + '] ' + nick(p) + ' [' + p.id + ']: ' + t + ' ))');
+    });
+});
+const govNewsAt = {};
+radio('gov', function (p, f, t) {
+    const okRank = isLeader(p) || isDep(p) || (f === 'gov' && rank(p) >= 3) || rank(p) >= 8;
+    if (!okRank) return notify(p, 'warn', 'Гос. новости подают лидеры, заместители и сотрудники правительства с 3 ранга');
+    const k = sid(p);
+    if (govNewsAt[k] && Date.now() - govNewsAt[k] < 60000) return notify(p, 'warn', 'Следующая новость через ' + Math.ceil((60000 - (Date.now() - govNewsAt[k])) / 1000) + ' с');
+    govNewsAt[k] = Date.now();
+    mp.players.forEach(function (x) {
+        if (!x.account) return;
+        x.outputChatBox('!{#f2c25a}━━━━━━━━ Государственные новости ━━━━━━━━');
+        x.outputChatBox('!{' + (RCOL[f] || '#f2c25a') + '}' + (NAMES[f] || f) + ' · ' + rnOf(p) + ' ' + nick(p) + ': !{#ffffff}' + t);
+    });
+    flog(f, nick(p) + ' подал гос. новость: ' + t.slice(0, 60));
+});
 
 global.GovFaction = { can: can, rank: rank, fac: fac, sid: sid, nick: nick, isLeaderP: isLeader, canManage: canManage, F: F, flog: flog, mark: mark, POLICE: POLICE, SUPPLY_PACK: SUPPLY_PACK, ARMORY_ITEMS: ARMORY_ITEMS, autoFine: autoFine, money: money, rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');
