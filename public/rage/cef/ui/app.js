@@ -679,36 +679,37 @@ function _renderMenu() {
 
 function menuChar(d) {
     var parts = d.name.replace(/_/g, ' ').split(' ');
-    var cars = d.vehicles.length ? d.vehicles.map(function (v) {
-        return '<div class="tile car">' + '<div class="bg" style="background-image:url(img/car.jpg)"></div><div class="in"><div class="t-cap" style="color:rgba(255,255,255,.5);font-size:11px">Автомобиль</div><div class="t-big">' + esc(v.name || v.model) + '</div></div><span class="plate">' + esc(v.plate) + '</span></div>';
-    }).join('') : tile('car', 'car.jpg', '<div class="t-cap" style="color:rgba(255,255,255,.5);font-size:11px">Автомобиль</div><div class="t-big">Нет личного транспорта</div><div class="t-sub">Купите машину в автосалоне</div>');
-
+    var cars = d.vehicles.length ? '<div class="cars-row">' + d.vehicles.map(function (v) {
+        return '<div class="tile car"><div class="bg" style="background-image:url(img/car.jpg)"></div><div class="in"><div class="t-cap t-dim">Автомобиль</div><div class="t-big">' + esc(v.name || v.model) + '</div></div><span class="plate">' + esc(v.plate) + '</span></div>';
+    }).join('') + '</div>' : tile('car', 'car.jpg', '<div class="t-cap t-dim">Автомобиль</div><div class="t-big">Нет личного транспорта</div><div class="t-sub">Купите машину в автосалоне</div>');
+    var h = d.home;
+    var home = tile('orange-t', h && h.flat ? 'flat.jpg' : 'house.jpg', '<div class="t-cap">' + (h ? (h.flat ? 'Ваша квартира' : 'Ваш дом') : 'Недвижимость') + '</div><div class="t-big">' + (h ? esc(h.n) : 'Нет жилья') + '</div>' +
+        '<div class="t-kv"><span>ID персонажа</span><b>' + d.id + '</b><span>Телефон</span><b>' + esc(d.number || '—') + '</b>' + (h ? '<span>Двери</span><b>' + (h.locked ? 'закрыты' : 'открыты') + '</b>' : '') + '</div>');
+    var S = d.salary;
+    var sal = S ? tile('green-t', 'biz.jpg', '<div class="t-cap">Зарплата · ' + esc(S.fn) + '</div><div class="t-big">' + money(S.net) + '</div><div class="t-kv"><span>Должность</span><b>' + esc(S.rn) + '</b><span>Налог</span><b>-' + money(S.tax) + '</b><span>Выплата через</span><b>' + Math.max(0, Math.ceil((S.next - Date.now()) / 60000)) + ' мин</b></div>')
+        : tile('green-t', 'biz.jpg', '<div class="t-cap">Зарплата</div><div class="t-big">Нет</div><div class="t-sub">Вступите в гос. фракцию, чтобы получать оклад из казны штата</div>');
     return '<div class="ch"><div class="ch-left">' +
         tile('hello', 'hand.jpg', '<small>Приветствуем,</small><h2>' + esc(parts[0]) + '<br>' + esc(parts.slice(1).join(' ')) + '</h2>') +
         '<div class="tile field"><small>Никнейм</small><b>' + esc(d.name.replace(/_/g, ' ')) + '</b></div>' +
         '<div class="tile field"><small>Пол</small><b>' + esc(d.gender) + '</b></div>' +
         '<div class="tile field"><small>Дата регистрации</small><b>' + esc(d.created) + ' (' + d.hours + ' ч. в игре)</b></div>' +
-        '<div class="tile field"><small>Фракция</small><b>' + esc(d.faction) + '</b></div>' +
+        '<div class="tile field"><small>Фракция</small><b>' + esc(S ? S.fn : d.faction) + '</b></div>' +
         '<div class="tile field"><small>Семья</small><b>' + esc(d.family) + '</b></div>' +
         '<div class="tile lvl"><b>Ваш уровень ( ' + d.exp + '/' + d.need + ' EXP )</b><div class="big-ring">' + ringSvg(150, 64, 9, d.exp / d.need * 100, 'url(#g1)', 'rgba(255,255,255,.07)').replace('<svg viewBox="0 0 150 150">', '<svg viewBox="0 0 150 150"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5ce1"/><stop offset="1" stop-color="#c13dff"/></linearGradient></defs>') + '<span>' + d.lvl + '</span></div></div>' +
         '</div><div class="ch-right">' +
-        '<div class="r1">' +
-        tile('orange-t', 'house.jpg', '<div class="t-cap">Ваш дом</div><div class="t-big">Нет дома</div><div class="t-kv"><span>ID персонажа</span><b>' + d.id + '</b><span>Номер телефона</span><b>' + esc(d.number) + '</b></div><div class="t-loc">Сан-Андреас</div>') +
-        tile('green-t', 'flat.jpg', '<div class="t-cap">Ваша квартира</div><div class="t-sub">У Вас нет квартиры</div>') +
-        tile('orange-t clickable', 'docs.jpg', '<div class="t-cap">Ваши документы</div><div class="t-sub">Паспорт, удостоверения, справки</div>', ' data-docs="1"') +
-        '</div>' +
-        '<div class="r2">' + cars + '</div>' +
-        '<div class="r3">' +
+        '<div class="cr3">' + home + sal +
+        tile('orange-t clickable', 'docs.jpg', '<div class="t-cap">Ваши документы</div><div class="t-sub">Паспорт, удостоверения, справки</div>', ' data-docs="1"') + '</div>' +
+        '<div class="cr2">' + cars +
+        tile('yellow-t clickable', 'lic.jpg', '<div class="t-cap">Ваши лицензии</div><div class="t-sub">Права, разрешение на оружие</div>', ' data-docs="1"') + '</div>' +
+        '<div class="cr2">' +
         tile('blue-t', 'biz.jpg', '<div class="t-cap">Ваши финансы</div><div class="t-big">' + money(d.money + d.bank) + '</div><div class="t-kv"><span>Наличные</span><b>' + money(d.money) + '</b><span>На счёте</span><b>' + money(d.bank) + '</b><span>Часов в игре</span><b>' + d.hours + '</b></div>') +
-        tile('yellow-t clickable', 'lic.jpg', '<div class="t-cap" style="font-weight:600">Ваши лицензии</div><div class="t-sub">Права, разрешение на оружие</div>', ' data-docs="1"') +
-        '</div>' +
-        '<div class="r4"><div class="tile skills" style="background:linear-gradient(135deg,rgba(30,70,50,.3),rgba(255,255,255,.03))"><b>Ваши скиллы</b><div class="sk-row">' +
+        tile('red-t report clickable', 'report.jpg', '<div class="t-cap">Репорт</div><div class="t-sub">Задайте вопрос или пожалуйтесь на игрока — администрация ответит в кратчайшие сроки</div>', ' data-report="1"') + '</div>' +
+        '<div class="tile skills"><b>Ваши скиллы</b><div class="sk-row">' +
         d.skills.map(function (s) {
             return '<div class="sk"><div class="sk-ring">' + ringSvg(66, 28, 4, s.lvl >= 5 ? 100 : s.pct, '#ffc93c', 'rgba(255,255,255,.06)') + '<span>' + (s.lvl >= 5 ? 100 : s.pct) + '%</span></div><b>' + esc(s.n) + '</b><small>' + s.lvl + ' ур. из 5</small></div>';
         }).join('') +
         '</div></div>' +
-        tile('red-t report', 'report.jpg', '<div class="t-cap" style="font-weight:600">Репорт</div><div class="t-sub">Вы можете задать любой интересующий Вас вопрос или оставить жалобу на игрока. Администрация поможет Вам в кратчайшие сроки.</div>', ' data-report="1"') +
-        '</div></div></div>';
+        '</div></div>';
 }
 
 function menuAch(d) {

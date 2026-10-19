@@ -488,3 +488,12 @@ tr:hover td {
   color: #c5cde0;
   font-size: 13px;
 }
+.card label {
+  display: block;
+  font-size: 11.5px;
+  color: var(--mut);
+  margin: 6px 0 4px;
+}
+.card .grid2 .in { width: 100%; }
+.card details summary::-webkit-details-marker { color: var(--mut); }
+.card .kv .in { text-align: right; }

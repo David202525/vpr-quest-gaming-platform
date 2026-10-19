@@ -732,6 +732,8 @@ async function menuPayload(p) {
         faction: job || 'Нет', family: family || 'Нет',
         lvl: d.lvl, exp: d.exp, need: needExp(d.lvl), hours: Math.floor((d.mins || 0) / 60),
         money: money, bank: bank,
+        salary: global.Treasury ? global.Treasury.info(p) : null,
+        home: (function () { const H = global.HouseSystem; const h = H && H.mine ? H.mine(p) : null; return h ? { n: h.n, flat: !!h.flat, locked: !!h.locked } : null; })(),
         vehicles: vehicles.map(function (v) { return { model: v.model, plate: v.plate }; }),
         skills: SKILLS.map(function (s) { const v = d.skills[s.k] || 0; return { n: s.n, lvl: Math.floor(v / 100), pct: v >= 500 ? 100 : v % 100 }; }),
         ach: ach,

@@ -160,12 +160,6 @@ function payday() {
         const own = ownedBy(p);
         if (own) pay(p, CFG.ownerPay, 'Доход с базы ' + own.name);
         else if (memberOf(p)) pay(p, CFG.memberPay, 'Зарплата семьи ' + memberOf(p).name);
-        if (isArmy(p)) {
-            const r = armyRank(p);
-            const bases = data.bases.filter(function (b) { return b.type === 'army'; }).length;
-            const sum = (CFG.armyPay[r] || CFG.armyPay[1]) + CFG.armyBasePay * bases;
-            pay(p, sum, 'Зарплата САФ (' + (CFG.armyRanks[r] || r) + ')');
-        }
     });
 }
 

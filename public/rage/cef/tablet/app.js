@@ -45,6 +45,7 @@ function nav() {
         if (C.search || C.plate) items.push(['db', '🔎', 'Пробить по базе']);
         if (C.search) items.push(['fines', '🧾', 'Штрафы']);
     }
+    if (D.treasury) { items.push(['sep', '', 'Штат']); items.push(['treasury', '🏛️', D.treasury.gov ? 'Казна и бюджет' : 'Казна и зарплата']); }
     items.push(['sep', '', 'Управление']);
     if (D.me.lead) items.push(['ranks', '🎖️', 'Ранги'], ['perms', '🔐', 'Права доступа']);
     if (D.army) items.push(['supply', '📦', 'Поставки']); else items.push(['stock', '🗄️', 'Склад']);
@@ -116,6 +117,27 @@ function render() {
             '<div class="card"><h3>🚛 Грузовики в пути</h3>' + (Ar.trucks.length ? Ar.trucks.map(function (t) { return '<div class="kv"><span>' + esc(t.m) + '</span><b>' + t.c + ' / ' + t.cap + ' ящиков</b></div>'; }).join('') : '<div class="empty">Нет выданных Barracks</div>') + '</div>';
     } else if (page === 'stock') {
         h = '<h2>Склад</h2><div class="sub">Пополняется поставками армии</div><div class="stats">' + D.stock.map(function (s) { return '<div class="st"><small>' + esc(s.n) + '</small><b style="color:' + (s.c ? '#fff' : 'var(--red)') + '">' + s.c + '</b></div>'; }).join('') + '</div>';
+    } else if (page === 'treasury' && D.treasury) {
+        var T = D.treasury, my = T.my, left = Math.max(0, Math.ceil((T.next - Date.now()) / 60000));
+        h = '<h2>Казна штата</h2><div class="sub">Бюджет Сан-Андреаса. Из него каждые ' + T.min + ' мин выплачиваются зарплаты госслужащих. ' + (T.gov ? 'Вы управляете бюджетом как губернатор' : 'Управляет губернатор') + '</div>' +
+            '<div class="stats"><div class="st"><small>В казне</small><b style="color:var(--green,#3fcf8e)">' + money(T.bal) + '</b></div>' +
+            '<div class="st"><small>Фонд зарплат (онлайн)</small><b>' + money(T.fund) + '</b></div>' +
+            '<div class="st"><small>Следующая выплата</small><b>' + left + ' мин</b></div>' +
+            '<div class="st"><small>Хватит на выплат</small><b style="color:' + (T.fund && T.bal < T.fund ? 'var(--red)' : '#fff') + '">' + (T.fund ? Math.floor(T.bal / T.fund) : '∞') + '</b></div></div>' +
+            (my ? '<div class="card"><h3>💵 Моя зарплата</h3><div class="kv"><span>Должность</span><b>' + esc(my.rn) + ' · ' + esc(my.fn) + '</b></div><div class="kv"><span>Оклад</span><b>' + money(my.gross) + '</b></div><div class="kv"><span>Подоходный налог</span><b>-' + money(my.tax) + '</b></div><div class="kv"><span>На руки (на счёт)</span><b style="color:#3fcf8e">' + money(my.net) + '</b></div></div>' : '') +
+            '<div class="card"><h3>🧾 Налоги штата</h3>' + (T.gov ?
+                '<div class="grid2"><div><label>Подоходный с зарплат, %</label><input class="in" id="txI" type="number" value="' + T.income + '"></div><div><label>С доходов на работах, %</label><input class="in" id="txJ" type="number" value="' + T.job + '"></div>' +
+                '<div><label>Налог на недвижимость, $ за выплату</label><input class="in" id="txP" type="number" value="' + T.prop + '"></div><div><label>Транспортный, $ за авто</label><input class="in" id="txV" type="number" value="' + T.veh + '"></div>' +
+                '<div><label>Налог с продажи бизнеса, %</label><input class="in" id="txS" type="number" value="' + T.sell + '"></div><div style="display:flex;align-items:flex-end"><button class="btn" id="txSave" style="width:100%">Сохранить налоги</button></div></div>'
+                : '<div class="kv"><span>Подоходный с зарплат</span><b>' + T.income + '%</b></div><div class="kv"><span>С доходов на работах</span><b>' + T.job + '%</b></div><div class="kv"><span>Налог на недвижимость</span><b>' + money(T.prop) + '</b></div><div class="kv"><span>Транспортный (за авто)</span><b>' + money(T.veh) + '</b></div><div class="kv"><span>Продажа бизнеса</span><b>' + T.sell + '%</b></div>') + '</div>' +
+            '<div class="card"><h3>💼 Зарплаты по фракциям</h3>' + T.facs.map(function (F) {
+                return '<details style="margin-bottom:8px"' + (T.facs.length === 1 ? ' open' : '') + '><summary style="cursor:pointer;font-weight:600;padding:6px 0">' + esc(F.fn) + ' <span style="color:var(--mut);font-weight:400">· от ' + money(F.ranks[0].s) + ' до ' + money(F.ranks[F.ranks.length - 1].s) + '</span></summary>' +
+                    F.ranks.map(function (r, i) { return '<div class="kv"><span>' + (i + 1) + ' · ' + esc(r.n) + '</span>' + (T.gov ? '<input class="in" type="number" data-sf="' + F.f + '" value="' + r.s + '" style="width:120px;padding:4px 8px">' : '<b>' + money(r.s) + '</b>') + '</div>'; }).join('') +
+                    (T.gov ? '<button class="btn sm" data-salsave="' + F.f + '" style="margin-top:8px">Сохранить ' + esc(F.fn) + '</button>' : '') + '</details>';
+            }).join('') + '</div>' +
+            (T.gov ? '<div class="card"><h3>🎁 Премия сотруднику</h3><div class="row" style="margin:0"><input class="in" id="grId" type="number" placeholder="ID игрока (в сети)" style="flex:1"><input class="in" id="grS" type="number" placeholder="Сумма" style="flex:1"><button class="btn green" id="grGo">Выплатить из казны</button></div></div>' : '') +
+            (T.last ? '<div class="card"><h3>📊 Последняя выплата · ' + dt(T.last.t) + '</h3><div class="kv"><span>Выплачено зарплат</span><b>' + money(T.last.paid) + ' (' + T.last.n + ' чел.)</b></div><div class="kv"><span>Удержано налога</span><b>' + money(T.last.tax) + '</b></div><div class="kv"><span>Налог на недвижимость</span><b>' + money(T.last.prop) + '</b></div><div class="kv"><span>Транспортный налог</span><b>' + money(T.last.veh) + '</b></div>' + (T.last.unpaid ? '<div class="kv"><span>Не хватило казны</span><b style="color:var(--red)">' + T.last.unpaid + ' чел.</b></div>' : '') + '</div>' : '') +
+            (T.hist.length ? '<div class="card"><h3>📜 Движение по казне</h3>' + T.hist.map(function (x) { return '<div class="log"><span>' + dt(x.t) + '</span><b style="color:' + (x.a >= 0 ? '#3fcf8e' : 'var(--red)') + '">' + (x.a >= 0 ? '+' : '-') + money(Math.abs(x.a)) + '</b> ' + esc(x.x) + '</div>'; }).join('') + '</div>' : '');
     } else if (page === 'log') {
         h = '<h2>Журнал организации</h2><div class="sub">Последние действия руководства и поставки</div><div class="card">' + (D.log.map(function (l) { return '<div class="log"><span>' + dt(l.t) + '</span>' + esc(l.x) + '</div>'; }).join('') || '<div class="empty">Пусто</div>') + '</div>';
     }
@@ -157,6 +179,9 @@ function bind(m) {
     on('[data-sd]', function (b) { act({ a: 'sqdel', i: Number(b.dataset.sd) }); });
     on('[data-sr]', function (b) { modal('Переименовать отряд', '<input class="in" id="srN" maxlength="32">', 'Сохранить', function () { act({ a: 'sqren', i: Number(b.dataset.sr), n: $('srN').value }); }); });
     on('[data-sk]', function (b) { act({ a: 'sqkick', i: Number(b.dataset.sk), id: Number(b.dataset.id) }); });
+    var txs = $('txSave'); if (txs) txs.onclick = function () { act({ a: 'taxes', income: $('txI').value, job: $('txJ').value, prop: $('txP').value, veh: $('txV').value, sell: $('txS').value }); };
+    on('[data-salsave]', function (b) { var f = b.dataset.salsave; act({ a: 'salset', f: f, v: Array.prototype.map.call(m.querySelectorAll('[data-sf="' + f + '"]'), function (i) { return Number(i.value); }) }); });
+    var gg = $('grGo'); if (gg) gg.onclick = function () { var id = $('grId').value, sm = $('grS').value; if (!id || !sm) return toast('Укажите ID и сумму'); modal('Выплатить премию?', '<p style="font-size:13px">' + money(sm) + ' игроку #' + esc(id) + ' из казны штата</p>', 'Выплатить', function () { act({ a: 'grant', id: Number(id), sum: Number(sm) }); }); };
     on('[data-sl]', function (b) { act({ a: 'sqlead', i: Number(b.dataset.sl), id: Number(b.dataset.id) }); });
     on('[data-rs]', function (b) { act({ a: 'rname', i: Number(b.dataset.rs), n: m.querySelector('[data-ri="' + b.dataset.rs + '"]').value }); });
     on('[data-rd]', function (b) { act({ a: 'rdel', i: Number(b.dataset.rd) }); });

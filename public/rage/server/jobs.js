@@ -106,6 +106,7 @@ function notify(p, type, text) { if (typeof global.hudNotify === 'function') glo
 function quest(p, title, tasks) { if (typeof global.hudQuest === 'function') global.hudQuest(p, title, tasks); }
 function pay(p, sum, jobId) {
     sum = Math.round(sum);
+    if (global.Treasury) sum -= global.Treasury.jobTax(sum);
     if (global.MoneySystem) global.MoneySystem.add(p, sum);
     else if (p.account) p.account.money = (Number(p.account.money) || 0) + sum;
     const r = rec(p);

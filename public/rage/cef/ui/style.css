@@ -2240,3 +2240,27 @@ textarea {
 .gv-b{flex:1;min-width:0}.gv-b b{display:block;font-size:13px}.gv-b small{font-size:11px;color:#9a9aa6}
 .gv-left{font-size:11px;color:#8fd14f;font-weight:700;white-space:nowrap}.gv-left.z{color:#ff6b6b}
 .gv-it .btn{margin:0;width:auto;padding:8px 14px}
+
+/* ---- меню персонажа: ровная сетка ---- */
+.ch-right { gap: 14px; }
+.cr3, .cr2 { display: grid; gap: 14px; height: 132px; }
+.cr3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cr2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.cr3 > .tile, .cr2 > .tile { height: 132px; }
+.ch-right .tile .in { max-width: 64%; height: 100%; box-sizing: border-box; }
+.ch-right .tile .bg { width: 55%; opacity: 0.7; }
+.ch-right .t-big { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-right .t-sub { font-size: 10px; line-height: 1.35; color: rgba(255, 255, 255, 0.55); }
+.ch-right .t-kv { grid-template-columns: auto auto; }
+.t-dim { color: rgba(255, 255, 255, 0.5); font-size: 11px; }
+.cars-row { display: flex; gap: 14px; overflow-x: auto; height: 132px; }
+.cars-row::-webkit-scrollbar { height: 3px; }
+.cars-row::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.4); }
+.cars-row .car { flex: 0 0 260px; height: 132px; }
+.cr2 > .car .in { max-width: 55%; }
+.cr2 > .car .t-big { white-space: normal; }
+.ch-right .report .t-sub { max-width: none; }
+.ch-right .skills { padding: 12px 16px; background: linear-gradient(135deg, rgba(30, 70, 50, 0.3), rgba(255, 255, 255, 0.03)); }
+.ch-right .skills .sk { height: 112px; }
+.cr2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cr2 > :first-child { grid-column: span 2; }

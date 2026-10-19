@@ -497,6 +497,7 @@ async function tabletData(p) {
     };
     Object.keys(PERMS).forEach(function (k) { out.can[k] = can(p, k); });
     if (p.web) out.can.track = false;
+    out.treasury = await treasuryData(p);
     if (f === 'army' && global.ArmySystem) out.army = global.ArmySystem.info();
     if (out.can.wantedList && W) {
         const wl = W.list();
@@ -534,6 +535,7 @@ async function tabAct(p, json) {
 
     if (['rankup', 'rankdown', 'fire', 'dep', 'invite', 'rname', 'radd', 'rdel', 'sqadd', 'sqdel', 'sqjoin', 'sqkick', 'sqlead', 'sqren'].indexOf(a) >= 0 && !mgr) return tabErr(p, 'Только лидер или заместитель');
 
+    if (['salset', 'taxes', 'grant'].indexOf(a) >= 0) { if (!treasuryAct(p, d)) return sendTablet(p); return; }
     if (a === 'perm') {
         if (!isLeader(p)) return tabErr(p, 'Права доступа меняет только лидер');
         if (!PERMS[d.k] || !permVisible(f, d.k)) return;
@@ -943,6 +945,148 @@ function autoFine(p, sum, reason, by) {
     mark();
     return fn;
 }
+
+
+/* ================= КАЗНА И ЗАРПЛАТЫ ================= */
+const MED_RANKS = ['Интерн', 'Фельдшер', 'Врач', 'Зав. отделением', 'Главврач'];
+const PAY_FACS = Object.keys(DEF_RANKS).concat(['medic']);
+function BUD() {
+    if (!G.budget) G.budget = {};
+    const B = G.budget;
+    if (!B.sal) B.sal = {};
+    if (B.income === undefined) B.income = 10;
+    if (B.job === undefined) B.job = 5;
+    if (B.prop === undefined) B.prop = 150;
+    if (B.veh === undefined) B.veh = 40;
+    if (!B.min) B.min = 60;
+    if (!B.next) B.next = Date.now() + B.min * 60000;
+    if (!B.hist) B.hist = [];
+    return B;
+}
+function salRanks(f) { return f === 'medic' ? MED_RANKS : F(f).ranks; }
+function defSal(i) { return 600 + i * 250; }
+function salOf(f, r) {
+    const R = salRanks(f), arr = BUD().sal[f] || [];
+    const i = Math.max(1, Math.min(R.length, Number(r) || 1)) - 1;
+    return arr[i] !== undefined && arr[i] !== null ? Number(arr[i]) : defSal(i);
+}
+function paysFac(f) { return PAY_FACS.indexOf(f) >= 0; }
+function isGovernor(p) { return (fac(p) === 'gov' && isLeader(p)) || admLvl(p) >= 6; }
+function GS() { return global.GovSystem; }
+function payNet(gross) { const t = Math.floor(gross * BUD().income / 100); return { gross: gross, tax: t, net: gross - t }; }
+function chargeTax(p, sum) {
+    const M = global.MoneySystem;
+    if (!M || sum <= 0) return 0;
+    const cash = M.get(p), bank = M.bank(p);
+    if (cash + bank < sum) return -1;
+    const fb = Math.min(bank, sum);
+    M.set(p, cash - (sum - fb), bank - fb, 'tax');
+    return sum;
+}
+let jobTaxBuf = 0;
+setInterval(function () { if (jobTaxBuf > 0 && GS()) { GS().add(jobTaxBuf, 'Подоходный налог с работ'); jobTaxBuf = 0; } }, 300000);
+async function govPayday() {
+    const B = BUD();
+    B.next = Date.now() + B.min * 60000; mark();
+    if (!GS()) return;
+    let bal = GS().get().balance;
+    const st = { t: Date.now(), paid: 0, tax: 0, prop: 0, veh: 0, n: 0, unpaid: 0 };
+    const list = mp.players.toArray().filter(function (p) { return p.account && sid(p); });
+    for (const p of list) {
+        if (!mp.players.exists(p)) continue;
+        const f = fac(p);
+        if (f && paysFac(f)) {
+            const x = payNet(salOf(f, rank(p)));
+            if (x.gross > 0) {
+                if (bal >= x.net) {
+                    bal -= x.net; st.paid += x.net; st.tax += x.tax; st.n++;
+                    global.MoneySystem.addBank(p, x.net);
+                    notify(p, 'ok', 'Зарплата ' + (NAMES[f] || f) + ': ' + money(x.net) + ' на счёт' + (x.tax ? ' (налог ' + money(x.tax) + ')' : ''));
+                } else { st.unpaid++; notify(p, 'warn', 'Казна штата пуста — зарплата не выплачена'); }
+            }
+        }
+        const H = global.HouseSystem;
+        if (B.prop > 0 && H && H.mine && H.mine(p)) {
+            const r = chargeTax(p, B.prop);
+            if (r > 0) { st.prop += r; notify(p, 'warn', 'Налог на недвижимость: -' + money(r)); }
+            else if (r < 0) notify(p, 'error', 'Не хватает денег на налог на недвижимость ' + money(B.prop));
+        }
+        if (B.veh > 0) {
+            const c = await q('SELECT COUNT(*) c FROM vehicles WHERE owner_id = ?', [sid(p)]);
+            const n = c[0] ? Number(c[0].c) || 0 : 0;
+            if (n > 0 && mp.players.exists(p)) {
+                const r = chargeTax(p, B.veh * n);
+                if (r > 0) { st.veh += r; notify(p, 'warn', 'Транспортный налог (' + n + ' авто): -' + money(r)); }
+            }
+        }
+    }
+    if (st.paid) GS().add(-st.paid, 'Зарплаты госслужащих (' + st.n + ' чел.)');
+    if (st.prop) GS().add(st.prop, 'Налог на недвижимость');
+    if (st.veh) GS().add(st.veh, 'Транспортный налог');
+    B.last = st; B.hist.unshift(st); if (B.hist.length > 24) B.hist.length = 24;
+    mark();
+    console.log('[gov] зарплаты: ' + money(st.paid) + ' (' + st.n + ' чел.), налоги ' + money(st.tax + st.prop + st.veh));
+}
+setInterval(function () { if (Date.now() >= BUD().next) govPayday().catch(function (e) { console.log('[gov] payday: ' + e.message); }); }, 30000);
+function salaryInfo(p) {
+    const f = fac(p);
+    if (!f || !paysFac(f)) return null;
+    const x = payNet(salOf(f, rank(p)));
+    const R = salRanks(f), r = Math.max(1, Math.min(R.length, rank(p)));
+    return { f: f, fn: NAMES[f] || f, rn: R[r - 1], gross: x.gross, tax: x.tax, net: x.net, next: BUD().next, min: BUD().min };
+}
+async function treasuryData(p) {
+    const B = BUD(), g = GS() ? GS().get() : { balance: 0, tax: 0 }, gov = isGovernor(p), f = fac(p);
+    const fund = mp.players.toArray().reduce(function (s, x) { const ff = fac(x); return x.account && ff && paysFac(ff) ? s + payNet(salOf(ff, rank(x))).net : s; }, 0);
+    const facs = (gov || f === 'gov' ? PAY_FACS : [f]).map(function (k) { return { f: k, fn: NAMES[k] || k, ranks: salRanks(k).map(function (n, i) { return { n: n, s: salOf(k, i + 1) }; }) }; });
+    let hist = [];
+    if ((gov || f === 'gov') && GS()) { try { hist = (await GS().history()).map(function (h) { return { a: Number(h.amount), x: h.text, t: new Date(h.created_at).getTime() }; }); } catch (e) {} }
+    return { bal: g.balance, sell: g.tax, income: B.income, job: B.job, prop: B.prop, veh: B.veh, min: B.min, next: B.next, last: B.last || null, fund: fund, gov: gov, my: salaryInfo(p), facs: facs, hist: hist, days: B.hist.slice(0, 12) };
+}
+function treasuryAct(p, d) {
+    if (!isGovernor(p)) { tabErr(p, 'Только губернатор'); return true; }
+    const B = BUD();
+    if (d.a === 'salset') {
+        if (!paysFac(d.f)) return true;
+        const R = salRanks(d.f);
+        B.sal[d.f] = R.map(function (n, i) { const v = Math.floor(Number((d.v || [])[i])); return isFinite(v) ? Math.max(0, Math.min(100000, v)) : salOf(d.f, i + 1); });
+        mark(); flog('gov', nick(p) + ' изменил зарплаты: ' + (NAMES[d.f] || d.f));
+        p.call('gov:tabToast', ['Зарплаты ' + (NAMES[d.f] || d.f) + ' сохранены', 1]);
+        return false;
+    }
+    if (d.a === 'taxes') {
+        const c = function (v, a, b, def) { v = Math.floor(Number(v)); return isFinite(v) ? Math.max(a, Math.min(b, v)) : def; };
+        B.income = c(d.income, 0, 50, B.income); B.job = c(d.job, 0, 50, B.job);
+        B.prop = c(d.prop, 0, 10000, B.prop); B.veh = c(d.veh, 0, 5000, B.veh);
+        if (GS() && d.sell !== undefined) GS().setTax(c(d.sell, 0, 90, 30));
+        mark(); flog('gov', nick(p) + ' изменил налоги: подоходный ' + B.income + '%, с работ ' + B.job + '%, недвижимость ' + money(B.prop) + ', авто ' + money(B.veh));
+        p.call('gov:tabToast', ['Налоги обновлены', 1]);
+        return false;
+    }
+    if (d.a === 'grant') {
+        const t = online(Number(d.id)), sum = Math.floor(Number(d.sum));
+        if (!t) { tabErr(p, 'Сотрудник не в сети'); return true; }
+        if (!(sum > 0) || sum > 1000000) { tabErr(p, 'Неверная сумма'); return true; }
+        if (!GS() || GS().get().balance < sum) { tabErr(p, 'В казне недостаточно средств'); return true; }
+        GS().add(-sum, 'Премия: ' + nick(t) + ' (' + nick(p) + ')');
+        global.MoneySystem.addBank(t, sum);
+        notify(t, 'ok', 'Губернатор выписал вам премию ' + money(sum));
+        flog('gov', nick(p) + ' выписал премию ' + money(sum) + ' → ' + nick(t));
+        p.call('gov:tabToast', ['Премия выплачена', 1]);
+        return false;
+    }
+    return true;
+}
+mp.events.addCommand('budget', function (p) {
+    const B = BUD(), g = GS() ? GS().get() : { balance: 0, tax: 0 }, i = salaryInfo(p);
+    p.outputChatBox('!{#f2c25a}[Казна] !{#ffffff}Бюджет: ' + money(g.balance) + ' · подоходный ' + B.income + '% · недвижимость ' + money(B.prop) + '/ч · авто ' + money(B.veh) + '/ч');
+    if (i) p.outputChatBox('!{#f2c25a}[Зарплата] !{#ffffff}' + i.rn + ': ' + money(i.net) + ' через ' + Math.max(0, Math.ceil((i.next - Date.now()) / 60000)) + ' мин');
+});
+mp.events.addCommand('govpay', function (p) {
+    if (admLvl(p) < 6) return;
+    govPayday().then(function () { notify(p, 'ok', 'Зарплаты и налоги начислены'); });
+});
+global.Treasury = { info: salaryInfo, payday: govPayday, jobTax: function (sum) { const t = Math.floor(sum * BUD().job / 100); if (t > 0) jobTaxBuf += t; return t; } };
 
 global.GovFaction = { can: can, rank: rank, fac: fac, sid: sid, nick: nick, isLeaderP: isLeader, canManage: canManage, F: F, flog: flog, mark: mark, POLICE: POLICE, SUPPLY_PACK: SUPPLY_PACK, ARMORY_ITEMS: ARMORY_ITEMS, autoFine: autoFine, money: money, rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');
