@@ -32,6 +32,7 @@ let crateObjs = [];
 function drawPile() {
     crateObjs.forEach(function (o) { try { o.destroy(); } catch (e) {} });
     crateObjs = [];
+    if (!S.pile) return;
     const n = Math.min(S.left, 30);
     for (let i = 0; i < n; i++) {
         const col = i % 4, row = Math.floor(i / 4) % 3, lay = Math.floor(i / 12);
@@ -43,6 +44,7 @@ function sendAll() { const j = pub(); mp.players.forEach(function (p) { p.call('
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) p.call('army:data', [pub()]); }, 3500); });
 
 function dropSupply(by) {
+    if (!S.pile) { S.next = Date.now() + S.intervalH * 3600000; save(); return; }
     S.left = S.count;
     S.next = Date.now() + S.intervalH * 3600000;
     save(); drawPile(); sendAll();
@@ -67,7 +69,7 @@ mp.events.add('playerDeath', function (p) { returnCrate(p); });
 mp.events.add('playerEnterVehicle', function (p) { if (p.armyCarry) { returnCrate(p); notify(p, 'warn', 'Ящик вернулся на склад — с ним нельзя садиться в транспорт'); } });
 
 mp.events.add('srv:army:pick', function (p) {
-    if (!isArmy(p) || p.vehicle) return;
+    if (!isArmy(p) || p.vehicle || !S.pile) return;
     if (Math.hypot(p.position.x - S.pile[0], p.position.y - S.pile[1]) > 5) return;
     if (!can(p, 'crates')) return notify(p, 'warn', permDeny(p, 'crates'));
     if (p.armyCarry) { returnCrate(p); return notify(p, 'ok', 'Ящик положен обратно'); }
@@ -96,7 +98,7 @@ mp.events.add('srv:army:unload', function (p, vid) {
     if (!v || !mp.vehicles.exists(v) || !TRUCKS[vmodel(v)] || v.position.subtract(p.position).length() > 8) return;
     const n = Number(v.getVariable('crates')) || 0;
     if (!n) return;
-    if (Math.hypot(p.position.x - S.pile[0], p.position.y - S.pile[1]) > 40) return notify(p, 'warn', 'Разгружать обратно можно только у склада базы');
+    if (!S.pile || Math.hypot(p.position.x - S.pile[0], p.position.y - S.pile[1]) > 40) return notify(p, 'warn', 'Разгружать обратно можно только у склада базы');
     v.setVariable('crates', n - 1);
     setCarry(p, true);
     notify(p, 'ok', 'Ящик снят с кузова (' + (n - 1) + ' осталось). Отнесите к штабелю — E');
@@ -151,8 +153,10 @@ mp.events.addCommand('armysupply', function (p, full) {
     }
     if (a[0] === 'here') { S.pile = [p.position.x, p.position.y, p.position.z]; save(); drawPile(); sendAll(); return msg(p, 'Место появления ящиков перенесено сюда'); }
     if (a[0] === 'clear') { S.left = 0; save(); drawPile(); sendAll(); return msg(p, 'Ящики убраны'); }
+    if (a[0] === 'del' || a[0] === 'off') { S.left = 0; S.pile = null; save(); drawPile(); sendAll(); return msg(p, 'Точка поставок удалена, поставки отключены. Поставить заново: /armysupply here'); }
+    if (!S.pile) return msg(p, 'Поставки отключены (точки нет). Поставить точку там, где стоите: /armysupply here');
     msg(p, 'Ящиков сейчас: ' + S.left + ' · в поставке: ' + S.count + ' · интервал: ' + S.intervalH + ' ч · следующая: ' + left(S.next));
-    msg(p, '/armysupply now · interval [ч] · count [шт] · here · clear');
+    msg(p, '/armysupply now · interval [ч] · count [шт] · here — перенести сюда · clear — убрать ящики · del — удалить точку');
 });
 
 /* ================= ВОРОТА ================= */
@@ -234,14 +238,16 @@ mp.events.addCommand('armygate', function (p, full) {
         save(); spawnGate(i); sendAll();
         return msg(p, 'Ворота №' + (i + 1) + ' обновлены');
     }
+    if (a[0] === 'clear') { S.gates = []; save(); respawnGates(); sendAll(); return msg(p, 'Все ворота армии удалены'); }
     if (a[0] === 'del') {
-        const i = Number(a[1]) - 1;
-        if (!S.gates[i]) return msg(p, 'Нет ворот с таким номером');
+        const i = a[1] ? Number(a[1]) - 1 : nearestGate(p, 30);
+        if (!S.gates[i]) return msg(p, a[1] ? 'Нет ворот с таким номером' : 'Рядом (30 м) нет ворот. Номера: /armygate list');
         S.gates.splice(i, 1); save(); respawnGates(); sendAll();
         return msg(p, 'Ворота удалены');
     }
     if (a[0] === 'list') return S.gates.forEach(function (g, i) { msg(p, (i + 1) + '. ' + g.m + ' (' + g.x.toFixed(0) + ', ' + g.y.toFixed(0) + ') · угол ' + g.h.toFixed(0) + ' · ход ' + (g.slide || 7.5) + ' м'); });
-    msg(p, '/armygate add [gate/fence/bar/big] [ход м] · rot [№] [угол] · move [№] · dist [№] [м] · del [№] · list');
+    if (a[0] === 'list' || !S.gates.length) { if (!S.gates.length) return msg(p, 'Ворот нет. /armygate add [gate/fence/bar/big]'); }
+    msg(p, '/armygate add [gate/fence/bar/big] [ход м] · rot [№] [угол] · move [№] · dist [№] [м] · del — ближайшие · del [№] · clear — все · list');
 });
 
 global.ArmySystem = {

@@ -1,6 +1,14 @@
 var A = { pile: null, left: 0, gates: [] };
 var near = '', hint = '';
-mp.events.add('army:data', function (j) { try { A = JSON.parse(j); } catch (e) {} });
+var pileBlip = null;
+function pileMark() {
+    var want = isArmy() && A.pile;
+    if (pileBlip) { try { pileBlip.destroy(); } catch (e) {} pileBlip = null; }
+    if (want) try { pileBlip = mp.blips.new(478, new mp.Vector3(A.pile[0], A.pile[1], A.pile[2]), { color: 25, scale: 0.8, shortRange: false, name: 'Армия: ящики поставки' }); } catch (e) {}
+}
+var pileKey = '';
+mp.events.add('army:data', function (j) { try { A = JSON.parse(j); } catch (e) {} pileKey = ''; });
+setInterval(function () { var k = (isArmy() ? 1 : 0) + ':' + (A.pile ? A.pile.join(',') : '-'); if (k !== pileKey) { pileKey = k; pileMark(); } }, 2000);
 
 function isArmy() { try { return mp.players.local.getVariable('fac') === 'army'; } catch (e) { return false; } }
 function busy() { var me = mp.players.local; return global.chatOpen || me.isTypingInTextChat || (global.uiOpenG && global.uiOpenG()) || (global.govMenuOpen && global.govMenuOpen()) || mp.gui.cursor.visible; }

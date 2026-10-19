@@ -7,7 +7,24 @@ function CS() { if (global.cursorSyncG) global.cursorSyncG(); else mp.gui.cursor
 function gBusy() { return global.chatOpen || global.authOpen || global.creatorOpen || mp.players.local.isTypingInTextChat || (global.uiOpenG && global.uiOpenG()); }
 var LBL = { armory: 'склад оружия', locker: 'раздевалка', garage: 'гараж' };
 
-mp.events.add('gov:points', function (json) { try { GP = JSON.parse(json) || []; } catch (e) { GP = []; } });
+mp.events.add('gov:points', function (json) { try { GP = JSON.parse(json) || []; } catch (e) { GP = []; } gBlipKey = ''; });
+var gBlips = [], gBlipKey = '';
+var BLIP = { armory: [110, 1, 'склад оружия'], locker: [366, 3, 'раздевалка'], garage: [357, 5, 'гараж'] };
+var FNM = { lspd: 'LSPD', sheriff: 'Шериф', fib: 'FIB', army: 'Армия' };
+setInterval(function () {
+    var f = '';
+    try { f = mp.players.local.getVariable('fac') || ''; } catch (e) {}
+    var key = f + ':' + GP.length;
+    if (key === gBlipKey) return;
+    gBlipKey = key;
+    gBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
+    gBlips = [];
+    if (!f) return;
+    GP.forEach(function (g) {
+        if (g[0] !== f || !BLIP[g[1]]) return;
+        try { gBlips.push(mp.blips.new(BLIP[g[1]][0], new mp.Vector3(g[2], g[3], g[4]), { color: BLIP[g[1]][1], scale: g[1] === 'garage' ? 0.9 : 0.75, shortRange: g[1] !== 'garage', name: (FNM[f] || f) + ': ' + BLIP[g[1]][2] })); } catch (e) {}
+    });
+}, 2000);
 setInterval(function () {
     var me = mp.players.local, pos = me.position, f = '';
     try { f = me.getVariable('fac') || ''; } catch (e) {}
