@@ -151,7 +151,23 @@ mp.events.add('army:gEdit', function (j) {
     setTimeout(function () { geSrv(false); }, 500);
     mp.events.call('hud:notify', 'ok', 'Редактор ворот: подсказки слева. Enter — сохранить, Esc — отмена', 5000);
 });
-function K(v) { return mp.keys.isDown(v); }
+function K(v, c) {
+    var d = false;
+    try { d = mp.keys.isDown(v); } catch (e) {}
+    if (!d && c) { try { d = mp.game.controls.isDisabledControlPressed(0, c) || mp.game.controls.isControlPressed(0, c); } catch (e) {} }
+    return d;
+}
+function geSet() {
+    var o = GE && GE.obj;
+    if (!o) return;
+    var pos = new mp.Vector3(GE.x, GE.y, GE.z), rot = new mp.Vector3(GE.rx, GE.ry, GE.h);
+    try { o.position = pos; } catch (e) {}
+    try { o.rotation = rot; } catch (e) {}
+    if (o.handle) {
+        try { o.setCoordsNoOffset(GE.x, GE.y, GE.z, false, false, false); } catch (e) {}
+        try { o.setRotation(GE.rx, GE.ry, GE.h, 2, true); } catch (e) {}
+    }
+}
 function ln(a, b, c) { mp.game.graphics.drawLine(a.x, a.y, a.z, b.x, b.y, b.z, c[0], c[1], c[2], 255); }
 function geDraw() {
     var o = GE.obj;
@@ -176,29 +192,28 @@ mp.events.add('render', function () {
     geLast = now;
     var ctl = mp.game.controls;
     [37, 44, 45, 140, 141, 142, 143, 157, 158, 159, 160, 161, 162, 163, 164, 165, 172, 173, 174, 175, 199, 200, 10, 11, 14, 15, 16, 17, 24, 25, 27, 36, 21, 23, 75, 47, 58, 96, 97].forEach(function (c) { ctl.disableControlAction(0, c, true); });
-    var typing = global.chatOpen || mp.players.local.isTypingInTextChat || now - GE.opened < 400;
+    var typing = global.chatOpen || now - GE.opened < 400;
     if (!typing) {
         var sp = K(0x10) ? 5 : (K(0x11) ? 0.2 : 1);
         var mv = 2.5 * sp * dt, rt = 45 * sp * dt, ch = false;
         var cr = mp.game.cam.getGameplayCamRot(2).z * Math.PI / 180;
         var fx = -Math.sin(cr), fy = Math.cos(cr), rx = Math.cos(cr), ry = Math.sin(cr);
-        if (K(0x26)) { GE.x += fx * mv; GE.y += fy * mv; ch = true; }
-        if (K(0x28)) { GE.x -= fx * mv; GE.y -= fy * mv; ch = true; }
-        if (K(0x27)) { GE.x += rx * mv; GE.y += ry * mv; ch = true; }
-        if (K(0x25)) { GE.x -= rx * mv; GE.y -= ry * mv; ch = true; }
-        if (K(0x21)) { GE.z += mv * 0.6; ch = true; }
-        if (K(0x22)) { GE.z -= mv * 0.6; ch = true; }
+        if (K(0x26, 172)) { GE.x += fx * mv; GE.y += fy * mv; ch = true; }
+        if (K(0x28, 173)) { GE.x -= fx * mv; GE.y -= fy * mv; ch = true; }
+        if (K(0x27, 175)) { GE.x += rx * mv; GE.y += ry * mv; ch = true; }
+        if (K(0x25, 174)) { GE.x -= rx * mv; GE.y -= ry * mv; ch = true; }
+        if (K(0x21, 10)) { GE.z += mv * 0.6; ch = true; }
+        if (K(0x22, 11)) { GE.z -= mv * 0.6; ch = true; }
         if (K(0xDB)) { GE.h = (GE.h + rt + 360) % 360; ch = true; }
         if (K(0xDD)) { GE.h = (GE.h - rt + 360) % 360; ch = true; }
         if (K(0x24)) { GE.rx = Math.min(90, GE.rx + rt * 0.5); ch = true; }
         if (K(0x23)) { GE.rx = Math.max(-90, GE.rx - rt * 0.5); ch = true; }
         if (K(0x39)) { GE.ry = Math.min(90, GE.ry + rt * 0.5); ch = true; }
         if (K(0x30)) { GE.ry = Math.max(-90, GE.ry - rt * 0.5); ch = true; }
-        if (ch && GE.obj && GE.obj.handle) {
-            try { GE.obj.setCoordsNoOffset(GE.x, GE.y, GE.z, false, false, false); GE.obj.setRotation(GE.rx, GE.ry, GE.h, 2, true); } catch (e) {}
-        }
+        if (ch) { GE.dirty = true; geSet(); }
         if (GE.obj && GE.obj.handle) { try { GE.obj.setCollision(false, false); } catch (e) {} }
     }
+    if (GE.dirty) geSet();
     geDraw();
     var t = [
         'РЕДАКТОР ВОРОТ ' + (GE.i < 0 ? '(новые)' : '№' + (GE.i + 1)),
@@ -211,7 +226,8 @@ mp.events.add('render', function () {
         'Tab — сменить модель   ·   F — к себе',
         '+ / − — ход открытия: ' + GE.slide.toFixed(1) + ' м (жёлтая стрелка)',
         'Enter — сохранить · Esc — отмена' + (GE.i >= 0 ? ' · Delete ×2 — удалить' : ''),
-        'Угол ' + GE.h.toFixed(0) + '°  наклон ' + GE.rx.toFixed(0) + '° / ' + GE.ry.toFixed(0) + '°'
+        'Угол ' + GE.h.toFixed(0) + '°  наклон ' + GE.rx.toFixed(0) + '° / ' + GE.ry.toFixed(0) + '°',
+        'X ' + GE.x.toFixed(1) + '  Y ' + GE.y.toFixed(1) + '  Z ' + GE.z.toFixed(1) + (global.chatOpen ? '   (закройте чат!)' : '')
     ];
     t.forEach(function (s, i) {
         mp.game.graphics.drawText(s, [0.015, 0.3 + i * 0.026], { font: 4, color: i === 0 ? [255, 210, 80, 255] : [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: false });
@@ -219,14 +235,14 @@ mp.events.add('render', function () {
 });
 var geDown = {};
 function geKey(vk, fn) {
-    mp.keys.bind(vk, true, function () { if (GE && Date.now() - GE.opened > 400 && !global.chatOpen && !mp.players.local.isTypingInTextChat) geDown[vk] = true; });
+    mp.keys.bind(vk, true, function () { if (GE && Date.now() - GE.opened > 400 && !global.chatOpen) geDown[vk] = true; });
     mp.keys.bind(vk, false, function () {
         var ok = geDown[vk]; geDown[vk] = false;
-        if (!ok || !GE || global.chatOpen || mp.players.local.isTypingInTextChat) return;
+        if (!ok || !GE || global.chatOpen) return;
         fn();
     });
 }
-function geApply() { if (GE && GE.obj && GE.obj.handle) { try { GE.obj.setCoordsNoOffset(GE.x, GE.y, GE.z, false, false, false); GE.obj.setRotation(GE.rx, GE.ry, GE.h, 2, true); } catch (e) {} } }
+function geApply() { if (GE) { GE.dirty = true; geSet(); } }
 geKey(0x0D, function () { geClose(true); });
 geKey(0x1B, function () { geClose(false); });
 geKey(0x52, function () { GE.rx = 0; GE.ry = 0; geApply(); });
