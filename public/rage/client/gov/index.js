@@ -107,3 +107,29 @@ mp.events.add('render', function () {
         if (d < 10) mp.game.graphics.drawText('Зона ареста · /arrest [id]', [a.x, a.y, a.z + 0.4], { font: 4, color: [255, 204, 102, 230], scale: [0.35, 0.35], outline: true, centre: true });
     });
 });
+
+mp.events.add('gov:uniCheck', function (json) {
+    var u = {}; try { u = JSON.parse(json) || {}; } catch (e) {}
+    var me = mp.players.local, bad = { c: [], p: [] };
+    Object.keys(u.c || {}).forEach(function (k) {
+        var c = Number(k), d = u.c[k][0], t = u.c[k][1];
+        try {
+            var nd = me.getNumberOfDrawableVariations(c);
+            if (d < 0 || d >= nd) { bad.c.push(c); return; }
+            var nt = me.getNumberOfTextureVariations(c, d);
+            if (t < 0 || t >= nt) { bad.c.push(c); return; }
+            if (me.isComponentVariationValid && !me.isComponentVariationValid(c, d, t)) bad.c.push(c);
+        } catch (e) {}
+    });
+    Object.keys(u.p || {}).forEach(function (k) {
+        var c = Number(k), d = u.p[k][0], t = u.p[k][1];
+        if (d < 0) return;
+        try {
+            var nd = me.getNumberOfPropDrawableVariations(c);
+            if (d >= nd) { bad.p.push(c); return; }
+            var nt = me.getNumberOfPropTextureVariations(c, d);
+            if (t < 0 || t >= nt) bad.p.push(c);
+        } catch (e) {}
+    });
+    mp.events.callRemote('srv:gov:uniApply', JSON.stringify(bad));
+});
