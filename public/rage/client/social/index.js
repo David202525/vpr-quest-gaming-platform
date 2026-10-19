@@ -129,6 +129,7 @@ function intOpenMenu() {
         { id: 'wave', t: 'Помахать', ic: '👋', d: 'Поприветствовать' }
     ];
     if (mp.players.local.getVariable('cop')) {
+        items.push({ id: 'chklic', t: 'Проверить права', ic: '📋', d: 'Проверить категории и выбрать наказание' });
         items.push({ id: 'revdrive', t: 'Изъять права', ic: '🚗', d: 'Забрать водительское удостоверение' });
         items.push({ id: 'revgun', t: 'Изъять лиц. оружия', ic: '🔫', d: 'Забрать лицензию на оружие' });
     }
@@ -160,6 +161,7 @@ mp.events.add('cef:int:pick', function (id, arg) {
     else if (id === 'passport') mp.events.callRemote('srv:int:passport', t.remoteId);
     else if (id === 'pay') mp.events.callRemote('srv:int:pay', t.remoteId, Number(arg) || 0);
     else if (id === 'wave') mp.events.callRemote('srv:int:wave');
+    else if (id === 'chklic') mp.events.callRemote('srv:lic:check', t.remoteId);
     else if (id === 'revdrive') mp.events.callRemote('srv:cop:revoke', t.remoteId, 'drive');
     else if (id === 'revgun') mp.events.callRemote('srv:cop:revoke', t.remoteId, 'gun');
 });

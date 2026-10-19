@@ -84,23 +84,38 @@ function needCat(v) {
     return 'B';
 }
 var CN = { A: 'A (мотоциклы)', B: 'B (легковые)', C: 'C (грузовые)', D: 'D (автобусы)' };
-var dWarn = 0;
+var dWarn = 0, lastVeh = null;
 setInterval(function () {
     var me = mp.players.local, v = me.vehicle;
-    if (!v) return;
+    if (!v) { lastVeh = null; return; }
     if (v.getPedInSeat(-1) !== me.handle) return;
     if (v.getVariable('gov') === 'lic') { try { v.setMaxSpeed(85 / 3.6); } catch (e) {} }
+    var c = needCat(v) || '';
+    if (v.getVariable('vcat') !== c) mp.events.callRemote('srv:lic:vcat', c);
+    if (lastVeh === v) return;
+    lastVeh = v;
     if (me.getVariable('inExam')) return;
     var have = me.getVariable('dcats');
-    if (have === undefined || have === null || have === 'ALL') return;
-    var c = needCat(v);
-    if (!c || String(have).indexOf(c) >= 0) return;
-    try { me.taskLeaveVehicle(v.handle, 0); } catch (e) {}
-    try { v.setEngineOn(false, true, true); } catch (e) {}
-    if (Date.now() - dWarn > 4000) {
-        dWarn = Date.now();
-        mp.events.call('hud:notify', 'error', String(have) ? 'Нужна категория ' + CN[c] + '. Сдайте экзамен в лицензионном центре' : 'У вас нет водительских прав. Сдайте экзамен в лицензионном центре', 4000);
-    }
-}, 500);
+    if (have === undefined || have === null || have === 'ALL' || !c) return;
+    if (String(have).indexOf(c) >= 0) return;
+    mp.events.call('hud:notify', 'warn', String(have) ? 'У вас нет категории ' + CN[c] + '. Если остановит полиция — будут проблемы' : 'Вы за рулём без прав! Если остановит полиция — штраф, эвакуация или розыск', 5000);
+}, 700);
+
+var lBr = null, lBrOpen = false;
+function lUI(on, code) {
+    if (on && !lBr) lBr = mp.browsers.new('package://cef/lic/index.html');
+    if (!lBr) return;
+    lBr.active = on;
+    lBrOpen = on;
+    global.licUiOpen = on;
+    mp.gui.cursor.show(on, on);
+    mp.gui.chat.activate(!on);
+    if (on && code) { var run = function () { if (lBr) lBr.execute(code); }; setTimeout(run, 150); setTimeout(run, 700); }
+}
+mp.events.add('lic:theory', function (j) { lUI(true, 'window.theory && window.theory(' + JSON.stringify(j) + ');'); });
+mp.events.add('lic:police', function (j) { lUI(true, 'window.police && window.police(' + JSON.stringify(j) + ');'); });
+mp.events.add('cef:lic:theory', function (j) { lUI(false); mp.events.callRemote('srv:lic:theory', j); });
+mp.events.add('cef:lic:punish', function (id, k) { lUI(false); if (k) mp.events.callRemote('srv:lic:punish', Number(id), String(k)); });
+mp.events.add('cef:lic:close', function () { lUI(false); });
 
 try { mp.blips.new(498, new mp.Vector3(226.0, -808.5, 30.6), { color: 46, name: 'Лицензионный центр', shortRange: true, scale: 0.9 }); } catch (e) {}
