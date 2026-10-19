@@ -142,6 +142,8 @@ function geClose(save) {
 mp.events.add('army:gEdit', function (j) {
     if (GE) geClose(false);
     try { GE = JSON.parse(j); } catch (e) { return; }
+    GE.opened = Date.now();
+    geDown = {};
     global.gateEditOpen = true;
     geLast = Date.now();
     geSpawn();
@@ -174,7 +176,7 @@ mp.events.add('render', function () {
     geLast = now;
     var ctl = mp.game.controls;
     [37, 44, 45, 140, 141, 142, 143, 157, 158, 159, 160, 161, 162, 163, 164, 165, 172, 173, 174, 175, 199, 200, 10, 11, 14, 15, 16, 17, 24, 25, 27, 36, 21, 23, 75, 47, 58, 96, 97].forEach(function (c) { ctl.disableControlAction(0, c, true); });
-    var typing = global.chatOpen || mp.players.local.isTypingInTextChat;
+    var typing = global.chatOpen || mp.players.local.isTypingInTextChat || now - GE.opened < 400;
     if (!typing) {
         var sp = K(0x10) ? 5 : (K(0x11) ? 0.2 : 1);
         var mv = 2.5 * sp * dt, rt = 45 * sp * dt, ch = false;
@@ -215,7 +217,15 @@ mp.events.add('render', function () {
         mp.game.graphics.drawText(s, [0.015, 0.3 + i * 0.026], { font: 4, color: i === 0 ? [255, 210, 80, 255] : [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: false });
     });
 });
-function geKey(vk, fn) { mp.keys.bind(vk, false, function () { if (!GE || global.chatOpen || mp.players.local.isTypingInTextChat) return; fn(); }); }
+var geDown = {};
+function geKey(vk, fn) {
+    mp.keys.bind(vk, true, function () { if (GE && Date.now() - GE.opened > 400 && !global.chatOpen && !mp.players.local.isTypingInTextChat) geDown[vk] = true; });
+    mp.keys.bind(vk, false, function () {
+        var ok = geDown[vk]; geDown[vk] = false;
+        if (!ok || !GE || global.chatOpen || mp.players.local.isTypingInTextChat) return;
+        fn();
+    });
+}
 function geApply() { if (GE && GE.obj && GE.obj.handle) { try { GE.obj.setCoordsNoOffset(GE.x, GE.y, GE.z, false, false, false); GE.obj.setRotation(GE.rx, GE.ry, GE.h, 2, true); } catch (e) {} } }
 geKey(0x0D, function () { geClose(true); });
 geKey(0x1B, function () { geClose(false); });
