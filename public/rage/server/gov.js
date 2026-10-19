@@ -12,7 +12,7 @@ function mark() { dirty = true; }
 
 const POLICE = ['lspd', 'sheriff', 'fib'];
 const NAMES = { lspd: 'LSPD', sheriff: 'Шериф', fib: 'FIB', army: 'Армия', gov: 'Правительство', news: 'Weazel News', medic: 'EMS', ems: 'EMS' };
-function female(p) { return p.model === mp.joaat('mp_f_freemode_01'); }
+function female(p) { return p.account ? Number(p.account.gender) === 1 : p.model === mp.joaat('mp_f_freemode_01'); }
 const DEF_RANKS = {
     lspd: ['Кадет', 'Офицер I', 'Офицер II', 'Офицер III', 'Сержант I', 'Сержант II', 'Лейтенант', 'Капитан', 'Заместитель шефа', 'Шеф полиции'],
     sheriff: ['Кадет', 'Помощник шерифа', 'Старший помощник', 'Капрал', 'Сержант', 'Лейтенант', 'Капитан', 'Майор', 'Заместитель шерифа', 'Шериф'],
@@ -83,6 +83,15 @@ const UNIFORMS = {
     },
     army: {
         m: [
+            { n: 'Скин: Морпех', r: 1, skin: 's_m_y_marine_01' },
+            { n: 'Скин: Морпех в каске', r: 1, skin: 's_m_y_marine_03' },
+            { n: 'Скин: Боец в бронежилете', r: 2, skin: 's_m_y_marine_02' },
+            { n: 'Скин: Механик', r: 1, skin: 's_m_y_armymech_01' },
+            { n: 'Скин: Спецназ', r: 3, skin: 's_m_y_blackops_01' },
+            { n: 'Скин: Спецназ в маске', r: 4, skin: 's_m_y_blackops_03' },
+            { n: 'Скин: Пилот', r: 5, skin: 's_m_m_pilot_02' },
+            { n: 'Скин: Офицер', r: 5, skin: 's_m_m_marine_01' },
+            { n: 'Скин: Генерал', r: 8, skin: 's_m_m_marine_02' },
             { n: 'Полевая форма', r: 1, c: { 3: [17, 0], 4: [31, 0], 6: [25, 0], 8: [15, 0], 11: [49, 0] }, p: {} },
             { n: 'Форма + бронежилет', r: 2, c: { 3: [17, 0], 4: [31, 0], 6: [25, 0], 8: [15, 0], 11: [49, 0], 9: [16, 0] }, p: {} },
             { n: 'Штурмовая (каска, маска)', r: 3, c: { 1: [52, 0], 3: [17, 0], 4: [31, 0], 6: [25, 0], 8: [15, 0], 11: [53, 0], 9: [16, 0] }, p: { 0: [117, 0] } },
@@ -90,6 +99,11 @@ const UNIFORMS = {
             { n: 'Парадная форма', r: 6, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 7: [22, 0], 8: [31, 0], 11: [4, 0] }, p: {} }
         ],
         f: [
+            { n: 'Скин: Морпех', r: 1, skin: 's_m_y_marine_01' },
+            { n: 'Скин: Морпех в каске', r: 1, skin: 's_m_y_marine_03' },
+            { n: 'Скин: Боец в бронежилете', r: 2, skin: 's_m_y_marine_02' },
+            { n: 'Скин: Спецназ', r: 3, skin: 's_m_y_blackops_01' },
+            { n: 'Скин: Пилот', r: 5, skin: 's_m_m_pilot_02' },
             { n: 'Полевая форма', r: 1, c: { 3: [18, 0], 4: [30, 0], 6: [25, 0], 8: [14, 0], 11: [42, 0] }, p: {} },
             { n: 'Форма + бронежилет', r: 2, c: { 3: [18, 0], 4: [30, 0], 6: [25, 0], 8: [14, 0], 11: [42, 0], 9: [12, 0] }, p: {} },
             { n: 'Штурмовая (каска, маска)', r: 3, c: { 1: [52, 0], 3: [18, 0], 4: [30, 0], 6: [25, 0], 8: [14, 0], 11: [46, 0], 9: [18, 0] }, p: { 0: [116, 0] } },
@@ -212,14 +226,39 @@ function lockerOpen(p) {
     const list = uniformsOf(p), r = rank(p);
     p.call('gov:menu', [JSON.stringify({ t: 'locker', f: NAMES[fac(p)], on: !!p.getVariable('duty'), list: list.map(function (u, i) { return { i: i, n: u.n, lock: r < (u.r || 1) ? rankName(fac(p), u.r) : '' }; }) })]);
 }
+function keepGear(p, fn) {
+    const hp = p.health, ar = p.armour, w = p.uiWeapon;
+    fn();
+    setTimeout(function () {
+        if (!mp.players.exists(p)) return;
+        try { p.health = hp; p.armour = ar; } catch (e) {}
+        if (w && p.uiWeapon === w) { try { p.giveWeapon(w.hash, w.ammo || 100); } catch (e) {} }
+    }, 300);
+}
+function setSkin(p, m) {
+    keepGear(p, function () { p.model = mp.joaat(m); });
+    p.govSkin = m;
+}
+function unSkin(p) {
+    p.govSkin = null;
+    keepGear(p, function () {
+        if (global.CreatorSystem && p.account) global.CreatorSystem.apply(p, p.account);
+        else p.model = mp.joaat(female(p) ? 'mp_f_freemode_01' : 'mp_m_freemode_01');
+    });
+    setTimeout(function () { if (mp.players.exists(p) && U() && U().redress) U().redress(p); }, 700);
+}
+mp.events.add('playerQuit', function (p) { p.govSkin = null; });
 function setDuty(p, on, idx) {
     p.setVariable('duty', !!on);
     if (on) {
         const u = uniformsOf(p)[idx || 0];
         if (!u) return;
+        if (u.skin) { setSkin(p, u.skin); return; }
+        if (p.govSkin) unSkin(p);
         p.uniPending = u;
         p.call('gov:uniCheck', [JSON.stringify({ c: u.c, p: u.p })]);
     } else {
+        if (p.govSkin) { unSkin(p); return; }
         try { [1, 7, 9, 10].forEach(function (c) { p.setClothes(c, 0, 0, 0); }); p.setProp(0, -1, 0); p.call('inv:clearProp', [0]); } catch (e) {}
         if (U() && U().redress) U().redress(p);
     }
