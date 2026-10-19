@@ -115,7 +115,7 @@ mp.keys.bind(0x71, false, function () {
     cursorSync();
 });
 mp.keys.bind(0x1B, false, function () {
-    if (global.authOpen || global.creatorOpen) return;
+    if (global.authOpen || global.creatorOpen || global.gateEditOpen) return;
     if (uiOpen || deadState || mp.players.local.isTypingInTextChat) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (jobMenuOpen) { jobMenuClose(); return; }

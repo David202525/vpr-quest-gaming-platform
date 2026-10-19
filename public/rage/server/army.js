@@ -165,7 +165,7 @@ function spawnGate(i) {
     const g = S.gates[i];
     try { if (gateObjs[i]) gateObjs[i].destroy(); } catch (e) {}
     try {
-        const o = mp.objects.new(mp.joaat(g.m), V(g.x, g.y, g.z), { rotation: V(0, 0, g.h), dimension: 0 });
+        const o = mp.objects.new(mp.joaat(g.m), V(g.x, g.y, g.z), { rotation: V(g.rx || 0, g.ry || 0, g.h), dimension: 0 });
         o.setVariable('armyGate', i + 1);
         o.gOpen = false;
         gateObjs[i] = o;
@@ -222,6 +222,15 @@ mp.events.addCommand('gate', function (p) {
 mp.events.addCommand('armygate', function (p, full) {
     if (admLvl(p) < 5) return notify(p, 'error', 'Доступно с 5 уровня администрации');
     const a = String(full || '').trim().split(/\s+/);
+    if (a[0] === 'add' && a[2] !== 'cmd') {
+        const r = p.heading * Math.PI / 180;
+        return gateEditor(p, -1, { m: GATE_MODELS[a[1]] || GATE_MODELS.gate, x: p.position.x - Math.sin(r) * 3, y: p.position.y + Math.cos(r) * 3, z: p.position.z - 1, h: (p.heading + 90) % 360, rx: 0, ry: 0, slide: Number(a[2]) || 7.5 });
+    }
+    if (a[0] === 'edit') {
+        const i = a[1] ? Number(a[1]) - 1 : nearestGate(p, 30);
+        if (!S.gates[i]) return msg(p, a[1] ? 'Нет ворот с таким номером' : 'Рядом (30 м) нет ворот. Номера: /armygate list');
+        return gateEditor(p, i, S.gates[i]);
+    }
     if (a[0] === 'add') {
         const m = GATE_MODELS[a[1]] || GATE_MODELS.gate;
         const r = p.heading * Math.PI / 180;
@@ -247,7 +256,33 @@ mp.events.addCommand('armygate', function (p, full) {
     }
     if (a[0] === 'list') return S.gates.forEach(function (g, i) { msg(p, (i + 1) + '. ' + g.m + ' (' + g.x.toFixed(0) + ', ' + g.y.toFixed(0) + ') · угол ' + g.h.toFixed(0) + ' · ход ' + (g.slide || 7.5) + ' м'); });
     if (a[0] === 'list' || !S.gates.length) { if (!S.gates.length) return msg(p, 'Ворот нет. /armygate add [gate/fence/bar/big]'); }
-    msg(p, '/armygate add [gate/fence/bar/big] [ход м] · rot [№] [угол] · move [№] · dist [№] [м] · del — ближайшие · del [№] · clear — все · list');
+    msg(p, '/armygate edit — редактор ближайших ворот · edit [№] · add [gate/fence/bar/big] — новые в редакторе');
+    msg(p, '/armygate rot [№] [угол] · move [№] · dist [№] [м] · del — ближайшие · del [№] · clear — все · list');
+});
+
+function gateEditor(p, i, g) {
+    p.call('army:gEdit', [JSON.stringify({ i: i, m: g.m, x: g.x, y: g.y, z: g.z, h: g.h || 0, rx: g.rx || 0, ry: g.ry || 0, slide: g.slide || 7.5,
+        models: Object.keys(GATE_MODELS).map(function (k) { return [k, GATE_MODELS[k]]; }) })]);
+}
+function num(v, d) { v = Number(v); return isFinite(v) ? v : d; }
+mp.events.add('srv:army:gSave', function (p, json) {
+    if (admLvl(p) < 5) return;
+    let d; try { d = JSON.parse(json); } catch (e) { return; }
+    const models = Object.keys(GATE_MODELS).map(function (k) { return GATE_MODELS[k]; });
+    const g = { m: models.indexOf(d.m) >= 0 ? d.m : GATE_MODELS.gate, x: num(d.x, p.position.x), y: num(d.y, p.position.y), z: num(d.z, p.position.z),
+        h: ((num(d.h, 0) % 360) + 360) % 360, rx: Math.max(-90, Math.min(90, num(d.rx, 0))), ry: Math.max(-90, Math.min(90, num(d.ry, 0))), slide: Math.max(2, Math.min(20, num(d.slide, 7.5))) };
+    if (Math.hypot(g.x - p.position.x, g.y - p.position.y) > 150) return msg(p, 'Слишком далеко от вас — не сохранено');
+    let i = Number(d.i);
+    if (S.gates[i]) S.gates[i] = g; else { S.gates.push(g); i = S.gates.length - 1; }
+    save(); spawnGate(i); sendAll();
+    msg(p, 'Ворота №' + (i + 1) + ' сохранены');
+});
+mp.events.add('srv:army:gDel', function (p, i) {
+    if (admLvl(p) < 5) return;
+    i = Number(i);
+    if (!S.gates[i]) return;
+    S.gates.splice(i, 1); save(); respawnGates(); sendAll();
+    msg(p, 'Ворота удалены');
 });
 
 global.ArmySystem = {

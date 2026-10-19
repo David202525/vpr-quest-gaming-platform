@@ -139,7 +139,7 @@ function intOpenMenu() {
 }
 
 mp.keys.bind(0x47, false, function () {
-    if (global.authOpen || global.creatorOpen) return;
+    if (global.authOpen || global.creatorOpen || global.gateEditOpen) return;
     if (global.intOpen) { intClose(); return; }
     var me = mp.players.local;
     if (me.isTypingInTextChat || me.isDead()) return;
