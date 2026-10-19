@@ -85,11 +85,16 @@ const UNIFORMS = {
         m: [
             { n: 'Полевая форма', r: 1, c: { 3: [17, 0], 4: [86, 0], 6: [35, 0], 8: [15, 0], 11: [220, 0] }, p: { 0: [106, 20] } },
             { n: 'Форма + бронежилет', r: 2, c: { 3: [17, 0], 4: [86, 0], 6: [35, 0], 8: [15, 0], 11: [220, 0], 9: [16, 0] }, p: { 0: [106, 20] } },
-            { n: 'Парадная форма', r: 6, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 8: [31, 0], 11: [118, 0] }, p: { 0: [46, 0] } }
+            { n: 'Парадная форма', r: 6, c: { 3: [4, 0], 4: [10, 0], 6: [10, 0], 8: [31, 0], 11: [118, 0] }, p: { 0: [46, 0] } },
+            { n: 'Камуфляж + каска', r: 1, c: { 3: [17, 0], 4: [86, 0], 6: [35, 0], 8: [15, 0], 11: [220, 0], 9: [16, 0] }, p: { 0: [117, 0] } },
+            { n: 'Лётный комбинезон', r: 5, c: { 3: [16, 0], 4: [30, 0], 6: [24, 0], 8: [15, 0], 11: [48, 0] }, p: { 0: [19, 0] } },
+            { n: 'Офицерская форма', r: 5, c: { 3: [4, 0], 4: [86, 0], 6: [35, 0], 8: [15, 0], 11: [222, 0] }, p: { 0: [106, 20] } }
         ],
         f: [
             { n: 'Полевая форма', r: 1, c: { 3: [18, 0], 4: [89, 0], 6: [36, 0], 8: [14, 0], 11: [230, 0] }, p: { 0: [105, 20] } },
-            { n: 'Форма + бронежилет', r: 2, c: { 3: [18, 0], 4: [89, 0], 6: [36, 0], 8: [14, 0], 11: [230, 0], 9: [18, 0] }, p: { 0: [105, 20] } }
+            { n: 'Форма + бронежилет', r: 2, c: { 3: [18, 0], 4: [89, 0], 6: [36, 0], 8: [14, 0], 11: [230, 0], 9: [18, 0] }, p: { 0: [105, 20] } },
+            { n: 'Камуфляж + каска', r: 1, c: { 3: [18, 0], 4: [89, 0], 6: [36, 0], 8: [14, 0], 11: [230, 0], 9: [18, 0] }, p: { 0: [116, 0] } },
+            { n: 'Лётный комбинезон', r: 5, c: { 3: [17, 0], 4: [29, 0], 6: [24, 0], 8: [14, 0], 11: [41, 0] }, p: { 0: [18, 0] } }
         ]
     }
 };
@@ -100,11 +105,12 @@ const DEF_POINTS = {
     fib: { armory: [118.9, -729.3, 242.15], locker: [121.5, -733.8, 242.15], garage: [130.0, -712.0, 33.1], spawns: [[136.0, -705.0, 33.1, 160], [140.0, -707.0, 33.1, 160]] },
     army: { armory: [-2350.0, 3270.0, 32.8], locker: [-2347.0, 3264.0, 32.8], garage: [-2400.0, 3300.0, 32.8], spawns: [[-2405.0, 3310.0, 32.8, 240], [-2410.0, 3316.0, 32.8, 240]] }
 };
+const DEF_AIR = [[-2148.0, 3253.0, 32.8, 240], [-2125.0, 3240.0, 32.8, 240], [-2016.0, 2952.0, 32.8, 60], [-1955.0, 2918.0, 32.8, 60]];
 const DEF_FLEET = {
     lspd: [['police', 1], ['police2', 2], ['police3', 3], ['policeb', 3], ['police4', 6], ['policet', 4], ['riot', 7], ['polmav', 8]],
     sheriff: [['sheriff', 1], ['sheriff2', 3], ['policeb', 3], ['riot', 7]],
     fib: [['fbi', 1], ['fbi2', 3], ['riot', 6]],
-    army: [['mesa3', 1], ['crusader', 2], ['barracks', 4], ['insurgent', 6]]
+    army: [['mesa3', 1], ['crusader', 2], ['barracks', 2], ['barracks3', 3], ['insurgent', 5], ['cargobob', 5], ['valkyrie', 6], ['buzzard', 6], ['titan', 7], ['lazer', 8], ['hydra', 9]]
 };
 
 const PERMS = {
@@ -115,10 +121,16 @@ const PERMS = {
     note: { n: 'Записи в досье', r: 2, pol: 1 },
     fine: { n: 'Выписывать штрафы', r: 2, pol: 1 },
     wanted: { n: 'Объявлять / снимать розыск', r: 3, pol: 1 },
-    track: { n: 'Отслеживание сигнала', r: 4, pol: 1 }
+    track: { n: 'Отслеживание сигнала', r: 4, pol: 1 },
+    gate: { n: 'Открывать ворота военной базы', r: 1, army: 1 },
+    crates: { n: 'Погрузка ящиков поставки', r: 1, army: 1 },
+    deliver: { n: 'Доставка поставок на склады', r: 2, army: 1 },
+    air: { n: 'Авиация (вертолёты и самолёты)', r: 5, army: 1 }
 };
+function permVisible(f, k) { return f === 'army' ? !!PERMS[k].army : !PERMS[k].army; }
 function can(p, k) {
     if (!PERMS[k]) return false;
+    if (!permVisible(fac(p), k)) return false;
     if (PERMS[k].pol && !isPolice(p)) return false;
     if (canManage(p)) return true;
     return rank(p) >= (F(fac(p)).perms[k] || PERMS[k].r);
@@ -196,42 +208,6 @@ mp.events.add('srv:gov:return', function (p) {
     armoryOpen(p);
 });
 
-/* поставки армии */
-let supplyVeh = {};
-function supplyLoad(p) {
-    if (fac(p) !== 'army') return;
-    const x = F('army');
-    if (!x.points || !near(p, x.points.armory, 6)) return notify(p, 'warn', 'Загрузка у склада армии');
-    const v = p.vehicle;
-    if (!v || ['barracks', 'mesa3', 'crusader', 'insurgent'].indexOf(v.getVariable('govModel') || '') < 0) return notify(p, 'warn', 'Подъедьте на армейском грузовике (Barracks/Mesa/Crusader)');
-    if (v.getVariable('supply')) return notify(p, 'warn', 'Грузовик уже загружен');
-    v.setVariable('supply', 1);
-    supplyVeh[v.id] = sid(p);
-    notify(p, 'ok', 'Груз оружия загружен. Доставьте на склад LSPD, шерифа или FIB и введите /supply');
-}
-mp.events.addCommand('supply', function (p) {
-    if (fac(p) !== 'army') return notify(p, 'warn', 'Поставки выполняет только армия');
-    const v = p.vehicle;
-    if (!v) {
-        const x = F('army');
-        if (x.points && near(p, x.points.armory, 6)) return notify(p, 'warn', 'Сядьте в армейский грузовик и введите /supply для загрузки');
-        return notify(p, 'warn', 'Сядьте в армейский грузовик');
-    }
-    if (!v.getVariable('supply')) return supplyLoad(p);
-    const to = POLICE.find(function (f) { const x = F(f); return x.points && Math.hypot(p.position.x - x.points.armory[0], p.position.y - x.points.armory[1]) < 60; });
-    if (!to) return notify(p, 'warn', 'Подъедьте к складу LSPD, шерифа или FIB (не дальше 60 м)');
-    const x = F(to);
-    Object.keys(SUPPLY_PACK).forEach(function (k) { x.stock[k] = (x.stock[k] || 0) + SUPPLY_PACK[k]; });
-    v.setVariable('supply', 0);
-    delete supplyVeh[v.id];
-    mark();
-    flog(to, 'Армия (' + nick(p) + ') доставила поставку оружия');
-    const pay = 4000;
-    if (global.MoneySystem) global.MoneySystem.addBank(p, pay);
-    notify(p, 'ok', 'Поставка доставлена в ' + NAMES[to] + '. Премия ' + money(pay) + ' на счёт');
-    mp.players.forEach(function (o) { if (fac(o) === to) notify(o, 'ok', 'Армия доставила поставку оружия на склад'); });
-});
-
 /* ================= РАЗДЕВАЛКА ================= */
 function lockerOpen(p) {
     const list = uniformsOf(p), r = rank(p);
@@ -289,7 +265,12 @@ mp.events.add('srv:gov:car', function (p, m) {
     if (!c) return;
     if (rank(p) < c[1]) return notify(p, 'warn', 'Доступно с ранга «' + rankName(f, c[1]) + '»');
     if (fleetCars[s] && mp.vehicles.exists(fleetCars[s])) return notify(p, 'warn', 'Сначала сдайте прошлую машину');
-    const sp = (x.points.spawns || []).find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v.dimension === 0 && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 3; }); });
+    const AIR = ['cargobob', 'valkyrie', 'buzzard', 'titan', 'lazer', 'hydra', 'annihilator', 'savage'];
+    const isAir = AIR.indexOf(m) >= 0;
+    if (isAir && f === 'army' && !can(p, 'air') && !canManage(p)) return notify(p, 'warn', 'Авиация доступна с ранга «' + rankName(f, x.perms.air) + '» (настраивает лидер)');
+    const spList = isAir ? (x.points.air && x.points.air.length ? x.points.air : (f === 'army' ? DEF_AIR : [])) : (x.points.spawns || []);
+    if (isAir && !spList.length) return notify(p, 'warn', 'Нет площадки для авиации — администратор: /govpoint ' + f + ' air');
+    const sp = spList.find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v.dimension === 0 && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < (isAir ? 12 : 3); }); });
     if (!sp) return notify(p, 'warn', 'Все парковочные места заняты');
     const v = mp.vehicles.new(mp.joaat(m), V(sp[0], sp[1], sp[2]), { heading: sp[3] || 0, numberPlate: (NAMES[f] || 'GOV').slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: 0, locked: false, engine: false });
     v.setVariable('faction', f); v.setVariable('gov', f); v.setVariable('govModel', m); v.setVariable('govOwner', s);
@@ -329,7 +310,7 @@ mp.events.add('srv:gov:point', function (p, f, k) {
         const my = fac(p);
         return notify(p, 'error', 'Это ' + ({ armory: 'склад', locker: 'раздевалка', garage: 'гараж' })[k] + ' ' + (NAMES[f] || f) + '. ' + (my ? 'Вы состоите в: ' + (NAMES[my] || my) : 'Вы не состоите в этой организации'));
     }
-    if (k === 'armory') { if (f === 'army') return notify(p, 'ok', 'Склад армии: подгоните армейский грузовик сюда и введите /supply — загрузка. Доставка на склад LSPD/шерифа/FIB — снова /supply'); return armoryOpen(p); }
+    if (k === 'armory') { if (f === 'army') return notify(p, 'ok', 'Ящики поставки появляются у склада раз в неделю. Подойдите к ящикам — E, отнесите в Barracks — E у кузова. Доставка: /supply у склада LSPD/шерифа/FIB'); return armoryOpen(p); }
     if (k === 'locker') return lockerOpen(p);
     if (k === 'garage') return garageOpen(p);
 });
@@ -357,12 +338,14 @@ mp.events.addCommand('govpoint', function (p, full) {
     if (admLvl(p) < 7) return;
     const a = String(full || '').trim().split(/\s+/);
     const f = a[0], k = a[1];
-    if (!DEF_RANKS[f] || ['armory', 'locker', 'garage', 'spawn', 'clearspawns', 'home'].indexOf(k) < 0) return p.outputChatBox('!{#ffcc66}/govpoint [' + Object.keys(DEF_RANKS).join('/') + '] [armory/locker/garage/spawn/clearspawns/home] — home: место появления сотрудников');
+    if (!DEF_RANKS[f] || ['armory', 'locker', 'garage', 'spawn', 'clearspawns', 'home', 'air', 'clearair'].indexOf(k) < 0) return p.outputChatBox('!{#ffcc66}/govpoint [' + Object.keys(DEF_RANKS).join('/') + '] [armory/locker/garage/spawn/clearspawns/home/air/clearair] — air: площадка авиации — home: место появления сотрудников');
     const x = F(f);
     if (!x.points) x.points = { spawns: [] };
     const pos = [p.position.x, p.position.y, p.position.z];
     if (k === 'spawn') { x.points.spawns.push([pos[0], pos[1], pos[2], p.heading || 0]); }
     else if (k === 'clearspawns') x.points.spawns = [];
+    else if (k === 'air') { if (!x.points.air) x.points.air = []; x.points.air.push([pos[0], pos[1], pos[2], p.heading || 0]); }
+    else if (k === 'clearair') x.points.air = [];
     else if (k === 'home') x.points.home = [pos[0], pos[1], pos[2], p.heading || 0];
     else x.points[k] = pos;
     mark();
@@ -414,10 +397,11 @@ async function tabletData(p) {
         f: f, fn: NAMES[f] || f, me: { id: sid(p), n: nick(p), r: rank(p), rn: isLeader(p) ? x.ranks[x.ranks.length - 1] : rankName(f, rank(p)), lead: isLeader(p), dep: isDep(p), manage: canManage(p) },
         ranks: x.ranks, squads: x.squads.map(function (s, i) { return { i: i, n: s.n, lead: s.l, m: s.m, minR: s.r || 1 }; }),
         members: mem, stock: Object.keys(ARMORY_ITEMS).map(function (k) { return { n: ARMORY_ITEMS[k].n, c: x.stock[k] || 0 }; }), log: x.log.slice(0, 40), police: pol,
-        web: !!p.web, can: {}, perms: Object.keys(PERMS).map(function (k) { return { k: k, n: PERMS[k].n, r: x.perms[k], pol: !!PERMS[k].pol }; })
+        web: !!p.web, can: {}, perms: Object.keys(PERMS).filter(function (k) { return permVisible(f, k); }).map(function (k) { return { k: k, n: PERMS[k].n, r: x.perms[k], pol: !!PERMS[k].pol }; })
     };
     Object.keys(PERMS).forEach(function (k) { out.can[k] = can(p, k); });
     if (p.web) out.can.track = false;
+    if (f === 'army' && global.ArmySystem) out.army = global.ArmySystem.info();
     if (out.can.wantedList && W) {
         const wl = W.list();
         const ids = wl.map(function (w) { return w.s; });
@@ -456,7 +440,7 @@ async function tabAct(p, json) {
 
     if (a === 'perm') {
         if (!isLeader(p)) return tabErr(p, 'Права доступа меняет только лидер');
-        if (!PERMS[d.k]) return;
+        if (!PERMS[d.k] || !permVisible(f, d.k)) return;
         x.perms[d.k] = Math.max(1, Math.min(x.ranks.length, Number(d.r) || 1));
         mark(); flog(f, nick(p) + ' изменил доступ «' + PERMS[d.k].n + '» → с ранга ' + x.perms[d.k]);
         return done('Права обновлены');
@@ -864,5 +848,5 @@ function autoFine(p, sum, reason, by) {
     return fn;
 }
 
-global.GovFaction = { autoFine: autoFine, money: money, rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
+global.GovFaction = { can: can, rank: rank, fac: fac, sid: sid, nick: nick, isLeaderP: isLeader, canManage: canManage, F: F, flog: flog, mark: mark, POLICE: POLICE, SUPPLY_PACK: SUPPLY_PACK, ARMORY_ITEMS: ARMORY_ITEMS, autoFine: autoFine, money: money, rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');

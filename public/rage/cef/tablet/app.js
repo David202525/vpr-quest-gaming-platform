@@ -47,7 +47,8 @@ function nav() {
     }
     items.push(['sep', '', 'Управление']);
     if (D.me.lead) items.push(['ranks', '🎖️', 'Ранги'], ['perms', '🔐', 'Права доступа']);
-    items.push(['stock', '🗄️', 'Склад'], ['log', '📜', 'Журнал']);
+    if (D.army) items.push(['supply', '📦', 'Поставки']); else items.push(['stock', '🗄️', 'Склад']);
+    items.push(['log', '📜', 'Журнал']);
     $('nav').innerHTML = items.map(function (x) { return x[0] === 'sep' ? '<div class="sep">' + x[2] + '</div>' : '<button data-p="' + x[0] + '" class="' + (page === x[0] ? 'on' : '') + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('');
     $('nav').querySelectorAll('[data-p]').forEach(function (b) { b.onclick = function () { page = b.dataset.p; render(); }; });
 }
@@ -85,7 +86,7 @@ function render() {
             return '<div class="rk"><em>' + (i + 1) + '</em><input class="in" data-ri="' + i + '" value="' + esc(r) + '" maxlength="32"><button class="btn ghost sm" data-rs="' + i + '">Сохранить</button>' + (i > 0 && i < D.ranks.length - 1 ? '<button class="btn red sm" data-rd="' + i + '">✕</button>' : '') + '</div>';
         }).join('') + '<div class="row" style="margin-top:12px;margin-bottom:0"><input class="in" id="rN" placeholder="Новый ранг (встанет перед лидером)" style="flex:1"><button class="btn" id="rAdd">Добавить ранг</button></div></div>';
     } else if (page === 'perms') {
-        h = '<h2>Права доступа</h2><div class="sub">С какого ранга сотрудникам доступны функции базы данных. Лидер и заместители имеют полный доступ</div><div class="card">' +
+        h = '<h2>Права доступа</h2><div class="sub">С какого ранга сотрудникам доступны функции' + (D.army ? ' армии' : ' базы данных') + '. Лидер и заместители имеют полный доступ</div><div class="card">' +
             D.perms.map(function (x) {
                 return '<div class="rk"><span style="flex:1;font-size:13px">' + esc(x.n) + (x.pol ? ' <span class="tag">только полиция</span>' : '') + '</span><select class="in" data-pk="' + x.k + '" style="width:260px">' +
                     D.ranks.map(function (r, i) { return '<option value="' + (i + 1) + '"' + (x.r === i + 1 ? ' selected' : '') + '>с ' + (i + 1) + ' · ' + esc(r) + '</option>'; }).join('') + '</select></div>';
@@ -107,6 +108,12 @@ function render() {
         var Fz = D.fines || [];
         h = '<h2>Неоплаченные штрафы</h2><div class="sub">Выписать штраф — через досье гражданина (Пробить по базе). Граждане оплачивают командой /fines</div>' +
             (Fz.length ? '<table><tr><th>№</th><th>Гражданин</th><th>Сумма</th><th>Причина</th><th>Выписал</th><th>Дата</th></tr>' + Fz.map(function (f) { return '<tr><td>' + f.id + '</td><td><a data-dos="' + f.s + '" style="cursor:pointer;color:#8fb2ff">#' + f.s + '</a></td><td>' + money(f.sum) + '</td><td>' + esc(f.r) + '</td><td>' + esc(f.by) + '</td><td>' + dt(f.at) + '</td></tr>'; }).join('') + '</table>' : '<div class="empty">Неоплаченных штрафов нет</div>');
+    } else if (page === 'supply' && D.army) {
+        var Ar = D.army, ms = Ar.next - Date.now(), hh = Math.max(0, Math.floor(ms / 3600000));
+        var nx = ms <= 0 ? 'скоро' : (hh >= 24 ? Math.floor(hh / 24) + ' д ' + (hh % 24) + ' ч' : hh + ' ч ' + Math.max(0, Math.floor(ms % 3600000 / 60000)) + ' мин');
+        h = '<h2>Поставки</h2><div class="sub">Ящики появляются у склада базы. Взять — E у штабеля, погрузить — E у кузова Barracks. Доставка — /supply у склада LSPD, шерифа или FIB</div>' +
+            '<div class="stats"><div class="st"><small>Ящиков на базе</small><b>' + Ar.left + '</b></div><div class="st"><small>Следующая поставка</small><b style="font-size:18px">' + nx + '</b></div><div class="st"><small>В поставке</small><b>' + Ar.count + '</b></div><div class="st"><small>Доставлено всего</small><b>' + Ar.delivered + '</b></div></div>' +
+            '<div class="card"><h3>🚛 Грузовики в пути</h3>' + (Ar.trucks.length ? Ar.trucks.map(function (t) { return '<div class="kv"><span>' + esc(t.m) + '</span><b>' + t.c + ' / ' + t.cap + ' ящиков</b></div>'; }).join('') : '<div class="empty">Нет выданных Barracks</div>') + '</div>';
     } else if (page === 'stock') {
         h = '<h2>Склад</h2><div class="sub">Пополняется поставками армии</div><div class="stats">' + D.stock.map(function (s) { return '<div class="st"><small>' + esc(s.n) + '</small><b style="color:' + (s.c ? '#fff' : 'var(--red)') + '">' + s.c + '</b></div>'; }).join('') + '</div>';
     } else if (page === 'log') {

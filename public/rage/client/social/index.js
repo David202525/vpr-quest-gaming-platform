@@ -75,6 +75,10 @@ function enterAsPassenger() {
     var me = mp.players.local;
     if (me.getVariable('cuffed')) return false;
     var nv = nearestVehicle(5.5);
+    if (!nv) {
+        var big = nearestVehicle(14);
+        if (big) { var mx = 0; try { mx = big.v.getMaxNumberOfPassengers(); } catch (e) {} if (mx >= 5) nv = big; }
+    }
     if (!nv) return false;
     var pl = nearest();
     if (pl) {
@@ -98,6 +102,17 @@ function enterAsPassenger() {
         if (d < bd) { bd = d; best = s; }
     }
     if (best < -1) { mp.events.call('hud:notify', 'warn', 'Свободных мест нет', 2500); return true; }
+    if (max >= 3) {
+        var cls = 0; try { cls = v.getClass(); } catch (e) {}
+        if (max >= 5 || cls === 15 || cls === 16 || cls === 19 || cls === 20) {
+            if (!(bd < 2.5 && best <= 2)) {
+                var seat = best;
+                try { me.taskWarpIntoVehicle(v.handle, seat); } catch (e) { try { me.setIntoVehicle(v.handle, seat); } catch (e2) { return false; } }
+                mp.events.call('hud:notify', 'ok', 'Вы заняли место №' + (seat + 2) + ' из ' + (max + 1), 2000);
+                return true;
+            }
+        }
+    }
     try { me.taskEnterVehicle(v.handle, 6000, best, 1.0, 1, 0); } catch (e) { return false; }
     return true;
 }
