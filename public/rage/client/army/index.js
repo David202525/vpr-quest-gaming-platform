@@ -57,7 +57,6 @@ function lockGate(o) {
         o.setInvincible(true);
         o.setCanBeDamaged(false);
         o.setProofs(true, true, true, true, true, true, true, true);
-        mp.game.invoke('0x3F8E5F3A2ED7E6F8', o.handle, true);
     } catch (e) {}
 }
 mp.events.add('entityStreamIn', function (e) { if (e && e.type === 'object' && e.getVariable('armyGate')) setTimeout(function () { lockGate(e); }, 50); });
