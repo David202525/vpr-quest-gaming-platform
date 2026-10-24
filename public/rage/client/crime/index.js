@@ -141,3 +141,75 @@ mp.events.add('render', function () {
     }
     if (cAdd.high) { try { mp.game.controls.disableControlAction(0, 24, false); } catch (e) {} }
 });
+
+var cPts = null, cPtBlips = [], cNeutral = false, cPtHint = '';
+function rgbOf(c) { var n = parseInt(String(c || '#ffffff').replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function ptBlip(x, y, z, sprite, col, name, short) {
+    var b = mp.game.ui.addBlipForCoord(x, y, z);
+    mp.game.ui.setBlipSprite(b, sprite); mp.game.ui.setBlipColour(b, col); mp.game.ui.setBlipScale(b, 0.75);
+    mp.game.ui.setBlipAsShortRange(b, !!short);
+    mp.game.invoke('0xF9113A30DE5C6670', 'STRING'); mp.game.invoke('0x6C188BE134E074AA', name); mp.game.invoke('0xBC38B49BCB83BC9B', b);
+    return b;
+}
+mp.events.add('crime:points', function (j) {
+    try { cPts = JSON.parse(j); } catch (e) { return; }
+    cPtBlips.forEach(function (b) { try { mp.game.ui.removeBlip(b); } catch (e) {} });
+    cPtBlips = [];
+    try {
+        var b = cPts.buyer;
+        cPtBlips.push(ptBlip(b[0], b[1], b[2], 500, 2, 'Скупщик (нейтральная территория)', false));
+        var r = mp.game.invoke('0x46818D79B1F7499A', b[0] + 0.0001, b[1] + 0.0001, b[2] + 0.0001, cPts.nr + 0.0001);
+        mp.game.invoke('0x03D7FB09E75D6B7E', r, 0); mp.game.invoke('0x45FF974EEE1C8734', r, 90);
+        cPtBlips.push(r);
+        if (cPts.stash) cPtBlips.push(ptBlip(cPts.stash[0], cPts.stash[1], cPts.stash[2], 478, 0, 'Общак организации', true));
+        if (cPts.green) cPtBlips.push(ptBlip(cPts.green[0], cPts.green[1], cPts.green[2], 469, 2, 'Теплица', false));
+    } catch (e) { mp.console.logError('[crime] points: ' + e.message); }
+});
+mp.events.add('crime:neutral', function (on) { cNeutral = !!on; });
+function near3(a, r) {
+    if (!a) return false;
+    var p = mp.players.local.position;
+    return !mp.players.local.vehicle && mp.game.system.vdist(p.x, p.y, p.z, a[0], a[1], a[2]) < r;
+}
+function whichPt() {
+    if (!cPts) return '';
+    if (near3(cPts.stash, 2.5)) return 'stash';
+    if (near3(cPts.green, 4)) return 'green';
+    if (near3(cPts.buyer, 2.5)) return 'buyer';
+    return '';
+}
+setInterval(function () {
+    var w = whichPt();
+    if (w && w !== cPtHint) mp.events.call('hud:notify', 'ok', { stash: 'Общак: нажмите E', green: 'Теплица: нажмите E', buyer: 'Скупщик: нажмите E' }[w], 3000);
+    cPtHint = w;
+}, 400);
+mp.keys.bind(0x45, false, function () {
+    if (cOpen || mp.players.local.isTypingInTextChat || mp.gui.cursor.visible) return;
+    var w = whichPt();
+    if (w === 'stash') mp.events.callRemote('srv:crime:stash');
+    else if (w === 'green') mp.events.callRemote('srv:crime:green');
+    else if (w === 'buyer') mp.events.callRemote('srv:crime:buyer');
+});
+mp.events.add('crime:stash', function (j) { if (cOpen && cBr) cBr.execute('window.stash && window.stash(' + JSON.stringify(j) + ');'); else cUI(true, 'window.stash && window.stash(' + JSON.stringify(j) + ');'); });
+mp.events.add('crime:green', function (j) { if (cOpen && cBr) cBr.execute('window.green && window.green(' + JSON.stringify(j) + ');'); else cUI(true, 'window.green && window.green(' + JSON.stringify(j) + ');'); });
+mp.events.add('crime:buyer', function (j) { if (cOpen && cBr) cBr.execute('window.buyer && window.buyer(' + JSON.stringify(j) + ');'); else cUI(true, 'window.buyer && window.buyer(' + JSON.stringify(j) + ');'); });
+mp.events.add('cef:crime:stashOp', function (op, k, n) { mp.events.callRemote('srv:crime:stashOp', String(op), String(k), Number(n) || 1); });
+mp.events.add('cef:crime:pot', function (op, i) { mp.events.callRemote('srv:crime:pot', String(op), Number(i) || 0); });
+mp.events.add('cef:crime:sell', function (k, n) { mp.events.callRemote('srv:crime:sell', String(k), Number(n) || 1); });
+mp.events.add('render', function () {
+    if (cNeutral) {
+        mp.game.controls.disableControlAction(0, 24, true); mp.game.controls.disableControlAction(0, 25, true);
+        mp.game.controls.disableControlAction(0, 140, true); mp.game.controls.disableControlAction(0, 141, true); mp.game.controls.disableControlAction(0, 142, true);
+        mp.game.controls.disableControlAction(0, 69, true); mp.game.controls.disableControlAction(0, 92, true);
+        mp.game.graphics.drawText('🕊 Нейтральная территория', [0.5, 0.955], { font: 4, color: [140, 230, 140, 220], scale: [0.36, 0.36], outline: true, centre: true });
+    }
+    if (!cPts) return;
+    var me = mp.players.local.position;
+    [['stash', cPts.stash, 29, cPts.c], ['green', cPts.green, 1, '#6fd36a'], ['buyer', cPts.buyer, 29, '#6fd36a']].forEach(function (m) {
+        var a = m[1]; if (!a) return;
+        var dx = me.x - a[0], dy = me.y - a[1];
+        if (dx * dx + dy * dy > 900) return;
+        var c = rgbOf(m[3]);
+        mp.game.graphics.drawMarker(m[2], a[0], a[1], a[2] - (m[2] === 1 ? 1 : 0), 0, 0, 0, 0, 0, 0, m[2] === 1 ? 2.5 : 0.8, m[2] === 1 ? 2.5 : 0.8, m[2] === 1 ? 0.6 : 0.8, c[0], c[1], c[2], 170, m[2] !== 1, true, 2, false, null, null, false);
+    });
+});

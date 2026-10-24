@@ -4,7 +4,7 @@ let db = null;
 try { db = require('../database'); } catch (e) { try { db = require('./database'); } catch (e2) { db = null; } }
 
 const FILE = path.join(__dirname, 'crime_data.json');
-const S = Object.assign({ orgs: {}, zones: {}, addict: {}, dealer: null, stash: {}, wars: [] }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
+const S = Object.assign({ orgs: {}, zones: {}, addict: {}, dealer: null, buyer: null, stash: {}, wars: [] }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
 let dirty = false;
 function mark() { dirty = true; }
 setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FILE, JSON.stringify(S)); } catch (e) {} } }, 5000);
@@ -377,15 +377,200 @@ mp.events.add('playerQuit', function (p) {
 mp.events.addCommand('orgpoint', function (p, full) {
     if (admLvl(p) < 7) return;
     const a = String(full || '').trim().split(/\s+/), k = a[0], t = a[1];
-    if (!ORGS[k] || ['home', 'garage', 'car', 'clearcars'].indexOf(t) < 0) return p.outputChatBox('!{#ffcc66}/orgpoint [' + Object.keys(ORGS).join('/') + '] [home|garage|car|clearcars] — встаньте на место');
+    if (!ORGS[k] || ['home', 'garage', 'car', 'clearcars', 'stash', 'green'].indexOf(t) < 0) return p.outputChatBox('!{#ffcc66}/orgpoint [' + Object.keys(ORGS).join('/') + '] [home|garage|car|clearcars|stash|green] — встаньте на место');
     const o = O(k), pos = [p.position.x, p.position.y, p.position.z, p.heading || 0];
     if (t === 'home') o.home = pos;
     else if (t === 'garage') o.garage = pos;
+    else if (t === 'stash') o.stash = pos;
+    else if (t === 'green') o.green = pos;
     else if (t === 'car') { if (p.vehicle) pos[3] = p.vehicle.heading; (o.spots = o.spots || []).push(pos); }
     else o.spots = [];
-    mark(); zonesAll();
+    mark(); zonesAll(); mp.players.forEach(function (x) { if (org(x) === k) pointsSend(x); });
     p.outputChatBox('!{#8fd14f}' + ORGS[k].n + ': ' + t + ' сохранено' + (t === 'car' ? ' (мест: ' + o.spots.length + ')' : ''));
 });
+
+/* ======================= ОБЩАК-СКЛАД ======================= */
+const STASH_KEYS = ['ukrop_seed', 'ukrop', 'ukrop_pack', 'i_pistol', 'i_smg', 'i_rifle', 'i_armour', 'ammo_pistol', 'ammo_smg', 'ammo_rifle', 'medkit', 'bandage', 'armour', 'lockpick'];
+function stashPos(k) { const o = O(k); if (o.stash) return { x: o.stash[0], y: o.stash[1], z: o.stash[2] }; const h = home(k); return { x: h.x - 4, y: h.y - 3, z: h.z }; }
+function stashOf(k) { const o = O(k); if (!o.items) o.items = {}; return o.items; }
+function stashOpen(p) {
+    const k = org(p), st = stashOf(k), inv = U().invScan(p), o = O(k);
+    p.call('crime:stash', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, bank: o.bank, lead: isLeader(p), canTake: rank(p) >= (o.stashRank || 3) || mgr(p), need: rankName(k, o.stashRank || 3),
+        st: STASH_KEYS.filter(function (x) { return st[x] > 0; }).map(function (x) { return { k: x, n: U().ITEMS[x].n, i: U().ITEMS[x].i, c: st[x] }; }),
+        inv: STASH_KEYS.filter(function (x) { return inv[x] > 0; }).map(function (x) { return { k: x, n: U().ITEMS[x].n, i: U().ITEMS[x].i, c: inv[x] }; }),
+        log: o.log.slice(0, 12) })]);
+}
+function nearStash(p) { const k = org(p); if (!k) return false; const s = stashPos(k); return dist2(p.position, s.x, s.y) < 4 && Math.abs(p.position.z - s.z) < 4; }
+mp.events.add('srv:crime:stash', function (p) { if (nearStash(p)) stashOpen(p); });
+mp.events.add('srv:crime:stashOp', function (p, op, key, n) {
+    if (!nearStash(p)) return;
+    const k = org(p), st = stashOf(k), o = O(k);
+    n = Math.max(1, Math.floor(Number(n) || 1));
+    if (op === 'put' && STASH_KEYS.indexOf(key) >= 0) {
+        const got = U().takeItems(p, key, n);
+        if (!got) return notify(p, 'warn', 'Нет в инвентаре');
+        st[key] = (st[key] || 0) + got; mark();
+        olog(k, nick(p) + ' положил в общак: ' + U().ITEMS[key].n + ' x' + got);
+    } else if (op === 'take' && STASH_KEYS.indexOf(key) >= 0) {
+        if (!(rank(p) >= (o.stashRank || 3) || mgr(p))) return notify(p, 'warn', 'Брать из общака можно с ранга «' + rankName(k, o.stashRank || 3) + '»');
+        const c = Math.min(n, st[key] || 0);
+        if (!c) return;
+        const left = U().addItem(p, key, c);
+        const took = c - (left || 0);
+        if (!took) return notify(p, 'error', 'Инвентарь заполнен');
+        st[key] -= took; if (st[key] <= 0) delete st[key]; mark(); U().sendInv(p);
+        olog(k, nick(p) + ' взял из общака: ' + U().ITEMS[key].n + ' x' + took);
+    } else if (op === 'cashIn') {
+        if (!pay(p, n)) return notify(p, 'error', 'Не хватает денег');
+        o.bank += n; mark(); olog(k, nick(p) + ' положил в общак ' + money(n));
+    } else if (op === 'cashOut') {
+        if (!isLeader(p)) return notify(p, 'warn', 'Деньги из общака берёт только лидер');
+        if (o.bank < n) return notify(p, 'error', 'В общаке только ' + money(o.bank));
+        o.bank -= n; M().add(p, n); mark(); olog(k, nick(p) + ' взял из общака ' + money(n));
+    } else if (op === 'rank') {
+        if (!isLeader(p)) return;
+        o.stashRank = Math.max(1, Math.min(o.ranks.length, n)); mark();
+        notify(p, 'ok', 'Брать из общака можно с ранга «' + rankName(k, o.stashRank) + '»');
+    } else return;
+    stashOpen(p);
+});
+
+/* ======================= ТЕПЛИЦЫ МАФИЙ ======================= */
+const POTS = 8;
+const GROW_MIN = 40;
+const WATER_MIN = 15;
+const POT_YIELD = [4, 7];
+const SEED_PRICE = 120;
+function greenPos(k) { const o = O(k); if (o.green) return { x: o.green[0], y: o.green[1], z: o.green[2], h: o.green[3] || 0 }; const h = home(k); return { x: h.x + 8, y: h.y - 8, z: h.z, h: h.h }; }
+function potsOf(k) {
+    const o = O(k);
+    if (!o.pots || o.pots.length !== POTS) o.pots = new Array(POTS).fill(null);
+    return o.pots;
+}
+function potState(x) {
+    if (!x) return { s: 'empty' };
+    const now = Date.now();
+    const dry = now - x.w > WATER_MIN * 60000;
+    let grow = x.g + (dry ? (x.w + WATER_MIN * 60000 - x.lu) : (now - x.lu));
+    if (grow < x.g) grow = x.g;
+    const pct = Math.min(100, Math.floor(grow / (GROW_MIN * 60000) * 100));
+    return { s: pct >= 100 ? 'ripe' : dry ? 'dry' : 'grow', pct: pct, wl: Math.max(0, Math.ceil((x.w + WATER_MIN * 60000 - now) / 60000)) };
+}
+function potTick(x) {
+    if (!x) return;
+    const now = Date.now(), wEnd = x.w + WATER_MIN * 60000;
+    const until = Math.min(now, wEnd);
+    if (until > x.lu) x.g += until - x.lu;
+    x.lu = now;
+}
+function nearGreen(p) { const k = org(p); if (!k || ORGS[k].t !== 'mafia') return false; const g = greenPos(k); return dist2(p.position, g.x, g.y) < 6 && Math.abs(p.position.z - g.z) < 4; }
+function greenOpen(p) {
+    const k = org(p), pots = potsOf(k);
+    pots.forEach(potTick); mark();
+    p.call('crime:green', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, seeds: (U().invScan(p).ukrop_seed || 0), price: SEED_PRICE, grow: GROW_MIN, water: WATER_MIN,
+        pots: pots.map(function (x, i) { const st = potState(x); return { i: i, s: st.s, pct: st.pct || 0, wl: st.wl || 0, by: x ? x.by : '' }; }) })]);
+}
+mp.events.add('srv:crime:green', function (p) { if (nearGreen(p)) greenOpen(p); });
+mp.events.add('srv:crime:pot', function (p, op, i) {
+    if (!nearGreen(p)) return;
+    const k = org(p), pots = potsOf(k);
+    i = Math.floor(Number(i));
+    if (op === 'seeds') {
+        const n = Math.max(1, Math.min(50, i || 1)), cost = n * SEED_PRICE;
+        if (!pay(p, cost)) return notify(p, 'error', 'Не хватает: ' + money(cost));
+        U().addItem(p, 'ukrop_seed', n); U().sendInv(p);
+        olog(k, nick(p) + ' купил семена x' + n);
+        return greenOpen(p);
+    }
+    if (!(i >= 0 && i < POTS)) return;
+    const x = pots[i];
+    potTick(x);
+    if (op === 'plant') {
+        if (x) return;
+        if (!U().takeItems(p, 'ukrop_seed', 1)) return notify(p, 'warn', 'Нужны семена укропа');
+        pots[i] = { g: 0, w: Date.now(), lu: Date.now(), by: nick(p) };
+        notify(p, 'ok', 'Посажено. Поливайте каждые ' + WATER_MIN + ' мин');
+    } else if (op === 'water') {
+        if (!x) return;
+        x.w = Date.now(); x.lu = Date.now();
+        notify(p, 'ok', 'Полито');
+    } else if (op === 'harvest') {
+        if (!x || potState(x).s !== 'ripe') return;
+        const n = POT_YIELD[0] + Math.floor(Math.random() * (POT_YIELD[1] - POT_YIELD[0] + 1));
+        const left = U().addItem(p, 'ukrop', n);
+        if (left >= n) return notify(p, 'error', 'Инвентарь заполнен');
+        pots[i] = null; U().sendInv(p);
+        olog(k, nick(p) + ' собрал урожай: укроп x' + (n - (left || 0)));
+        notify(p, 'ok', 'Урожай: укроп x' + (n - (left || 0)));
+    } else return;
+    mark(); greenOpen(p);
+});
+
+/* ======================= СКУПЩИК (нейтральная территория) ======================= */
+const BUYER_DEF = { x: 1240.0, y: -3175.0, z: 7.1, h: 270 };
+const NEUTRAL_R = 70;
+const BUY_PRICE = { ukrop: 85, ukrop_pack: 550 };
+function buyer() { return S.buyer || BUYER_DEF; }
+if (!S.demand) S.demand = 1;
+setInterval(function () { S.demand = Math.min(1.2, S.demand + 0.05); mark(); }, 600000);
+let buyerPed = null;
+function spawnBuyer() {
+    try { if (buyerPed && mp.peds.exists(buyerPed)) buyerPed.destroy(); } catch (e) {}
+    const b = buyer();
+    try { buyerPed = mp.peds.new(mp.joaat('s_m_y_dealer_01'), new mp.Vector3(b.x, b.y, b.z), { dynamic: false, frozen: true, invincible: true, heading: b.h || 0, dimension: 0 }); } catch (e) { buyerPed = null; }
+}
+setTimeout(spawnBuyer, 3500);
+function inNeutral(pos) { const b = buyer(); return dist2(pos, b.x, b.y) < NEUTRAL_R; }
+function nearBuyer(p) { const b = buyer(); return dist2(p.position, b.x, b.y) < 4; }
+function buyerOpen(p) {
+    const inv = U().invScan(p);
+    p.call('crime:buyer', [JSON.stringify({ demand: Math.round(S.demand * 100),
+        list: Object.keys(BUY_PRICE).map(function (k) { return { k: k, n: U().ITEMS[k].n, i: U().ITEMS[k].i, have: inv[k] || 0, p: Math.floor(BUY_PRICE[k] * S.demand) }; }) })]);
+}
+mp.events.add('srv:crime:buyer', function (p) {
+    if (!nearBuyer(p)) return;
+    if (!org(p)) return notify(p, 'warn', 'Скупщик: «С незнакомыми дел не веду»');
+    buyerOpen(p);
+});
+mp.events.add('srv:crime:sell', function (p, key, n) {
+    const k = org(p);
+    if (!k || !nearBuyer(p) || !BUY_PRICE[key]) return;
+    n = Math.max(1, Math.floor(Number(n) || 1));
+    const got = U().takeItems(p, key, n);
+    if (!got) return notify(p, 'warn', 'Нечего продавать');
+    const unit = Math.floor(BUY_PRICE[key] * S.demand);
+    const sum = unit * got;
+    const cut = ORGS[k].t === 'mafia' ? Math.floor(sum * 0.1) : 0;
+    M().add(p, sum - cut);
+    if (cut) O(k).bank += cut;
+    const units = got * (key === 'ukrop_pack' ? 10 : 1);
+    S.demand = Math.max(0.5, S.demand - units * 0.002);
+    mark(); olog(k, nick(p) + ' продал скупщику ' + U().ITEMS[key].n + ' x' + got + ' за ' + money(sum));
+    notify(p, 'ok', 'Продано x' + got + ': +' + money(sum - cut) + (cut ? ' (10% — в общак: ' + money(cut) + ')' : ''));
+    buyerOpen(p);
+});
+mp.events.add('playerDeath', function (p, reason, killer) {
+    if (!killer || !killer.account || killer === p || !inNeutral(p.position)) return;
+    if (!org(killer)) return;
+    const W = global.WantedSystem;
+    if (W && W.add) W.add(killer, 2, 'Убийство на нейтральной территории', 'Система');
+    notify(killer, 'error', 'Нейтральная территория! Скупщик запомнил вас: +2★');
+});
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        if (!p.account) return;
+        const n = inNeutral(p.position);
+        if (n !== !!p.inNeutral) { p.inNeutral = n; notify(p, n ? 'ok' : 'warn', n ? 'Нейтральная территория скупщика — оружие убрано, разборки запрещены' : 'Вы покинули нейтральную территорию'); p.call('crime:neutral', [n ? 1 : 0]); }
+    });
+}, 2000);
+
+function pointsSend(p) {
+    const k = org(p), b = buyer();
+    const d = { buyer: [b.x, b.y, b.z], nr: NEUTRAL_R };
+    if (k) { const s = stashPos(k); d.stash = [s.x, s.y, s.z]; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
+    p.call('crime:points', [JSON.stringify(d)]);
+}
+setInterval(function () { mp.players.forEach(function (p) { if (p.account && p.ptOrg !== org(p)) { p.ptOrg = org(p); pointsSend(p); } }); }, 3000);
 
 /* ======================= УКРОП ======================= */
 const DEALER_DEF = { x: -1570.0, y: 4470.0, z: 20.0, h: 90 };
@@ -442,6 +627,12 @@ mp.events.add('srv:crime:buy', function (p, key, qty) {
     olog(k, nick(p) + ' купил ' + key + ' x' + qty);
     notify(p, 'ok', 'Сделка совершена: −' + money(cost));
 });
+mp.events.addCommand('buyerpos', function (p) {
+    if (admLvl(p) < 7) return;
+    S.buyer = { x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0 }; mark();
+    spawnBuyer(); mp.players.forEach(pointsSend);
+    p.outputChatBox('!{#8fd14f}Скупщик и нейтральная территория перенесены сюда');
+});
 mp.events.addCommand('dealerpos', function (p) {
     if (admLvl(p) < 7) return;
     S.dealer = { x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0 }; mark();
@@ -497,11 +688,11 @@ mp.events.addCommand('cure', function (p, full) {
     notify(t, 'ok', 'Врач ' + nick(p) + ' провёл детокс. Зависимость: ' + Math.round(a.lv) + '%');
     notify(p, 'ok', 'Детокс проведён: ' + nick(t));
 });
-mp.events.add('playerReady', function (p) { setTimeout(function () { if (!mp.players.exists(p)) return; dealerSend(p); sendZones(p); if (S.addict[sid(p)]) addictSync(p); }, 5000); });
+mp.events.add('playerReady', function (p) { setTimeout(function () { if (!mp.players.exists(p)) return; dealerSend(p); sendZones(p); pointsSend(p); if (S.addict[sid(p)]) addictSync(p); }, 5000); });
 setTimeout(function () { mp.players.forEach(function (p) { dealerSend(p); sendZones(p); }); }, 4000);
 
 /* ======================= ОБЫСК И ИЗЪЯТИЕ ======================= */
-const CONTRA = ['ukrop', 'ukrop_pack', 'i_pistol', 'i_smg', 'i_rifle', 'i_armour', 'pistol', 'smg', 'rifle', 'ammo_pistol', 'ammo_smg', 'ammo_rifle', 'armour', 'lockpick'];
+const CONTRA = ['ukrop_seed', 'ukrop', 'ukrop_pack', 'i_pistol', 'i_smg', 'i_rifle', 'i_armour', 'pistol', 'smg', 'rifle', 'ammo_pistol', 'ammo_smg', 'ammo_rifle', 'armour', 'lockpick'];
 function hasGunLic(t) { return !!(U() && U().hasDoc && U().hasDoc(t, 'gun')); }
 function contraOf(t) {
     const all = U().invScan(t), lic = hasGunLic(t), out = [];
@@ -586,5 +777,5 @@ mp.events.addCommand('zoneset', function (p, full) {
     p.outputChatBox('!{#8fd14f}' + z.n + ' → ' + (k === 'none' ? 'никто' : ORGS[k].n));
 });
 
-global.CrimeSystem = { home: orgHome, ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName };
+global.CrimeSystem = { inNeutral: inNeutral, home: orgHome, ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName };
 console.log('[crime] банды: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).length + ', мафии: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'mafia'; }).length + ', районов: ' + ZONES_DEF.length);

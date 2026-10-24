@@ -56,6 +56,7 @@ const ITEMS = {
     g_armour: { n: 'Служебный бронежилет', i: '🦺', w: 3, s: 1, slot: 'armour', gov: 1 },
     cuffs: { n: 'Наручники', i: '⛓️', w: 0.3, s: 2, gov: 1 },
     ukrop: { n: 'Укроп', i: '🌿', w: 0.05, s: 50, use: 'drug', v: 35, ill: 1 },
+    ukrop_seed: { n: 'Семена укропа', i: '🌱', w: 0.01, s: 50, ill: 1 },
     ukrop_pack: { n: 'Пакет укропа (x10)', i: '🛍️', w: 0.5, s: 10, use: 'unpack', v: 10, ill: 1 },
     i_pistol: { n: 'Пистолет (без номера)', i: '🔫', w: 1.2, s: 1, wp: 'weapon_pistol', ammo: 'ammo_pistol', ill: 1 },
     i_smg: { n: 'Micro SMG (без номера)', i: '🔫', w: 2.5, s: 1, wp: 'weapon_microsmg', ammo: 'ammo_smg', ill: 1 },
