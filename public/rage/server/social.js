@@ -21,7 +21,7 @@ function nick(p) { const a = acc(p); return String(a && a.nick ? a.nick : p.name
 function isAdmin(p) {
     const A = global.AdminSystem;
     if (!A) return false;
-    return (typeof A.realLvl === 'function' ? A.realLvl(p) : A.lvl(p)) >= 1;
+    return A.lvl(p) >= 1;
 }
 function female(p) { return p.model === FEMALE; }
 function knows(viewer, x) {
