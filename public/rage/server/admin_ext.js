@@ -592,11 +592,13 @@ async function setLeader(p, target, staticId, f) {
     await q('UPDATE accounts SET job = ?, job_rank = ?, leader = ? WHERE id = ?', [f || null, f ? 10 : 0, f ? 1 : 0, id]);
     const t = target || online(id);
     const GF = global.GovFaction;
-    const topR = f && GF && GF.F && GF.isGov && GF.isGov(f) ? GF.F(f).ranks.length : 10;
+    const CS = global.CrimeSystem;
+    const topR = f && GF && GF.F && GF.isGov && GF.isGov(f) ? GF.F(f).ranks.length : f && CS && CS.ORGS[f] ? CS.O(f).ranks.length : 10;
     if (f) await q('UPDATE accounts SET job_rank = ? WHERE id = ?', [topR, id]);
     if (!f && GF && GF.log && prev.job && GF.isGov(prev.job)) GF.log(prev.job, 'Администрация сняла лидера: ' + (t ? nick(t) : '#' + id));
     if (t && t.account) { t.account.job = f || null; t.account.job_rank = f ? topR : 0; t.account.leader = f ? 1 : 0; }
     if (GF && GF.sync && t) GF.sync(t);
+    if (t) { try { t.setVariable('org', CS && CS.ORGS[f] ? f : ''); } catch (e) {} }
     if (GF && GF.log && f) GF.log(f, 'Администрация назначила лидером: ' + (t ? nick(t) : '#' + id));
     if (t) msg(t, f ? 'Вы назначены лидером фракции ' + FACTIONS[f] : 'Вы сняты с поста лидера', f ? '#8fd14f' : '#ff9f43');
     admNote(login(p) + (f ? ' назначил лидером ' + FACTIONS[f] + ': ' : ' снял лидера: ') + (t ? who(t) : '#' + id) + ' (без записи в трудовую)');

@@ -901,10 +901,12 @@ mp.events.addCommand('webtablet', function (p) {
 async function adminFac(p, d, by) {
     const f = String(d.f || '');
     const ALL = { lspd: 1, sheriff: 1, fib: 1, army: 1, gov: 1, news: 1, medic: 1, lic: 1 };
-    if (!ALL[f]) return { err: 'Неизвестная фракция' };
+    const CS = global.CrimeSystem;
+    const isOrgF = !!(CS && CS.ORGS && CS.ORGS[f]);
+    if (!ALL[f] && !isOrgF) return { err: 'Неизвестная фракция' };
     const gov = isGovF(f);
     const x = gov ? F(f) : null;
-    const ranks = x ? x.ranks : ['Интерн', 'Фельдшер', 'Врач', 'Зав. отделением', 'Главврач'];
+    const ranks = x ? x.ranks : isOrgF ? CS.O(f).ranks : ['Интерн', 'Фельдшер', 'Врач', 'Зав. отделением', 'Главврач'];
     const pack = async function (ok) {
         const mem = gov ? await members(f) : (await q('SELECT id, nick, login, job_rank, leader, last_login FROM accounts WHERE job = ? ORDER BY job_rank DESC LIMIT 200', [f])).map(function (r) {
             const o = online(r.id);
