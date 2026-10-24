@@ -19,7 +19,23 @@ function areaBlip(x, y, w, col, alpha, flash) {
     if (flash) mp.game.invoke('0xB14552383D39CE3E', b, true);
     return b;
 }
+var OLD_Z = [[-120, -1600], [-200, -1500], [80, -1750], [200, -1500], [380, -1900], [800, -2200], [1350, -1600], [1150, -1400], [750, -1050], [1100, -650], [-1250, -1500], [-1500, -650], [-650, -950], [400, -1000], [400, -800], [200, -2600]];
+function purgeOld() {
+    var kill = [];
+    try {
+        var b = mp.game.ui.getFirstBlipInfoId(9), guard = 0;
+        while (b && mp.game.ui.doesBlipExist(b) && guard++ < 2000) {
+            var c = mp.game.ui.getBlipInfoIdCoord(b);
+            if (c && OLD_Z.some(function (o) { return Math.abs(o[0] - c.x) < 3 && Math.abs(o[1] - c.y) < 3; })) kill.push(b);
+            b = mp.game.ui.getNextBlipInfoId(9);
+        }
+    } catch (e) {}
+    kill.forEach(function (x) { try { mp.game.ui.removeBlip(x); } catch (e) {} });
+}
+setTimeout(purgeOld, 1000);
+setTimeout(purgeOld, 8000);
 mp.events.add('crime:zones', function (j) {
+    purgeOld();
     var d; try { d = JSON.parse(j); } catch (e) { return; }
     cBlips.forEach(function (b) { try { mp.game.ui.removeBlip(b); } catch (e) {} });
     cBlips = [];
