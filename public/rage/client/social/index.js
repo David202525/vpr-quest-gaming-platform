@@ -128,6 +128,8 @@ function intOpenMenu() {
         { id: 'pay', t: 'Дать денег', ic: '💵', d: 'Передать наличные' },
         { id: 'wave', t: 'Помахать', ic: '👋', d: 'Поприветствовать' }
     ];
+    var myFac = mp.players.local.getVariable('fac');
+    if (mp.players.local.getVariable('cop') || myFac === 'army') items.push({ id: 'search', t: 'Обыскать', ic: '🔍', d: 'Найти и изъять нелегальное' });
     if (mp.players.local.getVariable('cop')) {
         items.push({ id: 'chklic', t: 'Проверить права', ic: '📋', d: 'Проверить категории и выбрать наказание' });
         items.push({ id: 'revdrive', t: 'Изъять права', ic: '🚗', d: 'Забрать водительское удостоверение' });
@@ -161,6 +163,7 @@ mp.events.add('cef:int:pick', function (id, arg) {
     else if (id === 'passport') mp.events.callRemote('srv:int:passport', t.remoteId);
     else if (id === 'pay') mp.events.callRemote('srv:int:pay', t.remoteId, Number(arg) || 0);
     else if (id === 'wave') mp.events.callRemote('srv:int:wave');
+    else if (id === 'search') mp.events.callRemote('srv:crime:searchReq', t.remoteId);
     else if (id === 'chklic') mp.events.callRemote('srv:lic:check', t.remoteId);
     else if (id === 'revdrive') mp.events.callRemote('srv:cop:revoke', t.remoteId, 'drive');
     else if (id === 'revgun') mp.events.callRemote('srv:cop:revoke', t.remoteId, 'gun');

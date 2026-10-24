@@ -54,7 +54,13 @@ const ITEMS = {
     g_pistol: { n: 'Служебный пистолет', i: '🔫', w: 1.1, s: 1, wp: 'weapon_combatpistol', ammo: 'ammo_pistol', gov: 1 },
     g_carbine: { n: 'Служебный автомат', i: '🔫', w: 3.8, s: 1, wp: 'weapon_carbinerifle', ammo: 'ammo_rifle', gov: 1 },
     g_armour: { n: 'Служебный бронежилет', i: '🦺', w: 3, s: 1, slot: 'armour', gov: 1 },
-    cuffs: { n: 'Наручники', i: '⛓️', w: 0.3, s: 2, gov: 1 }
+    cuffs: { n: 'Наручники', i: '⛓️', w: 0.3, s: 2, gov: 1 },
+    ukrop: { n: 'Укроп', i: '🌿', w: 0.05, s: 50, use: 'drug', v: 35, ill: 1 },
+    ukrop_pack: { n: 'Пакет укропа (x10)', i: '🛍️', w: 0.5, s: 10, use: 'unpack', v: 10, ill: 1 },
+    i_pistol: { n: 'Пистолет (без номера)', i: '🔫', w: 1.2, s: 1, wp: 'weapon_pistol', ammo: 'ammo_pistol', ill: 1 },
+    i_smg: { n: 'Micro SMG (без номера)', i: '🔫', w: 2.5, s: 1, wp: 'weapon_microsmg', ammo: 'ammo_smg', ill: 1 },
+    i_rifle: { n: 'Автомат (без номера)', i: '🔫', w: 4.5, s: 1, wp: 'weapon_assaultrifle', ammo: 'ammo_rifle', ill: 1 },
+    i_armour: { n: 'Бронежилет (нелегальный)', i: '🦺', w: 3, s: 1, slot: 'armour', ill: 1 }
 };
 
 const DEF = {
@@ -502,6 +508,17 @@ function useItem(p, r) {
         p.call('ui:openDocs');
         return;
     }
+    if (it.use === 'drug') {
+        if (global.CrimeSystem && global.CrimeSystem.useDrug(p) === false) return;
+        consume(s);
+        return sendInv(p);
+    }
+    if (it.use === 'unpack') {
+        consume(s);
+        addItem(p, 'ukrop', it.v);
+        notify(p, 'ok', 'Пакет вскрыт: укроп x' + it.v);
+        return sendInv(p);
+    }
     if (it.use === 'cash') {
         addMoney(p, it.v);
         consume(s);
@@ -729,7 +746,7 @@ async function menuPayload(p) {
         name: p.name, id: p.id, number: d.phone,
         gender: female ? 'Женский' : 'Мужской',
         created: created ? new Date(created).toLocaleDateString('ru-RU') : '—',
-        faction: job || 'Нет', family: family || 'Нет',
+        faction: job ? (global.CrimeSystem && global.CrimeSystem.ORGS[job] ? global.CrimeSystem.ORGS[job].n : job) : 'Нет', family: family || 'Нет',
         lvl: d.lvl, exp: d.exp, need: needExp(d.lvl), hours: Math.floor((d.mins || 0) / 60),
         money: money, bank: bank,
         salary: global.Treasury ? global.Treasury.info(p) : null,
@@ -1485,7 +1502,20 @@ function addDriveCat(p, cat, by) {
     giveDoc(p, 'drive', { cats: have }, by);
     return have;
 }
-global.UiSystem = { driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
+function invScan(p) {
+    const d = data(p), out = {};
+    d.inv.forEach(function (x) { if (x && ITEMS[x.k]) out[x.k] = (out[x.k] || 0) + x.c; });
+    Object.keys(d.equip).forEach(function (s) { const x = d.equip[s]; if (x && ITEMS[x.k]) out[x.k] = (out[x.k] || 0) + 1; });
+    return out;
+}
+function takeItems(p, k, n) {
+    const d = data(p);
+    let left = n;
+    for (let i = 0; i < INV_SIZE && left > 0; i++) { const x = d.inv[i]; if (x && x.k === k) { const t = Math.min(left, x.c); x.c -= t; left -= t; if (x.c <= 0) d.inv[i] = null; } }
+    mark(); sendInv(p);
+    return n - left;
+}
+global.UiSystem = { invScan: invScan, takeItems: takeItems, sendInv: sendInv, driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 

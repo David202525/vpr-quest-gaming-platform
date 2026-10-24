@@ -1,0 +1,492 @@
+const fs = require('fs');
+const path = require('path');
+let db = null;
+try { db = require('../database'); } catch (e) { try { db = require('./database'); } catch (e2) { db = null; } }
+
+const FILE = path.join(__dirname, 'crime_data.json');
+const S = Object.assign({ orgs: {}, zones: {}, addict: {}, dealer: null, stash: {}, wars: [] }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
+let dirty = false;
+function mark() { dirty = true; }
+setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FILE, JSON.stringify(S)); } catch (e) {} } }, 5000);
+async function q(sql, args) { if (!db) return []; try { const r = await db.query(sql, args || []); return Array.isArray(r) && Array.isArray(r[0]) ? r[0] : r; } catch (e) { console.log('[crime] db: ' + e.message); return []; } }
+
+/* ======================= ОРГАНИЗАЦИИ ======================= */
+const ORGS = {
+    ballas: { n: 'Ballas', t: 'gang', c: '#a14bd6', blip: 27, home: [85.0, -1959.0, 20.8] },
+    families: { n: 'The Families', t: 'gang', c: '#3fb34f', blip: 25, home: [-161.0, -1638.0, 34.0] },
+    vagos: { n: 'Los Santos Vagos', t: 'gang', c: '#e8c32a', blip: 46, home: [331.0, -2040.0, 20.9] },
+    marabunta: { n: 'Marabunta Grande', t: 'gang', c: '#2e8bd8', blip: 38, home: [1438.0, -1490.0, 63.6] },
+    bloods: { n: 'Bloods', t: 'gang', c: '#d63a3a', blip: 1, home: [-1544.0, -440.0, 35.9] },
+    lcn: { n: 'La Cosa Nostra', t: 'mafia', c: '#c9a24a', blip: 5, home: [-1520.0, 110.0, 50.0] },
+    russian: { n: 'Русская мафия', t: 'mafia', c: '#b0b7c3', blip: 4, home: [-1462.0, -32.0, 54.6] },
+    yakuza: { n: 'Yakuza', t: 'mafia', c: '#e05050', blip: 6, home: [-794.0, 182.0, 72.8] }
+};
+const RANKS = {
+    gang: ['Новичок', 'Шестёрка', 'Боец', 'Бывалый', 'Уважаемый', 'Старший', 'Правая рука', 'Смотрящий', 'Лидер'],
+    mafia: ['Аутсайдер', 'Шестёрка', 'Солдат', 'Боец', 'Капореджиме', 'Консильери', 'Младший босс', 'Дон']
+};
+function O(k) {
+    if (!S.orgs[k]) S.orgs[k] = {};
+    const o = S.orgs[k];
+    if (!o.ranks) o.ranks = RANKS[ORGS[k].t].slice();
+    if (!o.deps) o.deps = [];
+    if (o.bank === undefined) o.bank = 0;
+    if (!o.log) o.log = [];
+    return o;
+}
+function olog(k, t) { const o = O(k); o.log.unshift({ t: Date.now(), x: t }); if (o.log.length > 80) o.log.length = 80; mark(); }
+
+function notify(p, type, text) { if (typeof global.hudNotify === 'function') global.hudNotify(p, type, text); else p.outputChatBox(text); }
+function sid(p) { return p && p.account && p.account.id ? Number(p.account.id) : 0; }
+function nick(p) { return String((p.account && p.account.nick) || p.name).replace(/_/g, ' '); }
+function org(p) { const j = p && p.account && p.account.job; return j && ORGS[j] ? j : ''; }
+function rank(p) { const a = p.account; if (!a) return 0; if (Number(a.leader) === 1) return 99; return Number(a.job_rank) || 1; }
+function isLeader(p) { const a = p.account; return !!(a && org(p) && (Number(a.leader) === 1 || Number(a.job_rank) >= O(org(p)).ranks.length)); }
+function isDep(p) { const k = org(p); return !!k && O(k).deps.indexOf(sid(p)) >= 0; }
+function mgr(p) { return isLeader(p) || isDep(p); }
+function rankName(k, r) { const R = O(k).ranks; return R[Math.max(0, Math.min(R.length, r) - 1)] || ('Ранг ' + r); }
+function admLvl(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0; }
+function money(n) { return '$' + String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function online(id) { return mp.players.toArray().find(function (x) { return sid(x) === Number(id); }) || null; }
+function U() { return global.UiSystem; }
+function M() { return global.MoneySystem; }
+function isCop(p) { const j = p.account && p.account.job; return ['lspd', 'sheriff', 'fib', 'army'].indexOf(j) >= 0; }
+function dist2(a, x, y) { return Math.hypot(a.x - x, a.y - y); }
+function clean(t) { return String(t || '').replace(/!\{[^}]*\}/g, '').replace(/[<>]/g, '').trim().slice(0, 160); }
+function pay(p, sum) {
+    const m = M(); if (!m) return false;
+    const cash = m.get(p), bank = m.bank(p);
+    if (cash + bank < sum) return false;
+    const fb = Math.max(0, sum - cash);
+    m.set(p, cash - (sum - fb), bank - fb, 'crime');
+    return true;
+}
+function sync(p) {
+    const k = org(p);
+    if ((p.getVariable('org') || '') !== k) p.setVariable('org', k);
+}
+setInterval(function () { mp.players.forEach(function (p) { if (p.account) sync(p); }); }, 3000);
+
+async function setOrg(t, k, r, leader) {
+    t.account.job = k || null; t.account.job_rank = k ? r : 0; t.account.leader = leader ? 1 : 0;
+    await q('UPDATE accounts SET job = ?, job_rank = ?, leader = ? WHERE id = ?', [k || null, k ? r : 0, leader ? 1 : 0, sid(t)]);
+    sync(t);
+}
+
+/* ---- приглашение / управление ---- */
+mp.events.addCommand('oinvite', function (p, full) {
+    const k = org(p);
+    if (!k || !mgr(p)) return notify(p, 'warn', 'Приглашать могут лидер и заместители банды / мафии');
+    const t = mp.players.at(Number(String(full || '').trim()));
+    if (!t || !t.account || t === p) return p.outputChatBox('!{#ffcc66}/oinvite [id] — игрок должен стоять рядом');
+    if (t.position.subtract(p.position).length() > 5) return notify(p, 'warn', 'Игрок должен быть рядом');
+    if (t.account.job) return notify(p, 'warn', 'Игрок уже состоит в организации');
+    t.orgInvite = { k: k, by: sid(p), at: Date.now() };
+    t.call('social:offer', [nick(p) + ' зовёт вас в ' + ORGS[k].n, 30000]);
+    notify(p, 'ok', 'Приглашение отправлено');
+});
+mp.events.add('srv:int:answer', async function (t, yes) {
+    const o = t.orgInvite;
+    if (!o || Date.now() - o.at > 30000) return;
+    t.orgInvite = null;
+    const by = online(o.by);
+    if (!yes) { if (by) notify(by, 'warn', nick(t) + ' отказался'); return; }
+    if (t.account.job) return;
+    await setOrg(t, o.k, 1, false);
+    olog(o.k, nick(t) + ' вступил' + (by ? ' (позвал ' + nick(by) + ')' : ''));
+    notify(t, 'ok', 'Вы вступили в ' + ORGS[o.k].n + '. Рация: /f · помощь: /help');
+    if (by) notify(by, 'ok', nick(t) + ' теперь с вами');
+});
+async function manage(p, id, act) {
+    const k = org(p);
+    if (!k || !mgr(p)) return notify(p, 'warn', 'Только лидер или заместитель');
+    const r = (await q('SELECT id, nick, login, job, job_rank, leader FROM accounts WHERE id = ? LIMIT 1', [id]))[0];
+    if (!r || r.job !== k) return notify(p, 'warn', 'Это не ваш человек');
+    if (Number(r.leader) === 1 || Number(r.id) === sid(p)) return notify(p, 'warn', 'Нельзя');
+    const o = O(k), t = online(id), n = String(r.nick || r.login).replace(/_/g, ' ');
+    let nr = Number(r.job_rank) || 1;
+    if (act === 'up') nr = Math.min(o.ranks.length - 1, nr + 1);
+    if (act === 'down') nr = Math.max(1, nr - 1);
+    if (act === 'kick') {
+        await q('UPDATE accounts SET job = NULL, job_rank = 0, leader = 0 WHERE id = ?', [id]);
+        o.deps = o.deps.filter(function (x) { return x !== Number(id); });
+        if (t) { t.account.job = null; t.account.job_rank = 0; sync(t); notify(t, 'error', 'Вас выгнали из ' + ORGS[k].n); }
+        olog(k, nick(p) + ' выгнал ' + n); return notify(p, 'ok', n + ' выгнан');
+    }
+    if (act === 'dep') {
+        if (!isLeader(p)) return notify(p, 'warn', 'Заместителей назначает лидер');
+        const i = o.deps.indexOf(Number(id));
+        if (i >= 0) o.deps.splice(i, 1); else o.deps.push(Number(id));
+        mark(); olog(k, nick(p) + (i >= 0 ? ' снял зама ' : ' назначил замом ') + n);
+        return notify(p, 'ok', i >= 0 ? 'Зам снят' : n + ' — заместитель');
+    }
+    await q('UPDATE accounts SET job_rank = ? WHERE id = ?', [nr, id]);
+    if (t) { t.account.job_rank = nr; notify(t, 'ok', 'Ваш ранг: ' + rankName(k, nr)); }
+    olog(k, nick(p) + ': ' + n + ' → ' + rankName(k, nr));
+    notify(p, 'ok', n + ' → ' + rankName(k, nr));
+}
+[['orankup', 'up'], ['orankdown', 'down'], ['okick', 'kick'], ['odep', 'dep']].forEach(function (c) {
+    mp.events.addCommand(c[0], function (p, full) {
+        const id = Number(String(full || '').trim().replace('#', ''));
+        if (!id) return p.outputChatBox('!{#ffcc66}/' + c[0] + ' [static id] — номер аккаунта (виден в /omembers)');
+        manage(p, id, c[1]);
+    });
+});
+mp.events.addCommand('omembers', async function (p) {
+    const k = org(p);
+    if (!k) return notify(p, 'warn', 'Вы не состоите в банде или мафии');
+    const rows = await q('SELECT id, nick, login, job_rank, leader FROM accounts WHERE job = ? ORDER BY leader DESC, job_rank DESC LIMIT 60', [k]);
+    p.outputChatBox('!{' + ORGS[k].c + '}=== ' + ORGS[k].n + ' · ' + rows.length + ' чел. · общак ' + money(O(k).bank) + ' ===');
+    rows.forEach(function (r) {
+        const on = online(r.id);
+        p.outputChatBox((on ? '!{#8fd14f}● ' : '!{#777777}○ ') + '!{#ffffff}#' + r.id + ' ' + String(r.nick || r.login).replace(/_/g, ' ') + ' !{#aaaaaa}— ' + (Number(r.leader) === 1 ? O(k).ranks[O(k).ranks.length - 1] : rankName(k, Number(r.job_rank) || 1)) + (O(k).deps.indexOf(Number(r.id)) >= 0 ? ' (зам)' : ''));
+    });
+});
+mp.events.addCommand('oleave', async function (p) {
+    const k = org(p);
+    if (!k) return;
+    if (isLeader(p)) return notify(p, 'warn', 'Лидер не может уйти сам — обратитесь к администрации');
+    await setOrg(p, null, 0, false);
+    olog(k, nick(p) + ' ушёл сам');
+    notify(p, 'ok', 'Вы покинули ' + ORGS[k].n);
+});
+mp.events.addCommand('orank', function (p, full) {
+    const k = org(p);
+    if (!k || !isLeader(p)) return notify(p, 'warn', 'Только лидер');
+    const a = String(full || '').trim().split(/\s+/), i = Number(a[0]), n = clean(a.slice(1).join(' ')).slice(0, 28);
+    const o = O(k);
+    if (!(i >= 1 && i <= o.ranks.length) || !n) return p.outputChatBox('!{#ffcc66}/orank [номер 1-' + o.ranks.length + '] [название] · сейчас: ' + o.ranks.map(function (r, j) { return (j + 1) + '.' + r; }).join(' '));
+    o.ranks[i - 1] = n; mark();
+    notify(p, 'ok', 'Ранг ' + i + ' теперь «' + n + '»');
+});
+/* общак */
+mp.events.addCommand('obank', function (p, full) {
+    const k = org(p);
+    if (!k) return;
+    const a = String(full || '').trim().split(/\s+/), sum = Math.floor(Number(a[1]));
+    const o = O(k);
+    if (a[0] === 'put' && sum > 0) {
+        if (!pay(p, sum)) return notify(p, 'error', 'Не хватает денег');
+        o.bank += sum; mark(); olog(k, nick(p) + ' положил в общак ' + money(sum));
+        return notify(p, 'ok', 'В общак: +' + money(sum));
+    }
+    if (a[0] === 'take' && sum > 0) {
+        if (!isLeader(p)) return notify(p, 'warn', 'Брать из общака может только лидер');
+        if (o.bank < sum) return notify(p, 'error', 'В общаке только ' + money(o.bank));
+        o.bank -= sum; M().add(p, sum); mark(); olog(k, nick(p) + ' взял из общака ' + money(sum));
+        return notify(p, 'ok', 'Из общака: ' + money(sum));
+    }
+    p.outputChatBox('!{#ffcc66}Общак: ' + money(o.bank) + ' · /obank put [сумма] · /obank take [сумма] (лидер)');
+});
+/* рации */
+function toOrg(k, line) { mp.players.forEach(function (x) { if (x.account && org(x) === k) x.outputChatBox(line); }); }
+mp.events.addCommand('f', function (p, full) {
+    const k = org(p);
+    if (!k) return notify(p, 'warn', 'Вы не в банде / мафии');
+    const t = clean(full);
+    if (!t) return p.outputChatBox('!{#ffcc66}/f [текст] — рация организации · /fb — нон-РП');
+    toOrg(k, '!{' + ORGS[k].c + '}[' + ORGS[k].n + '] ' + (isLeader(p) ? O(k).ranks[O(k).ranks.length - 1] : rankName(k, rank(p))) + ' ' + nick(p) + ': !{#ffffff}' + t);
+});
+mp.events.addCommand('fb', function (p, full) {
+    const k = org(p); const t = clean(full);
+    if (!k || !t) return;
+    toOrg(k, '!{' + ORGS[k].c + '}[' + ORGS[k].n + '] !{#9a9aa8}(( ' + nick(p) + ' [' + p.id + ']: ' + t + ' ))');
+});
+
+/* ======================= ТЕРРИТОРИИ ======================= */
+const ZONES_DEF = [
+    ['Grove Street', -120, -1600], ['Chamberlain Hills', -200, -1500], ['Davis', 80, -1750], ['Strawberry', 200, -1500],
+    ['Rancho', 380, -1900], ['Cypress Flats', 800, -2200], ['El Burro Heights', 1350, -1600], ['Murrieta Heights', 1150, -1400],
+    ['La Mesa', 750, -1050], ['Mirror Park', 1100, -650], ['Vespucci Beach', -1250, -1500], ['Del Perro', -1500, -650],
+    ['Little Seoul', -650, -950], ['Mission Row', 400, -1000], ['Textile City', 400, -800], ['Elysian Island', 200, -2600]
+];
+const ZONE_R = 110;
+const CAP_SEC = 300;
+const CAP_COOLDOWN = 3600000;
+const ZONE_INCOME = 250;
+const CAP_HOURS = [14, 23];
+function zoneList() {
+    return ZONES_DEF.map(function (z, i) {
+        const s = S.zones[i] || (S.zones[i] = { o: Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; })[i % 5], cd: 0 });
+        return { i: i, n: z[0], x: z[1], y: z[2], o: s.o, cd: s.cd || 0 };
+    });
+}
+function zoneAt(pos) { return zoneList().find(function (z) { return dist2(pos, z.x, z.y) < ZONE_R; }) || null; }
+function sendZones(p) {
+    const w = S.wars.map(function (x) { return { z: x.z, a: x.a, d: x.d, end: x.end }; });
+    p.call('crime:zones', [JSON.stringify({ r: ZONE_R, z: zoneList().map(function (z) { return [z.i, z.n, z.x, z.y, z.o ? ORGS[z.o].c : '#888888', z.o ? ORGS[z.o].n : 'ничья']; }), w: w, org: ORGS })]);
+}
+function zonesAll() { mp.players.forEach(sendZones); }
+function capHour() { const h = new Date(Date.now() + 3 * 3600000).getUTCHours(); return h >= CAP_HOURS[0] && h < CAP_HOURS[1]; }
+mp.events.addCommand('capture', function (p) {
+    const k = org(p);
+    if (!k || ORGS[k].t !== 'gang') return notify(p, 'warn', 'Захватывать территории могут только банды');
+    if (rank(p) < 4 && !mgr(p)) return notify(p, 'warn', 'Начать захват может «' + rankName(k, 4) + '» и выше');
+    if (!capHour() && admLvl(p) < 6) return notify(p, 'warn', 'Захваты разрешены с ' + CAP_HOURS[0] + ':00 до ' + CAP_HOURS[1] + ':00 по МСК');
+    const z = zoneAt(p.position);
+    if (!z) return notify(p, 'warn', 'Вы не на территории района');
+    if (z.o === k) return notify(p, 'warn', 'Это уже ваш район');
+    if (S.wars.some(function (w) { return w.z === z.i || w.a === k; })) return notify(p, 'warn', 'Здесь уже идёт война или ваша банда воюет в другом районе');
+    if (Date.now() < z.cd) return notify(p, 'warn', 'Район недавно захватывали. Ещё ' + Math.ceil((z.cd - Date.now()) / 60000) + ' мин');
+    const mine = mp.players.toArray().filter(function (x) { return org(x) === k && dist2(x.position, z.x, z.y) < ZONE_R; }).length;
+    if (mine < 3 && admLvl(p) < 6) return notify(p, 'warn', 'Для захвата нужно минимум 3 бойца на территории (сейчас ' + mine + ')');
+    const w = { z: z.i, a: k, d: z.o, start: Date.now(), end: Date.now() + CAP_SEC * 1000, kills: {} };
+    w.kills[k] = 0; if (z.o) w.kills[z.o] = 0;
+    S.wars.push(w); mark();
+    mp.players.forEach(function (x) {
+        if (!x.account) return;
+        const ok = org(x);
+        if (ok === k || ok === z.o) x.outputChatBox('!{#ff5555}[ВОЙНА] !{#ffffff}' + ORGS[k].n + ' начали захват района ' + z.n + (z.o ? ' у ' + ORGS[z.o].n : '') + '! 5 минут. Метка на карте');
+        if (ok === k || ok === z.o) x.call('phone:gps', [z.x, z.y, 'Война: ' + z.n]);
+    });
+    zonesAll();
+});
+mp.events.add('playerDeath', function (p, reason, killer) {
+    if (S.addict[sid(p)]) { S.addict[sid(p)].high = 0; }
+    if (!killer || !killer.account || killer === p) return;
+    const kk = org(killer), pk = org(p);
+    S.wars.forEach(function (w) {
+        const z = ZONES_DEF[w.z];
+        if (dist2(p.position, z[1], z[2]) > ZONE_R + 40) return;
+        if ((kk === w.a || kk === w.d) && (pk === w.a || pk === w.d) && kk !== pk) { w.kills[kk] = (w.kills[kk] || 0) + 1; mark(); }
+    });
+});
+setInterval(function () {
+    const now = Date.now();
+    S.wars = S.wars.filter(function (w) {
+        const z = ZONES_DEF[w.z];
+        const inA = mp.players.toArray().filter(function (x) { return org(x) === w.a && dist2(x.position, z[1], z[2]) < ZONE_R; }).length;
+        const inD = w.d ? mp.players.toArray().filter(function (x) { return org(x) === w.d && dist2(x.position, z[1], z[2]) < ZONE_R; }).length : 0;
+        mp.players.forEach(function (x) { const o = org(x); if (o === w.a || o === w.d) x.call('crime:war', [JSON.stringify({ n: z[0], a: ORGS[w.a].n, d: w.d ? ORGS[w.d].n : 'никто', ka: w.kills[w.a] || 0, kd: w.d ? w.kills[w.d] || 0 : 0, ia: inA, id: inD, left: Math.max(0, Math.ceil((w.end - now) / 1000)) })]); });
+        if (now < w.end) return true;
+        const sa = (w.kills[w.a] || 0) * 2 + inA, sd = w.d ? (w.kills[w.d] || 0) * 2 + inD : 0;
+        const win = sa > sd ? w.a : (w.d || w.a);
+        S.zones[w.z] = { o: win, cd: now + CAP_COOLDOWN };
+        mp.players.forEach(function (x) {
+            const o = org(x);
+            if (o === w.a || o === w.d) { x.outputChatBox('!{#ffd24d}[ВОЙНА] !{#ffffff}Район ' + z[0] + ' остаётся за ' + ORGS[win].n + ' (' + sa + ' : ' + sd + ')'); x.call('crime:war', ['']); }
+        });
+        olog(win, 'Район ' + z[0] + (win === w.a ? ' захвачен' : ' удержан'));
+        setTimeout(zonesAll, 200);
+        return false;
+    });
+    mark();
+}, 3000);
+/* доход с районов раз в час */
+setInterval(function () {
+    const cnt = {};
+    zoneList().forEach(function (z) { if (z.o) cnt[z.o] = (cnt[z.o] || 0) + 1; });
+    Object.keys(cnt).forEach(function (k) { const sum = cnt[k] * ZONE_INCOME; O(k).bank += sum; olog(k, 'Доход с районов (' + cnt[k] + '): +' + money(sum)); toOrg(k, '!{' + ORGS[k].c + '}[' + ORGS[k].n + '] !{#ffffff}Доход с ' + cnt[k] + ' районов: +' + money(sum) + ' в общак'); });
+    mark();
+}, 3600000);
+mp.events.addCommand('zones', function (p) {
+    const cnt = {};
+    zoneList().forEach(function (z) { if (z.o) cnt[z.o] = (cnt[z.o] || 0) + 1; });
+    p.outputChatBox('!{#ffd24d}=== Территории банд ===');
+    Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).forEach(function (k) { p.outputChatBox('!{' + ORGS[k].c + '}' + ORGS[k].n + ' !{#ffffff}— районов: ' + (cnt[k] || 0)); });
+    const z = zoneAt(p.position);
+    if (z) p.outputChatBox('!{#cccccc}Вы в районе ' + z.n + ', владелец: ' + (z.o ? ORGS[z.o].n : 'никто'));
+    sendZones(p);
+});
+
+/* ======================= УКРОП ======================= */
+const DEALER_DEF = { x: -1570.0, y: 4470.0, z: 20.0, h: 90 };
+const PRICE = { ukrop_pack: { mafia: 600, gang: 900 } };
+const STOCK_MAX = 400;
+function dealer() { return S.dealer || DEALER_DEF; }
+if (S.stock === undefined) S.stock = 120;
+setInterval(function () { S.stock = Math.min(STOCK_MAX, S.stock + 20); mark(); }, 1800000);
+let dealerPed = null;
+function spawnDealer() {
+    try { if (dealerPed && mp.peds.exists(dealerPed)) dealerPed.destroy(); } catch (e) {}
+    const d = dealer();
+    try { dealerPed = mp.peds.new(mp.joaat('g_m_m_armboss_01'), new mp.Vector3(d.x, d.y, d.z), { dynamic: false, frozen: true, invincible: true, heading: d.h || 0, dimension: 0 }); } catch (e) { dealerPed = null; }
+}
+setTimeout(spawnDealer, 3000);
+function dealerSend(p) { const d = dealer(); p.call('crime:dealer', [d.x, d.y, d.z, org(p) ? 1 : 0]); }
+mp.events.add('srv:crime:dealer', function (p) {
+    const d = dealer(), k = org(p);
+    if (dist2(p.position, d.x, d.y) > 4) return;
+    if (!k) return notify(p, 'warn', 'Человек смотрит на вас с подозрением: «Я тебя не знаю. Проваливай»');
+    const t = ORGS[k].t;
+    p.call('crime:shop', [JSON.stringify({ org: ORGS[k].n, type: t, stock: S.stock, price: PRICE.ukrop_pack[t], ill: [
+        { k: 'i_pistol', n: 'Пистолет (без номера)', p: 9000, need: 'mafia' }, { k: 'i_smg', n: 'Micro SMG (без номера)', p: 18000, need: 'mafia' },
+        { k: 'i_armour', n: 'Бронежилет', p: 2200, need: '' }, { k: 'ammo_pistol', n: 'Патроны 9 мм x30', p: 450, need: '', pack: 30 }, { k: 'ammo_smg', n: 'Патроны SMG x30', p: 520, need: '', pack: 30 }
+    ] })]);
+});
+mp.events.add('srv:crime:buy', function (p, key, qty) {
+    const d = dealer(), k = org(p);
+    if (!k || dist2(p.position, d.x, d.y) > 4) return;
+    const t = ORGS[k].t;
+    qty = Math.max(1, Math.min(20, Math.floor(Number(qty) || 1)));
+    if (key === 'ukrop_pack') {
+        if (S.stock < qty) return notify(p, 'error', 'У поставщика осталось только ' + S.stock + ' пакетов');
+        const cost = PRICE.ukrop_pack[t] * qty;
+        if (!pay(p, cost)) return notify(p, 'error', 'Не хватает: ' + money(cost));
+        S.stock -= qty;
+        U().addItem(p, 'ukrop_pack', qty); U().sendInv(p);
+        if (t === 'gang') {
+            const share = Math.floor(cost * 0.3);
+            const mf = Object.keys(ORGS).filter(function (x) { return ORGS[x].t === 'mafia'; });
+            mf.forEach(function (x) { O(x).bank += Math.floor(share / mf.length); });
+            mf.forEach(function (x) { olog(x, 'Банда ' + ORGS[k].n + ' купила укроп x' + qty + ' — доля общаку'); });
+        }
+        mark(); olog(k, nick(p) + ' купил укроп x' + qty + ' за ' + money(cost));
+        return notify(p, 'ok', 'Куплено: пакет укропа x' + qty + ' за ' + money(cost) + '. Вскрыть — использовать в инвентаре');
+    }
+    const ILL = { i_pistol: [9000, 'mafia', 1], i_smg: [18000, 'mafia', 1], i_armour: [2200, '', 1], ammo_pistol: [450, '', 30], ammo_smg: [520, '', 30] };
+    const it = ILL[key];
+    if (!it) return;
+    if (it[1] && t !== it[1]) return notify(p, 'warn', 'Это только для мафии');
+    const cost = it[0] * qty;
+    if (!pay(p, cost)) return notify(p, 'error', 'Не хватает: ' + money(cost));
+    U().addItem(p, key, it[2] * qty); U().sendInv(p);
+    olog(k, nick(p) + ' купил ' + key + ' x' + qty);
+    notify(p, 'ok', 'Сделка совершена: −' + money(cost));
+});
+mp.events.addCommand('dealerpos', function (p) {
+    if (admLvl(p) < 7) return;
+    S.dealer = { x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0 }; mark();
+    spawnDealer(); mp.players.forEach(dealerSend);
+    p.outputChatBox('!{#8fd14f}Поставщик укропа перенесён сюда');
+});
+
+/* ---- зависимость ---- */
+function A(p) { const id = sid(p); if (!S.addict[id]) S.addict[id] = { lv: 0, last: 0, high: 0, wd: 0 }; return S.addict[id]; }
+function addictSync(p) { const a = A(p); p.call('crime:addict', [Math.round(a.lv), a.high > Date.now() ? 1 : 0, a.wd ? 1 : 0]); }
+function useDrug(p) {
+    const a = A(p);
+    if (Date.now() - a.last < 20000) { notify(p, 'warn', 'Слишком часто — организм не выдержит'); return false; }
+    const was = a.wd;
+    a.last = Date.now();
+    a.lv = Math.min(100, a.lv + 8 + Math.random() * 4);
+    a.high = Date.now() + 90000;
+    a.wd = 0;
+    p.health = Math.min(100, p.health + 35);
+    notify(p, was ? 'ok' : 'warn', was ? 'Ломка отпустила… пока что' : 'Вы употребили укроп: +35 HP. Зависимость: ' + Math.round(a.lv) + '%');
+    mp.players.forEachInRange(p.position, 10, function (x) { if (x.dimension === p.dimension) x.outputChatBox('!{#c78bff}' + nick(p) + ' что-то быстро сворачивает и затягивается'); });
+    mark(); addictSync(p);
+    return true;
+}
+setInterval(function () {
+    const now = Date.now();
+    mp.players.forEach(function (p) {
+        const id = sid(p); if (!id || !S.addict[id]) return;
+        const a = S.addict[id];
+        if (a.lv <= 0) return;
+        const since = (now - a.last) / 60000;
+        a.lv = Math.max(0, a.lv - 0.25);
+        const need = a.lv >= 70 ? 10 : a.lv >= 40 ? 20 : a.lv >= 15 ? 35 : 0;
+        if (need && since > need && a.high < now) {
+            if (!a.wd) { a.wd = 1; notify(p, 'error', 'Начинается ломка… Нужен укроп или врач'); }
+            const dmg = a.lv >= 70 ? 6 : a.lv >= 40 ? 4 : 2;
+            if (p.health > 15) p.health = Math.max(15, p.health - dmg);
+        } else if (a.wd && (!need || since <= need)) a.wd = 0;
+        addictSync(p);
+    });
+    mark();
+}, 30000);
+mp.events.addCommand('addict', function (p) {
+    const a = A(p);
+    p.outputChatBox('!{#c78bff}Зависимость: ' + Math.round(a.lv) + '%' + (a.wd ? ' · ЛОМКА' : '') + ' · лечение: медик /cure [id] или время (спадает само)');
+});
+mp.events.addCommand('cure', function (p, full) {
+    if (!(p.account && p.account.job === 'medic') && admLvl(p) < 4) return notify(p, 'warn', 'Только для медиков');
+    const t = mp.players.at(Number(String(full || '').trim()));
+    if (!t || !t.account || t.position.subtract(p.position).length() > 4) return p.outputChatBox('!{#ffcc66}/cure [id] — снять ломку и понизить зависимость (игрок рядом)');
+    const a = A(t);
+    a.lv = Math.max(0, a.lv - 35); a.wd = 0; a.last = Date.now(); mark(); addictSync(t);
+    notify(t, 'ok', 'Врач ' + nick(p) + ' провёл детокс. Зависимость: ' + Math.round(a.lv) + '%');
+    notify(p, 'ok', 'Детокс проведён: ' + nick(t));
+});
+mp.events.add('playerReady', function (p) { setTimeout(function () { if (!mp.players.exists(p)) return; dealerSend(p); sendZones(p); if (S.addict[sid(p)]) addictSync(p); }, 5000); });
+setTimeout(function () { mp.players.forEach(function (p) { dealerSend(p); sendZones(p); }); }, 4000);
+
+/* ======================= ОБЫСК И ИЗЪЯТИЕ ======================= */
+const CONTRA = ['ukrop', 'ukrop_pack', 'i_pistol', 'i_smg', 'i_rifle', 'i_armour', 'pistol', 'smg', 'rifle', 'ammo_pistol', 'ammo_smg', 'ammo_rifle', 'armour', 'lockpick'];
+function hasGunLic(t) { return !!(U() && U().hasDoc && U().hasDoc(t, 'gun')); }
+function contraOf(t) {
+    const all = U().invScan(t), lic = hasGunLic(t), out = [];
+    Object.keys(all).forEach(function (k) {
+        if (CONTRA.indexOf(k) < 0) return;
+        const it = U().ITEMS[k];
+        const legal = !it.ill && lic;
+        out.push({ k: k, n: it.n, c: all[k], legal: legal, ill: !!it.ill });
+    });
+    return out;
+}
+function search(p, t) {
+    if (!isCop(p)) return notify(p, 'warn', 'Обыск — только LSPD, шериф, FIB и армия');
+    if (!t || !t.account || t === p || t.position.subtract(p.position).length() > 3) return notify(p, 'warn', 'Подойдите вплотную');
+    if (!t.getVariable('cuffed') && !(t.account && t.account.downed) && !t.searchOk) {
+        t.searchAsk = { by: sid(p), byId: p.id, at: Date.now() };
+        t.call('social:offer', ['Офицер ' + nick(p) + ' требует пройти досмотр. Согласиться?', 20000]);
+        return notify(p, 'warn', 'Гражданин не задержан — запрошено согласие. Или наденьте наручники');
+    }
+    t.searchOk = false;
+    const list = contraOf(t);
+    mp.players.forEachInRange(p.position, 10, function (x) { if (x.dimension === p.dimension) x.outputChatBox('!{#c78bff}' + nick(p) + ' проводит обыск ' + nick(t)); });
+    p.call('crime:search', [JSON.stringify({ id: t.id, n: nick(t), lic: hasGunLic(t), list: list })]);
+}
+mp.events.add('srv:int:answer', function (t, yes) {
+    const a = t.searchAsk;
+    if (!a || Date.now() - a.at > 20000) return;
+    t.searchAsk = null;
+    const p = mp.players.at(a.byId);
+    if (!p || sid(p) !== a.by) return;
+    if (!yes) { notify(p, 'warn', nick(t) + ' отказался от досмотра — это повод для задержания'); return; }
+    t.searchOk = true;
+    search(p, t);
+});
+mp.events.addCommand('search', function (p, full) { search(p, mp.players.at(Number(String(full || '').trim()))); });
+mp.events.add('srv:crime:searchReq', function (p, tid) { search(p, mp.players.at(Number(tid))); });
+mp.events.add('srv:crime:seize', function (p, tid, json) {
+    if (!isCop(p)) return;
+    const t = mp.players.at(Number(tid));
+    if (!t || !t.account || t.position.subtract(p.position).length() > 4) return notify(p, 'warn', 'Гражданин далеко');
+    let keys = []; try { keys = JSON.parse(json) || []; } catch (e) {}
+    const list = contraOf(t).filter(function (x) { return keys.indexOf(x.k) >= 0; });
+    if (!list.length) return;
+    const n = U().govStrip(t, list.map(function (x) { return x.k; }));
+    U().sendInv(t);
+    const txt = list.map(function (x) { return x.n + ' x' + x.c; }).join(', ');
+    const drugs = list.filter(function (x) { return x.k.indexOf('ukrop') === 0; }).reduce(function (s, x) { return s + x.c * (x.k === 'ukrop_pack' ? 10 : 1); }, 0);
+    notify(t, 'error', 'Изъято: ' + txt);
+    notify(p, 'ok', 'Изъято ' + n + ' ед.: ' + txt);
+    mp.players.forEachInRange(p.position, 12, function (x) { if (x.dimension === p.dimension) x.outputChatBox('!{#c78bff}' + nick(p) + ' изымает у ' + nick(t) + ': ' + txt); });
+    const G = global.GovFaction;
+    if (G && G.flog && p.account) G.flog(p.account.job, nick(p) + ' изъял у ' + nick(t) + ': ' + txt);
+    const W = global.WantedSystem;
+    if (W && list.some(function (x) { return !x.legal; })) {
+        const stars = (drugs >= 10 ? 2 : drugs > 0 ? 1 : 0) + (list.some(function (x) { return x.ill && x.k.indexOf('i_') === 0 && x.k !== 'i_armour'; }) ? 2 : 0);
+        if (stars > 0 && W.add) { W.add(t, Math.min(3, stars), 'Хранение запрещённого', nick(p)); notify(p, 'ok', nick(t) + ' получил ' + Math.min(3, stars) + '★ — можно арестовать'); }
+    }
+});
+
+/* ======================= АДМИН ======================= */
+mp.events.addCommand('setorg', async function (p, full) {
+    if (admLvl(p) < 5) return;
+    const a = String(full || '').trim().split(/\s+/);
+    const t = mp.players.at(Number(a[0])), k = a[1], lead = a[2] === 'leader';
+    if (!t || !t.account || !(ORGS[k] || k === 'none')) return p.outputChatBox('!{#ffcc66}/setorg [id] [' + Object.keys(ORGS).join('/') + '/none] [leader]');
+    if (k === 'none') { await setOrg(t, null, 0, false); return p.outputChatBox('!{#8fd14f}' + nick(t) + ' исключён'); }
+    if (lead) {
+        const old = (await q('SELECT id FROM accounts WHERE job = ? AND leader = 1 AND id <> ? LIMIT 1', [k, sid(t)]))[0];
+        if (old) return p.outputChatBox('!{#ff6b6b}У ' + ORGS[k].n + ' уже есть лидер #' + old.id + '. Снимите: /setorg [id] none');
+    }
+    await setOrg(t, k, lead ? O(k).ranks.length : 1, lead);
+    olog(k, 'Администрация: ' + nick(t) + (lead ? ' — лидер' : ' принят'));
+    notify(t, 'ok', (lead ? 'Вы назначены лидером ' : 'Вы приняты в ') + ORGS[k].n);
+    p.outputChatBox('!{#8fd14f}' + nick(t) + ' → ' + ORGS[k].n + (lead ? ' (лидер)' : ''));
+});
+mp.events.addCommand('zoneset', function (p, full) {
+    if (admLvl(p) < 6) return;
+    const k = String(full || '').trim();
+    const z = zoneAt(p.position);
+    if (!z || !(ORGS[k] || k === 'none')) return p.outputChatBox('!{#ffcc66}/zoneset [банда|none] — встаньте в районе');
+    S.zones[z.i] = { o: k === 'none' ? null : k, cd: 0 }; mark(); zonesAll();
+    p.outputChatBox('!{#8fd14f}' + z.n + ' → ' + (k === 'none' ? 'никто' : ORGS[k].n));
+});
+
+global.CrimeSystem = { ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName };
+console.log('[crime] банды: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).length + ', мафии: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'mafia'; }).length + ', районов: ' + ZONES_DEF.length);
