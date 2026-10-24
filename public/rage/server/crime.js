@@ -12,14 +12,14 @@ async function q(sql, args) { if (!db) return []; try { const r = await db.query
 
 /* ======================= ОРГАНИЗАЦИИ ======================= */
 const ORGS = {
-    ballas: { n: 'Ballas', t: 'gang', c: '#a14bd6', blip: 27, home: [85.0, -1959.0, 20.8] },
-    families: { n: 'The Families', t: 'gang', c: '#3fb34f', blip: 25, home: [-161.0, -1638.0, 34.0] },
-    vagos: { n: 'Los Santos Vagos', t: 'gang', c: '#e8c32a', blip: 46, home: [331.0, -2040.0, 20.9] },
-    marabunta: { n: 'Marabunta Grande', t: 'gang', c: '#2e8bd8', blip: 38, home: [1438.0, -1490.0, 63.6] },
-    bloods: { n: 'Bloods', t: 'gang', c: '#d63a3a', blip: 1, home: [-1544.0, -440.0, 35.9] },
-    lcn: { n: 'La Cosa Nostra', t: 'mafia', c: '#c9a24a', blip: 5, home: [-1520.0, 110.0, 50.0] },
-    russian: { n: 'Русская мафия', t: 'mafia', c: '#b0b7c3', blip: 4, home: [-1462.0, -32.0, 54.6] },
-    yakuza: { n: 'Yakuza', t: 'mafia', c: '#e05050', blip: 6, home: [-794.0, 182.0, 72.8] }
+    ballas: { n: 'Ballas', t: 'gang', c: '#9b4fd1', bc: 27, rgb: [120, 40, 170], home: [85.0, -1959.0, 20.8, 40], cars: [['buccaneer2', 1], ['chino2', 1], ['faction2', 3], ['moonbeam2', 5]] },
+    families: { n: 'The Families', t: 'gang', c: '#3fb34f', bc: 2, rgb: [30, 140, 50], home: [-161.0, -1638.0, 34.0, 50], cars: [['virgo3', 1], ['primo2', 1], ['sabregt2', 3], ['tornado5', 5]] },
+    vagos: { n: 'Los Santos Vagos', t: 'gang', c: '#f0c82a', bc: 5, rgb: [230, 190, 20], home: [331.0, -2040.0, 20.9, 140], cars: [['voodoo', 1], ['minivan2', 1], ['slamvan3', 3], ['buccaneer2', 5]] },
+    marabunta: { n: 'Marabunta Grande', t: 'gang', c: '#3a8fe0', bc: 3, rgb: [30, 100, 200], home: [1438.0, -1490.0, 63.6, 340], cars: [['tornado', 1], ['peyote', 1], ['impaler', 3], ['savestra', 5]] },
+    bloods: { n: 'Bloods', t: 'gang', c: '#e03a3a', bc: 1, rgb: [190, 20, 20], home: [480.0, -1780.0, 28.6, 90], cars: [['manana', 1], ['emperor', 1], ['dukes', 3], ['gauntlet', 5]] },
+    lcn: { n: 'La Cosa Nostra', t: 'mafia', c: '#c9a24a', bc: 46, rgb: [150, 120, 50], home: [-1520.0, 110.0, 50.0, 300], cars: [['cognoscenti', 1], ['schafter3', 2], ['baller4', 4], ['stretch', 6]] },
+    russian: { n: 'Русская мафия', t: 'mafia', c: '#9aa3b0', bc: 39, rgb: [70, 75, 85], home: [-1462.0, -32.0, 54.6, 40], cars: [['huntley', 1], ['schafter2', 2], ['xls2', 4], ['cog55', 6]] },
+    yakuza: { n: 'Yakuza', t: 'mafia', c: '#d23b6b', bc: 48, rgb: [170, 20, 70], home: [-794.0, 182.0, 72.8, 110], cars: [['sultan', 1], ['kuruma', 2], ['fugitive', 4], ['superd', 6]] }
 };
 const RANKS = {
     gang: ['Новичок', 'Шестёрка', 'Боец', 'Бывалый', 'Уважаемый', 'Старший', 'Правая рука', 'Смотрящий', 'Лидер'],
@@ -194,27 +194,45 @@ mp.events.addCommand('fb', function (p, full) {
 });
 
 /* ======================= ТЕРРИТОРИИ ======================= */
-const ZONES_DEF = [
-    ['Grove Street', -120, -1600], ['Chamberlain Hills', -200, -1500], ['Davis', 80, -1750], ['Strawberry', 200, -1500],
-    ['Rancho', 380, -1900], ['Cypress Flats', 800, -2200], ['El Burro Heights', 1350, -1600], ['Murrieta Heights', 1150, -1400],
-    ['La Mesa', 750, -1050], ['Mirror Park', 1100, -650], ['Vespucci Beach', -1250, -1500], ['Del Perro', -1500, -650],
-    ['Little Seoul', -650, -950], ['Mission Row', 400, -1000], ['Textile City', 400, -800], ['Elysian Island', 200, -2600]
-];
-const ZONE_R = 110;
+const GRID = { x0: -500, y0: -2100, size: 180, cols: 11, rows: 6 };
+const LET = 'ABCDEFGHIJKLMNOP';
+const ZONES_DEF = [];
+for (let r = 0; r < GRID.rows; r++) for (let c = 0; c < GRID.cols; c++) {
+    const x = GRID.x0 + c * GRID.size + GRID.size / 2, y = GRID.y0 + (GRID.rows - 1 - r) * GRID.size + GRID.size / 2;
+    ZONES_DEF.push(['Квадрат ' + LET[r] + (c + 1), x, y]);
+}
+const ZONE_R = GRID.size / 2;
+const BASE_SIZE = 90;
 const CAP_SEC = 300;
 const CAP_COOLDOWN = 3600000;
-const ZONE_INCOME = 250;
+const ZONE_INCOME = 150;
 const CAP_HOURS = [14, 23];
+function inSq(pos, x, y, half) { return Math.abs(pos.x - x) <= half && Math.abs(pos.y - y) <= half; }
+function home(k) { const o = O(k); const h = o.home || ORGS[k].home; return { x: h[0], y: h[1], z: h[2], h: h[3] || 0 }; }
+function baseOf(i) {
+    const z = ZONES_DEF[i];
+    return Object.keys(ORGS).find(function (k) { return ORGS[k].t === 'gang' && inSq(home(k), z[1], z[2], ZONE_R); }) || null;
+}
 function zoneList() {
+    if (!S.gridV) { S.zones = {}; S.gridV = 1; }
     return ZONES_DEF.map(function (z, i) {
-        const s = S.zones[i] || (S.zones[i] = { o: Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; })[i % 5], cd: 0 });
-        return { i: i, n: z[0], x: z[1], y: z[2], o: s.o, cd: s.cd || 0 };
+        const base = baseOf(i);
+        let s = S.zones[i];
+        if (!s) {
+            let own = null;
+            Object.keys(ORGS).forEach(function (k) { const h = home(k); if (ORGS[k].t === 'gang' && Math.abs(h.x - z[1]) < GRID.size * 1.6 && Math.abs(h.y - z[2]) < GRID.size * 1.6 && !own) own = k; });
+            s = S.zones[i] = { o: own, cd: 0 };
+            mark();
+        }
+        if (base) s.o = base;
+        return { i: i, n: z[0], x: z[1], y: z[2], o: s.o, cd: s.cd || 0, base: base };
     });
 }
-function zoneAt(pos) { return zoneList().find(function (z) { return dist2(pos, z.x, z.y) < ZONE_R; }) || null; }
+function zoneAt(pos) { return zoneList().find(function (z) { return inSq(pos, z.x, z.y, ZONE_R); }) || null; }
 function sendZones(p) {
     const w = S.wars.map(function (x) { return { z: x.z, a: x.a, d: x.d, end: x.end }; });
-    p.call('crime:zones', [JSON.stringify({ r: ZONE_R, z: zoneList().map(function (z) { return [z.i, z.n, z.x, z.y, z.o ? ORGS[z.o].c : '#888888', z.o ? ORGS[z.o].n : 'ничья']; }), w: w, org: ORGS })]);
+    const bases = Object.keys(ORGS).map(function (k) { const h = home(k), g = garage(k); return [k, ORGS[k].n, h.x, h.y, ORGS[k].bc, ORGS[k].c, g.x, g.y, g.z]; });
+    p.call('crime:zones', [JSON.stringify({ s: GRID.size, bs: BASE_SIZE, z: zoneList().map(function (z) { return [z.i, z.n, z.x, z.y, z.o ? ORGS[z.o].bc : 0, z.o ? ORGS[z.o].n : 'ничья', z.base ? 1 : 0]; }), w: w, b: bases, me: org(p) })]);
 }
 function zonesAll() { mp.players.forEach(sendZones); }
 function capHour() { const h = new Date(Date.now() + 3 * 3600000).getUTCHours(); return h >= CAP_HOURS[0] && h < CAP_HOURS[1]; }
@@ -225,10 +243,11 @@ mp.events.addCommand('capture', function (p) {
     if (!capHour() && admLvl(p) < 6) return notify(p, 'warn', 'Захваты разрешены с ' + CAP_HOURS[0] + ':00 до ' + CAP_HOURS[1] + ':00 по МСК');
     const z = zoneAt(p.position);
     if (!z) return notify(p, 'warn', 'Вы не на территории района');
-    if (z.o === k) return notify(p, 'warn', 'Это уже ваш район');
+    if (z.o === k) return notify(p, 'warn', 'Это уже ваш квадрат');
+    if (z.base) return notify(p, 'warn', 'Это база ' + ORGS[z.base].n + ' — её захватить нельзя');
     if (S.wars.some(function (w) { return w.z === z.i || w.a === k; })) return notify(p, 'warn', 'Здесь уже идёт война или ваша банда воюет в другом районе');
     if (Date.now() < z.cd) return notify(p, 'warn', 'Район недавно захватывали. Ещё ' + Math.ceil((z.cd - Date.now()) / 60000) + ' мин');
-    const mine = mp.players.toArray().filter(function (x) { return org(x) === k && dist2(x.position, z.x, z.y) < ZONE_R; }).length;
+    const mine = mp.players.toArray().filter(function (x) { return org(x) === k && inSq(x.position, z.x, z.y, ZONE_R); }).length;
     if (mine < 3 && admLvl(p) < 6) return notify(p, 'warn', 'Для захвата нужно минимум 3 бойца на территории (сейчас ' + mine + ')');
     const w = { z: z.i, a: k, d: z.o, start: Date.now(), end: Date.now() + CAP_SEC * 1000, kills: {} };
     w.kills[k] = 0; if (z.o) w.kills[z.o] = 0;
@@ -247,7 +266,7 @@ mp.events.add('playerDeath', function (p, reason, killer) {
     const kk = org(killer), pk = org(p);
     S.wars.forEach(function (w) {
         const z = ZONES_DEF[w.z];
-        if (dist2(p.position, z[1], z[2]) > ZONE_R + 40) return;
+        if (!inSq(p.position, z[1], z[2], ZONE_R + 30)) return;
         if ((kk === w.a || kk === w.d) && (pk === w.a || pk === w.d) && kk !== pk) { w.kills[kk] = (w.kills[kk] || 0) + 1; mark(); }
     });
 });
@@ -255,8 +274,8 @@ setInterval(function () {
     const now = Date.now();
     S.wars = S.wars.filter(function (w) {
         const z = ZONES_DEF[w.z];
-        const inA = mp.players.toArray().filter(function (x) { return org(x) === w.a && dist2(x.position, z[1], z[2]) < ZONE_R; }).length;
-        const inD = w.d ? mp.players.toArray().filter(function (x) { return org(x) === w.d && dist2(x.position, z[1], z[2]) < ZONE_R; }).length : 0;
+        const inA = mp.players.toArray().filter(function (x) { return org(x) === w.a && inSq(x.position, z[1], z[2], ZONE_R); }).length;
+        const inD = w.d ? mp.players.toArray().filter(function (x) { return org(x) === w.d && inSq(x.position, z[1], z[2], ZONE_R); }).length : 0;
         mp.players.forEach(function (x) { const o = org(x); if (o === w.a || o === w.d) x.call('crime:war', [JSON.stringify({ n: z[0], a: ORGS[w.a].n, d: w.d ? ORGS[w.d].n : 'никто', ka: w.kills[w.a] || 0, kd: w.d ? w.kills[w.d] || 0 : 0, ia: inA, id: inD, left: Math.max(0, Math.ceil((w.end - now) / 1000)) })]); });
         if (now < w.end) return true;
         const sa = (w.kills[w.a] || 0) * 2 + inA, sd = w.d ? (w.kills[w.d] || 0) * 2 + inD : 0;
@@ -276,17 +295,96 @@ setInterval(function () {
 setInterval(function () {
     const cnt = {};
     zoneList().forEach(function (z) { if (z.o) cnt[z.o] = (cnt[z.o] || 0) + 1; });
-    Object.keys(cnt).forEach(function (k) { const sum = cnt[k] * ZONE_INCOME; O(k).bank += sum; olog(k, 'Доход с районов (' + cnt[k] + '): +' + money(sum)); toOrg(k, '!{' + ORGS[k].c + '}[' + ORGS[k].n + '] !{#ffffff}Доход с ' + cnt[k] + ' районов: +' + money(sum) + ' в общак'); });
+    Object.keys(cnt).forEach(function (k) { const sum = cnt[k] * ZONE_INCOME; O(k).bank += sum; olog(k, 'Доход с районов (' + cnt[k] + '): +' + money(sum)); toOrg(k, '!{' + ORGS[k].c + '}[' + ORGS[k].n + '] !{#ffffff}Доход с ' + cnt[k] + ' квадратов: +' + money(sum) + ' в общак'); });
     mark();
 }, 3600000);
 mp.events.addCommand('zones', function (p) {
     const cnt = {};
     zoneList().forEach(function (z) { if (z.o) cnt[z.o] = (cnt[z.o] || 0) + 1; });
     p.outputChatBox('!{#ffd24d}=== Территории банд ===');
-    Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).forEach(function (k) { p.outputChatBox('!{' + ORGS[k].c + '}' + ORGS[k].n + ' !{#ffffff}— районов: ' + (cnt[k] || 0)); });
+    Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).forEach(function (k) { p.outputChatBox('!{' + ORGS[k].c + '}' + ORGS[k].n + ' !{#ffffff}— квадратов: ' + (cnt[k] || 0)); });
     const z = zoneAt(p.position);
-    if (z) p.outputChatBox('!{#cccccc}Вы в районе ' + z.n + ', владелец: ' + (z.o ? ORGS[z.o].n : 'никто'));
+    if (z) p.outputChatBox('!{#cccccc}Вы в: ' + z.n + ', владелец: ' + (z.o ? ORGS[z.o].n : 'никто') + (z.base ? ' (база)' : ''));
     sendZones(p);
+});
+
+/* ======================= БАЗЫ, СПАВН И ГАРАЖ ======================= */
+function garage(k) { const o = O(k); if (o.garage) return { x: o.garage[0], y: o.garage[1], z: o.garage[2] }; const h = home(k); return { x: h.x + 4, y: h.y + 4, z: h.z }; }
+function carSpots(k) {
+    const o = O(k);
+    if (o.spots && o.spots.length) return o.spots;
+    const g = garage(k), h = home(k), rad = (h.h + 90) * Math.PI / 180, out = [];
+    for (let i = 0; i < 4; i++) out.push([g.x + Math.cos(rad) * (6 + i * 4), g.y + Math.sin(rad) * (6 + i * 4), g.z, h.h]);
+    return out;
+}
+const orgCars = {};
+function orgHome(p) {
+    const k = org(p);
+    if (!k) return null;
+    const h = home(k);
+    return { x: h.x, y: h.y, z: h.z, h: h.h, n: ORGS[k].n, d: ORGS[k].t === 'gang' ? 'База банды' : 'Резиденция мафии', dim: 0 };
+}
+function garageOpen(p) {
+    const k = org(p), r = rank(p), mine = orgCars[sid(p)];
+    p.call('crime:garage', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, out: mine && mp.vehicles.exists(mine) ? mine.getVariable('orgModel') : null,
+        list: ORGS[k].cars.map(function (c) { return { m: c[0], r: c[1], rn: rankName(k, c[1]), ok: r >= c[1] }; }) })]);
+}
+mp.events.add('srv:crime:garage', function (p) {
+    const k = org(p);
+    if (!k) return;
+    const g = garage(k);
+    if (dist2(p.position, g.x, g.y) > 4) return;
+    garageOpen(p);
+});
+mp.events.add('srv:crime:car', function (p, m) {
+    const k = org(p);
+    if (!k) return;
+    const g = garage(k), s = sid(p);
+    if (dist2(p.position, g.x, g.y) > 4) return;
+    if (m === '__back') {
+        const v = orgCars[s];
+        if (v && mp.vehicles.exists(v)) { if (v.position.subtract(p.position).length() > 40) return notify(p, 'warn', 'Пригоните машину к гаражу'); v.destroy(); }
+        delete orgCars[s];
+        notify(p, 'ok', 'Машина возвращена в гараж');
+        return garageOpen(p);
+    }
+    const c = ORGS[k].cars.find(function (z) { return z[0] === m; });
+    if (!c) return;
+    if (rank(p) < c[1]) return notify(p, 'warn', 'Доступно с ранга «' + rankName(k, c[1]) + '»');
+    if (orgCars[s] && mp.vehicles.exists(orgCars[s])) return notify(p, 'warn', 'Сначала верните прошлую машину');
+    const sp = carSpots(k).find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v.dimension === 0 && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 3; }); });
+    if (!sp) return notify(p, 'warn', 'Все места на парковке заняты');
+    const v = mp.vehicles.new(mp.joaat(m), new mp.Vector3(sp[0], sp[1], sp[2] + 0.3), { heading: sp[3] || 0, numberPlate: k.slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: 0 });
+    const rgb = ORGS[k].rgb;
+    try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {}
+    v.setVariable('org', k); v.setVariable('orgModel', m); v.setVariable('orgOwner', s);
+    v.adminSpawned = false;
+    orgCars[s] = v;
+    p.call('house:menuClose');
+    p.call('crime:close');
+    p.call('phone:gps', [sp[0], sp[1], 'Машина ' + ORGS[k].n]);
+    notify(p, 'ok', 'Машина ждёт на парковке базы');
+});
+mp.events.add('playerEnterVehicle', function (p, v, seat) {
+    const k = v.getVariable('org');
+    if (!k || (seat !== 0 && seat !== -1)) return;
+    if (org(p) !== k && admLvl(p) < 1) { try { p.removeFromVehicle(); } catch (e) {} notify(p, 'error', 'Это машина ' + ORGS[k].n); }
+});
+mp.events.add('playerQuit', function (p) {
+    const v = orgCars[sid(p)];
+    if (v && mp.vehicles.exists(v)) setTimeout(function () { if (mp.vehicles.exists(v) && !(v.getOccupants && v.getOccupants().length)) v.destroy(); }, 60000);
+});
+mp.events.addCommand('orgpoint', function (p, full) {
+    if (admLvl(p) < 7) return;
+    const a = String(full || '').trim().split(/\s+/), k = a[0], t = a[1];
+    if (!ORGS[k] || ['home', 'garage', 'car', 'clearcars'].indexOf(t) < 0) return p.outputChatBox('!{#ffcc66}/orgpoint [' + Object.keys(ORGS).join('/') + '] [home|garage|car|clearcars] — встаньте на место');
+    const o = O(k), pos = [p.position.x, p.position.y, p.position.z, p.heading || 0];
+    if (t === 'home') o.home = pos;
+    else if (t === 'garage') o.garage = pos;
+    else if (t === 'car') { if (p.vehicle) pos[3] = p.vehicle.heading; (o.spots = o.spots || []).push(pos); }
+    else o.spots = [];
+    mark(); zonesAll();
+    p.outputChatBox('!{#8fd14f}' + ORGS[k].n + ': ' + t + ' сохранено' + (t === 'car' ? ' (мест: ' + o.spots.length + ')' : ''));
 });
 
 /* ======================= УКРОП ======================= */
@@ -483,10 +581,10 @@ mp.events.addCommand('zoneset', function (p, full) {
     if (admLvl(p) < 6) return;
     const k = String(full || '').trim();
     const z = zoneAt(p.position);
-    if (!z || !(ORGS[k] || k === 'none')) return p.outputChatBox('!{#ffcc66}/zoneset [банда|none] — встаньте в районе');
+    if (!z || !(ORGS[k] || k === 'none')) return p.outputChatBox('!{#ffcc66}/zoneset [банда|none] — встаньте в квадрате');
     S.zones[z.i] = { o: k === 'none' ? null : k, cd: 0 }; mark(); zonesAll();
     p.outputChatBox('!{#8fd14f}' + z.n + ' → ' + (k === 'none' ? 'никто' : ORGS[k].n));
 });
 
-global.CrimeSystem = { ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName };
+global.CrimeSystem = { home: orgHome, ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName };
 console.log('[crime] банды: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).length + ', мафии: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'mafia'; }).length + ', районов: ' + ZONES_DEF.length);

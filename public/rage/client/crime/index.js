@@ -7,24 +7,52 @@ function cUI(on, code) {
     mp.gui.chat.activate(!on);
     if (on && code) { var run = function () { if (cBr) cBr.execute(code); }; setTimeout(run, 120); setTimeout(run, 600); }
 }
-function hex(c) { var n = parseInt(String(c).replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-var BCOL = { '#a14bd6': 27, '#3fb34f': 25, '#e8c32a': 46, '#2e8bd8': 38, '#d63a3a': 1, '#888888': 4 };
+var cBases = [], cGarage = null, cGHint = false;
+function areaBlip(x, y, w, col, alpha, flash) {
+    var b = mp.game.invoke('0xCE5D0E5E315DB238', x, y, 30, w, w);
+    try { mp.game.invoke('0xF87683CDF73C3F6E', b, 0); } catch (e) {}
+    mp.game.ui.setBlipColour(b, col);
+    mp.game.ui.setBlipAlpha(b, alpha);
+    if (flash) try { mp.game.invoke('0xB14552383D39CE3E', b, true); } catch (e) {}
+    return b;
+}
 mp.events.add('crime:zones', function (j) {
     var d; try { d = JSON.parse(j); } catch (e) { return; }
-    cBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
+    cBlips.forEach(function (b) { try { mp.game.ui.removeBlip(b); } catch (e) {} });
     cBlips = [];
     cZones = d.z;
     var war = {}; (d.w || []).forEach(function (w) { war[w.z] = 1; });
     cZones.forEach(function (z) {
+        try { cBlips.push(areaBlip(z[2], z[3], d.s - 4, z[4] || 4, z[4] ? (z[6] ? 150 : 95) : 40, !!war[z[0]])); } catch (e) {}
+    });
+    cBases = d.b || [];
+    cGarage = null;
+    cBases.forEach(function (b) {
         try {
-            var b = mp.game.ui.addBlipForRadius(z[2], z[3], 30, d.r);
-            mp.game.ui.setBlipColour(b, BCOL[z[4]] || 4);
-            mp.game.ui.setBlipAlpha(b, war[z[0]] ? 200 : 110);
-            if (war[z[0]]) mp.game.invoke('0xB14552383D39CE3E', b, true);
-            cBlips.push({ destroy: function () { mp.game.ui.removeBlip(b); } });
+            cBlips.push(areaBlip(b[2], b[3], d.bs, b[4], 210, false));
+            var ic = mp.game.ui.addBlipForCoord(b[2], b[3], 30);
+            mp.game.ui.setBlipSprite(ic, b[0] === d.me ? 40 : 84);
+            mp.game.ui.setBlipColour(ic, b[4]);
+            mp.game.ui.setBlipScale(ic, 0.8);
+            mp.game.ui.setBlipAsShortRange(ic, b[0] !== d.me);
+            mp.game.invoke('0xF9113A30DE5C6670', 'STRING');
+            mp.game.invoke('0x6C188BE134E074AA', 'База: ' + b[1]);
+            mp.game.invoke('0xBC38B49BCB83BC9B', ic);
+            cBlips.push(ic);
         } catch (e) {}
+        if (b[0] === d.me) cGarage = { x: b[6], y: b[7], z: b[8], c: b[5] };
     });
 });
+function nearGarage() {
+    if (!cGarage) return false;
+    var p = mp.players.local.position;
+    return !mp.players.local.vehicle && mp.game.system.vdist(p.x, p.y, p.z, cGarage.x, cGarage.y, cGarage.z) < 2.5;
+}
+setInterval(function () {
+    var n = nearGarage();
+    if (n && !cGHint) mp.events.call('hud:notify', 'ok', 'Гараж организации: нажмите E', 3000);
+    cGHint = n;
+}, 400);
 mp.events.add('crime:war', function (j) { if (!j) { cWar = null; return; } try { cWar = JSON.parse(j); cWar.at = Date.now(); } catch (e) {} });
 mp.events.add('crime:dealer', function (x, y, z, mine) {
     cDealer = [x, y, z, mine];
@@ -56,11 +84,15 @@ setInterval(function () {
     cDHint = n;
 }, 400);
 mp.keys.bind(0x45, false, function () {
+    if (!cOpen && nearGarage() && !mp.players.local.isTypingInTextChat && !mp.gui.cursor.visible) { mp.events.callRemote('srv:crime:garage'); return; }
     if (cOpen || !nearDealer() || mp.players.local.isTypingInTextChat || mp.gui.cursor.visible) return;
     if (global.jobHere && global.jobHere()) return;
     mp.events.callRemote('srv:crime:dealer');
 });
 mp.events.add('crime:shop', function (j) { cUI(true, 'window.shop && window.shop(' + JSON.stringify(j) + ');'); });
+mp.events.add('crime:garage', function (j) { cUI(true, 'window.garage && window.garage(' + JSON.stringify(j) + ');'); });
+mp.events.add('crime:close', function () { if (cOpen) cUI(false); });
+mp.events.add('cef:crime:car', function (m) { mp.events.callRemote('srv:crime:car', String(m)); });
 mp.events.add('crime:search', function (j) { cUI(true, 'window.search && window.search(' + JSON.stringify(j) + ');'); });
 mp.events.add('cef:crime:close', function () { cUI(false); });
 mp.events.add('cef:crime:buy', function (k, q) { mp.events.callRemote('srv:crime:buy', String(k), Number(q) || 1); });
@@ -71,6 +103,13 @@ mp.events.add('render', function () {
     if (cDealer && cDealer[3]) {
         var dx = pos.x - cDealer[0], dy = pos.y - cDealer[1];
         if (dx * dx + dy * dy < 400) mp.game.graphics.drawText('🌿 Поставщик', [cDealer[0], cDealer[1], cDealer[2] + 1.2], { font: 4, color: [140, 230, 120, 220], scale: [0.38, 0.38], outline: true, centre: true });
+    }
+    if (cGarage) {
+        var gx = pos.x - cGarage.x, gy = pos.y - cGarage.y;
+        if (gx * gx + gy * gy < 900) {
+            var col = parseInt(cGarage.c.replace('#', ''), 16);
+            mp.game.graphics.drawMarker(36, cGarage.x, cGarage.y, cGarage.z, 0, 0, 0, 0, 0, 0, 1, 1, 1, (col >> 16) & 255, (col >> 8) & 255, col & 255, 200, true, true, 2, false, null, null, false);
+        }
     }
     if (cWar) {
         var left = Math.max(0, cWar.left - Math.floor((Date.now() - cWar.at) / 1000));

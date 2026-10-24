@@ -32,6 +32,8 @@ function options(p) {
     if (home && isFinite(home.x)) out.push({ id: 'home', n: home.n || 'Мой дом', d: home.d || 'Ваша недвижимость', i: home.flat ? '🏢' : '🏠' });
     const fh = facHome(p);
     if (fh) out.push({ id: 'faction', n: 'Фракция · ' + fh.n, d: fh.d, i: '🏛️' });
+    const oh = global.CrimeSystem && global.CrimeSystem.home ? global.CrimeSystem.home(p) : null;
+    if (oh && !fh) out.push({ id: 'org', n: oh.n, d: oh.d, i: '🏴' });
     const hl = hotelLeft(id);
     if (hl) out.push({ id: 'hotel', n: 'Гостиница', d: hotelPos().n + ' · ещё ' + Math.ceil(hl / 86400000) + ' дн.', i: '🛏️' });
     out.push({ id: 'airport', n: 'Аэропорт', d: 'Международный аэропорт Лос-Сантоса', i: '✈️' });
@@ -54,6 +56,7 @@ function apply(p, choice) {
     if (choice === 'last') { const q = S.quit[id]; if (q && Date.now() - q.t < LAST_MIN * 60000) { pos = q; dim = q.dim || 0; } }
     else if (choice === 'home') { const h = global.HouseSystem && global.HouseSystem.home ? global.HouseSystem.home(p) : null; if (h) { pos = h; dim = h.dim || 0; } }
     else if (choice === 'faction') { const h = facHome(p); if (h) { pos = h; dim = 0; } }
+    else if (choice === 'org') { const h = global.CrimeSystem && global.CrimeSystem.home ? global.CrimeSystem.home(p) : null; if (h) { pos = h; dim = 0; } }
     else if (choice === 'hotel') { if (hotelLeft(id)) { const r = global.HouseSystem ? global.HouseSystem.hotelRoom(p) : null; pos = r || hotelPos(); dim = r ? r.dim : 0; } }
     if (!pos) pos = AIRPORT;
     a.pos_x = pos.x; a.pos_y = pos.y; a.pos_z = pos.z; a.heading = pos.h || 0; a.dimension = dim;

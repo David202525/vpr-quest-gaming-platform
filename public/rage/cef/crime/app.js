@@ -5,7 +5,7 @@ function money(n) { return '$' + String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!
 var MODE = '', SR = null;
 window.shop = function (j) {
     var d = typeof j === 'string' ? JSON.parse(j) : j; MODE = 'shop';
-    $('box').className = 'box';
+    $('box').className = 'box'; $('box').style.removeProperty('--g'); $('box').style.removeProperty('--g2');
     var rows = [{ k: 'ukrop_pack', n: '🌿 Пакет укропа (x10)', s: 'Восстанавливает здоровье, вызывает зависимость · на складе: ' + d.stock, p: d.price, lock: d.stock <= 0 }]
         .concat(d.ill.map(function (x) { return { k: x.k, n: x.n, s: x.need === 'mafia' ? 'Только для мафии' : 'Без лицензии — изымается полицией', p: x.p, lock: x.need && x.need !== d.type }; }));
     $('box').innerHTML = '<div class="hd"><i>🌿</i><div><b>Поставщик</b><small>' + esc(d.org) + ' · ' + (d.type === 'mafia' ? 'оптовая цена для мафии' : 'наценка для банд, доля уходит мафии') + '</small></div></div>' +
@@ -16,7 +16,7 @@ window.shop = function (j) {
 };
 window.search = function (j) {
     SR = typeof j === 'string' ? JSON.parse(j) : j; MODE = 'search';
-    $('box').className = 'box cop';
+    $('box').className = 'box cop'; $('box').style.removeProperty('--g'); $('box').style.removeProperty('--g2');
     $('box').innerHTML = '<div class="hd"><i>🔍</i><div><b>Обыск: ' + esc(SR.n) + '</b><small>ID ' + SR.id + ' · лицензия на оружие: ' + (SR.lic ? 'есть' : 'нет') + '</small></div></div>' +
         (SR.list.length ? SR.list.map(function (x) {
             return '<label class="row"><input class="chk" type="checkbox" data-k="' + x.k + '"' + (x.legal ? '' : ' checked') + '><div class="n"><b>' + esc(x.n) + ' ×' + x.c + '</b><small>' + (x.legal ? 'Разрешено (есть лицензия)' : x.ill ? 'Запрещено к обороту' : 'Без лицензии') + '</small></div>' + (x.legal ? '<span class="tag ok">законно</span>' : '<span class="tag">нелегально</span>') + '</label>';
@@ -24,5 +24,16 @@ window.search = function (j) {
         '<div class="foot"><small>Отмеченное будет изъято. За нелегальное оружие и укроп автоматически выдаётся розыск</small><div style="display:flex;gap:8px"><button class="ghost" id="cl">Закрыть</button>' + (SR.list.length ? '<button id="go">Изъять</button>' : '') + '</div></div>';
     $('cl').onclick = function () { trig('cef:crime:close'); };
     var g = $('go'); if (g) g.onclick = function () { var ks = Array.prototype.map.call(document.querySelectorAll('[data-k]:checked'), function (c) { return c.dataset.k; }); if (!ks.length) return; trig('cef:crime:seize', SR.id, JSON.stringify(ks)); };
+};
+window.garage = function (j) {
+    var d = typeof j === 'string' ? JSON.parse(j) : j; MODE = 'garage';
+    $('box').className = 'box';
+    $('box').style.setProperty('--g', d.c); $('box').style.setProperty('--g2', d.c);
+    $('box').innerHTML = '<div class="hd"><i>🚗</i><div><b>Гараж · ' + esc(d.org) + '</b><small>Машины в цвете организации</small></div></div>' +
+        d.list.map(function (c) { return '<div class="row' + (c.ok ? '' : ' lock') + '"><div class="n"><b>' + esc(c.m.toUpperCase()) + '</b><small>с ранга «' + esc(c.rn) + '»</small></div><button data-m="' + c.m + '"' + (c.ok && !d.out ? '' : ' disabled') + '>' + (d.out === c.m ? 'Выдана' : 'Взять') + '</button></div>'; }).join('') +
+        '<div class="foot"><small>' + (d.out ? 'Сначала верните текущую машину' : 'Одна машина на человека') + '</small><div style="display:flex;gap:8px">' + (d.out ? '<button id="bk">Вернуть</button>' : '') + '<button class="ghost" id="cl">Закрыть</button></div></div>';
+    document.querySelectorAll('[data-m]').forEach(function (b) { b.onclick = function () { trig('cef:crime:car', b.dataset.m); }; });
+    var bk = $('bk'); if (bk) bk.onclick = function () { trig('cef:crime:car', '__back'); };
+    $('cl').onclick = function () { trig('cef:crime:close'); };
 };
 document.addEventListener('keydown', function (e) { if (e.keyCode === 27) trig('cef:crime:close'); });
