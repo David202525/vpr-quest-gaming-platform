@@ -19,7 +19,7 @@ let dirty = false;
 function save() { dirty = true; }
 setInterval(function () { if (dirty) { dirty = false; A.writeJson(STORE_FILE, S); } }, 5000);
 
-const FACTIONS = { lspd: 'LSPD', sheriff: 'Sheriff', fib: 'FIB', medic: 'EMS', army: 'Армия', gov: 'Правительство', news: 'Weazel News' };
+const FACTIONS = { lspd: 'LSPD', sheriff: 'Sheriff', fib: 'FIB', medic: 'EMS', army: 'Армия', gov: 'Правительство', news: 'Weazel News', lic: 'Лицензионный центр' };
 const JOBS = { farm: 'Ферма', bus: 'Водитель автобуса', courier: 'Курьер' };
 const LICS = { drive: 'Водительские права', bus: 'Лицензия на автобус', taxi: 'Лицензия такси', truck: 'Права на грузовик', gun: 'Лицензия на оружие' };
 const AZ = { x: -75.2, y: -818.9, z: 326.2 };
