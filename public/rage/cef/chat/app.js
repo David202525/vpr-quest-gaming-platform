@@ -6,6 +6,7 @@ var toastEl = document.getElementById('toast');
 var active = false;
 var shown = true;
 var allowed = true;
+var locked = true;
 var hist = [];
 var hPos = -1;
 var draft = '';
@@ -90,7 +91,7 @@ function invoke(name, a) { if (window.mp && mp.invoke) mp.invoke(name, a); }
 function trig(name, a) { if (window.mp && mp.trigger) mp.trigger(name, a); }
 
 function setActive(on) {
-    on = !!on && shown && allowed;
+    on = !!on && shown && allowed && !locked;
     if (on === active) return;
     active = on;
     chat.classList.toggle('active', active);
@@ -121,7 +122,7 @@ function send() {
 }
 
 document.addEventListener('keyup', function (e) {
-    if (active || !shown || !allowed) return;
+    if (active || !shown || !allowed || locked) return;
     if (e.keyCode === 84) { e.preventDefault(); setActive(true); }
     else if (e.keyCode === 191) {
         e.preventDefault();
@@ -158,23 +159,30 @@ list.addEventListener('mouseup', function () {
 var chatAPI = {
     push: push,
     clear: function () { list.innerHTML = ''; },
+    lock: function (on) {
+        locked = !!on;
+        if (locked) setActive(false);
+        chat.classList.toggle('hidden', !shown || locked);
+    },
     activate: function (on) {
         allowed = !!on;
         if (!allowed) setActive(false);
     },
     show: function (on) {
         shown = !!on;
-        chat.classList.toggle('hidden', !shown);
+        chat.classList.toggle('hidden', !shown || locked);
         if (!shown) setActive(false);
     }
 };
 window.chatAPI = chatAPI;
+chat.classList.add('hidden');
 
 if (window.mp && mp.events) {
     mp.events.add('chat:push', chatAPI.push);
     mp.events.add('chat:clear', chatAPI.clear);
     mp.events.add('chat:activate', chatAPI.activate);
     mp.events.add('chat:show', chatAPI.show);
+    mp.events.add('chat:lock', chatAPI.lock);
 }
 
 var FADE_MS = 15000;
