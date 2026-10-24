@@ -290,6 +290,8 @@ mp.events.add('render', function () {
         mp.game.graphics.drawText('Вскрываем ящики… не отходите', [0.5, 0.86], { font: 4, color: [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
     }
     var mydim = mp.players.local.dimension;
+    if (cPts.ug && cPts.garage && mydim === 0 && mp.game.system.vdist(me.x, me.y, me.z, cPts.garage[0], cPts.garage[1], cPts.garage[2]) < 40) mp.game.graphics.drawMarker(1, cPts.garage[0], cPts.garage[1], cPts.garage[2] - 1, 0, 0, 0, 0, 0, 0, 5, 5, 0.6, 80, 150, 255, 90, false, false, 2, false, null, null, false);
+    if (cPts.ug && mydim === cPts.ug.dim) mp.game.graphics.drawMarker(1, cPts.ug.drive[0], cPts.ug.drive[1], cPts.ug.drive[2] - 1, 0, 0, 0, 0, 0, 0, 4, 4, 0.6, 80, 150, 255, 90, false, false, 2, false, null, null, false);
     [[cPts.door, 0, 'Вход'], [cPts.din, cPts.idim, 'Выход'], [cPts.ug && cPts.garage, 0, 'Подземный гараж'], [cPts.ug && cPts.ug.walk, cPts.ug && cPts.ug.dim, 'Выход'], [cPts.ug && cPts.ug.drive, cPts.ug && cPts.ug.dim, 'Выезд на улицу']].forEach(function (x) {
         var a = x[0]; if (!a || mydim !== x[1]) return;
         if (mp.game.system.vdist(me.x, me.y, me.z, a[0], a[1], a[2]) > 12) return;

@@ -309,6 +309,7 @@ mp.events.addCommand('zones', function (p) {
 });
 
 /* ======================= БАЗЫ, СПАВН И ГАРАЖ ======================= */
+function V(x, y, z) { return new mp.Vector3(Number(x), Number(y), Number(z)); }
 const DIM_ORG = 40000;
 const ORG_INT = { russian: { ipl: 'apa_v_mp_h_01_a', in: [-786.87, 315.76, 217.64, 0], n: 'Особняк Русской мафии' } };
 const UG = { lcn: 1, russian: 1 };
