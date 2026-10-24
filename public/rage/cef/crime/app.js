@@ -37,14 +37,15 @@ window.garage = function (j) {
     $('cl').onclick = function () { trig('cef:crime:close'); };
 };
 
-function base(cls, c) { var b = $('box'); b.className = 'box ' + (cls || ''); if (c) { b.style.setProperty('--g', c); b.style.setProperty('--g2', c); } else { b.style.removeProperty('--g'); b.style.removeProperty('--g2'); } return b; }
+function dark(c) { var n = parseInt(c.replace('#', ''), 16); var f = function (v) { return ('0' + Math.floor(v * 0.45).toString(16)).slice(-2); }; return '#' + f((n >> 16) & 255) + f((n >> 8) & 255) + f(n & 255); }
+function base(cls, c) { var b = $('box'); b.className = 'box ' + (cls || ''); if (c) { b.style.setProperty('--g', c); b.style.setProperty('--g2', dark(c)); b.style.setProperty('--ga', c + '40'); } else { b.style.removeProperty('--g'); b.style.removeProperty('--g2'); b.style.removeProperty('--ga'); } return b; }
 function bind(sel, fn) { document.querySelectorAll(sel).forEach(function (el) { el.onclick = function () { fn(el); }; }); }
 function qv(id) { var el = document.querySelector('[data-q="' + id + '"]'); return el ? Number(el.value) || 1 : 1; }
 function tm(t) { var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 window.stash = function (j) {
     var d = typeof j === 'string' ? JSON.parse(j) : j;
     var b = base('wide', d.c);
-    var row = function (x, op, can) { return '<div class="row sm"><span class="ic">' + x.i + '</span><div class="n"><b>' + esc(x.n) + '</b><small>×' + x.c + '</small></div><input class="qty" type="number" min="1" max="' + x.c + '" value="' + x.c + '" data-q="' + op + x.k + '"><button data-' + op + '="' + x.k + '"' + (can ? '' : ' disabled') + '>' + (op === 'put' ? 'Положить' : 'Взять') + '</button></div>'; };
+    var row = function (x, op, can) { return '<div class="row sm"><span class="ic">' + ICON(x.k, x.i) + '</span><div class="n"><b>' + esc(x.n) + '</b><small>×' + x.c + '</small></div><input class="qty" type="number" min="1" max="' + x.c + '" value="' + x.c + '" data-q="' + op + x.k + '"><button data-' + op + '="' + x.k + '"' + (can ? '' : ' disabled') + '>' + (op === 'put' ? 'Положить' : 'Взять') + '</button></div>'; };
     b.innerHTML = '<div class="hd"><i>🗄️</i><div><b>Общак · ' + esc(d.org) + '</b><small>Брать предметы — с ранга «' + esc(d.need) + '»' + (d.lead ? ' · лидер меняет порог' : '') + '</small></div></div>' +
         '<div class="cash"><div class="sum">' + money(d.bank) + '</div><input id="cs" type="number" min="1" placeholder="Сумма"><button id="ci">Положить</button>' + (d.lead ? '<button class="ghost" id="co">Взять</button>' : '') + '</div>' +
         '<div class="cols"><div class="col"><h4>В общаке</h4><div class="list">' + (d.st.length ? d.st.map(function (x) { return row(x, 'take', d.canTake); }).join('') : '<div class="empty">Пусто</div>') + '</div></div>' +
@@ -79,26 +80,34 @@ window.buyer = function (j) {
     var d = typeof j === 'string' ? JSON.parse(j) : j;
     var b = base('', '#6fd36a');
     b.innerHTML = '<div class="hd"><i>🤝</i><div><b>Скупщик</b><small>Нейтральная территория · спрос ' + d.demand + '% (падает при больших продажах)</small></div></div>' +
-        d.list.map(function (x) { return '<div class="row' + (x.have ? '' : ' lock') + '"><span class="ic">' + x.i + '</span><div class="n"><b>' + esc(x.n) + '</b><small>у вас: ' + x.have + '</small></div><b>' + money(x.p) + '</b><input class="qty" type="number" min="1" max="' + Math.max(1, x.have) + '" value="' + Math.max(1, x.have) + '" data-q="s' + x.k + '"' + (x.have ? '' : ' disabled') + '><button data-sell="' + x.k + '"' + (x.have ? '' : ' disabled') + '>Продать</button></div>'; }).join('') +
+        d.list.map(function (x) { return '<div class="row' + (x.have ? '' : ' lock') + '"><span class="ic">' + ICON(x.k, x.i) + '</span><div class="n"><b>' + esc(x.n) + '</b><small>у вас: ' + x.have + '</small></div><b>' + money(x.p) + '</b><input class="qty" type="number" min="1" max="' + Math.max(1, x.have) + '" value="' + Math.max(1, x.have) + '" data-q="s' + x.k + '"' + (x.have ? '' : ' disabled') + '><button data-sell="' + x.k + '"' + (x.have ? '' : ' disabled') + '>Продать</button></div>'; }).join('') +
         '<div class="foot"><small>Мафия отдаёт 10% выручки в свой общак. Убийство на нейтральной территории — розыск</small><button class="ghost" id="cl">Уйти</button></div>';
     bind('[data-sell]', function (el) { trig('cef:crime:sell', el.dataset.sell, qv('s' + el.dataset.sell)); });
     $('cl').onclick = function () { trig('cef:crime:close'); };
 };
+var BSEL = 0;
 window.bench = function (j) {
     var d = typeof j === 'string' ? JSON.parse(j) : j;
-    var b = base('wide', d.c);
-    var useSt = !!window._benchSt && d.canStash;
-    var comps = Object.keys(d.have).map(function (k) { var h = d.have[k]; return '<div class="row sm"><span class="ic">' + h.ic + '</span><div class="n"><b>' + esc(h.n) + '</b><small>у вас ' + h.i + ' · в общаке ' + h.s + '</small></div></div>'; }).join('');
-    var rec = d.r.map(function (r) {
-        var ok = !r.lock && Object.keys(r.need).every(function (c) { var h = d.have[c] || { i: 0, s: 0 }; return h.i + (useSt ? h.s : 0) >= r.need[c]; });
-        var need = Object.keys(r.need).map(function (c) { var h = d.have[c] || { i: 0, s: 0, ic: '?' }; var have = h.i + (useSt ? h.s : 0); return '<span style="color:' + (have >= r.need[c] ? '#9fe69b' : '#ff9aa6') + '">' + h.ic + ' ' + have + '/' + r.need[c] + '</span>'; }).join(' &nbsp;');
-        return '<div class="row sm' + (r.lock ? ' lock' : '') + '"><span class="ic">' + r.ic + '</span><div class="n"><b>' + esc(r.n) + (r.lock ? ' <span class="tag">только мафия</span>' : '') + '</b><small>' + need + '</small></div><button data-craft="' + r.i + '"' + (ok ? '' : ' disabled') + '>Собрать</button></div>';
+    var b = base('bench', d.c);
+    var hv = function (c) { return (d.have[c] || { i: 0 }).i; };
+    var ready = function (r) { return !r.lock && Object.keys(r.need).every(function (c) { return hv(c) >= r.need[c]; }); };
+    if (!d.r[BSEL]) BSEL = 0;
+    var cur = d.r[BSEL];
+    var cards = d.r.map(function (r) {
+        return '<div class="card' + (r.i === BSEL ? ' sel' : '') + (r.lock ? ' lock' : '') + '" data-pick="' + r.i + '">' + (r.lock ? '<span class="mf">мафия</span>' : ready(r) ? '<span class="ready"></span>' : '') + (r.c > 1 ? '<span class="cnt">×' + r.c + '</span>' : '') +
+            '<div class="pic">' + ICON(r.k, r.ic) + '</div><b>' + esc(r.n.replace(/ ×\d+$/, '')) + '</b></div>';
     }).join('');
-    b.innerHTML = '<div class="hd"><i>🛠️</i><div><b>Верстак · ' + esc(d.org) + '</b><small>Компоненты добываются при ограблении армейских грузовиков за пределами базы</small></div></div>' +
-        '<div class="cols"><div class="col"><h4>Рецепты</h4><div class="list">' + rec + '</div></div><div class="col"><h4>Компоненты</h4><div class="list">' + comps + '</div></div></div>' +
-        '<div class="foot"><small>' + (d.canStash ? '<label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="chk" id="ust"' + (useSt ? ' checked' : '') + '> Брать недостающее из общака</label>' : 'Брать компоненты из общака — с ранга, заданного лидером') + '</small><button class="ghost" id="cl">Закрыть</button></div>';
-    var u = $('ust'); if (u) u.onchange = function () { window._benchSt = u.checked; window.bench(d); };
-    bind('[data-craft]', function (el) { trig('cef:crime:craft', Number(el.dataset.craft), useSt); });
+    var needs = Object.keys(cur.need).map(function (c) {
+        var h = d.have[c] || { i: 0, s: 0, n: c, ic: '?' }, have = h.i, need = cur.need[c], ok = have >= need;
+        return '<div class="need"><span class="ic">' + ICON(c, h.ic) + '</span><div class="nm">' + esc(h.n) + '<div class="bar" style="color:' + (ok ? '#6fd36a' : '#ff6b7a') + '"><i style="width:' + Math.min(100, have / need * 100) + '%"></i></div><small style="color:rgba(255,255,255,.4);font-size:10.5px">в общаке: ' + h.s + '</small></div><div class="v ' + (ok ? 'ok' : 'no') + '">' + have + ' / ' + need + '</div></div>';
+    }).join('');
+    b.innerHTML = '<div class="top"><i>🛠️</i><div><b>Верстак · ' + esc(d.org) + '</b><small>Компоненты берутся только из вашего инвентаря</small></div><div class="x" id="cl">✕</div></div>' +
+        '<div class="wrap"><div class="grid">' + cards + '</div>' +
+        '<div class="side"><div class="hero">' + ICON(cur.k, cur.ic) + '</div><h3>' + esc(cur.n) + '</h3><div class="sub">' + (cur.lock ? 'Рецепт знают только в мафии' : 'Сборка займёт 8 секунд') + '</div>' + needs +
+        '<button class="go" id="go"' + (ready(cur) ? '' : ' disabled') + '>' + (cur.lock ? 'Недоступно' : ready(cur) ? 'Собрать' : 'Не хватает компонентов') + '</button>' +
+        '<div class="note">Недостающее возьмите в общаке (E у общака). Компоненты добываются из армейских ящиков: вскройте Barracks за пределами базы, отвезите ящики на базу и сдайте в общак.</div></div></div>';
+    bind('[data-pick]', function (el) { BSEL = Number(el.dataset.pick); window.bench(d); });
+    $('go').onclick = function () { if (ready(cur)) trig('cef:crime:craft', cur.i); };
     $('cl').onclick = function () { trig('cef:crime:close'); };
 };
 document.addEventListener('keydown', function (e) { if (e.keyCode === 27) trig('cef:crime:close'); });

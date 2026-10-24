@@ -184,10 +184,27 @@ function robTruck() {
     return best;
 }
 mp.events.add('crime:robbing', function (sec) { cRobDur = sec * 1000; cRobEnd = sec ? Date.now() + cRobDur : 0; });
+var cOrgV = null;
+function rearOf(v) { var h = v.getHeading() * Math.PI / 180, mn = mp.game.gameplay.getModelDimensions(v.model).min; var back = Math.abs(mn.y) + 0.8; return { x: v.position.x + Math.sin(h) * back, y: v.position.y - Math.cos(h) * back, z: v.position.z }; }
+function orgCar() {
+    var me = mp.players.local, my = me.getVariable('org'), best = null;
+    if (!my || me.vehicle) return null;
+    mp.vehicles.forEachInStreamRange(function (v) {
+        if (v.getVariable('org') !== my) return;
+        var r; try { r = rearOf(v); } catch (e) { return; }
+        if (mp.game.system.vdist(me.position.x, me.position.y, me.position.z, r.x, r.y, r.z) < 2.2) best = v;
+    });
+    return best;
+}
 function whichPt() {
-    cRobV = robTruck();
+    var carry = !!mp.players.local.getVariable('crateCarry');
+    if (carry && cPts && near3(cPts.stash, 3)) return 'stashCrate';
+    cOrgV = orgCar();
+    if (cOrgV && carry) return 'load';
+    if (cOrgV && !carry && Number(cOrgV.getVariable('loot')) > 0 && cPts && cPts.stash && Math.hypot(mp.players.local.position.x - cPts.stash[0], mp.players.local.position.y - cPts.stash[1]) < 40) return 'unload';
+    cRobV = carry ? null : robTruck();
     if (cRobV) return 'rob';
-    if (!cPts) return '';
+    if (carry || !cPts) return '';
     if (near3(cPts.stash, 2.5)) return 'stash';
     if (near3(cPts.bench, 2.5)) return 'bench';
     if (near3(cPts.green, 4)) return 'green';
@@ -196,7 +213,7 @@ function whichPt() {
 }
 setInterval(function () {
     var w = whichPt();
-    if (w && w !== cPtHint) mp.events.call('hud:notify', 'ok', { stash: 'Общак: нажмите E', bench: 'Верстак: нажмите E', green: 'Теплица: нажмите E', buyer: 'Скупщик: нажмите E', rob: 'Армейский грузовик: E — вскрыть кузов' }[w], 3000);
+    if (w && w !== cPtHint) mp.events.call('hud:notify', 'ok', { stash: 'Общак: нажмите E', bench: 'Верстак: нажмите E', green: 'Теплица: нажмите E', buyer: 'Скупщик: нажмите E', rob: 'Армейский грузовик: E — вскрыть кузов / взять ящик', load: 'E — закинуть ящик в багажник', unload: 'E — достать ящик из багажника', stashCrate: 'E — сдать ящик в общак' }[w], 3000);
     cPtHint = w;
 }, 400);
 mp.keys.bind(0x45, false, function () {
@@ -207,6 +224,9 @@ mp.keys.bind(0x45, false, function () {
     else if (w === 'buyer') mp.events.callRemote('srv:crime:buyer');
     else if (w === 'bench') mp.events.callRemote('srv:crime:bench');
     else if (w === 'rob' && cRobV) mp.events.callRemote('srv:crime:rob', cRobV.remoteId);
+    else if (w === 'load' && cOrgV) mp.events.callRemote('srv:crime:load', cOrgV.remoteId);
+    else if (w === 'unload' && cOrgV) mp.events.callRemote('srv:crime:unload', cOrgV.remoteId);
+    else if (w === 'stashCrate') mp.events.callRemote('srv:crime:stashCrate');
 });
 mp.events.add('crime:stash', function (j) { if (cOpen && cBr) cBr.execute('window.stash && window.stash(' + JSON.stringify(j) + ');'); else cUI(true, 'window.stash && window.stash(' + JSON.stringify(j) + ');'); });
 mp.events.add('crime:green', function (j) { if (cOpen && cBr) cBr.execute('window.green && window.green(' + JSON.stringify(j) + ');'); else cUI(true, 'window.green && window.green(' + JSON.stringify(j) + ');'); });
@@ -214,7 +234,7 @@ mp.events.add('crime:buyer', function (j) { if (cOpen && cBr) cBr.execute('windo
 mp.events.add('cef:crime:stashOp', function (op, k, n) { mp.events.callRemote('srv:crime:stashOp', String(op), String(k), Number(n) || 1); });
 mp.events.add('cef:crime:pot', function (op, i) { mp.events.callRemote('srv:crime:pot', String(op), Number(i) || 0); });
 mp.events.add('crime:bench', function (j) { if (cOpen && cBr) cBr.execute('window.bench && window.bench(' + JSON.stringify(j) + ');'); else cUI(true, 'window.bench && window.bench(' + JSON.stringify(j) + ');'); });
-mp.events.add('cef:crime:craft', function (i, st) { mp.events.callRemote('srv:crime:craft', Number(i), st ? 1 : 0); });
+mp.events.add('cef:crime:craft', function (i) { mp.events.callRemote('srv:crime:craft', Number(i)); });
 mp.events.add('cef:crime:sell', function (k, n) { mp.events.callRemote('srv:crime:sell', String(k), Number(n) || 1); });
 mp.events.add('render', function () {
     if (cNeutral) {
@@ -223,6 +243,16 @@ mp.events.add('render', function () {
         mp.game.controls.disableControlAction(0, 69, true); mp.game.controls.disableControlAction(0, 92, true);
         mp.game.graphics.drawText('🕊 Нейтральная территория', [0.5, 0.955], { font: 4, color: [140, 230, 140, 220], scale: [0.36, 0.36], outline: true, centre: true });
     }
+    if (mp.players.local.getVariable('crateCarry')) {
+        [24, 25, 140, 141, 142, 21, 22, 23].forEach(function (c) { mp.game.controls.disableControlAction(0, c, true); });
+    }
+    var myOrg = mp.players.local.getVariable('org');
+    if (myOrg) mp.vehicles.forEachInStreamRange(function (v) {
+        if (v.getVariable('org') !== myOrg) return;
+        var n = Number(v.getVariable('loot')) || 0; if (!n) return;
+        var vp = v.position, lp = mp.players.local.position;
+        if (mp.game.system.vdist(lp.x, lp.y, lp.z, vp.x, vp.y, vp.z) < 20) mp.game.graphics.drawText('📦 ' + n + '/4', [vp.x, vp.y, vp.z + 1.6], { font: 4, color: [255, 220, 120, 230], scale: [0.35, 0.35], outline: true, centre: true });
+    });
     if (!cPts) return;
     var me = mp.players.local.position;
     if (cRobEnd > Date.now()) {

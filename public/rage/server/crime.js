@@ -580,14 +580,26 @@ function rollLoot(crates) {
     for (let n = 0; n < crates; n++) LOOT.forEach(function (l) { if (Math.random() < l[1]) out[l[0]] = (out[l[0]] || 0) + l[2] + Math.floor(Math.random() * (l[3] - l[2] + 1)); });
     return out;
 }
+const CAR_CAP = 4;
+function setCrate(p, on) {
+    p.crateCarry = !!on;
+    p.setVariable('crateCarry', !!on);
+    p.call('job:anim', [on ? 'box' : 'put', 700]);
+}
+function dropCrate(p, why) { if (!p.crateCarry) return; p.crateCarry = false; try { p.setVariable('crateCarry', false); p.call('job:anim', ['put', 500]); } catch (e) {} if (why) notify(p, 'warn', why); }
 mp.events.add('srv:crime:rob', function (p, vid) {
     const k = org(p);
-    if (!k) return;
+    if (!k || p.crateCarry) return;
     const v = mp.vehicles.at(Number(vid));
     if (!armyTruck(v) || v.position.subtract(p.position).length() > 7) return;
     if (dist2(v.position, BASE_ZONE.x, BASE_ZONE.y) < BASE_ZONE.r) return notify(p, 'warn', 'Грузовик на территории военной базы — ждите, пока выедет');
     const n = Number(v.getVariable('crates')) || 0;
     if (!n) return notify(p, 'warn', 'Кузов пуст');
+    if (v.robOpen && v.robOpen > Date.now()) {
+        v.setVariable('crates', n - 1);
+        setCrate(p, true);
+        return notify(p, 'ok', 'Ящик у вас. Погрузите в машину организации (E у багажника). В кузове ещё: ' + (n - 1));
+    }
     if (v.robBy && mp.players.exists(v.robBy) && v.robBy !== p) return notify(p, 'warn', 'Кузов уже вскрывают');
     if (p.robbing) return;
     const W = global.WantedSystem;
@@ -604,25 +616,56 @@ mp.events.add('srv:crime:rob', function (p, vid) {
         if (!mp.vehicles.exists(v)) return;
         v.robBy = null;
         if (v.position.subtract(p.position).length() > 7 || (p.account && p.account.downed)) return notify(p, 'error', 'Вскрытие сорвано');
-        const left = Number(v.getVariable('crates')) || 0;
-        if (!left) return notify(p, 'warn', 'Ящиков уже нет');
-        const take = Math.min(left, 3);
-        v.setVariable('crates', left - take);
-        const loot = rollLoot(take), got = [];
-        Object.keys(loot).forEach(function (key) {
-            const rest = U().addItem(p, key, loot[key]) || 0;
-            const g = loot[key] - rest;
-            if (rest > 0) { const st = stashOf(k); st[key] = (st[key] || 0) + rest; }
-            got.push(U().ITEMS[key].i + ' ' + U().ITEMS[key].n + ' x' + loot[key] + (rest ? ' (' + rest + ' → общак)' : ''));
-        });
-        U().sendInv(p); mark();
-        olog(k, nick(p) + ' ограбил армейский грузовик (' + take + ' ящ.)');
-        p.outputChatBox('!{#ffd24d}[Добыча] !{#ffffff}' + (got.length ? got.join(' · ') : 'ящики оказались пустыми'));
-        notify(p, 'ok', 'Вскрыто ' + take + ' ящиков');
-        const G = global.GovFaction; if (G && G.flog) G.flog('army', 'Конвой ограблен: −' + take + ' ящиков');
+        v.robOpen = Date.now() + 180000;
+        notify(p, 'ok', 'Кузов вскрыт на 3 минуты! E у кузова — взять ящик');
+        mp.players.forEach(function (x) { if (org(x) === k && x !== p && x.position.subtract(v.position).length() < 60) notify(x, 'ok', 'Кузов вскрыт — таскайте ящики в машину'); });
     }, ROB_SEC * 1000);
 });
-mp.events.add('playerDeath', function (p) { if (p.robbing) { if (p.robbing.v) p.robbing.v.robBy = null; p.robbing = null; p.call('crime:robbing', [0]); } });
+mp.events.add('srv:crime:load', function (p, vid) {
+    const k = org(p);
+    if (!k || !p.crateCarry) return;
+    const v = mp.vehicles.at(Number(vid));
+    if (!v || !mp.vehicles.exists(v) || v.getVariable('org') !== k || v.position.subtract(p.position).length() > 7) return notify(p, 'warn', 'Грузить можно только в машину своей организации');
+    const n = Number(v.getVariable('loot')) || 0;
+    if (n >= CAR_CAP) return notify(p, 'warn', 'Багажник полон (' + CAR_CAP + ' ящика)');
+    v.setVariable('loot', n + 1);
+    setCrate(p, false);
+    notify(p, 'ok', 'Ящик в багажнике: ' + (n + 1) + '/' + CAR_CAP + '. Везите на базу к общаку');
+});
+mp.events.add('srv:crime:unload', function (p, vid) {
+    const k = org(p);
+    if (!k || p.crateCarry) return;
+    const v = mp.vehicles.at(Number(vid));
+    if (!v || !mp.vehicles.exists(v) || v.getVariable('org') !== k || v.position.subtract(p.position).length() > 7) return;
+    const n = Number(v.getVariable('loot')) || 0;
+    if (!n) return;
+    const st = stashPos(k);
+    if (dist2(p.position, st.x, st.y) > 40) return notify(p, 'warn', 'Разгружать можно только на своей базе, у общака');
+    v.setVariable('loot', n - 1);
+    setCrate(p, true);
+    notify(p, 'ok', 'Несите ящик к общаку (E). В багажнике ещё: ' + (n - 1));
+});
+mp.events.add('srv:crime:stashCrate', function (p) {
+    const k = org(p);
+    if (!k || !p.crateCarry || !nearStash(p)) return;
+    setCrate(p, false);
+    const loot = rollLoot(1), st = stashOf(k), got = [];
+    Object.keys(loot).forEach(function (key) { st[key] = (st[key] || 0) + loot[key]; got.push(U().ITEMS[key].n + ' x' + loot[key]); });
+    mark();
+    olog(k, nick(p) + ' сдал армейский ящик: ' + (got.join(', ') || 'пусто'));
+    toOrg(k, '!{' + ORGS[k].c + '}[Общак] !{#ffffff}' + nick(p) + ' вскрыл ящик: ' + (got.length ? got.join(' · ') : 'пусто'));
+});
+mp.events.add('playerEnterVehicle', function (p, v) {
+    if (!p.crateCarry) return;
+    const k = org(p);
+    const n = Number(v.getVariable('loot')) || 0;
+    if (k && v.getVariable('org') === k && n < CAR_CAP) { v.setVariable('loot', n + 1); dropCrate(p); return notify(p, 'ok', 'Ящик закинут в машину: ' + (n + 1) + '/' + CAR_CAP); }
+    dropCrate(p, 'Ящик выпал и разбился');
+});
+mp.events.add('playerDeath', function (p) {
+    dropCrate(p, 'Ящик потерян');
+    if (p.robbing) { if (p.robbing.v) p.robbing.v.robBy = null; p.robbing = null; p.call('crime:robbing', [0]); }
+});
 
 /* ======================= КРАФТ ОРУЖИЯ ======================= */
 const RECIPES = [
@@ -640,9 +683,9 @@ function benchPos(k) { const o = O(k); if (o.bench) return { x: o.bench[0], y: o
 function nearBench(p) { const k = org(p); if (!k) return false; const b = benchPos(k); return dist2(p.position, b.x, b.y) < 3 && Math.abs(p.position.z - b.z) < 3; }
 function benchOpen(p) {
     const k = org(p), inv = U().invScan(p), st = stashOf(k);
-    const have = {}; Object.keys(U().ITEMS).forEach(function (x) { if (x.indexOf('c_') === 0) have[x] = { i: inv[x] || 0, s: st[x] || 0, n: U().ITEMS[x].n, ic: U().ITEMS[x].i }; });
+    const have = {}; Object.keys(U().ITEMS).forEach(function (x) { if (x.indexOf('c_') === 0) have[x] = { i: inv[x] || 0, s: st[x] || 0, n: U().ITEMS[x].n, ic: U().ITEMS[x].i, k: x }; });
     p.call('crime:bench', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, type: ORGS[k].t, have: have, canStash: rank(p) >= (O(k).stashRank || 3) || mgr(p),
-        r: RECIPES.map(function (r, i) { return { i: i, n: r.n, ic: U().ITEMS[r.k].i, need: r.need, lock: r.t && r.t !== ORGS[k].t }; }) })]);
+        r: RECIPES.map(function (r, i) { return { i: i, k: r.k, n: r.n, c: r.c, ic: U().ITEMS[r.k].i, need: r.need, lock: !!(r.t && r.t !== ORGS[k].t) }; }) })]);
 }
 mp.events.add('srv:crime:bench', function (p) { if (nearBench(p)) benchOpen(p); });
 mp.events.add('srv:crime:craft', function (p, i, useStash) {
@@ -650,16 +693,10 @@ mp.events.add('srv:crime:craft', function (p, i, useStash) {
     const k = org(p), r = RECIPES[Number(i)];
     if (!r) return;
     if (r.t && r.t !== ORGS[k].t) return notify(p, 'warn', 'Этот рецепт знают только в мафии');
-    const fromStash = !!useStash && (rank(p) >= (O(k).stashRank || 3) || mgr(p));
-    const inv = U().invScan(p), st = stashOf(k);
-    const miss = Object.keys(r.need).filter(function (c) { return (inv[c] || 0) + (fromStash ? st[c] || 0 : 0) < r.need[c]; });
-    if (miss.length) return notify(p, 'error', 'Не хватает: ' + miss.map(function (c) { return U().ITEMS[c].n; }).join(', '));
-    Object.keys(r.need).forEach(function (c) {
-        let need = r.need[c];
-        const fromInv = Math.min(need, inv[c] || 0);
-        if (fromInv) need -= U().takeItems(p, c, fromInv);
-        if (need > 0) { st[c] -= need; if (st[c] <= 0) delete st[c]; }
-    });
+    const inv = U().invScan(p);
+    const miss = Object.keys(r.need).filter(function (c) { return (inv[c] || 0) < r.need[c]; });
+    if (miss.length) return notify(p, 'error', 'Не хватает в инвентаре: ' + miss.map(function (c) { return U().ITEMS[c].n; }).join(', ') + '. Возьмите из общака');
+    Object.keys(r.need).forEach(function (c) { U().takeItems(p, c, r.need[c]); });
     mark();
     p.crafting = true;
     p.call('crime:close'); p.call('job:anim', ['pick', 8000]);
@@ -668,7 +705,7 @@ mp.events.add('srv:crime:craft', function (p, i, useStash) {
         if (!mp.players.exists(p)) return;
         p.crafting = false;
         const left = U().addItem(p, r.k, r.c) || 0;
-        if (left) { st[r.k] = (st[r.k] || 0) + left; mark(); }
+        if (left) { const st = stashOf(k); st[r.k] = (st[r.k] || 0) + left; mark(); }
         U().sendInv(p);
         olog(k, nick(p) + ' собрал: ' + r.n);
         notify(p, 'ok', 'Готово: ' + r.n + (left ? ' (часть — в общак)' : ''));
