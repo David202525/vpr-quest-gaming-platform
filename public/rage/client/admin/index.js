@@ -412,7 +412,7 @@ function N(hash) { try { return mp.game.invoke.apply(mp.game, arguments); } catc
 function collLoaded(ent) { var r = N('0xE9676F61BC0B3321', ent.handle); return r === null ? true : !!r; }
 function reqColl(x, y, z) { N('0x07503F7948F491A7', x, y, z); }
 
-var holdEnt = null, holdSince = 0, safePos = null, lastFix = 0, fixCount = 0;
+var holdEnt = null, holdSince = 0, safePos = null, lastFix = 0, fixCount = 0, fallTicks = 0;
 function release() {
     if (holdEnt) { try { if (!admFrozen || holdEnt !== mp.players.local) holdEnt.freezePosition(false); } catch (e) {} }
     holdEnt = null; holdSince = 0;
@@ -436,23 +436,35 @@ setInterval(function () {
     }
     if (holdEnt) release();
 
-    var ground = 0;
-    try { ground = mp.game.gameplay.getGroundZFor3dCoord(pos.x, pos.y, pos.z + 50, 0, false); } catch (e) {}
+    if (p.dimension !== 0) { fallTicks = 0; return; }
     var vz = 0;
     try { vz = ent.getVelocity().z; } catch (e) {}
+    var below = 0;
+    try { below = mp.game.gameplay.getGroundZFor3dCoord(pos.x, pos.y, pos.z + 1.5, 0, false); } catch (e) {}
+    var hasFloor = below > 0 && below <= pos.z + 1.5 && pos.z - below < 80;
+    var wet = false;
+    try { wet = ent.isInWater() || p.isSwimming(); } catch (e) {}
+    var air = false;
+    try { if (p.vehicle) { var cls = mp.game.vehicle.getVehicleClassFromName(p.vehicle.model); air = cls === 15 || cls === 16; } else air = p.getParachuteState() >= 0; } catch (e) {}
 
-    if (ground > 0 && pos.z >= ground - 1 && pos.z < ground + 3 && Math.abs(vz) < 3) {
-        safePos = { x: pos.x, y: pos.y, z: ground + 1 };
-        fixCount = 0;
+    if (hasFloor && pos.z - below < 3 && Math.abs(vz) < 3) {
+        safePos = { x: pos.x, y: pos.y, z: pos.z + 0.5 };
+        fixCount = 0; fallTicks = 0;
         return;
     }
-    var under = ground > 0 && pos.z < ground - 3 && vz < -3;
-    if (!under || Date.now() - lastFix < 3000) return;
-    if (fixCount >= 3) return;
-    lastFix = Date.now(); fixCount++;
+    if (hasFloor || wet || air || vz > -12) { fallTicks = 0; return; }
+    fallTicks++;
+    if (fallTicks < 6) return;
+    if (Date.now() - lastFix < 3000 || fixCount >= 3) return;
+    lastFix = Date.now(); fixCount++; fallTicks = 0;
+    var tgt = safePos && Math.hypot(safePos.x - pos.x, safePos.y - pos.y) < 60 ? safePos : null;
+    var top = 0;
+    if (!tgt) { try { top = mp.game.gameplay.getGroundZFor3dCoord(pos.x, pos.y, 1000, 0, false); } catch (e) {} }
+    if (!tgt && !(top > 0)) return;
     try { ent.setVelocity(0, 0, 0); } catch (e) {}
-    ent.setCoordsNoOffset(pos.x, pos.y, ground + 1, false, false, false);
-    if (dbgOn) mp.events.call('hud:notify', 'warn', '[dbg] провал под текстуры — поднят на поверхность', 3000);
+    if (tgt) ent.setCoordsNoOffset(tgt.x, tgt.y, tgt.z, false, false, false);
+    else ent.setCoordsNoOffset(pos.x, pos.y, top + 1, false, false, false);
+    if (dbgOn) mp.events.call('hud:notify', 'warn', '[dbg] провал под текстуры — возвращён на последнюю точку', 3000);
 }, 250);
 
 mp.events.add('render', function () {
