@@ -62,7 +62,7 @@ window.green = function (j) {
     var d = typeof j === 'string' ? JSON.parse(j) : j;
     var b = base('wide', d.c);
     b.innerHTML = '<div class="hd"><i>🌿</i><div><b>Теплица · ' + esc(d.org) + '</b><small>Созревает ' + d.grow + ' мин · без полива дольше ' + d.water + ' мин рост останавливается</small></div></div>' +
-        '<div class="cash"><div class="sum" style="font-size:16px">🌱 Семена у вас: ' + d.seeds + '</div><input class="qty" data-q="seeds" type="number" min="1" max="50" value="8"><button id="bs">Купить по ' + money(d.price) + '</button></div>' +
+        '<div class="cash"><div class="sum" style="font-size:16px">🌱 Семена у вас: ' + d.seeds + '</div><small style="color:rgba(255,255,255,.5);max-width:300px">Семена не продаются — их изредка находят, работая на ферме</small></div>' +
         '<div class="pots">' + d.pots.map(function (x) {
             if (x.s === 'empty') return '<div class="pot"><div class="e">🪴</div><small>Пусто</small><div style="flex:1"></div><button data-plant="' + x.i + '"' + (d.seeds ? '' : ' disabled') + '>Посадить</button></div>';
             var e = x.s === 'ripe' ? '🌿' : x.pct > 50 ? '🌱' : '🌰';
@@ -70,7 +70,6 @@ window.green = function (j) {
                 (x.s === 'ripe' ? '<button data-harvest="' + x.i + '">Собрать</button>' : '<button class="ghost" data-water="' + x.i + '">Полить</button>') + '</div>';
         }).join('') + '</div>' +
         '<div class="foot"><small>Урожай с горшка — 4–7 укропа. Продавайте скупщику или складывайте в общак</small><button class="ghost" id="cl">Закрыть</button></div>';
-    $('bs').onclick = function () { trig('cef:crime:pot', 'seeds', qv('seeds')); };
     bind('[data-plant]', function (el) { trig('cef:crime:pot', 'plant', Number(el.dataset.plant)); });
     bind('[data-water]', function (el) { trig('cef:crime:pot', 'water', Number(el.dataset.water)); });
     bind('[data-harvest]', function (el) { trig('cef:crime:pot', 'harvest', Number(el.dataset.harvest)); });
@@ -83,6 +82,23 @@ window.buyer = function (j) {
         d.list.map(function (x) { return '<div class="row' + (x.have ? '' : ' lock') + '"><span class="ic">' + x.i + '</span><div class="n"><b>' + esc(x.n) + '</b><small>у вас: ' + x.have + '</small></div><b>' + money(x.p) + '</b><input class="qty" type="number" min="1" max="' + Math.max(1, x.have) + '" value="' + Math.max(1, x.have) + '" data-q="s' + x.k + '"' + (x.have ? '' : ' disabled') + '><button data-sell="' + x.k + '"' + (x.have ? '' : ' disabled') + '>Продать</button></div>'; }).join('') +
         '<div class="foot"><small>Мафия отдаёт 10% выручки в свой общак. Убийство на нейтральной территории — розыск</small><button class="ghost" id="cl">Уйти</button></div>';
     bind('[data-sell]', function (el) { trig('cef:crime:sell', el.dataset.sell, qv('s' + el.dataset.sell)); });
+    $('cl').onclick = function () { trig('cef:crime:close'); };
+};
+window.bench = function (j) {
+    var d = typeof j === 'string' ? JSON.parse(j) : j;
+    var b = base('wide', d.c);
+    var useSt = !!window._benchSt && d.canStash;
+    var comps = Object.keys(d.have).map(function (k) { var h = d.have[k]; return '<div class="row sm"><span class="ic">' + h.ic + '</span><div class="n"><b>' + esc(h.n) + '</b><small>у вас ' + h.i + ' · в общаке ' + h.s + '</small></div></div>'; }).join('');
+    var rec = d.r.map(function (r) {
+        var ok = !r.lock && Object.keys(r.need).every(function (c) { var h = d.have[c] || { i: 0, s: 0 }; return h.i + (useSt ? h.s : 0) >= r.need[c]; });
+        var need = Object.keys(r.need).map(function (c) { var h = d.have[c] || { i: 0, s: 0, ic: '?' }; var have = h.i + (useSt ? h.s : 0); return '<span style="color:' + (have >= r.need[c] ? '#9fe69b' : '#ff9aa6') + '">' + h.ic + ' ' + have + '/' + r.need[c] + '</span>'; }).join(' &nbsp;');
+        return '<div class="row sm' + (r.lock ? ' lock' : '') + '"><span class="ic">' + r.ic + '</span><div class="n"><b>' + esc(r.n) + (r.lock ? ' <span class="tag">только мафия</span>' : '') + '</b><small>' + need + '</small></div><button data-craft="' + r.i + '"' + (ok ? '' : ' disabled') + '>Собрать</button></div>';
+    }).join('');
+    b.innerHTML = '<div class="hd"><i>🛠️</i><div><b>Верстак · ' + esc(d.org) + '</b><small>Компоненты добываются при ограблении армейских грузовиков за пределами базы</small></div></div>' +
+        '<div class="cols"><div class="col"><h4>Рецепты</h4><div class="list">' + rec + '</div></div><div class="col"><h4>Компоненты</h4><div class="list">' + comps + '</div></div></div>' +
+        '<div class="foot"><small>' + (d.canStash ? '<label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="chk" id="ust"' + (useSt ? ' checked' : '') + '> Брать недостающее из общака</label>' : 'Брать компоненты из общака — с ранга, заданного лидером') + '</small><button class="ghost" id="cl">Закрыть</button></div>';
+    var u = $('ust'); if (u) u.onchange = function () { window._benchSt = u.checked; window.bench(d); };
+    bind('[data-craft]', function (el) { trig('cef:crime:craft', Number(el.dataset.craft), useSt); });
     $('cl').onclick = function () { trig('cef:crime:close'); };
 };
 document.addEventListener('keydown', function (e) { if (e.keyCode === 27) trig('cef:crime:close'); });

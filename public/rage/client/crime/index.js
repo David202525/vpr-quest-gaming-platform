@@ -171,16 +171,32 @@ function near3(a, r) {
     var p = mp.players.local.position;
     return !mp.players.local.vehicle && mp.game.system.vdist(p.x, p.y, p.z, a[0], a[1], a[2]) < r;
 }
+var cRobV = null, cRobEnd = 0, cRobDur = 0;
+function robTruck() {
+    var me = mp.players.local, best = null;
+    if (!mp.players.local.getVariable('org') || me.vehicle) return null;
+    mp.vehicles.forEachInStreamRange(function (v) {
+        var m = v.getVariable('govModel');
+        if (v.getVariable('gov') !== 'army' || (m !== 'barracks' && m !== 'barracks3') || !(Number(v.getVariable('crates')) > 0)) return;
+        var h = v.getHeading() * Math.PI / 180, rx = v.position.x + Math.sin(h) * 4.5, ry = v.position.y - Math.cos(h) * 4.5;
+        if (mp.game.system.vdist(me.position.x, me.position.y, me.position.z, rx, ry, v.position.z) < 3) best = v;
+    });
+    return best;
+}
+mp.events.add('crime:robbing', function (sec) { cRobDur = sec * 1000; cRobEnd = sec ? Date.now() + cRobDur : 0; });
 function whichPt() {
+    cRobV = robTruck();
+    if (cRobV) return 'rob';
     if (!cPts) return '';
     if (near3(cPts.stash, 2.5)) return 'stash';
+    if (near3(cPts.bench, 2.5)) return 'bench';
     if (near3(cPts.green, 4)) return 'green';
     if (near3(cPts.buyer, 2.5)) return 'buyer';
     return '';
 }
 setInterval(function () {
     var w = whichPt();
-    if (w && w !== cPtHint) mp.events.call('hud:notify', 'ok', { stash: 'Общак: нажмите E', green: 'Теплица: нажмите E', buyer: 'Скупщик: нажмите E' }[w], 3000);
+    if (w && w !== cPtHint) mp.events.call('hud:notify', 'ok', { stash: 'Общак: нажмите E', bench: 'Верстак: нажмите E', green: 'Теплица: нажмите E', buyer: 'Скупщик: нажмите E', rob: 'Армейский грузовик: E — вскрыть кузов' }[w], 3000);
     cPtHint = w;
 }, 400);
 mp.keys.bind(0x45, false, function () {
@@ -189,12 +205,16 @@ mp.keys.bind(0x45, false, function () {
     if (w === 'stash') mp.events.callRemote('srv:crime:stash');
     else if (w === 'green') mp.events.callRemote('srv:crime:green');
     else if (w === 'buyer') mp.events.callRemote('srv:crime:buyer');
+    else if (w === 'bench') mp.events.callRemote('srv:crime:bench');
+    else if (w === 'rob' && cRobV) mp.events.callRemote('srv:crime:rob', cRobV.remoteId);
 });
 mp.events.add('crime:stash', function (j) { if (cOpen && cBr) cBr.execute('window.stash && window.stash(' + JSON.stringify(j) + ');'); else cUI(true, 'window.stash && window.stash(' + JSON.stringify(j) + ');'); });
 mp.events.add('crime:green', function (j) { if (cOpen && cBr) cBr.execute('window.green && window.green(' + JSON.stringify(j) + ');'); else cUI(true, 'window.green && window.green(' + JSON.stringify(j) + ');'); });
 mp.events.add('crime:buyer', function (j) { if (cOpen && cBr) cBr.execute('window.buyer && window.buyer(' + JSON.stringify(j) + ');'); else cUI(true, 'window.buyer && window.buyer(' + JSON.stringify(j) + ');'); });
 mp.events.add('cef:crime:stashOp', function (op, k, n) { mp.events.callRemote('srv:crime:stashOp', String(op), String(k), Number(n) || 1); });
 mp.events.add('cef:crime:pot', function (op, i) { mp.events.callRemote('srv:crime:pot', String(op), Number(i) || 0); });
+mp.events.add('crime:bench', function (j) { if (cOpen && cBr) cBr.execute('window.bench && window.bench(' + JSON.stringify(j) + ');'); else cUI(true, 'window.bench && window.bench(' + JSON.stringify(j) + ');'); });
+mp.events.add('cef:crime:craft', function (i, st) { mp.events.callRemote('srv:crime:craft', Number(i), st ? 1 : 0); });
 mp.events.add('cef:crime:sell', function (k, n) { mp.events.callRemote('srv:crime:sell', String(k), Number(n) || 1); });
 mp.events.add('render', function () {
     if (cNeutral) {
@@ -205,7 +225,13 @@ mp.events.add('render', function () {
     }
     if (!cPts) return;
     var me = mp.players.local.position;
-    [['stash', cPts.stash, 29, cPts.c], ['green', cPts.green, 1, '#6fd36a'], ['buyer', cPts.buyer, 29, '#6fd36a']].forEach(function (m) {
+    if (cRobEnd > Date.now()) {
+        var pr = 1 - (cRobEnd - Date.now()) / cRobDur;
+        mp.game.graphics.drawRect(0.5, 0.9, 0.2, 0.018, 0, 0, 0, 160);
+        mp.game.graphics.drawRect(0.4 + 0.1 * pr, 0.9, 0.2 * pr, 0.012, 230, 80, 60, 230);
+        mp.game.graphics.drawText('Вскрываем ящики… не отходите', [0.5, 0.86], { font: 4, color: [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
+    }
+    [['stash', cPts.stash, 29, cPts.c], ['bench', cPts.bench, 29, cPts.c], ['green', cPts.green, 1, '#6fd36a'], ['buyer', cPts.buyer, 29, '#6fd36a']].forEach(function (m) {
         var a = m[1]; if (!a) return;
         var dx = me.x - a[0], dy = me.y - a[1];
         if (dx * dx + dy * dy > 900) return;

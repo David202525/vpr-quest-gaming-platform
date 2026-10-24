@@ -17,9 +17,9 @@ const ORGS = {
     vagos: { n: 'Los Santos Vagos', t: 'gang', c: '#f0c82a', bc: 5, rgb: [230, 190, 20], home: [331.0, -2040.0, 20.9, 140], cars: [['voodoo', 1], ['minivan2', 1], ['slamvan3', 3], ['buccaneer2', 5]] },
     marabunta: { n: 'Marabunta Grande', t: 'gang', c: '#3a8fe0', bc: 3, rgb: [30, 100, 200], home: [1438.0, -1490.0, 63.6, 340], cars: [['tornado', 1], ['peyote', 1], ['impaler', 3], ['savestra', 5]] },
     bloods: { n: 'Bloods', t: 'gang', c: '#e03a3a', bc: 1, rgb: [190, 20, 20], home: [480.0, -1780.0, 28.6, 90], cars: [['manana', 1], ['emperor', 1], ['dukes', 3], ['gauntlet', 5]] },
-    lcn: { n: 'La Cosa Nostra', t: 'mafia', c: '#c9a24a', bc: 46, rgb: [150, 120, 50], home: [-1520.0, 110.0, 50.0, 300], cars: [['cognoscenti', 1], ['schafter3', 2], ['baller4', 4], ['stretch', 6]] },
-    russian: { n: 'Русская мафия', t: 'mafia', c: '#9aa3b0', bc: 39, rgb: [70, 75, 85], home: [-1462.0, -32.0, 54.6, 40], cars: [['huntley', 1], ['schafter2', 2], ['xls2', 4], ['cog55', 6]] },
-    yakuza: { n: 'Yakuza', t: 'mafia', c: '#d23b6b', bc: 48, rgb: [170, 20, 70], home: [-794.0, 182.0, 72.8, 110], cars: [['sultan', 1], ['kuruma', 2], ['fugitive', 4], ['superd', 6]] }
+    lcn: { n: 'La Cosa Nostra', t: 'mafia', c: '#c9a24a', bc: 46, rgb: [150, 120, 50], home: [-1520.0, 110.0, 50.0, 300], cars: [['cognoscenti', 1], ['schafter3', 1], ['tailgater', 2], ['baller4', 3], ['granger', 3], ['windsor', 4], ['stretch', 5], ['cog552', 6]] },
+    russian: { n: 'Русская мафия', t: 'mafia', c: '#9aa3b0', bc: 39, rgb: [70, 75, 85], home: [-1462.0, -32.0, 54.6, 40], cars: [['huntley', 1], ['schafter2', 1], ['oracle2', 2], ['xls2', 3], ['mesa3', 3], ['guardian', 4], ['patriot2', 5], ['cog55', 6]] },
+    yakuza: { n: 'Yakuza', t: 'mafia', c: '#d23b6b', bc: 48, rgb: [170, 20, 70], home: [-794.0, 182.0, 72.8, 110], cars: [['sultan', 1], ['kuruma', 1], ['jester', 2], ['fugitive', 3], ['elegy2', 3], ['kuruma2', 4], ['superd', 5], ['nightshade', 6]] }
 };
 const RANKS = {
     gang: ['Новичок', 'Шестёрка', 'Боец', 'Бывалый', 'Уважаемый', 'Старший', 'Правая рука', 'Смотрящий', 'Лидер'],
@@ -314,7 +314,8 @@ function carSpots(k) {
     const o = O(k);
     if (o.spots && o.spots.length) return o.spots;
     const g = garage(k), h = home(k), rad = (h.h + 90) * Math.PI / 180, out = [];
-    for (let i = 0; i < 4; i++) out.push([g.x + Math.cos(rad) * (6 + i * 4), g.y + Math.sin(rad) * (6 + i * 4), g.z, h.h]);
+    const n = ORGS[k].t === 'mafia' ? 8 : 4;
+    for (let i = 0; i < n; i++) { const row = Math.floor(i / 4), col = i % 4; out.push([g.x + Math.cos(rad) * (6 + col * 4) + Math.cos(rad + Math.PI / 2) * row * 7, g.y + Math.sin(rad) * (6 + col * 4) + Math.sin(rad + Math.PI / 2) * row * 7, g.z, h.h]); }
     return out;
 }
 const orgCars = {};
@@ -377,12 +378,13 @@ mp.events.add('playerQuit', function (p) {
 mp.events.addCommand('orgpoint', function (p, full) {
     if (admLvl(p) < 7) return;
     const a = String(full || '').trim().split(/\s+/), k = a[0], t = a[1];
-    if (!ORGS[k] || ['home', 'garage', 'car', 'clearcars', 'stash', 'green'].indexOf(t) < 0) return p.outputChatBox('!{#ffcc66}/orgpoint [' + Object.keys(ORGS).join('/') + '] [home|garage|car|clearcars|stash|green] — встаньте на место');
+    if (!ORGS[k] || ['home', 'garage', 'car', 'clearcars', 'stash', 'green', 'bench'].indexOf(t) < 0) return p.outputChatBox('!{#ffcc66}/orgpoint [' + Object.keys(ORGS).join('/') + '] [home|garage|car|clearcars|stash|green|bench] — встаньте на место');
     const o = O(k), pos = [p.position.x, p.position.y, p.position.z, p.heading || 0];
     if (t === 'home') o.home = pos;
     else if (t === 'garage') o.garage = pos;
     else if (t === 'stash') o.stash = pos;
     else if (t === 'green') o.green = pos;
+    else if (t === 'bench') o.bench = pos;
     else if (t === 'car') { if (p.vehicle) pos[3] = p.vehicle.heading; (o.spots = o.spots || []).push(pos); }
     else o.spots = [];
     mark(); zonesAll(); mp.players.forEach(function (x) { if (org(x) === k) pointsSend(x); });
@@ -390,7 +392,7 @@ mp.events.addCommand('orgpoint', function (p, full) {
 });
 
 /* ======================= ОБЩАК-СКЛАД ======================= */
-const STASH_KEYS = ['ukrop_seed', 'ukrop', 'ukrop_pack', 'i_pistol', 'i_smg', 'i_rifle', 'i_armour', 'ammo_pistol', 'ammo_smg', 'ammo_rifle', 'medkit', 'bandage', 'armour', 'lockpick'];
+const STASH_KEYS = ['ukrop_seed', 'ukrop', 'ukrop_pack', 'c_scrap', 'c_shell', 'c_powder', 'c_spring', 'c_barrel', 'c_kevlar', 'c_blueprint', 'i_pistol', 'i_shotgun', 'i_smg', 'i_rifle', 'i_armour', 'ammo_pistol', 'ammo_smg', 'ammo_shotgun', 'ammo_rifle', 'medkit', 'bandage', 'armour', 'lockpick'];
 function stashPos(k) { const o = O(k); if (o.stash) return { x: o.stash[0], y: o.stash[1], z: o.stash[2] }; const h = home(k); return { x: h.x - 4, y: h.y - 3, z: h.z }; }
 function stashOf(k) { const o = O(k); if (!o.items) o.items = {}; return o.items; }
 function stashOpen(p) {
@@ -440,8 +442,8 @@ const POTS = 8;
 const GROW_MIN = 40;
 const WATER_MIN = 15;
 const POT_YIELD = [4, 7];
-const SEED_PRICE = 120;
-function greenPos(k) { const o = O(k); if (o.green) return { x: o.green[0], y: o.green[1], z: o.green[2], h: o.green[3] || 0 }; const h = home(k); return { x: h.x + 8, y: h.y - 8, z: h.z, h: h.h }; }
+const GREEN_DEF = { lcn: [2016.0, 4987.0, 41.1], russian: [1905.0, 4925.0, 48.9], yakuza: [2135.0, 4780.0, 41.0] };
+function greenPos(k) { const o = O(k); if (o.green) return { x: o.green[0], y: o.green[1], z: o.green[2], h: o.green[3] || 0 }; const d = GREEN_DEF[k] || [2016.0, 4987.0, 41.1]; return { x: d[0], y: d[1], z: d[2], h: 0 }; }
 function potsOf(k) {
     const o = O(k);
     if (!o.pots || o.pots.length !== POTS) o.pots = new Array(POTS).fill(null);
@@ -467,7 +469,7 @@ function nearGreen(p) { const k = org(p); if (!k || ORGS[k].t !== 'mafia') retur
 function greenOpen(p) {
     const k = org(p), pots = potsOf(k);
     pots.forEach(potTick); mark();
-    p.call('crime:green', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, seeds: (U().invScan(p).ukrop_seed || 0), price: SEED_PRICE, grow: GROW_MIN, water: WATER_MIN,
+    p.call('crime:green', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, seeds: (U().invScan(p).ukrop_seed || 0), price: 0, grow: GROW_MIN, water: WATER_MIN,
         pots: pots.map(function (x, i) { const st = potState(x); return { i: i, s: st.s, pct: st.pct || 0, wl: st.wl || 0, by: x ? x.by : '' }; }) })]);
 }
 mp.events.add('srv:crime:green', function (p) { if (nearGreen(p)) greenOpen(p); });
@@ -475,13 +477,6 @@ mp.events.add('srv:crime:pot', function (p, op, i) {
     if (!nearGreen(p)) return;
     const k = org(p), pots = potsOf(k);
     i = Math.floor(Number(i));
-    if (op === 'seeds') {
-        const n = Math.max(1, Math.min(50, i || 1)), cost = n * SEED_PRICE;
-        if (!pay(p, cost)) return notify(p, 'error', 'Не хватает: ' + money(cost));
-        U().addItem(p, 'ukrop_seed', n); U().sendInv(p);
-        olog(k, nick(p) + ' купил семена x' + n);
-        return greenOpen(p);
-    }
     if (!(i >= 0 && i < POTS)) return;
     const x = pots[i];
     potTick(x);
@@ -567,10 +562,118 @@ setInterval(function () {
 function pointsSend(p) {
     const k = org(p), b = buyer();
     const d = { buyer: [b.x, b.y, b.z], nr: NEUTRAL_R };
-    if (k) { const s = stashPos(k); d.stash = [s.x, s.y, s.z]; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
+    if (k) { const s = stashPos(k), bn = benchPos(k); d.stash = [s.x, s.y, s.z]; d.bench = [bn.x, bn.y, bn.z]; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
     p.call('crime:points', [JSON.stringify(d)]);
 }
 setInterval(function () { mp.players.forEach(function (p) { if (p.account && p.ptOrg !== org(p)) { p.ptOrg = org(p); pointsSend(p); } }); }, 3000);
+
+/* ======================= ОГРАБЛЕНИЕ АРМЕЙСКИХ ГРУЗОВИКОВ ======================= */
+const BASE_ZONE = { x: -2160.0, y: 3110.0, r: 520 };
+const LOOT = [
+    ['c_scrap', 0.95, 4, 10], ['c_shell', 0.80, 10, 30], ['c_spring', 0.55, 2, 6], ['c_powder', 0.45, 3, 8],
+    ['c_barrel', 0.18, 1, 2], ['c_kevlar', 0.15, 1, 1], ['c_blueprint', 0.05, 1, 1]
+];
+const ROB_SEC = 25;
+function armyTruck(v) { return v && mp.vehicles.exists(v) && v.getVariable('gov') === 'army' && ['barracks', 'barracks3'].indexOf(String(v.getVariable('govModel'))) >= 0; }
+function rollLoot(crates) {
+    const out = {};
+    for (let n = 0; n < crates; n++) LOOT.forEach(function (l) { if (Math.random() < l[1]) out[l[0]] = (out[l[0]] || 0) + l[2] + Math.floor(Math.random() * (l[3] - l[2] + 1)); });
+    return out;
+}
+mp.events.add('srv:crime:rob', function (p, vid) {
+    const k = org(p);
+    if (!k) return;
+    const v = mp.vehicles.at(Number(vid));
+    if (!armyTruck(v) || v.position.subtract(p.position).length() > 7) return;
+    if (dist2(v.position, BASE_ZONE.x, BASE_ZONE.y) < BASE_ZONE.r) return notify(p, 'warn', 'Грузовик на территории военной базы — ждите, пока выедет');
+    const n = Number(v.getVariable('crates')) || 0;
+    if (!n) return notify(p, 'warn', 'Кузов пуст');
+    if (v.robBy && mp.players.exists(v.robBy) && v.robBy !== p) return notify(p, 'warn', 'Кузов уже вскрывают');
+    if (p.robbing) return;
+    const W = global.WantedSystem;
+    v.robBy = p; p.robbing = { v: v, at: Date.now() };
+    p.call('crime:robbing', [ROB_SEC]);
+    mp.players.forEach(function (x) {
+        const j = x.account && x.account.job;
+        if (j === 'army' || ['lspd', 'sheriff', 'fib'].indexOf(j) >= 0) { notify(x, 'error', '🚨 Нападение на армейский конвой! Метка на карте'); x.call('phone:gps', [v.position.x, v.position.y, 'Нападение на конвой']); }
+    });
+    if (W && W.add) W.add(p, 3, 'Нападение на армейский конвой', 'Система');
+    setTimeout(function () {
+        if (!mp.players.exists(p)) { v.robBy = null; return; }
+        p.robbing = null;
+        if (!mp.vehicles.exists(v)) return;
+        v.robBy = null;
+        if (v.position.subtract(p.position).length() > 7 || (p.account && p.account.downed)) return notify(p, 'error', 'Вскрытие сорвано');
+        const left = Number(v.getVariable('crates')) || 0;
+        if (!left) return notify(p, 'warn', 'Ящиков уже нет');
+        const take = Math.min(left, 3);
+        v.setVariable('crates', left - take);
+        const loot = rollLoot(take), got = [];
+        Object.keys(loot).forEach(function (key) {
+            const rest = U().addItem(p, key, loot[key]) || 0;
+            const g = loot[key] - rest;
+            if (rest > 0) { const st = stashOf(k); st[key] = (st[key] || 0) + rest; }
+            got.push(U().ITEMS[key].i + ' ' + U().ITEMS[key].n + ' x' + loot[key] + (rest ? ' (' + rest + ' → общак)' : ''));
+        });
+        U().sendInv(p); mark();
+        olog(k, nick(p) + ' ограбил армейский грузовик (' + take + ' ящ.)');
+        p.outputChatBox('!{#ffd24d}[Добыча] !{#ffffff}' + (got.length ? got.join(' · ') : 'ящики оказались пустыми'));
+        notify(p, 'ok', 'Вскрыто ' + take + ' ящиков');
+        const G = global.GovFaction; if (G && G.flog) G.flog('army', 'Конвой ограблен: −' + take + ' ящиков');
+    }, ROB_SEC * 1000);
+});
+mp.events.add('playerDeath', function (p) { if (p.robbing) { if (p.robbing.v) p.robbing.v.robBy = null; p.robbing = null; p.call('crime:robbing', [0]); } });
+
+/* ======================= КРАФТ ОРУЖИЯ ======================= */
+const RECIPES = [
+    { k: 'ammo_pistol', c: 30, n: 'Патроны 9 мм ×30', need: { c_shell: 15, c_powder: 2, c_scrap: 1 }, t: '' },
+    { k: 'ammo_smg', c: 30, n: 'Патроны SMG ×30', need: { c_shell: 18, c_powder: 3, c_scrap: 1 }, t: '' },
+    { k: 'ammo_shotgun', c: 12, n: 'Дробь ×12', need: { c_shell: 8, c_powder: 2, c_scrap: 2 }, t: '' },
+    { k: 'ammo_rifle', c: 30, n: 'Патроны 5,56 ×30', need: { c_shell: 22, c_powder: 4, c_scrap: 2 }, t: 'mafia' },
+    { k: 'i_shotgun', c: 1, n: 'Обрез', need: { c_scrap: 12, c_spring: 3, c_barrel: 1 }, t: '' },
+    { k: 'i_pistol', c: 1, n: 'Пистолет без номера', need: { c_scrap: 10, c_spring: 4, c_barrel: 1 }, t: '' },
+    { k: 'i_armour', c: 1, n: 'Бронежилет', need: { c_kevlar: 2, c_scrap: 6 }, t: '' },
+    { k: 'i_smg', c: 1, n: 'Micro SMG', need: { c_scrap: 18, c_spring: 6, c_barrel: 2, c_blueprint: 1 }, t: 'mafia' },
+    { k: 'i_rifle', c: 1, n: 'Автомат', need: { c_scrap: 25, c_spring: 8, c_barrel: 3, c_blueprint: 2 }, t: 'mafia' }
+];
+function benchPos(k) { const o = O(k); if (o.bench) return { x: o.bench[0], y: o.bench[1], z: o.bench[2] }; const h = home(k); return { x: h.x + 3, y: h.y - 5, z: h.z }; }
+function nearBench(p) { const k = org(p); if (!k) return false; const b = benchPos(k); return dist2(p.position, b.x, b.y) < 3 && Math.abs(p.position.z - b.z) < 3; }
+function benchOpen(p) {
+    const k = org(p), inv = U().invScan(p), st = stashOf(k);
+    const have = {}; Object.keys(U().ITEMS).forEach(function (x) { if (x.indexOf('c_') === 0) have[x] = { i: inv[x] || 0, s: st[x] || 0, n: U().ITEMS[x].n, ic: U().ITEMS[x].i }; });
+    p.call('crime:bench', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, type: ORGS[k].t, have: have, canStash: rank(p) >= (O(k).stashRank || 3) || mgr(p),
+        r: RECIPES.map(function (r, i) { return { i: i, n: r.n, ic: U().ITEMS[r.k].i, need: r.need, lock: r.t && r.t !== ORGS[k].t }; }) })]);
+}
+mp.events.add('srv:crime:bench', function (p) { if (nearBench(p)) benchOpen(p); });
+mp.events.add('srv:crime:craft', function (p, i, useStash) {
+    if (!nearBench(p) || p.crafting) return;
+    const k = org(p), r = RECIPES[Number(i)];
+    if (!r) return;
+    if (r.t && r.t !== ORGS[k].t) return notify(p, 'warn', 'Этот рецепт знают только в мафии');
+    const fromStash = !!useStash && (rank(p) >= (O(k).stashRank || 3) || mgr(p));
+    const inv = U().invScan(p), st = stashOf(k);
+    const miss = Object.keys(r.need).filter(function (c) { return (inv[c] || 0) + (fromStash ? st[c] || 0 : 0) < r.need[c]; });
+    if (miss.length) return notify(p, 'error', 'Не хватает: ' + miss.map(function (c) { return U().ITEMS[c].n; }).join(', '));
+    Object.keys(r.need).forEach(function (c) {
+        let need = r.need[c];
+        const fromInv = Math.min(need, inv[c] || 0);
+        if (fromInv) need -= U().takeItems(p, c, fromInv);
+        if (need > 0) { st[c] -= need; if (st[c] <= 0) delete st[c]; }
+    });
+    mark();
+    p.crafting = true;
+    p.call('crime:close'); p.call('job:anim', ['pick', 8000]);
+    notify(p, 'ok', 'Сборка: ' + r.n + '…');
+    setTimeout(function () {
+        if (!mp.players.exists(p)) return;
+        p.crafting = false;
+        const left = U().addItem(p, r.k, r.c) || 0;
+        if (left) { st[r.k] = (st[r.k] || 0) + left; mark(); }
+        U().sendInv(p);
+        olog(k, nick(p) + ' собрал: ' + r.n);
+        notify(p, 'ok', 'Готово: ' + r.n + (left ? ' (часть — в общак)' : ''));
+    }, 8000);
+});
 
 /* ======================= УКРОП ======================= */
 const DEALER_DEF = { x: -1570.0, y: 4470.0, z: 20.0, h: 90 };
@@ -692,7 +795,7 @@ mp.events.add('playerReady', function (p) { setTimeout(function () { if (!mp.pla
 setTimeout(function () { mp.players.forEach(function (p) { dealerSend(p); sendZones(p); }); }, 4000);
 
 /* ======================= ОБЫСК И ИЗЪЯТИЕ ======================= */
-const CONTRA = ['ukrop_seed', 'ukrop', 'ukrop_pack', 'i_pistol', 'i_smg', 'i_rifle', 'i_armour', 'pistol', 'smg', 'rifle', 'ammo_pistol', 'ammo_smg', 'ammo_rifle', 'armour', 'lockpick'];
+const CONTRA = ['c_powder', 'c_barrel', 'c_kevlar', 'c_blueprint', 'i_shotgun', 'ammo_shotgun', 'ukrop_seed', 'ukrop', 'ukrop_pack', 'i_pistol', 'i_smg', 'i_rifle', 'i_armour', 'pistol', 'smg', 'rifle', 'ammo_pistol', 'ammo_smg', 'ammo_rifle', 'armour', 'lockpick'];
 function hasGunLic(t) { return !!(U() && U().hasDoc && U().hasDoc(t, 'gun')); }
 function contraOf(t) {
     const all = U().invScan(t), lic = hasGunLic(t), out = [];
