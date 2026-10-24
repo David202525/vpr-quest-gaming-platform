@@ -6,12 +6,33 @@ function lClear() {
     try { if (LX.blip) LX.blip.destroy(); } catch (e) {}
     LX.cp = null; LX.blip = null;
 }
+function lNode(pt) {
+    var x = pt[0], y = pt[1], z = pt[2];
+    var types = [0, 1];
+    for (var k = 0; k < types.length; k++) {
+        try {
+            var r = mp.game.pathfind.getClosestVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), types[k], 3.0, 0);
+            var v = r && (r.outPosition || r.outPos || r.position || r);
+            if (v && isFinite(v.x) && isFinite(v.y) && (Math.abs(v.x) + Math.abs(v.y)) > 1) {
+                var d = Math.hypot(v.x - x, v.y - y);
+                if (d < 60) return [v.x, v.y, v.z || z];
+            }
+        } catch (e) {}
+    }
+    return pt;
+}
+function lSnap(i) {
+    if (!LX.snap) LX.snap = {};
+    if (!LX.snap[i] && LX.pts[i]) LX.snap[i] = lNode(LX.pts[i]);
+    return LX.snap[i] || LX.pts[i];
+}
 function lPoint() {
     lClear();
-    var pt = LX.pts[LX.i];
-    if (!pt) return;
+    if (!LX.pts[LX.i]) return;
+    var pt = lSnap(LX.i);
     var last = LX.i === LX.pts.length - 1;
-    var nx = LX.pts[LX.i + 1] || pt;
+    var nx = LX.pts[LX.i + 1] ? lSnap(LX.i + 1) : pt;
+    LX.cur = pt;
     LX.cp = mp.checkpoints.new(last ? 4 : 0, new mp.Vector3(pt[0], pt[1], pt[2] - 1), 6, { direction: new mp.Vector3(nx[0], nx[1], nx[2]), color: [95, 211, 198, 140], visible: true, dimension: mp.players.local.dimension });
     LX.blip = mp.blips.new(1, new mp.Vector3(pt[0], pt[1], pt[2]), { dimension: 4294967295, color: 46, name: 'Экзамен', shortRange: false });
     try { LX.blip.setRoute(true); } catch (e) {}
@@ -37,8 +58,8 @@ setInterval(function () {
     if (!LX) return;
     var me = mp.players.local, v = me.vehicle;
     if (!v) return;
-    var pt = LX.pts[LX.i];
-    if (pt && !LX.sent && mp.game.system.vdist(v.position.x, v.position.y, v.position.z, pt[0], pt[1], pt[2]) < 7) {
+    var pt = LX.cur || LX.pts[LX.i];
+    if (pt && !LX.sent && mp.game.system.vdist(v.position.x, v.position.y, v.position.z, pt[0], pt[1], pt[2]) < 8) {
         LX.sent = true;
         mp.events.callRemote('srv:lic:cp', LX.i);
         setTimeout(function () { if (LX) LX.sent = false; }, 1500);

@@ -147,7 +147,7 @@ mp.events.add('srv:lic:cp', function (p, i) {
     if (!e || e.done || Number(i) !== e.i) return;
     if (p.vehicle !== e.v) return;
     const r = route(e.cat), pt = r[e.i];
-    if (Math.hypot(p.vehicle.position.x - pt[0], p.vehicle.position.y - pt[1]) > 14) return;
+    if (Math.hypot(p.vehicle.position.x - pt[0], p.vehicle.position.y - pt[1]) > 70) return;
     if (Date.now() > e.until) return finish(e, false, 'не уложились во время');
     e.i++;
     const ins = mp.players.toArray().find(function (x) { return sid(x) === e.ins; });
