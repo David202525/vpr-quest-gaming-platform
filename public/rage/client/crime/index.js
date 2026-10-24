@@ -59,13 +59,13 @@ mp.events.add('crime:zones', function (j) {
             mp.game.invoke('0xBC38B49BCB83BC9B', ic);
             cBlips.push(ic);
         } catch (e) {}
-        if (b[0] === d.me) cGarage = { x: b[6], y: b[7], z: b[8], c: b[5] };
+        if (b[0] === d.me) cGarage = { x: b[6], y: b[7], z: b[8], c: b[5], d: b[9] || 0 };
     });
 });
 function nearGarage() {
     if (!cGarage) return false;
     var p = mp.players.local.position;
-    return !mp.players.local.vehicle && mp.game.system.vdist(p.x, p.y, p.z, cGarage.x, cGarage.y, cGarage.z) < 2.5;
+    return !mp.players.local.vehicle && mp.players.local.dimension === cGarage.d && mp.game.system.vdist(p.x, p.y, p.z, cGarage.x, cGarage.y, cGarage.z) < 2.5;
 }
 setInterval(function () {
     var n = nearGarage();
@@ -125,7 +125,7 @@ mp.events.add('render', function () {
     }
     if (cGarage) {
         var gx = pos.x - cGarage.x, gy = pos.y - cGarage.y;
-        if (gx * gx + gy * gy < 900) {
+        if (gx * gx + gy * gy < 900 && me.dimension === cGarage.d) {
             var col = parseInt(cGarage.c.replace('#', ''), 16);
             mp.game.graphics.drawMarker(36, cGarage.x, cGarage.y, cGarage.z, 0, 0, 0, 0, 0, 0, 1, 1, 1, (col >> 16) & 255, (col >> 8) & 255, col & 255, 200, true, true, 2, false, null, null, false);
         }
@@ -163,10 +163,36 @@ mp.events.add('crime:points', function (j) {
         cPtBlips.push(r);
         if (cPts.stash) cPtBlips.push(ptBlip(cPts.stash[0], cPts.stash[1], cPts.stash[2], 478, 0, 'Общак организации', true));
         if (cPts.bench) cPtBlips.push(ptBlip(cPts.bench[0], cPts.bench[1], cPts.bench[2], 566, 0, 'Верстак', true));
-        if (cPts.garage) cPtBlips.push(ptBlip(cPts.garage[0], cPts.garage[1], cPts.garage[2], 357, 3, 'Гараж организации', false));
+        if (cPts.garage) cPtBlips.push(ptBlip(cPts.garage[0], cPts.garage[1], cPts.garage[2], cPts.ug ? 50 : 357, 3, cPts.ug ? 'Въезд в подземный гараж' : 'Гараж организации', false));
+        if (cPts.door) cPtBlips.push(ptBlip(cPts.door[0], cPts.door[1], cPts.door[2], 40, 0, 'Вход в особняк', true));
+        if (cPts.ipl) try { mp.game.streaming.requestIpl(cPts.ipl); } catch (e) {}
         if (cPts.green) cPtBlips.push(ptBlip(cPts.green[0], cPts.green[1], cPts.green[2], 469, 2, 'Теплица', false));
     } catch (e) { mp.console.logError('[crime] points: ' + e.message); }
 });
+var cDoorArm = {}, cDoorBusy = 0;
+function crDoorTrig(id, a, r, dim, what) {
+    if (!a) return;
+    var me = mp.players.local, p = me.position;
+    if (me.dimension !== dim) { cDoorArm[id] = false; return; }
+    var d = mp.game.system.vdist(p.x, p.y, p.z, a[0], a[1], a[2]);
+    if (d > r + 2) { cDoorArm[id] = true; return; }
+    if (d < r && cDoorArm[id] && Date.now() > cDoorBusy) {
+        cDoorArm[id] = false; cDoorBusy = Date.now() + 2000;
+        mp.game.cam.doScreenFadeOut(250);
+        setTimeout(function () { mp.events.callRemote('srv:crime:door', what); }, 260);
+        setTimeout(function () { mp.game.cam.doScreenFadeIn(400); }, 1100);
+    }
+}
+setInterval(function () {
+    if (!cPts) return;
+    var me = mp.players.local, veh = me.vehicle;
+    if (veh && veh.getPedInSeat(-1) !== me.handle) return;
+    if (cPts.door && !veh) { crDoorTrig('din', cPts.door, 1.3, 0, 'in'); crDoorTrig('dout', cPts.din, 1.3, cPts.idim, 'out'); }
+    if (cPts.ug && cPts.garage) {
+        crDoorTrig('gin', cPts.garage, veh ? 4 : 1.5, 0, 'gin');
+        if (veh) crDoorTrig('goutv', cPts.ug.drive, 3.5, cPts.ug.dim, 'gout'); else crDoorTrig('gout', cPts.ug.walk, 1.3, cPts.ug.dim, 'gout');
+    }
+}, 150);
 mp.events.add('crime:neutral', function (on) { cNeutral = !!on; });
 function near3(a, r) {
     if (!a) return false;
@@ -263,6 +289,12 @@ mp.events.add('render', function () {
         mp.game.graphics.drawRect(0.4 + 0.1 * pr, 0.9, 0.2 * pr, 0.012, 230, 80, 60, 230);
         mp.game.graphics.drawText('Вскрываем ящики… не отходите', [0.5, 0.86], { font: 4, color: [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
     }
+    var mydim = mp.players.local.dimension;
+    [[cPts.door, 0, 'Вход'], [cPts.din, cPts.idim, 'Выход'], [cPts.ug && cPts.garage, 0, 'Подземный гараж'], [cPts.ug && cPts.ug.walk, cPts.ug && cPts.ug.dim, 'Выход'], [cPts.ug && cPts.ug.drive, cPts.ug && cPts.ug.dim, 'Выезд на улицу']].forEach(function (x) {
+        var a = x[0]; if (!a || mydim !== x[1]) return;
+        if (mp.game.system.vdist(me.x, me.y, me.z, a[0], a[1], a[2]) > 12) return;
+        mp.game.graphics.drawText(x[2], [a[0], a[1], a[2] + 1.1], { font: 4, color: [255, 255, 255, 190], scale: [0.32, 0.32], outline: true, centre: true });
+    });
     [['stash', cPts.stash, 29, cPts.c], ['bench', cPts.bench, 29, cPts.c], ['green', cPts.green, 1, '#6fd36a'], ['buyer', cPts.buyer, 29, '#6fd36a']].forEach(function (m) {
         var a = m[1]; if (!a) return;
         var dx = me.x - a[0], dy = me.y - a[1];

@@ -231,7 +231,7 @@ function zoneList() {
 function zoneAt(pos) { return zoneList().find(function (z) { return inSq(pos, z.x, z.y, ZONE_R); }) || null; }
 function sendZones(p) {
     const w = S.wars.map(function (x) { return { z: x.z, a: x.a, d: x.d, end: x.end }; });
-    const bases = Object.keys(ORGS).map(function (k) { const h = home(k), g = garage(k); return [k, ORGS[k].n, h.x, h.y, ORGS[k].bc, ORGS[k].c, g.x, g.y, g.z]; });
+    const bases = Object.keys(ORGS).map(function (k) { const h = home(k), g = garMenu(k); return [k, ORGS[k].n, h.x, h.y, ORGS[k].bc, ORGS[k].c, g.x, g.y, g.z, g.d]; });
     p.call('crime:zones', [JSON.stringify({ s: GRID.size, bs: BASE_SIZE, z: zoneList().map(function (z) { return [z.i, z.n, z.x, z.y, z.o ? ORGS[z.o].bc : 0, z.o ? ORGS[z.o].n : 'ничья', z.base ? 1 : 0]; }), w: w, b: bases, me: org(p) })]);
 }
 function zonesAll() { mp.players.forEach(sendZones); }
@@ -309,7 +309,60 @@ mp.events.addCommand('zones', function (p) {
 });
 
 /* ======================= БАЗЫ, СПАВН И ГАРАЖ ======================= */
-function garage(k) { const o = O(k); if (o.garage) return { x: o.garage[0], y: o.garage[1], z: o.garage[2] }; const h = home(k); return { x: h.x + 4, y: h.y + 4, z: h.z }; }
+const DIM_ORG = 40000;
+const ORG_INT = { russian: { ipl: 'apa_v_mp_h_01_a', in: [-786.87, 315.76, 217.64, 0], n: 'Особняк Русской мафии' } };
+const UG = { lcn: 1, russian: 1 };
+const GAR_INT = {
+    walk: [240.6, -1004.8, -99.0, 90], drive: [228.6, -1004.2, -99.0, 180], arrive: [228.6, -996.5, -99.0, 0], menu: [235.2, -1001.8, -99.0],
+    spots: [[223.4, -981.5, -99.4, 240], [223.4, -986.5, -99.4, 240], [223.4, -991.5, -99.4, 240], [223.4, -996.5, -99.4, 240], [233.6, -981.5, -99.4, 120], [233.6, -986.5, -99.4, 120], [233.6, -991.5, -99.4, 120], [233.6, -996.5, -99.4, 120]]
+};
+function oIdx(k) { return Object.keys(ORGS).indexOf(k); }
+function intDim(k) { return DIM_ORG + oIdx(k); }
+function garDim(k) { return DIM_ORG + 500 + oIdx(k); }
+function doorPos(k) { const o = O(k); if (o.door) return o.door; const h = home(k); return [h.x, h.y, h.z, h.h]; }
+function garMenu(k) { if (UG[k]) return { x: GAR_INT.menu[0], y: GAR_INT.menu[1], z: GAR_INT.menu[2], d: garDim(k) }; const g = garage(k); return { x: g.x, y: g.y, z: g.z, d: 0 }; }
+function nearMenu(p, k) { const m = garMenu(k); return (p.dimension || 0) === m.d && dist2(p.position, m.x, m.y) <= 4; }
+function moveVeh(v, pos, dim) {
+    const occ = mp.players.toArray().filter(function (o) { return o.vehicle === v; }).map(function (o) { return [o, o.seat]; });
+    v.dimension = dim;
+    v.position = V(pos[0], pos[1], pos[2] + 0.4);
+    try { v.rotation = new mp.Vector3(0, 0, pos[3] || 0); } catch (e) {}
+    occ.forEach(function (x) {
+        x[0].dimension = dim;
+        setTimeout(function () { if (mp.players.exists(x[0]) && mp.vehicles.exists(v)) try { x[0].putIntoVehicle(v, x[1]); } catch (e) {} }, 250);
+    });
+}
+mp.events.add('srv:crime:door', function (p, what) {
+    const k = org(p);
+    if (!k || (p.account && p.account.downed)) return;
+    const now = Date.now();
+    if (p.doorAt && now - p.doorAt < 1500) return;
+    p.doorAt = now;
+    const I = ORG_INT[k];
+    if (what === 'in' && I) {
+        const d = doorPos(k);
+        if (p.vehicle || (p.dimension || 0) !== 0 || dist2(p.position, d[0], d[1]) > 3) return;
+        p.dimension = intDim(k); p.position = V(I.in[0], I.in[1], I.in[2]); p.heading = I.in[3];
+        p.call('house:inside', [I.n]);
+    } else if (what === 'out' && I) {
+        if (p.dimension !== intDim(k) || dist2(p.position, I.in[0], I.in[1]) > 3) return;
+        const d = doorPos(k);
+        p.dimension = 0; p.position = V(d[0], d[1], d[2]); p.heading = (d[3] || 0) + 180;
+        p.call('house:inside', ['']);
+    } else if (what === 'gin' && UG[k]) {
+        const g = garage(k);
+        if ((p.dimension || 0) !== 0 || dist2(p.position, g.x, g.y) > 6) return;
+        if (p.vehicle) { if (p.vehicle.getVariable('gov')) return notify(p, 'warn', 'Служебный транспорт сюда не заедет'); moveVeh(p.vehicle, GAR_INT.arrive, garDim(k)); }
+        else { p.dimension = garDim(k); p.position = V(GAR_INT.walk[0] - 2, GAR_INT.walk[1], GAR_INT.walk[2]); p.heading = GAR_INT.walk[3]; }
+        notify(p, 'ok', 'Подземный гараж ' + ORGS[k].n);
+    } else if (what === 'gout' && UG[k]) {
+        if (p.dimension !== garDim(k)) return;
+        const g = garage(k), h = (g.h || home(k).h || 0);
+        if (p.vehicle) { if (dist2(p.position, GAR_INT.drive[0], GAR_INT.drive[1]) > 5) return; moveVeh(p.vehicle, [g.x + Math.sin(-h * Math.PI / 180) * 6, g.y + Math.cos(-h * Math.PI / 180) * 6, g.z, h], 0); }
+        else { if (dist2(p.position, GAR_INT.walk[0], GAR_INT.walk[1]) > 3) return; p.dimension = 0; p.position = V(g.x, g.y, g.z); }
+    }
+});
+function garage(k) { const o = O(k); if (o.garage) return { x: o.garage[0], y: o.garage[1], z: o.garage[2], h: o.garage[3] || 0 }; const h = home(k); return { x: h.x + 4, y: h.y + 4, z: h.z }; }
 function carSpots(k) {
     const o = O(k);
     if (o.spots && o.spots.length) return o.spots;
@@ -332,19 +385,17 @@ function garageOpen(p) {
 }
 mp.events.add('srv:crime:garage', function (p) {
     const k = org(p);
-    if (!k) return;
-    const g = garage(k);
-    if (dist2(p.position, g.x, g.y) > 4) return;
+    if (!k || !nearMenu(p, k)) return;
     garageOpen(p);
 });
 mp.events.add('srv:crime:car', function (p, m) {
     const k = org(p);
     if (!k) return;
-    const g = garage(k), s = sid(p);
-    if (dist2(p.position, g.x, g.y) > 4) return;
+    const s = sid(p);
+    if (!nearMenu(p, k)) return;
     if (m === '__back') {
         const v = orgCars[s];
-        if (v && mp.vehicles.exists(v)) { if (v.position.subtract(p.position).length() > 40) return notify(p, 'warn', 'Пригоните машину к гаражу'); v.destroy(); }
+        if (v && mp.vehicles.exists(v)) { if (v.dimension !== p.dimension || v.position.subtract(p.position).length() > 40) return notify(p, 'warn', 'Пригоните машину в гараж'); v.destroy(); }
         delete orgCars[s];
         notify(p, 'ok', 'Машина возвращена в гараж');
         return garageOpen(p);
@@ -353,9 +404,10 @@ mp.events.add('srv:crime:car', function (p, m) {
     if (!c) return;
     if (rank(p) < c[1]) return notify(p, 'warn', 'Доступно с ранга «' + rankName(k, c[1]) + '»');
     if (orgCars[s] && mp.vehicles.exists(orgCars[s])) return notify(p, 'warn', 'Сначала верните прошлую машину');
-    const sp = carSpots(k).find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v.dimension === 0 && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 3; }); });
+    const dim = UG[k] ? garDim(k) : 0;
+    const sp = (UG[k] ? (O(k).ugspots && O(k).ugspots.length ? O(k).ugspots : GAR_INT.spots) : carSpots(k)).find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v.dimension === dim && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 3; }); });
     if (!sp) return notify(p, 'warn', 'Все места на парковке заняты');
-    const v = mp.vehicles.new(mp.joaat(m), new mp.Vector3(sp[0], sp[1], sp[2] + 0.3), { heading: sp[3] || 0, numberPlate: k.slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: 0 });
+    const v = mp.vehicles.new(mp.joaat(m), new mp.Vector3(sp[0], sp[1], sp[2] + 0.3), { heading: sp[3] || 0, numberPlate: k.slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: dim });
     const rgb = ORGS[k].rgb;
     try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {}
     v.setVariable('org', k); v.setVariable('orgModel', m); v.setVariable('orgOwner', s);
@@ -363,8 +415,8 @@ mp.events.add('srv:crime:car', function (p, m) {
     orgCars[s] = v;
     p.call('house:menuClose');
     p.call('crime:close');
-    p.call('phone:gps', [sp[0], sp[1], 'Машина ' + ORGS[k].n]);
-    notify(p, 'ok', 'Машина ждёт на парковке базы');
+    if (!UG[k]) p.call('phone:gps', [sp[0], sp[1], 'Машина ' + ORGS[k].n]);
+    notify(p, 'ok', UG[k] ? 'Машина стоит в гараже. Выезд — к воротам' : 'Машина ждёт на парковке базы');
 });
 mp.events.add('playerEnterVehicle', function (p, v, seat) {
     const k = v.getVariable('org');
@@ -378,17 +430,20 @@ mp.events.add('playerQuit', function (p) {
 mp.events.addCommand('orgpoint', function (p, full) {
     if (admLvl(p) < 7) return;
     const a = String(full || '').trim().split(/\s+/), k = a[0], t = a[1];
-    if (!ORGS[k] || ['home', 'garage', 'car', 'clearcars', 'stash', 'green', 'bench'].indexOf(t) < 0) return p.outputChatBox('!{#ffcc66}/orgpoint [' + Object.keys(ORGS).join('/') + '] [home|garage|car|clearcars|stash|green|bench] — встаньте на место');
+    if (!ORGS[k] || ['home', 'garage', 'car', 'clearcars', 'stash', 'green', 'bench', 'door'].indexOf(t) < 0) return p.outputChatBox('!{#ffcc66}/orgpoint [' + Object.keys(ORGS).join('/') + '] [home|garage|car|clearcars|stash|green|bench|door] — встаньте на место');
     const o = O(k), pos = [p.position.x, p.position.y, p.position.z, p.heading || 0];
     if (t === 'home') o.home = pos;
     else if (t === 'garage') o.garage = pos;
     else if (t === 'stash') o.stash = pos;
     else if (t === 'green') o.green = pos;
     else if (t === 'bench') o.bench = pos;
+    else if (t === 'door') o.door = pos;
+    else if (t === 'car' && UG[k] && p.dimension === garDim(k)) { if (p.vehicle) pos[3] = p.vehicle.heading; (o.ugspots = o.ugspots || []).push(pos); }
     else if (t === 'car') { if (p.vehicle) pos[3] = p.vehicle.heading; (o.spots = o.spots || []).push(pos); }
+    else if (UG[k] && p.dimension === garDim(k)) o.ugspots = [];
     else o.spots = [];
     mark(); zonesAll(); mp.players.forEach(function (x) { if (org(x) === k) pointsSend(x); });
-    p.outputChatBox('!{#8fd14f}' + ORGS[k].n + ': ' + t + ' сохранено' + (t === 'car' ? ' (мест: ' + o.spots.length + ')' : ''));
+    p.outputChatBox('!{#8fd14f}' + ORGS[k].n + ': ' + t + ' сохранено' + (t === 'car' ? ' (мест: ' + ((p.dimension === garDim(k) ? o.ugspots : o.spots) || []).length + ')' : ''));
 });
 
 /* ======================= ОБЩАК-СКЛАД ======================= */
@@ -562,7 +617,7 @@ setInterval(function () {
 function pointsSend(p) {
     const k = org(p), b = buyer();
     const d = { buyer: [b.x, b.y, b.z], nr: NEUTRAL_R };
-    if (k) { const s = stashPos(k), bn = benchPos(k), gg = garage(k); d.stash = [s.x, s.y, s.z]; d.bench = [bn.x, bn.y, bn.z]; d.garage = [gg.x, gg.y, gg.z]; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
+    if (k) { const s = stashPos(k), bn = benchPos(k), gg = garage(k); d.stash = [s.x, s.y, s.z]; d.bench = [bn.x, bn.y, bn.z]; d.garage = [gg.x, gg.y, gg.z]; if (ORG_INT[k]) { d.door = doorPos(k); d.din = ORG_INT[k].in; d.idim = intDim(k); d.ipl = ORG_INT[k].ipl; } if (UG[k]) d.ug = { dim: garDim(k), walk: GAR_INT.walk, drive: GAR_INT.drive }; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
     p.call('crime:points', [JSON.stringify(d)]);
 }
 setInterval(function () { mp.players.forEach(function (p) { if (p.account && p.ptOrg !== org(p)) { p.ptOrg = org(p); pointsSend(p); } }); }, 3000);
