@@ -83,10 +83,10 @@ function accOf(p) { return p.account || p.admAcc || null; }
 function key(p) { const a = accOf(p); return a && a.id ? 'a' + a.id : 'n' + p.name; }
 function rec(p) { const k = key(p); if (!store[k]) store[k] = { job: null, earned: {}, done: {} }; if (!store[k].xp) store[k].xp = {}; return store[k]; }
 function lvlInfo(p, id) {
-    const T = id === 'farm' ? FARM_LV : id === 'bus' ? BUS_LV : null;
+    const T = id === 'farm' ? FARM_LV : id === 'bus' ? BUS_LV : (JOBS[id] && JOBS[id].lv) || null;
     if (!T) return null;
     const r = rec(p);
-    if (r.xp[id] === undefined) r.xp[id] = id === 'farm' ? (r.done.farm || 0) * 5 : (r.done.bus || 0);
+    if (r.xp[id] === undefined) r.xp[id] = id === 'farm' ? (r.done.farm || 0) * 5 : (r.done[id] || 0);
     const xp = r.xp[id];
     let l = 1;
     for (let i = 0; i < T.length; i++) if (xp >= T[i]) l = i + 1;
@@ -125,6 +125,7 @@ function dist(a, x, y, z) { const dx = a.x - x, dy = a.y - y, dz = a.z - z; retu
 function stopJob(p, silent) {
     const s = p.job;
     if (!s) return;
+    if (JOBS[s.id] && JOBS[s.id].stop) try { JOBS[s.id].stop(p, s); } catch (e) {}
     if (s.veh && mp.vehicles.exists(s.veh)) s.veh.destroy();
     p.job = null;
     p.call('job:state', ['']);
@@ -153,6 +154,7 @@ function startJob(p, id, opt) {
     if (id === 'bus' && !hasLic(p, 'bus')) return 'Лицензия на автобус отобрана администрацией';
     const s = { id: id, step: 0, since: Date.now() };
     p.job = s;
+    if (j.start) { const er = j.start(p, s, opt); if (er) { p.job = null; return er; } notify(p, 'ok', 'Вы начали работу: ' + j.n + '. Закончить — /quitjob или в телефоне'); return null; }
     if (id === 'farm') {
         const lv = lvlInfo(p, 'farm').lvl;
         const ck = CROPS[opt] ? opt : 'lettuce';
@@ -369,6 +371,7 @@ mp.events.add('srv:job:busfix', function (p, x, y, z) {
 mp.events.add('srv:job:here', function (p) {
     const s = p.job;
     if (!s || s.busy) return;
+    if (JOBS[s.id] && JOBS[s.id].here) return JOBS[s.id].here(p, s);
     if (s.id === 'farm') {
         if (p.vehicle) return notify(p, 'warn', 'Выйдите из транспорта');
         const c = CROPS[s.crop];
@@ -539,6 +542,7 @@ function menuData(p, id) {
 }
 function optsFor(p, id) {
     const lv = lvlInfo(p, id);
+    if (JOBS[id] && JOBS[id].opts) return JOBS[id].opts(p, lv);
     if (id === 'farm') return Object.keys(CROPS).map(function (k) {
         const c = CROPS[k];
         return { id: k, n: c.i + ' ' + c.n, sub: 'по ' + c.cap + ' шт. · ' + Math.round(c.pay[0] * lv.mult) + '–' + Math.round(c.pay[1] * lv.mult) + '$ за шт.' + (c.qte ? ' · сложность ' + '★'.repeat(c.qte) : ''), need: c.lvl, locked: c.lvl > lv.lvl };
@@ -584,5 +588,5 @@ function sendBases(p) {
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendBases(p); }, 4000); });
 setTimeout(function () { mp.players.forEach(sendBases); }, 3000);
 
-global.JobSystem = { level: lvlInfo, JOBS: JOBS, stop: stopJob, phone: phoneJobs, current: function (p) { return p.job ? p.job.id : null; } };
+global.JobSystem = { pay: pay, addXp: addXp, jobVeh: jobVeh, quest: quest, notify: notify, sendBases: function () { mp.players.forEach(sendBases); }, level: lvlInfo, JOBS: JOBS, stop: stopJob, phone: phoneJobs, current: function (p) { return p.job ? p.job.id : null; } };
 console.log('[jobs] работы загружены: ' + Object.keys(JOBS).join(', '));

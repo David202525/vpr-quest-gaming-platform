@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>power</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="panel" id="panel">
+    <div class="top">
+        <div class="ttl"><i>⚡</i><div><b id="site">—</b><small id="cause">—</small></div></div>
+        <div class="meters">
+            <div class="m"><small>Время</small><b id="time">0:00</b></div>
+            <div class="m"><small>Дома</small><b id="lit">0/0</b></div>
+            <div class="m"><small>Ходы</small><b id="moves">0</b></div>
+        </div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="legend">
+        <span><em class="lg src"></em>Подстанция</span><span><em class="lg house"></em>Дом</span><span><em class="lg lock"></em>Приварено</span><span><em class="lg sp"></em>Оголённый конец</span>
+    </div>
+    <div class="bot">
+        <div class="tip">ЛКМ — повернуть по часовой · ПКМ — против · Всё должно быть замкнуто, без висящих концов</div>
+        <div class="btns"><button class="ghost" id="hint">Подсказка (2)</button><button class="ghost" id="exit">Уйти</button><button id="go">Подать ток</button></div>
+    </div>
+    <div class="flash" id="flash"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

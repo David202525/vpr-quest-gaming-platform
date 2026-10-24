@@ -254,8 +254,9 @@ mp.events.add('srv:lic:theory', function (p, json) {
 
 /* ---- проверка документов полицией ---- */
 function catNeed(v) {
+    if (v.getVariable('rent')) return null;
     const m = v.getVariable('vcat');
-    return m || 'B';
+    return m === '' ? null : (m || 'B');
 }
 function copOk(p) { return !!(p.account && ['lspd', 'sheriff', 'fib'].indexOf(p.account.job) >= 0); }
 mp.events.add('srv:lic:vcat', function (p, c) {

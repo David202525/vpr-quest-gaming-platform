@@ -75,6 +75,8 @@ mp.events.add('render', function () {
 
 var BUSES = ['bus', 'coach', 'airbus', 'tourbus', 'rentalbus', 'pbus', 'pbus2'];
 function needCat(v) {
+    if (v.getVariable('rent')) return null;
+    if (v.getVariable('powerVeh')) return 'B';
     var m = v.model, cls = 0;
     try { cls = mp.game.vehicle.getVehicleClassFromName(m); } catch (e) {}
     if (cls === 13 || cls === 14 || cls === 15 || cls === 16 || cls === 21) return null;
