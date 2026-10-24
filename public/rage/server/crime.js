@@ -321,7 +321,7 @@ function oIdx(k) { return Object.keys(ORGS).indexOf(k); }
 function intDim(k) { return DIM_ORG + oIdx(k); }
 function garDim(k) { return DIM_ORG + 500 + oIdx(k); }
 function doorPos(k) { const o = O(k); if (o.door) return o.door; const h = home(k); return [h.x, h.y, h.z, h.h]; }
-function garMenu(k) { if (UG[k]) return { x: GAR_INT.menu[0], y: GAR_INT.menu[1], z: GAR_INT.menu[2], d: garDim(k) }; const g = garage(k); return { x: g.x, y: g.y, z: g.z, d: 0 }; }
+function garMenu(k) { if (UG[k]) return { x: GAR_INT.menu[0], y: GAR_INT.menu[1], z: GAR_INT.menu[2], d: -1 }; const g = garage(k); return { x: g.x, y: g.y, z: g.z, d: 0 }; }
 function nearMenu(p, k) { const m = garMenu(k); return (p.dimension || 0) === m.d && dist2(p.position, m.x, m.y) <= 4; }
 function moveVeh(v, pos, dim) {
     const occ = mp.players.toArray().filter(function (o) { return o.vehicle === v; }).map(function (o) { return [o, o.seat]; });
@@ -333,6 +333,42 @@ function moveVeh(v, pos, dim) {
         setTimeout(function () { if (mp.players.exists(x[0]) && mp.vehicles.exists(v)) try { x[0].putIntoVehicle(v, x[1]); } catch (e) {} }, 250);
     });
 }
+const parked = {};
+function ugSpots(k) { const o = O(k); return o.ugspots && o.ugspots.length ? o.ugspots : GAR_INT.spots; }
+function parkCar(k, i) {
+    const c = ORGS[k].cars[i], sp = ugSpots(k)[i % ugSpots(k).length];
+    if (!c || !sp) return;
+    const old = parked[k][i];
+    if (old && mp.vehicles.exists(old)) { try { old.destroy(); } catch (e) {} }
+    const v = mp.vehicles.new(mp.joaat(c[0]), V(sp[0], sp[1], sp[2] + 0.3), { heading: sp[3] || 0, numberPlate: k.slice(0, 3).toUpperCase() + ' ' + String(i + 1).padStart(3, '0'), dimension: garDim(k), locked: false, engine: false });
+    const rgb = ORGS[k].rgb;
+    try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {}
+    v.setVariable('org', k); v.setVariable('orgModel', c[0]); v.setVariable('orgRank', c[1]); v.setVariable('orgPark', i);
+    v.adminSpawned = false; v.lastUse = Date.now();
+    parked[k][i] = v;
+}
+function parkAll(k) { parked[k] = parked[k] || []; ORGS[k].cars.forEach(function (c, i) { parkCar(k, i); }); }
+setTimeout(function () { Object.keys(UG).forEach(parkAll); }, 3000);
+setInterval(function () {
+    Object.keys(UG).forEach(function (k) {
+        (parked[k] || []).forEach(function (v, i) {
+            if (!v || !mp.vehicles.exists(v)) return parkCar(k, i);
+            const busy = mp.players.toArray().some(function (o) { return o.vehicle === v; });
+            if (busy) { v.lastUse = Date.now(); return; }
+            if (v.dimension !== garDim(k) && Date.now() - (v.lastUse || 0) > 10 * 60000) parkCar(k, i);
+        });
+    });
+}, 60000);
+mp.events.add('vehicleDeath', function (v) {
+    const k = v.getVariable && v.getVariable('org'), i = v.getVariable && v.getVariable('orgPark');
+    if (k && UG[k] && i !== null && i !== undefined) setTimeout(function () { parkCar(k, Number(i)); }, 30000);
+});
+mp.events.addCommand('orgcars', function (p, full) {
+    if (admLvl(p) < 5) return;
+    const k = String(full || '').trim();
+    if (!UG[k]) return p.outputChatBox('!{#ffcc66}/orgcars [' + Object.keys(UG).join('/') + '] — вернуть все машины в подземный гараж');
+    parkAll(k); p.outputChatBox('!{#8fd14f}Машины ' + ORGS[k].n + ' возвращены в гараж');
+});
 mp.events.add('srv:crime:door', function (p, what) {
     const k = org(p);
     if (!k || (p.account && p.account.downed)) return;
@@ -422,7 +458,10 @@ mp.events.add('srv:crime:car', function (p, m) {
 mp.events.add('playerEnterVehicle', function (p, v, seat) {
     const k = v.getVariable('org');
     if (!k || (seat !== 0 && seat !== -1)) return;
-    if (org(p) !== k && admLvl(p) < 1) { try { p.removeFromVehicle(); } catch (e) {} notify(p, 'error', 'Это машина ' + ORGS[k].n); }
+    if (org(p) !== k && admLvl(p) < 1) { try { p.removeFromVehicle(); } catch (e) {} return notify(p, 'error', 'Это машина ' + ORGS[k].n); }
+    const need = Number(v.getVariable('orgRank')) || 0;
+    if (need && rank(p) < need && admLvl(p) < 1) { try { p.removeFromVehicle(); } catch (e) {} return notify(p, 'warn', 'Эта машина доступна с ранга «' + rankName(k, need) + '»'); }
+    v.lastUse = Date.now();
 });
 mp.events.add('playerQuit', function (p) {
     const v = orgCars[sid(p)];
@@ -444,6 +483,7 @@ mp.events.addCommand('orgpoint', function (p, full) {
     else if (UG[k] && p.dimension === garDim(k)) o.ugspots = [];
     else o.spots = [];
     mark(); zonesAll(); mp.players.forEach(function (x) { if (org(x) === k) pointsSend(x); });
+    if (UG[k] && p.dimension === garDim(k) && (t === 'car' || t === 'clearcars')) parkAll(k);
     p.outputChatBox('!{#8fd14f}' + ORGS[k].n + ': ' + t + ' сохранено' + (t === 'car' ? ' (мест: ' + ((p.dimension === garDim(k) ? o.ugspots : o.spots) || []).length + ')' : ''));
 });
 

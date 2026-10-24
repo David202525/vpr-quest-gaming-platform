@@ -290,6 +290,11 @@ mp.events.add('render', function () {
         mp.game.graphics.drawText('Вскрываем ящики… не отходите', [0.5, 0.86], { font: 4, color: [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
     }
     var mydim = mp.players.local.dimension;
+    if (cPts.ug && mydim === cPts.ug.dim && !mp.players.local.vehicle) mp.vehicles.forEachInStreamRange(function (v) {
+        var r = Number(v.getVariable('orgRank')) || 0; if (!r || v.dimension !== mydim) return;
+        var vp = v.position; if (mp.game.system.vdist(me.x, me.y, me.z, vp.x, vp.y, vp.z) > 9) return;
+        mp.game.graphics.drawText(String(v.getVariable('orgModel') || '').toUpperCase() + '~n~~c~с ранга ' + r, [vp.x, vp.y, vp.z + 1.3], { font: 4, color: [255, 255, 255, 210], scale: [0.3, 0.3], outline: true, centre: true });
+    });
     if (cPts.ug && cPts.garage && mydim === 0 && mp.game.system.vdist(me.x, me.y, me.z, cPts.garage[0], cPts.garage[1], cPts.garage[2]) < 40) mp.game.graphics.drawMarker(1, cPts.garage[0], cPts.garage[1], cPts.garage[2] - 1, 0, 0, 0, 0, 0, 0, 5, 5, 0.6, 80, 150, 255, 90, false, false, 2, false, null, null, false);
     if (cPts.ug && mydim === cPts.ug.dim) mp.game.graphics.drawMarker(1, cPts.ug.drive[0], cPts.ug.drive[1], cPts.ug.drive[2] - 1, 0, 0, 0, 0, 0, 0, 4, 4, 0.6, 80, 150, 255, 90, false, false, 2, false, null, null, false);
     [[cPts.door, 0, 'Вход'], [cPts.din, cPts.idim, 'Выход'], [cPts.ug && cPts.garage, 0, 'Подземный гараж'], [cPts.ug && cPts.ug.walk, cPts.ug && cPts.ug.dim, 'Выход'], [cPts.ug && cPts.ug.drive, cPts.ug && cPts.ug.dim, 'Выезд на улицу']].forEach(function (x) {
