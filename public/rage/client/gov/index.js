@@ -174,5 +174,6 @@ mp.events.add('gov:tazed', function (ms) {
     setTimeout(function () {
         try { me.setToRagdoll(ms, ms, 0, true, true, false); } catch (e) {}
         try { mp.game.graphics.startScreenEffect('DrugsDrivingIn', ms, false); } catch (e) {}
+        setTimeout(function () { try { mp.game.graphics.stopScreenEffect('DrugsDrivingIn'); } catch (e) {} try { mp.game.invoke('0x068E835A1D0DC0E3', 'DrugsDrivingIn'); } catch (e) {} }, ms);
     }, 350);
 });
