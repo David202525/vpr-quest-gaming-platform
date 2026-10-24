@@ -8,12 +8,15 @@ function cUI(on, code) {
     if (on && code) { var run = function () { if (cBr) cBr.execute(code); }; setTimeout(run, 120); setTimeout(run, 600); }
 }
 var cBases = [], cGarage = null, cGHint = false;
+function fl(n) { n = Number(n) || 0; return n % 1 === 0 ? n + 0.0001 : n; }
 function areaBlip(x, y, w, col, alpha, flash) {
-    var b = mp.game.invoke('0xCE5D0E5E315DB238', x, y, 30, w, w);
-    try { mp.game.invoke('0xF87683CDF73C3F6E', b, 0); } catch (e) {}
-    mp.game.ui.setBlipColour(b, col);
-    mp.game.ui.setBlipAlpha(b, alpha);
-    if (flash) try { mp.game.invoke('0xB14552383D39CE3E', b, true); } catch (e) {}
+    var b = mp.game.invoke('0xCE5D0E5E315DB238', fl(x), fl(y), fl(30), fl(w), fl(w));
+    if (!b) return 0;
+    mp.game.invoke('0xF87683CDF73C3F6E', b, 0);
+    mp.game.invoke('0x03D7FB09E75D6B7E', b, col);
+    mp.game.invoke('0x45FF974EEE1C8734', b, alpha);
+    mp.game.invoke('0xBE8BE4FE60E27B72', b, true);
+    if (flash) mp.game.invoke('0xB14552383D39CE3E', b, true);
     return b;
 }
 mp.events.add('crime:zones', function (j) {
@@ -23,13 +26,13 @@ mp.events.add('crime:zones', function (j) {
     cZones = d.z;
     var war = {}; (d.w || []).forEach(function (w) { war[w.z] = 1; });
     cZones.forEach(function (z) {
-        try { cBlips.push(areaBlip(z[2], z[3], d.s - 4, z[4] || 4, z[4] ? (z[6] ? 150 : 95) : 40, !!war[z[0]])); } catch (e) {}
+        try { var bb = areaBlip(z[2], z[3], d.s - 3, z[4] || 4, z[4] ? (z[6] ? 170 : 120) : 45, !!war[z[0]]); if (bb) cBlips.push(bb); } catch (e) { mp.console.logError('[crime] zone blip: ' + e.message); }
     });
     cBases = d.b || [];
     cGarage = null;
     cBases.forEach(function (b) {
         try {
-            cBlips.push(areaBlip(b[2], b[3], d.bs, b[4], 210, false));
+            var ab = areaBlip(b[2], b[3], d.bs, b[4], 230, false); if (ab) cBlips.push(ab);
             var ic = mp.game.ui.addBlipForCoord(b[2], b[3], 30);
             mp.game.ui.setBlipSprite(ic, b[0] === d.me ? 40 : 84);
             mp.game.ui.setBlipColour(ic, b[4]);

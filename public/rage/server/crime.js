@@ -194,18 +194,18 @@ mp.events.addCommand('fb', function (p, full) {
 });
 
 /* ======================= ТЕРРИТОРИИ ======================= */
-const GRID = { x0: -500, y0: -2100, size: 180, cols: 11, rows: 6 };
-const LET = 'ABCDEFGHIJKLMNOP';
+const GRID = { x0: -300, y0: -2200, size: 100, cols: 18, rows: 9 };
+const LET = 'ABCDEFGHIJKLMNOPQRS';
 const ZONES_DEF = [];
 for (let r = 0; r < GRID.rows; r++) for (let c = 0; c < GRID.cols; c++) {
     const x = GRID.x0 + c * GRID.size + GRID.size / 2, y = GRID.y0 + (GRID.rows - 1 - r) * GRID.size + GRID.size / 2;
     ZONES_DEF.push(['Квадрат ' + LET[r] + (c + 1), x, y]);
 }
 const ZONE_R = GRID.size / 2;
-const BASE_SIZE = 90;
+const BASE_SIZE = 60;
 const CAP_SEC = 300;
 const CAP_COOLDOWN = 3600000;
-const ZONE_INCOME = 150;
+const ZONE_INCOME = 60;
 const CAP_HOURS = [14, 23];
 function inSq(pos, x, y, half) { return Math.abs(pos.x - x) <= half && Math.abs(pos.y - y) <= half; }
 function home(k) { const o = O(k); const h = o.home || ORGS[k].home; return { x: h[0], y: h[1], z: h[2], h: h[3] || 0 }; }
@@ -214,7 +214,7 @@ function baseOf(i) {
     return Object.keys(ORGS).find(function (k) { return ORGS[k].t === 'gang' && inSq(home(k), z[1], z[2], ZONE_R); }) || null;
 }
 function zoneList() {
-    if (!S.gridV) { S.zones = {}; S.gridV = 1; }
+    if (S.gridV !== 2) { S.zones = {}; S.gridV = 2; }
     return ZONES_DEF.map(function (z, i) {
         const base = baseOf(i);
         let s = S.zones[i];
