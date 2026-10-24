@@ -1176,7 +1176,7 @@ async function loadAtms() {
     });
     Object.keys(atmBlips).forEach(function (k) { try { atmBlips[k].destroy(); } catch (e) {} delete atmBlips[k]; });
     ATMS.forEach(function (a) {
-        atmBlips[a.id] = mp.blips.new(108, new mp.Vector3(a.x, a.y, a.z), { name: 'Банкомат', color: 2, shortRange: true, scale: 0.7 });
+        atmBlips[a.id] = mp.blips.new(108, new mp.Vector3(a.x, a.y, a.z), { dimension: 4294967295, name: 'Банкомат', color: 2, shortRange: true, scale: 0.7 });
     });
     mp.players.forEach(sendAtmList);
 }
@@ -1642,7 +1642,7 @@ async function loadStations() {
     });
     Object.keys(stBlips).forEach(function (k) { try { stBlips[k].destroy(); } catch (e) {} delete stBlips[k]; });
     STATIONS.forEach(function (st) {
-        stBlips[st.id] = mp.blips.new(361, new mp.Vector3(st.x, st.y, st.z), { name: st.name, color: st.stock <= 0 ? 40 : 1, shortRange: true, scale: 0.8 });
+        stBlips[st.id] = mp.blips.new(361, new mp.Vector3(st.x, st.y, st.z), { dimension: 4294967295, name: st.name, color: st.stock <= 0 ? 40 : 1, shortRange: true, scale: 0.8 });
     });
     mp.players.forEach(sendBizPoints);
 }
@@ -1874,7 +1874,7 @@ async function loadShops() {
     SHOPS.forEach(function (s) {
         const C = SHOP_CFG[s.kind];
         if (!C) return;
-        shopBlips[s.id] = mp.blips.new(C.blip, new mp.Vector3(s.x, s.y, s.z), { name: s.owner ? s.name : s.name + ' (продаётся)', color: s.stock <= 0 ? 40 : C.color, shortRange: true, scale: 0.75 });
+        shopBlips[s.id] = mp.blips.new(C.blip, new mp.Vector3(s.x, s.y, s.z), { dimension: 4294967295, name: s.owner ? s.name : s.name + ' (продаётся)', color: s.stock <= 0 ? 40 : C.color, shortRange: true, scale: 0.75 });
     });
     mp.players.forEach(function (p) { sendShopList(p); sendBizPoints(p); });
 }

@@ -328,7 +328,7 @@ mp.events.add('adm:world', function (json) {
     gzBlips = [];
     if (WORLD.zonesOn) WORLD.zones.forEach(function (z) {
         if (!z.on) return;
-        try { gzBlips.push(mp.blips.new(9, new mp.Vector3(z.x, z.y, z.z), { radius: z.r, color: 2, alpha: 70, shortRange: true, name: 'Зелёная зона' })); } catch (e) {}
+        try { gzBlips.push(mp.blips.new(9, new mp.Vector3(z.x, z.y, z.z), { dimension: 4294967295, radius: z.r, color: 2, alpha: 70, shortRange: true, name: 'Зелёная зона' })); } catch (e) {}
     });
 });
 setInterval(function () {

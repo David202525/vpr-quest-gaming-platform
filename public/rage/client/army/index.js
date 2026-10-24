@@ -4,7 +4,7 @@ var pileBlip = null;
 function pileMark() {
     var want = isArmy() && A.pile;
     if (pileBlip) { try { pileBlip.destroy(); } catch (e) {} pileBlip = null; }
-    if (want) try { pileBlip = mp.blips.new(478, new mp.Vector3(A.pile[0], A.pile[1], A.pile[2]), { color: 25, scale: 0.8, shortRange: false, name: 'Армия: ящики поставки' }); } catch (e) {}
+    if (want) try { pileBlip = mp.blips.new(478, new mp.Vector3(A.pile[0], A.pile[1], A.pile[2]), { dimension: 4294967295, color: 25, scale: 0.8, shortRange: false, name: 'Армия: ящики поставки' }); } catch (e) {}
 }
 var pileKey = '';
 mp.events.add('army:data', function (j) { try { A = JSON.parse(j); } catch (e) {} pileKey = ''; });

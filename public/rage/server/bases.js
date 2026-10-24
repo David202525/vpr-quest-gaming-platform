@@ -107,7 +107,7 @@ function draw(b) {
                 name: label,
                 color: army ? 52 : b.owner ? 3 : 2,
                 shortRange: true,
-                dimension: 0
+                dimension: 4294967295
             }),
             shape: mp.colshapes.newSphere(b.x, b.y, b.z, b.r, 0)
         };

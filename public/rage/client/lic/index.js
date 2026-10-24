@@ -13,7 +13,7 @@ function lPoint() {
     var last = LX.i === LX.pts.length - 1;
     var nx = LX.pts[LX.i + 1] || pt;
     LX.cp = mp.checkpoints.new(last ? 4 : 0, new mp.Vector3(pt[0], pt[1], pt[2] - 1), 6, { direction: new mp.Vector3(nx[0], nx[1], nx[2]), color: [95, 211, 198, 140], visible: true, dimension: mp.players.local.dimension });
-    LX.blip = mp.blips.new(1, new mp.Vector3(pt[0], pt[1], pt[2]), { color: 46, name: 'Экзамен', shortRange: false });
+    LX.blip = mp.blips.new(1, new mp.Vector3(pt[0], pt[1], pt[2]), { dimension: 4294967295, color: 46, name: 'Экзамен', shortRange: false });
     try { LX.blip.setRoute(true); } catch (e) {}
 }
 mp.events.add('lic:start', function (j) {
@@ -120,4 +120,4 @@ mp.events.add('cef:lic:theory', function (j) { lUI(false); mp.events.callRemote(
 mp.events.add('cef:lic:punish', function (id, k) { lUI(false); if (k) mp.events.callRemote('srv:lic:punish', Number(id), String(k)); });
 mp.events.add('cef:lic:close', function () { lUI(false); });
 
-try { mp.blips.new(498, new mp.Vector3(226.0, -808.5, 30.6), { color: 46, name: 'Лицензионный центр', shortRange: true, scale: 0.9 }); } catch (e) {}
+try { mp.blips.new(498, new mp.Vector3(226.0, -808.5, 30.6), { dimension: 4294967295, color: 46, name: 'Лицензионный центр', shortRange: true, scale: 0.9 }); } catch (e) {}

@@ -28,7 +28,7 @@ mp.events.add('medic:alert', function (raw) {
     try { c = JSON.parse(raw); } catch (e) { return; }
     if (CALL_BLIPS[c.id]) return;
     try {
-        CALL_BLIPS[c.id] = mp.blips.new(153, new mp.Vector3(c.x, c.y, c.z), {
+        CALL_BLIPS[c.id] = mp.blips.new(153, new mp.Vector3(c.x, c.y, c.z), { dimension: 4294967295,
             name: '\u0412\u044b\u0437\u043e\u0432 #' + c.id + ' ' + c.name,
             color: 1,
             shortRange: false

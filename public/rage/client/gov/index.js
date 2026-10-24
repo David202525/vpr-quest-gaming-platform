@@ -22,7 +22,7 @@ setInterval(function () {
     if (!f) return;
     GP.forEach(function (g) {
         if (g[0] !== f || !BLIP[g[1]]) return;
-        try { gBlips.push(mp.blips.new(BLIP[g[1]][0], new mp.Vector3(g[2], g[3], g[4]), { color: BLIP[g[1]][1], scale: g[1] === 'garage' ? 0.9 : 0.75, shortRange: g[1] !== 'garage', name: (FNM[f] || f) + ': ' + BLIP[g[1]][2] })); } catch (e) {}
+        try { gBlips.push(mp.blips.new(BLIP[g[1]][0], new mp.Vector3(g[2], g[3], g[4]), { dimension: 4294967295, color: BLIP[g[1]][1], scale: g[1] === 'garage' ? 0.9 : 0.75, shortRange: g[1] !== 'garage', name: (FNM[f] || f) + ': ' + BLIP[g[1]][2] })); } catch (e) {}
     });
 }, 2000);
 setInterval(function () {
@@ -102,7 +102,7 @@ mp.keys.bind(0x1B, false, function () { if (tabOpen) tabShow(false); else if (gM
 mp.events.add('gov:track', function (x, y, r, name) {
     if (trackBlip) { try { trackBlip.destroy(); } catch (e) {} }
     clearTimeout(trackT);
-    trackBlip = mp.blips.new(9, new mp.Vector3(x, y, 0), { radius: r, color: 1, alpha: 110, name: 'Сигнал: ' + name, shortRange: false });
+    trackBlip = mp.blips.new(9, new mp.Vector3(x, y, 0), { dimension: 4294967295, radius: r, color: 1, alpha: 110, name: 'Сигнал: ' + name, shortRange: false });
     try { trackBlip.setFlashes(true); } catch (e) {}
     mp.game.ui.setNewWaypoint(x, y);
     trackT = setTimeout(function () { if (trackBlip) { try { trackBlip.destroy(); } catch (e) {} trackBlip = null; } }, 90000);

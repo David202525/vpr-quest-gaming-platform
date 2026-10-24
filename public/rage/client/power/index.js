@@ -20,7 +20,7 @@ var rentBlip = null;
 mp.events.add('rent:point', function (x, y, z) {
     rentPt = [x, y, z];
     try { if (rentBlip) rentBlip.destroy(); } catch (e) {}
-    try { rentBlip = mp.blips.new(512, new mp.Vector3(x, y, z), { color: 3, name: 'Прокат скутеров', shortRange: true, scale: 0.85 }); } catch (e) {}
+    try { rentBlip = mp.blips.new(512, new mp.Vector3(x, y, z), { dimension: 4294967295, color: 3, name: 'Прокат скутеров', shortRange: true, scale: 0.85 }); } catch (e) {}
 });
 function nearRent() {
     if (!rentPt) return false;

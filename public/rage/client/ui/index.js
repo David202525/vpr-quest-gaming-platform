@@ -453,7 +453,7 @@ mp.events.add('job:bases', function (json) {
     try { jobBases = JSON.parse(json); } catch (e) { return; }
     jobBaseBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
     jobBaseBlips = jobBases.map(function (b) {
-        return mp.blips.new(b[5], new mp.Vector3(b[2], b[3], b[4]), { name: 'Работа: ' + b[1], color: b[6], shortRange: true, scale: 0.85 });
+        return mp.blips.new(b[5], new mp.Vector3(b[2], b[3], b[4]), { dimension: 4294967295, name: 'Работа: ' + b[1], color: b[6], shortRange: true, scale: 0.85 });
     });
 });
 
@@ -528,7 +528,7 @@ mp.events.add('job:point', function (x, y, z, r, label, kind, extra) {
     }
     if (kind === 'bus' && extra !== 'nosnap') setTimeout(function () { jobSnapBus(x, y, z); }, 50);
     if (jobBlip) { try { jobBlip.destroy(); } catch (e) {} }
-    jobBlip = mp.blips.new(kind === 'bus' ? 513 : 1, new mp.Vector3(x, y, z), { name: label, color: 5, shortRange: false, scale: 0.9 });
+    jobBlip = mp.blips.new(kind === 'bus' ? 513 : 1, new mp.Vector3(x, y, z), { dimension: 4294967295, name: label, color: 5, shortRange: false, scale: 0.9 });
     try { jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {}
 });
 

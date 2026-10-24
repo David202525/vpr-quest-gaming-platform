@@ -374,7 +374,7 @@ CFG.beds.forEach(function (b, i) {
     s.medicZone = i;
 });
 
-mp.blips.new(61, new mp.Vector3(CFG.locker.x, CFG.locker.y, CFG.locker.z), {
+mp.blips.new(61, new mp.Vector3(CFG.locker.x, CFG.locker.y, CFG.locker.z), { dimension: 4294967295,
     name: '\u0411\u043e\u043b\u044c\u043d\u0438\u0446\u0430 EMS',
     color: 1,
     shortRange: true

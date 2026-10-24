@@ -65,7 +65,9 @@ function spawnPlayer(p) {
     if (global.CreatorSystem) global.CreatorSystem.apply(p, a);
     p.spawn(new mp.Vector3(Number(a.pos_x) || cfg.spawn.x, Number(a.pos_y) || cfg.spawn.y, Number(a.pos_z) || cfg.spawn.z));
     p.heading = Number(a.heading) || 0;
-    p.dimension = Number(a.dimension) || 0;
+    let dm = Number(a.dimension) || 0;
+    if (dm >= 1000 && dm < 10000) dm = 0;
+    p.dimension = dm;
     p.health = Math.max(10, Math.min(100, Number(a.health) || 100));
     p.joinedAt = Date.now();
     p.call('auth:hide');

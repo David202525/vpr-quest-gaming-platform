@@ -340,7 +340,7 @@ setInterval(function () {
 var hotelBlip = null;
 mp.events.add('spawn:hotel', function (x, y, z, n) {
     if (hotelBlip) { try { hotelBlip.destroy(); } catch (e) {} }
-    hotelBlip = mp.blips.new(475, new mp.Vector3(x, y, z), { name: n + ' (/hotel)', color: 27, shortRange: true, scale: 0.8 });
+    hotelBlip = mp.blips.new(475, new mp.Vector3(x, y, z), { dimension: 4294967295, name: n + ' (/hotel)', color: 27, shortRange: true, scale: 0.8 });
 });
 
 mp.events.add('hud:gm', function (on) { hudExec('window.hudGm && window.hudGm(' + (on ? 'true' : 'false') + ');'); });
