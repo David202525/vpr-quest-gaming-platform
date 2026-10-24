@@ -89,6 +89,8 @@ mp.events.add('render', function () {
 
 mp.keys.bind(0x45, false, function () {
     if (!hNear || hBusy() || mp.players.local.vehicle) return;
+    if (global.powerOpen || global.licUiOpen) return;
+    if (hNear.k === 'house' && global.jobHere && global.jobHere()) return;
     if (hNear.k === 'house') mp.events.callRemote('srv:house:menu', hNear.id);
     else if (hNear.k === 'hotel') mp.events.callRemote('srv:hotel:enter');
     else if (hNear.k === 'fac') mp.events.callRemote('srv:fac:enter', hNear.i);

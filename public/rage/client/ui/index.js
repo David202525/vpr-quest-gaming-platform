@@ -435,7 +435,15 @@ var jobBaseHint = '';
 var jobBusUntil = 0;
 var jobCarry = null;
 
+global.jobHere = function () {
+    var p = mp.players.local;
+    if (!jobPt || p.vehicle) return false;
+    var d = Math.hypot(p.position.x - jobPt.x, p.position.y - jobPt.y);
+    return d <= Math.max(2.5, jobPt.r + 1) + 1;
+};
 function jobBusy() {
+    if (global.powerOpen || global.licUiOpen) return true;
+    if (global.houseMenuOpen && global.houseMenuOpen()) return true;
     if (typeof busy === 'function' && busy()) return true;
     if (typeof uiOpen !== 'undefined' && uiOpen) return true;
     return false;

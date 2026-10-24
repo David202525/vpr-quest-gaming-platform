@@ -665,7 +665,7 @@ mp.events.add('srv:adm:act', function (p, json) {
     }
     else if (a === 'sethp') { t.health = Math.max(0, Math.min(100, Number(d.hp) || 100)); log(p, 'sethp', login(t), String(d.hp)); toast(p, 'HP изменено', true); }
     else if (a === 'weather') { mp.world.weather = String(d.weather || 'CLEAR'); log(p, 'weather', '-', d.weather); toast(p, 'Погода: ' + d.weather, true); }
-    else if (a === 'time') { const h = Number(d.hour) || 12; mp.world.time.set(h, 0, 0); log(p, 'time', '-', h + ':00'); toast(p, 'Время: ' + h + ':00', true); }
+    else if (a === 'time') { const h = Number(d.hour) || 12; CLOCK.hold = Date.now() + 30 * 60000; mp.world.time.set(h, 0, 0); log(p, 'time', '-', h + ':00'); toast(p, 'Время: ' + h + ':00', true); }
     else if (a === 'announce') {
         const text = String(d.text || '').slice(0, 200);
         if (!text) return toast(p, 'Пустой текст', false);
@@ -1032,11 +1032,22 @@ cmd('weather', 'weather', '/weather [CLEAR/RAIN/THUNDER/FOGGY/SNOW/EXTRASUNNY]',
     staff(login(p) + ' сменил погоду: ' + a[0].toUpperCase());
 });
 
-cmd('time', 'time', '/time [0-23]', function (p, a, u) {
+/* ---- смена дня и ночи по реальному времени (МСК) ---- */
+const CLOCK = { tz: 3, hold: 0 };
+function realClock() {
+    if (Date.now() < CLOCK.hold) return;
+    const d = new Date(Date.now() + CLOCK.tz * 3600000);
+    mp.world.time.set(d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds());
+}
+setInterval(realClock, 30000);
+setTimeout(realClock, 2000);
+cmd('time', 'time', '/time [0-23] — на 30 мин · /time auto — вернуть реальное время', function (p, a, u) {
+    if (String(a[0]).toLowerCase() === 'auto') { CLOCK.hold = 0; realClock(); return staff(login(p) + ' вернул реальное время суток'); }
     const h = Number(a[0]);
     if (isNaN(h)) return msg(p, u);
+    CLOCK.hold = Date.now() + 30 * 60000;
     mp.world.time.set(h, 0, 0);
-    staff(login(p) + ' установил время ' + h + ':00');
+    staff(login(p) + ' установил время ' + h + ':00 (на 30 мин, потом снова реальное)');
 });
 
 cmd('ann', 'mp', '/ann [текст] (МП-объявление 4+)', function (p, a, u, full) {

@@ -7,7 +7,8 @@ function pUI(on, code) {
     mp.gui.chat.activate(!on);
     if (on && code) { var run = function () { if (pBr) pBr.execute(code); }; setTimeout(run, 120); setTimeout(run, 600); }
 }
-mp.events.add('power:open', function (j) { pUI(true, 'window.powerOpen && window.powerOpen(' + JSON.stringify(j) + ');'); });
+mp.events.add('power:open', function (j) {
+    if (global.houseMenuOpen && global.houseMenuOpen()) mp.events.call('house:menuClose'); pUI(true, 'window.powerOpen && window.powerOpen(' + JSON.stringify(j) + ');'); });
 mp.events.add('power:close', function () { if (pOpen) pUI(false); });
 mp.events.add('power:hint', function (i, r, left) { if (pBr) pBr.execute('window.powerHint && window.powerHint(' + Number(i) + ',' + Number(r) + ',' + Number(left) + ');'); });
 mp.events.add('cef:power:done', function (j, moves) { pUI(false); mp.events.callRemote('srv:power:done', j, Number(moves) || 0); });
@@ -32,7 +33,7 @@ setInterval(function () {
     rentHint = n;
 }, 400);
 mp.keys.bind(0x45, false, function () {
-    if (pOpen || !nearRent() || mp.players.local.isTypingInTextChat || mp.gui.cursor.visible) return;
+    if (pOpen || (global.jobHere && global.jobHere()) || !nearRent() || mp.players.local.isTypingInTextChat || mp.gui.cursor.visible) return;
     mp.events.callRemote('srv:rent:use');
 });
 mp.events.add('render', function () {
