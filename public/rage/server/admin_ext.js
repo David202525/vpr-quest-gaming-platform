@@ -23,6 +23,7 @@ const FACTIONS = { lspd: 'LSPD', sheriff: 'Sheriff', fib: 'FIB', medic: 'EMS', a
 const JOBS = { farm: 'Ферма', bus: 'Водитель автобуса', courier: 'Курьер' };
 const LICS = { drive: 'Водительские права', bus: 'Лицензия на автобус', taxi: 'Лицензия такси', truck: 'Права на грузовик', gun: 'Лицензия на оружие' };
 const AZ = { x: -75.2, y: -818.9, z: 326.2 };
+function isProt(x) { return typeof global.isProtectedPlayer === 'function' ? global.isProtectedPlayer(x) : false; }
 const DEMORGAN = { x: 1691.4, y: 2565.7, z: 45.6, dim: 999, r: 45 };
 const KPZ = { x: 459.9, y: -994.2, z: 24.9, out: { x: 432.1, y: -981.4, z: 30.7 }, r: 12 };
 const PRISON = { x: 1691.6, y: 2531.0, z: 45.6, out: { x: 1852.0, y: 2586.0, z: 45.7 }, r: 70 };
@@ -127,6 +128,7 @@ cmd('spec', 'spec', '/spec [id] — слежка, /specoff — выйти', func
 cmd('specoff', 'spec', '/specoff', function (p) { stopSpec(p); });
 mp.events.add('srv:adm:specoff', function (p) { stopSpec(p); });
 function startSpec(p, t) {
+    if (isProt(t) && t !== p) return msg(p, 'За этим игроком нельзя следить', '#e05555');
     if (!p.specBack) p.specBack = { pos: p.position, dim: p.dimension, hp: p.health };
     p.specTarget = t.id;
     p.alpha = 0;
@@ -205,7 +207,8 @@ cmd('near', 'near', '/near [id]', function (p, a) {
     const c = a[0] ? find(a[0]) : p;
     if (!c) return msg(p, 'Игрок не найден');
     const list = [];
-    mp.players.forEach(function (x) { if (x !== c && x.dimension === c.dimension) { const d = x.position.subtract(c.position).length(); if (d < 40) list.push([d, x]); } });
+    if (isProt(c) && c !== p) return msg(p, 'Нет данных по этому игроку', '#e05555');
+    mp.players.forEach(function (x) { if (x !== c && !isProt(x) && x.dimension === c.dimension) { const d = x.position.subtract(c.position).length(); if (d < 40) list.push([d, x]); } });
     list.sort(function (a1, b1) { return a1[0] - b1[0]; });
     if (!list.length) return msg(p, 'Рядом с ' + nick(c) + ' никого нет');
     msg(p, 'Рядом с ' + nick(c) + ':', '#7fd4ff');
@@ -318,6 +321,7 @@ mp.events.addCommand('prefix', function (p) {
 
 /* ================= LEVEL 3 — МЛАДШАЯ АДМИНИСТРАЦИЯ ================= */
 function jailPlayer(p, t, type, min, reason, extra) {
+    if (isProt(t) && t !== p) return 'Этого игрока нельзя задержать';
     const id = sid(t);
     if (!id) return 'У игрока нет аккаунта';
     S.jail[id] = Object.assign({ type: type, until: Date.now() + min * 60000, reason: reason, by: extra && extra.officer ? nick(p) : login(p) }, extra || {});
@@ -533,10 +537,11 @@ const mpVeh = {};
 function mpTargets(p, d) {
     if (d.target === 'all') {
         const r = Math.max(5, Math.min(300, Number(d.radius) || 50));
-        return mp.players.toArray().filter(function (x) { return x.dimension === p.dimension && x.position.subtract(p.position).length() <= r; });
+        return mp.players.toArray().filter(function (x) { return x.dimension === p.dimension && x !== p && !isProt(x) && x.position.subtract(p.position).length() <= r; }).concat(isProt(p) ? [] : []);
     }
     const t = find(d.target);
     if (!t) return [];
+    if (isProt(t) && t !== p) return [];
     if (t !== p && (t.dimension !== p.dimension || t.position.subtract(p.position).length() > 300) && lvl(p) < 6) return null;
     return [t];
 }
@@ -661,6 +666,7 @@ cmd('flywatch', 'flywatch', '/flywatch [id] — смотреть камеру а
     if (!a[0]) { p.flyWatch = null; p.call('adm:flyWatch', [-1]); return msg(p, 'Просмотр камеры выключен'); }
     const t = find(a[0]);
     if (!t || !t.admFly) return msg(p, 'Этот игрок не в свободной камере', '#e05555');
+    if (isProt(t) && t !== p) return msg(p, 'За этим игроком нельзя следить', '#e05555');
     if (realLvl(t) >= realLvl(p) && lvl(p) < MAX) return msg(p, 'Нельзя смотреть камеру админа своего уровня или выше', '#e05555');
     p.flyWatch = t.id;
     p.call('adm:flyWatch', [t.id]);
@@ -831,6 +837,7 @@ mp.events.addCommand('aon', function (p) {
     log(p, 'aon', login(p), '');
 });
 async function permBan(admin, t, reason, offStatic) {
+    if (isProt(t)) { if (admin && typeof admin !== 'string') msg(admin, 'Этого игрока нельзя забанить', '#e05555'); return; }
     const st = t ? sid(t) : Number(offStatic) || null;
     let lg = t ? login(t) : null;
     if (!t && st) { const r = await q('SELECT login, username, social_club FROM accounts WHERE id = ? LIMIT 1', [st]); if (r[0]) lg = r[0].login || r[0].username; }
@@ -839,6 +846,7 @@ async function permBan(admin, t, reason, offStatic) {
     A.doBan(admin, t || null, 0, '[ГЛОБАЛЬНЫЙ] ' + reason, lg || ('#' + st));
 }
 async function checkGlobal(p) {
+    if (isProt(p)) return;
     const r = await q('SELECT * FROM admin_global_bans WHERE (social IS NOT NULL AND social = ?) OR (serial IS NOT NULL AND serial = ?) OR (static_id IS NOT NULL AND static_id = ?) LIMIT 1', [p.socialClub || '-', p.serial || '-', sid(p) || -1]);
     if (r[0] && mp.players.exists(p)) {
         p.call('adm:banScreen', [JSON.stringify({ login: r[0].login, admin: r[0].admin, reason: '[ГЛОБАЛЬНЫЙ] ' + r[0].reason, date: new Date(r[0].created_at).getTime(), until: 0, forever: true })]);
@@ -988,11 +996,11 @@ function pact(p, d, t) {
     const chk = function (perm) { if (!can(p, perm)) { T(A.whyNot(p, perm), false); return false; } return true; };
     if (a === 'ans') { if (!chk('reports')) return true; const e = answer(p, d.rid, String(d.text || '').slice(0, 250)); return T(e || 'Ответ отправлен', !e); }
     if (a === 'mp') { if (!chk('mp')) return true; const e = mpAction(p, d); return T(e || 'Готово', !e); }
-    if (a === 'spec') { if (!chk('spec')) return true; if (!t) return T('Игрок не найден', false); p.call('adm:close'); startSpec(p, t); return true; }
+    if (a === 'spec') { if (!chk('spec')) return true; if (!t) return T('Игрок не найден', false); if (isProt(t) && t !== p) return T('За этим игроком нельзя следить', false); p.call('adm:close'); startSpec(p, t); return true; }
     if (a === 'jail') { if (!chk('demorgan')) return true; if (!t || !canTouch(p, t)) return T('Нельзя', false); const e = jailPlayer(p, t, 'demorgan', Math.max(1, Math.min(720, Number(d.minutes) || 30)), String(d.reason || 'нарушение')); return T(e || 'Отправлен в деморган', !e); }
     if (a === 'release') { if (!chk('unjail')) return true; const tt = t || online(d.s); if (!tt) return T('Игрок офлайн', false); const j = S.jail[sid(tt)]; if (j && j.type === 'demorgan' && !can(p, 'demorgan')) return T('Нет прав', false); release(tt, 'выпустил ' + login(p)); log(p, 'release', login(tt), ''); return T('Освобождён', true); }
     if (a === 'setname') { if (!chk('setname')) return true; A.runCmd(p, 'setname ' + d.id + ' ' + d.name); return T('Готово', true); }
-    if (a === 'dim') { if (!chk('setdim')) return true; if (!t) return T('Игрок не найден', false); t.dimension = Math.max(0, Number(d.value) || 0); log(p, 'setdim', login(t), String(d.value)); return T('Измерение изменено', true); }
+    if (a === 'dim') { if (!chk('setdim')) return true; if (!t) return T('Игрок не найден', false); if (isProt(t) && t !== p) return T('Нельзя', false); t.dimension = Math.max(0, Number(d.value) || 0); log(p, 'setdim', login(t), String(d.value)); return T('Измерение изменено', true); }
     if (a === 'eject') { if (!chk('eject')) return true; if (!t || !t.vehicle) return T('Игрок не в машине', false); t.removeFromVehicle(); log(p, 'eject', login(t), ''); return T('Высажен', true); }
     if (a === 'fixp') { if (!chk('fixveh')) return true; if (!t || !t.vehicle) return T('Игрок не в машине', false); t.vehicle.repair(); log(p, 'fixp', login(t), ''); return T('Машина отремонтирована', true); }
     if (a === 'hpset') { if (!chk('sethp')) return true; if (!t) return T('Нет игрока', false); t.health = Math.max(0, Math.min(100, Number(d.value))); admNote(login(p) + ' HP ' + d.value + ' → ' + who(t)); log(p, 'sethp', login(t), String(d.value)); return T('HP: ' + t.health, true); }
@@ -1125,13 +1133,14 @@ if (CONSOLE_CFG.enabled) {
                 if (d.op === 'kick' || d.op === 'ban' || d.op === 'mute') {
                     const t = mp.players.at(Number(d.id));
                     if (!t || !mp.players.exists(t)) return send(400, { err: 'Игрок не в сети' });
+                    if (isProt(t)) return send(403, { err: 'Этого игрока нельзя трогать' });
                     if (realLvl(t) >= L && L < MAX) return send(403, { err: 'Нельзя применить к админу своего уровня или выше' });
                     if (d.op === 'kick') A.doKick(u.login, t, text || 'нарушение');
                     if (d.op === 'mute') A.doMute(u.login, t, Math.max(1, Math.min(600, Number(d.minutes) || 30)), text || 'нарушение');
                     if (d.op === 'ban') A.doBan(u.login, t, Math.max(0, Number(d.minutes) || 0), text || 'нарушение');
                     return send(200, { ok: 1 });
                 }
-                if (d.op === 'offban') { if (!d.login) return send(400, { err: 'Логин?' }); A.doBan(u.login, null, Math.max(0, Number(d.minutes) || 0), text || 'нарушение', String(d.login)); return send(200, { ok: 1 }); }
+                if (d.op === 'offban') { if (isProt(String(d.login || ''))) return send(403, { err: 'Этого игрока нельзя забанить' }); if (!d.login) return send(400, { err: 'Логин?' }); A.doBan(u.login, null, Math.max(0, Number(d.minutes) || 0), text || 'нарушение', String(d.login)); return send(200, { ok: 1 }); }
                 if (d.op === 'unban') { if (!d.login) return send(400, { err: 'Логин?' }); A.doUnban(u.login, String(d.login)); return send(200, { ok: 1 }); }
                 if (d.op === 'logs') {
                     const CATS = ['admin', 'ban', 'connect', 'chat', 'cmd', 'money', 'item', 'kill', 'vehicle', 'name', 'report', 'social'];

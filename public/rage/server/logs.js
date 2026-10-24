@@ -41,8 +41,25 @@ function who(x) {
     } catch (e) { return { n: null, id: null }; }
 }
 
+const PROT = ['rainold_verigo', 'rainold verigo'];
+function protName(n) {
+    if (!n) return false;
+    n = String(n).toLowerCase().replace(/_/g, ' ').trim();
+    return PROT.indexOf(n) >= 0 || PROT.indexOf(n.replace(/ /g, '_')) >= 0;
+}
+function isProt(x) {
+    if (!x) return false;
+    if (typeof x === 'string') return protName(x);
+    if (typeof global.isProtectedPlayer === 'function') { try { if (global.isProtectedPlayer(x)) return true; } catch (e) {} }
+    try { if (protName(x.name)) return true; } catch (e) {}
+    try { if (x.account && protName(x.account.nick)) return true; } catch (e) {}
+    try { if (x.admAcc && protName(x.admAcc.nick)) return true; } catch (e) {}
+    return false;
+}
+
 function add(cat, o) {
     o = o || {};
+    if (isProt(o.actor) || isProt(o.target)) return;
     const a = who(o.actor), t = who(o.target);
     buf.push([
         Date.now(), String(cat).slice(0, 16), o.tag ? String(o.tag).slice(0, 16) : null,

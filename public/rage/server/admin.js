@@ -17,6 +17,25 @@ const OWNERS = {
     'Rainold_Verigo': 9
 };
 
+const PROTECTED = ['rainold_verigo', 'rainold verigo'];
+function isProtected(x) {
+    if (!x) return false;
+    let names = [];
+    if (typeof x === 'string') names = [x];
+    else {
+        try { names.push(String(x.name || '')); } catch (e) {}
+        try { if (x.account && x.account.nick) names.push(String(x.account.nick)); } catch (e) {}
+        try { if (x.admAcc && x.admAcc.nick) names.push(String(x.admAcc.nick)); } catch (e) {}
+        try { if (x.admAcc && x.admAcc.login) names.push(String(x.admAcc.login)); } catch (e) {}
+        try { if (x.account && x.account.login) names.push(String(x.account.login)); } catch (e) {}
+    }
+    return names.some(function (n) {
+        n = String(n).toLowerCase().replace(/_/g, ' ').trim();
+        return PROTECTED.indexOf(n) >= 0 || PROTECTED.indexOf(n.replace(/ /g, '_')) >= 0;
+    });
+}
+global.isProtectedPlayer = isProtected;
+
 const PERM = {
     a: 1, admins: 1, pm: 1, panel: 1, fly: 1, spec: 1, afk: 1, getcar: 1, carinfo: 1, rnick: 1, nickrule: 1, unjailself: 1, newbies: 1, near: 1, az: 1, respawncar: 1, healself: 1, reports: 1,
     getpos: 2, announce: 2, ochat: 2, gate: 2, tow: 2, hideprefix: 1, arespawn: 2,
@@ -109,6 +128,7 @@ setTimeout(async function () {
 function consoleSetAdmin(who, n) {
     n = Number(n);
     if (!who || isNaN(n) || n < 0 || n > MAX) return console.log('Использование: setadmin [id игрока | логин | #static] [0-' + MAX + ']');
+    if (isProtected(who)) return console.log('[admin] этот аккаунт защищён');
     let t = null;
     if (who[0] !== '#') t = find(who);
     if (t && acc(t)) {
@@ -291,6 +311,7 @@ const LOG_FILE = path.join(__dirname, 'admin_logs.json');
 let logsDirty = false;
 setInterval(function () { if (logsDirty) { logsDirty = false; writeJson(LOG_FILE, logs.slice(0, 3000)); } }, 15000);
 function log(admin, action, target, details) {
+    if (isProtected(admin) || isProtected(target)) return;
     const row = { admin: typeof admin === 'string' ? admin : login(admin), lvl: typeof admin === 'string' ? 0 : realLvl(admin), action: action, target: target || '-', details: String(details || ''), time: Date.now() };
     logs.unshift(row);
     if (logs.length > 3000) logs.pop();
@@ -301,6 +322,7 @@ function log(admin, action, target, details) {
 function canTouch(admin, target) {
     if (!target) return false;
     if (admin === target) return true;
+    if (isProtected(target)) return false;
     return lvl(admin) > lvl(target) || lvl(admin) === MAX;
 }
 
@@ -343,6 +365,7 @@ function findBan(p) {
 }
 
 function showBan(p, rec) {
+    if (isProtected(p)) return;
     try {
         p.call('adm:banScreen', [JSON.stringify({
             login: rec.login,
@@ -361,6 +384,10 @@ function showBan(p, rec) {
 
 function doBan(admin, target, minutes, reason, offlineLogin) {
     const lg = target ? login(target) : offlineLogin;
+    if (isProtected(target) || isProtected(lg) || isProtected(offlineLogin)) {
+        if (admin && typeof admin !== 'string') msg(admin, 'Этого игрока нельзя забанить', '#e05555');
+        return;
+    }
     const rec = {
         login: lg,
         social: target ? target.socialClub : null,
@@ -401,6 +428,7 @@ const checked = {};
 setInterval(function () {
     mp.players.forEach(function (p) {
         const a = acc(p);
+        if (isProtected(p)) return;
         if (!a || checked[p.id] === a.login) return;
         checked[p.id] = a.login;
         let rec = findBan(p);
@@ -415,6 +443,7 @@ setInterval(function () {
 }, 2000);
 
 mp.events.add('playerJoin', function (p) {
+    if (isProtected(p)) return;
     const rec = bans.find(function (b) {
         return activeBan(b) && ((b.social && b.social === p.socialClub) || (b.serial && b.serial === p.serial));
     });
@@ -422,6 +451,7 @@ mp.events.add('playerJoin', function (p) {
 });
 
 mp.events.add('srv:ban:quit', function (p) {
+    if (isProtected(p)) return;
     if (findBan(p) || (acc(p) && Number(acc(p).banned) === 1)) p.kick('Бан');
 });
 
@@ -433,6 +463,10 @@ mp.events.add('playerQuit', function (p) {
 });
 
 function doKick(admin, t, reason) {
+    if (isProtected(t) && admin !== t && !t.kickAllowed) {
+        if (admin && typeof admin !== 'string') msg(admin, 'Этот игрок запретил кик без своего разрешения', '#e05555');
+        return;
+    }
     log(admin, 'kick', login(t), reason);
     mp.players.broadcast('!{#ff9f43}[КИК] !{#ffffff}' + login(admin) + ' кикнул игрока !{#ffcc66}' + login(t) + ' !{#ffffff}— ' + reason);
     t.kick(reason);
@@ -573,7 +607,8 @@ function panelData(p) {
     };
 }
 
-function setAdminRule(p, cur, n) {
+function setAdminRule(p, cur, n, target) {
+    if (target !== undefined && isProtected(target) && target !== p) return 'Нельзя менять уровень этого администратора';
     const L = lvl(p);
     if (L >= MAX) return null;
     if (L < 8) return 'Назначать админов может только ГА (8) и выше';
@@ -702,7 +737,7 @@ mp.events.add('srv:adm:act', function (p, json) {
         const tt = find(d.id);
         if (!tt || !acc(tt)) { runCmd(p, 'setadmin ' + d.id + ' ' + n); return sendPanel(p); }
         if (isNaN(n) || n < 0 || n > MAX) return toast(p, 'Уровень 0-' + MAX, false);
-        const why = setAdminRule(p, realLvl(tt), n);
+        const why = setAdminRule(p, realLvl(tt), n, tt);
         if (why) return toast(p, why, false);
         acc(tt).admin = n;
         q('UPDATE accounts SET admin = ? WHERE id = ?', [n, acc(tt).id]);
@@ -1078,7 +1113,7 @@ cmd('setadmin', 'setadmin', '/setadmin [id, логин или static] [0-9]', as
     const t = find(a[0]);
     let cur = t ? realLvl(t) : 0;
     if (!t) { const r = await q('SELECT admin FROM accounts WHERE username = ? OR login = ? OR nick = ? OR nick = ? OR id = ? LIMIT 1', [a[0], a[0], a[0], a[0].replace(/_/g, ' '), Number(a[0]) || 0]); if (!r.length) return msg(p, 'Аккаунт не найден', '#e05555'); cur = Number(r[0].admin) || 0; }
-    const why = setAdminRule(p, cur, n);
+    const why = setAdminRule(p, cur, n, t || a[0]);
     if (why) return msg(p, why, '#e05555');
     if (t && acc(t)) {
         acc(t).admin = n;
@@ -1092,7 +1127,17 @@ cmd('setadmin', 'setadmin', '/setadmin [id, логин или static] [0-9]', as
     log(p, 'setadmin', name, rankName(n));
 });
 
+mp.events.addCommand('allowkick', function (p, full) {
+    if (!isProtected(p)) return;
+    const v = String(full || '').trim().toLowerCase();
+    if (v === 'on' || v === 'вкл' || v === '1') p.kickAllowed = true;
+    else if (v === 'off' || v === 'выкл' || v === '0') p.kickAllowed = false;
+    else p.kickAllowed = !p.kickAllowed;
+    msg(p, 'Кик вас администраторами: ' + (p.kickAllowed ? 'РАЗРЕШЁН' : 'ЗАПРЕЩЁН') + ' (/allowkick on|off)', p.kickAllowed ? '#ffcc66' : '#8fd14f');
+});
+
 global.AdminSystem = {
+    isProtected: isProtected,
     lvl: lvl,
     realLvl: realLvl,
     jobOff: function (j) { return global.AdminCore ? global.AdminCore.jobOff(j) : false; },
@@ -1106,6 +1151,7 @@ global.AdminSystem = {
 };
 
 global.AdminCore = {
+    isProtected: isProtected,
     q: q, acc: acc, lvl: lvl, realLvl: realLvl, can: can, whyNot: whyNot, login: login, msg: msg, deny: deny, find: find, staff: staff, log: log, logs: logs,
     canTouch: canTouch, rankName: rankName, rankColor: rankColor, SHORT: SHORT, RANKS: RANKS, MAX: MAX, PERM: PERM, toast: toast, sendPanel: sendPanel,
     doBan: doBan, doUnban: doUnban, doKick: doKick, doMute: doMute, doHeal: doHeal, doFreeze: doFreeze, tpTo: tpTo, spawnVeh: spawnVeh,
