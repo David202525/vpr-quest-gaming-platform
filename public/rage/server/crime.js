@@ -562,7 +562,7 @@ setInterval(function () {
 function pointsSend(p) {
     const k = org(p), b = buyer();
     const d = { buyer: [b.x, b.y, b.z], nr: NEUTRAL_R };
-    if (k) { const s = stashPos(k), bn = benchPos(k); d.stash = [s.x, s.y, s.z]; d.bench = [bn.x, bn.y, bn.z]; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
+    if (k) { const s = stashPos(k), bn = benchPos(k), gg = garage(k); d.stash = [s.x, s.y, s.z]; d.bench = [bn.x, bn.y, bn.z]; d.garage = [gg.x, gg.y, gg.z]; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
     p.call('crime:points', [JSON.stringify(d)]);
 }
 setInterval(function () { mp.players.forEach(function (p) { if (p.account && p.ptOrg !== org(p)) { p.ptOrg = org(p); pointsSend(p); } }); }, 3000);

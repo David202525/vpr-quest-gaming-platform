@@ -26,13 +26,16 @@ window.search = function (j) {
     var g = $('go'); if (g) g.onclick = function () { var ks = Array.prototype.map.call(document.querySelectorAll('[data-k]:checked'), function (c) { return c.dataset.k; }); if (!ks.length) return; trig('cef:crime:seize', SR.id, JSON.stringify(ks)); };
 };
 window.garage = function (j) {
-    var d = typeof j === 'string' ? JSON.parse(j) : j; MODE = 'garage';
-    $('box').className = 'box';
-    $('box').style.setProperty('--g', d.c); $('box').style.setProperty('--g2', d.c);
-    $('box').innerHTML = '<div class="hd"><i>🚗</i><div><b>Гараж · ' + esc(d.org) + '</b><small>Машины в цвете организации</small></div></div>' +
-        d.list.map(function (c) { return '<div class="row' + (c.ok ? '' : ' lock') + '"><div class="n"><b>' + esc(c.m.toUpperCase()) + '</b><small>с ранга «' + esc(c.rn) + '»</small></div><button data-m="' + c.m + '"' + (c.ok && !d.out ? '' : ' disabled') + '>' + (d.out === c.m ? 'Выдана' : 'Взять') + '</button></div>'; }).join('') +
-        '<div class="foot"><small>' + (d.out ? 'Сначала верните текущую машину' : 'Одна машина на человека') + '</small><div style="display:flex;gap:8px">' + (d.out ? '<button id="bk">Вернуть</button>' : '') + '<button class="ghost" id="cl">Закрыть</button></div></div>';
-    document.querySelectorAll('[data-m]').forEach(function (b) { b.onclick = function () { trig('cef:crime:car', b.dataset.m); }; });
+    var d = typeof j === 'string' ? JSON.parse(j) : j;
+    var b = base('bench', d.c);
+    b.innerHTML = '<div class="top"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="#fff"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11a2 2 0 0 1 2 2v4h-2a2 2 0 0 1-4 0H9a2 2 0 0 1-4 0H3v-4a2 2 0 0 1 2-2zm2.2 0h9.6l-1.1-3.4a.8.8 0 0 0-.8-.6H9.1a.8.8 0 0 0-.8.6z"/></svg></i><div><b>Гараж · ' + esc(d.org) + '</b><small>Машины в цвете организации · одна на человека</small></div><div class="x" id="cl">✕</div></div>' +
+        '<div class="cars">' + d.list.map(function (c) {
+            var taken = d.out === c.m;
+            return '<div class="car' + (c.ok ? '' : ' lock') + (taken ? ' sel' : '') + '"><div class="cpic"><img src="../ui/img/v/' + c.m + '.webp" onerror="this.style.display=\'none\'"></div><b>' + esc(c.m.toUpperCase()) + '</b><small>' + (c.ok ? 'доступна' : 'с ранга «' + esc(c.rn) + '»') + '</small>' +
+                '<button data-m="' + c.m + '"' + (c.ok && !d.out ? '' : ' disabled') + '>' + (taken ? 'Выдана' : c.ok ? 'Взять' : 'Закрыто') + '</button></div>';
+        }).join('') + '</div>' +
+        (d.out ? '<div class="foot" style="padding:0 22px 20px"><small>Сначала верните текущую машину — пригоните её к гаражу</small><button id="bk">Вернуть машину</button></div>' : '');
+    bind('[data-m]', function (el) { trig('cef:crime:car', el.dataset.m); });
     var bk = $('bk'); if (bk) bk.onclick = function () { trig('cef:crime:car', '__back'); };
     $('cl').onclick = function () { trig('cef:crime:close'); };
 };

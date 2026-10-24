@@ -36,5 +36,7 @@
         ukrop_pack: svg('<path d="M14 14 h36 l-2 40 h-32Z" fill="#e9eef3" opacity=".85"/><rect x="14" y="12" width="36" height="5" rx="1" fill="#c23b3b"/><g transform="translate(16 18) scale(.5)"><path d="M32 58 V22" stroke="#2f8f3a" stroke-width="5"/><path d="M32 30 q-16 -6 -22 -14 q10 2 22 14Z M32 40 q16 -6 22 -14 q-10 2 -22 14Z" fill="url(#gGr)"/></g>')
     };
     I.armour = I.i_armour; I.g_armour = I.i_armour;
-    window.ICON = function (k, fallback) { return I[k] ? '<span class="svgi">' + I[k] + '</span>' : '<span class="svgi em">' + (fallback || '•') + '</span>'; };
+    var WIMG = { pistol: 'pistol', i_pistol: 'pistol', g_pistol: 'combatpistol', smg: 'microsmg', i_smg: 'microsmg', rifle: 'assaultrifle_mk2', i_rifle: 'assaultrifle', i_shotgun: 'sawnoffshotgun', g_carbine: 'carbinerifle', knife: 'knife', bat: 'bat', g_stungun: 'stungun' };
+    window.ICON = function (k, fallback) {
+        if (WIMG[k]) return '<span class="svgi wimg"><img src="../ui/img/w/' + WIMG[k] + '.webp"></span>'; return I[k] ? '<span class="svgi">' + I[k] + '</span>' : '<span class="svgi em">' + (fallback || '•') + '</span>'; };
 })();

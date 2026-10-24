@@ -162,6 +162,8 @@ mp.events.add('crime:points', function (j) {
         mp.game.invoke('0x03D7FB09E75D6B7E', r, 0); mp.game.invoke('0x45FF974EEE1C8734', r, 90);
         cPtBlips.push(r);
         if (cPts.stash) cPtBlips.push(ptBlip(cPts.stash[0], cPts.stash[1], cPts.stash[2], 478, 0, 'Общак организации', true));
+        if (cPts.bench) cPtBlips.push(ptBlip(cPts.bench[0], cPts.bench[1], cPts.bench[2], 566, 0, 'Верстак', true));
+        if (cPts.garage) cPtBlips.push(ptBlip(cPts.garage[0], cPts.garage[1], cPts.garage[2], 357, 3, 'Гараж организации', false));
         if (cPts.green) cPtBlips.push(ptBlip(cPts.green[0], cPts.green[1], cPts.green[2], 469, 2, 'Теплица', false));
     } catch (e) { mp.console.logError('[crime] points: ' + e.message); }
 });

@@ -2264,3 +2264,4 @@ textarea {
 .ch-right .skills .sk { height: 112px; }
 .cr2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cr2 > :first-child { grid-column: span 2; }
+img.wimg { max-width: 86%; max-height: 70%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,.7)) contrast(1.08); pointer-events: none; }

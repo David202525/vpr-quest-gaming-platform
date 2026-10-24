@@ -1,3 +1,5 @@
+var WIMG = { pistol: 'pistol', i_pistol: 'pistol', g_pistol: 'combatpistol', smg: 'microsmg', i_smg: 'microsmg', rifle: 'assaultrifle_mk2', i_rifle: 'assaultrifle', i_shotgun: 'sawnoffshotgun', g_carbine: 'carbinerifle', knife: 'knife', bat: 'bat', g_stungun: 'stungun' };
+function icoHtml(it) { return it && WIMG[it.k] ? '<img class="wimg" src="img/w/' + WIMG[it.k] + '.webp">' : (it ? it.i : ''); }
 function $(id) { return document.getElementById(id); }
 function trig() { if (window.mp && mp.trigger) mp.trigger.apply(mp, arguments); }
 function esc(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -128,7 +130,7 @@ function cellClass(it) {
 function cellHtml(it, b, i) {
     var inner = '';
     if (it) {
-        inner = it.i + (it.c > 1 ? '<span class="cnt">' + it.c + '</span>' : '');
+        inner = icoHtml(it) + (it.c > 1 ? '<span class="cnt">' + it.c + '</span>' : '');
         if (DATA.inv && DATA.inv.weapon && it.wp && DATA.inv.weapon.k === it.k && b === 'inv') inner += '<span class="in-hand">В РУКАХ</span>';
     }
     return '<div class="cell' + cellClass(it) + '" data-b="' + b + '" data-i="' + i + '">' + inner + '</div>';
@@ -167,7 +169,7 @@ function _renderInv() {
 
     if (d.weapon) {
         $('wpName').textContent = d.weapon.n + (d.weapon.ammo ? ' | ' + d.weapon.ammo : '');
-        $('wpBox').innerHTML = '<span>' + d.weapon.i + '</span><span class="wp-name">Нажмите, чтобы убрать</span>';
+        $('wpBox').innerHTML = '<span>' + icoHtml(d.weapon) + '</span><span class="wp-name">Нажмите, чтобы убрать</span>';
     } else {
         $('wpName').textContent = 'Оружие не в руках';
         $('wpBox').innerHTML = '<span class="wp-empty">Дважды кликните по оружию в инвентаре</span>';
@@ -185,7 +187,7 @@ function _renderInv() {
         if (it && (k === 'watch' || k === 'phone' || k === 'gloves')) cls += ' v';
         if (it && k === 'armour') cls += ' r';
         return '<div class="slot' + cls + '" style="left:' + p[0] + 'px;top:' + p[1] + 'px" data-b="equip" data-i="' + k + '" data-tip="' + p[3] + '">' +
-            (it ? it.i : '<span class="ghost">' + p[2] + '</span>') + '</div>';
+            (it ? icoHtml(it) : '<span class="ghost">' + p[2] + '</span>') + '</div>';
     }).join('');
 }
 
