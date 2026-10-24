@@ -150,3 +150,29 @@ mp.events.add('gov:uniCheck', function (json) {
     });
     mp.events.callRemote('srv:gov:uniApply', JSON.stringify(bad));
 });
+
+var TZ_W = [mp.game.joaat('weapon_stungun') >>> 0, mp.game.joaat('weapon_stungun_mp') >>> 0], tzLast = 0;
+function tzHit(pos) {
+    var me = mp.players.local, w = me.weapon >>> 0;
+    if (TZ_W.indexOf(w) < 0 || Date.now() - tzLast < 800 || !pos) return;
+    var best = null, bd = 2.2;
+    mp.players.forEachInStreamRange(function (p) {
+        if (p === me || !p.handle || !p.vehicle || p.dimension !== me.dimension) return;
+        var q = p.position, d = mp.game.system.vdist(pos.x, pos.y, pos.z, q.x, q.y, q.z);
+        if (d < bd) { bd = d; best = p; }
+    });
+    if (!best) return;
+    tzLast = Date.now();
+    mp.events.callRemote('srv:gov:taze', best.remoteId);
+}
+mp.events.add('playerWeaponShot', function (pos) { tzHit(pos); });
+mp.events.add('outgoingDamage', function (src, target) {
+    if (target && target.type === 'player' && target.vehicle) tzHit(target.position);
+});
+mp.events.add('gov:tazed', function (ms) {
+    var me = mp.players.local;
+    setTimeout(function () {
+        try { me.setToRagdoll(ms, ms, 0, true, true, false); } catch (e) {}
+        try { mp.game.graphics.startScreenEffect('DrugsDrivingIn', ms, false); } catch (e) {}
+    }, 350);
+});

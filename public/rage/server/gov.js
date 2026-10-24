@@ -1180,3 +1180,22 @@ radio('gov', function (p, f, t) {
 
 global.GovFaction = { can: can, rank: rank, fac: fac, sid: sid, nick: nick, isLeaderP: isLeader, canManage: canManage, F: F, flog: flog, mark: mark, POLICE: POLICE, SUPPLY_PACK: SUPPLY_PACK, ARMORY_ITEMS: ARMORY_ITEMS, autoFine: autoFine, money: money, rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');
+
+const TZ_W = [mp.joaat('weapon_stungun') >>> 0, mp.joaat('weapon_stungun_mp') >>> 0];
+const tzAt = {};
+mp.events.add('srv:gov:taze', function (p, tid) {
+    if (!p.account || p.vehicle) return;
+    if (TZ_W.indexOf(Number(p.weapon) >>> 0) < 0) return;
+    const now = Date.now();
+    if (tzAt[p.id] && now - tzAt[p.id] < 1500) return;
+    const t = mp.players.at(Number(tid));
+    if (!t || !mp.players.exists(t) || t === p || !t.vehicle || t.dimension !== p.dimension) return;
+    if (t.adminGm) return;
+    if (p.position.subtract(t.position).length() > 15) return;
+    tzAt[p.id] = now;
+    try { t.removeFromVehicle(); } catch (e) { return; }
+    t.call('gov:tazed', [5000]);
+    notify(t, 'warn', 'Вас ударило тайзером — вы выпали из машины');
+    notify(p, 'ok', nick(t) + ' вытащен из машины');
+});
+mp.events.add('playerQuit', function (p) { delete tzAt[p.id]; });
