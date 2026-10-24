@@ -101,6 +101,8 @@ function slider(parent, o) {
     return row;
 }
 
+const BAD_HAIR = { 0: [23], 1: [24] };
+function hairList(fem) { const out = [], bad = BAD_HAIR[fem ? 1 : 0]; for (let i = 0; i <= (fem ? 38 : 36); i++) if (bad.indexOf(i) < 0) out.push(i); return out; }
 function bind(key) {
     return { get: function () { return state[key]; }, set: function (v) { state[key] = v; } };
 }
@@ -138,7 +140,10 @@ function render() {
     add('overlayList', Object.assign({ label: 'Помада', min: 0, max: 10, fmt: offNum }, bind('lipstick')));
     add('overlayList', Object.assign({ label: 'Цвет помады', min: 0, max: 63 }, bind('lipstickColor')));
 
-    add('hairList', Object.assign({ label: 'Причёска', min: 0, max: fem ? 38 : 36 }, bind('hairStyle')));
+    const HL = hairList(fem);
+    if (HL.indexOf(state.hairStyle) < 0) state.hairStyle = HL[0];
+    add('hairList', { label: 'Причёска', min: 0, max: HL.length - 1, fmt: function (v) { return String(v + 1); },
+        get: function () { return Math.max(0, HL.indexOf(state.hairStyle)); }, set: function (v) { state.hairStyle = HL[v]; } });
     add('hairList', Object.assign({ label: 'Цвет волос', min: 0, max: 63 }, bind('hairColor')));
     add('hairList', Object.assign({ label: 'Мелирование', min: 0, max: 63 }, bind('hairHighlight')));
 
@@ -160,7 +165,8 @@ function randomize() {
     state.skin = rnd(0, 100);
     state.eyeColor = rnd(0, 7);
     state.features = state.features.map(function () { return rnd(-6, 6) * 5; });
-    state.hairStyle = rnd(0, fem ? 38 : 36);
+    const HL = hairList(fem);
+    state.hairStyle = HL[rnd(0, HL.length - 1)];
     state.hairColor = rnd(0, 20);
     state.hairHighlight = state.hairColor;
     state.brows = rnd(0, 33);

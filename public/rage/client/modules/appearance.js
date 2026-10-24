@@ -61,7 +61,7 @@ function apply(p, a) {
     });
 
     const h = a.hair || {};
-    safe(function () { p.setComponentVariation(2, num(h.style, 0), 0, 2); });
+    safe(function () { var hs = num(h.style, 0); if (hs === 23 || hs === 24) hs = 0; p.setComponentVariation(2, hs, 0, 2); });
     safe(function () { p.setHairColor(num(h.color, 0), num(h.highlight, 0)); });
     safe(function () { p.setEyeColor(num(a.eyeColor, 0)); });
 }
