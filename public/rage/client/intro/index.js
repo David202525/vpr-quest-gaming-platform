@@ -42,5 +42,5 @@ mp.events.add('render', function () {
     if (!global.introOpen) return;
     mp.game.controls.disableAllControlActions(0);
     mp.game.controls.disableAllControlActions(2);
-    mp.game.ui.hideHudAndRadarThisFrame();
+    try { mp.game.invoke('0x719FF505F097FD20'); } catch (e) {}
 });
