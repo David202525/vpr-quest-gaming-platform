@@ -34,6 +34,7 @@ setInterval(function () {
     var seen = {};
     if (inWorld) H.forEach(function (h) {
         var mineH = h[4] === 2;
+        if (h[4] === 0) return;
         var d = d2(pos, h[1], h[2]);
         if (!mineH && d > RADIUS) return;
         var key = h[1].toFixed(0) + '_' + h[2].toFixed(0);
@@ -65,7 +66,7 @@ setInterval(function () {
             (HS.fac || []).forEach(function (f) { if (me.dimension === f[7] && mp.game.system.vdist(pos.x, pos.y, pos.z, f[4], f[5], f[6]) < 2.2) best = { k: 'exit' }; });
         }
     }
-    if (best) hint = best.k === 'house' ? (best.st === 2 ? 'E — мой дом' : best.st === 1 ? 'E — дверь (занято)' : 'E — дом продаётся') : best.k === 'hotel' ? 'E — гостиница' : best.k === 'fac' ? 'E — войти: ' + best.n : 'E — выйти на улицу';
+    if (best) hint = best.k === 'house' ? (best.st === 2 ? 'E — мой дом' : best.st === 1 ? 'E — дверь (занято)' : 'E — дом (покупка в агентстве недвижимости)') : best.k === 'hotel' ? 'E — гостиница' : best.k === 'fac' ? 'E — войти: ' + best.n : 'E — выйти на улицу';
     hNear = best;
     if (hint && hint !== hHint) mp.events.call('hud:notify', 'ok', hint, 2500);
     hHint = hint;
@@ -125,3 +126,47 @@ mp.events.add('cef:hotel:rent', function (n) { mp.events.callRemote('srv:hotel:r
 mp.events.add('cef:house:phone', function () { mp.events.callRemote('srv:house:phone'); });
 mp.events.add('cef:house:gps', function (k, id) { mp.events.callRemote('srv:house:gps', k, Number(id)); });
 mp.events.add('house:phone', function (json) { UX('window.phoneHouses && window.phoneHouses(' + JSON.stringify(json) + ');'); });
+
+var realtyPt = null, realtyBlip = null, realtyNear = false, realtyOpen = false;
+mp.events.add('realty:pt', function (x, y, z) {
+    realtyPt = { x: x, y: y, z: z };
+    if (realtyBlip) { try { realtyBlip.destroy(); } catch (e) {} }
+    try { realtyBlip = mp.blips.new(374, new mp.Vector3(x, y, z), { dimension: 4294967295, name: 'Агентство недвижимости', color: 5, scale: 0.85, shortRange: true }); } catch (e) {}
+});
+setInterval(function () {
+    var me = mp.players.local, pos = me.position;
+    var n = !!(realtyPt && me.dimension === 0 && !me.vehicle && mp.game.system.vdist(pos.x, pos.y, pos.z, realtyPt.x, realtyPt.y, realtyPt.z) < 2.2);
+    if (n && !realtyNear) mp.events.call('hud:notify', 'ok', 'E — агентство недвижимости (покупка жилья и аукционы)', 3500);
+    realtyNear = n;
+}, 400);
+mp.events.add('render', function () {
+    if (!realtyPt || mp.players.local.dimension !== 0) return;
+    var pos = mp.players.local.position, dx = pos.x - realtyPt.x, dy = pos.y - realtyPt.y;
+    if (dx * dx + dy * dy > 900) return;
+    mp.game.graphics.drawMarker(1, realtyPt.x, realtyPt.y, realtyPt.z - 1, 0, 0, 0, 0, 0, 0, 1.2, 1.2, 0.4, 255, 196, 0, 120, false, false, 2, false, null, null, false);
+    mp.game.graphics.drawMarker(29, realtyPt.x, realtyPt.y, realtyPt.z + 0.4, 0, 0, 0, 0, 0, 0, 0.6, 0.6, 0.6, 255, 196, 0, 200, true, true, 2, false, null, null, false);
+});
+mp.keys.bind(0x45, false, function () {
+    if (!realtyNear || realtyOpen || hBusy() || mp.players.local.vehicle) return;
+    mp.events.callRemote('srv:realty:open');
+});
+mp.events.add('realty:open', function (json) {
+    UX('window.realtyMenu && window.realtyMenu(' + JSON.stringify(json) + ');');
+    if (!realtyOpen) { realtyOpen = true; hMenuOpen = true; mp.gui.cursor.show(true, true); mp.gui.chat.activate(false); }
+});
+function realtyClose() {
+    if (!realtyOpen) return;
+    realtyOpen = false; hMenuOpen = false;
+    UX('window.realtyMenu && window.realtyMenu(null);');
+    CS();
+    mp.gui.chat.activate(true);
+}
+mp.events.add('cef:realty:close', realtyClose);
+mp.events.add('cef:realty:act', function (a, b, c, d, e) { mp.events.callRemote('srv:realty:act', String(a), String(b || ''), String(c || ''), String(d || ''), Number(e) || 0); });
+mp.events.add('cef:realty:gps', function () { mp.events.callRemote('srv:realty:gps'); });
+setInterval(function () {
+    if (realtyOpen && realtyPt) {
+        var pos = mp.players.local.position;
+        if (mp.game.system.vdist(pos.x, pos.y, pos.z, realtyPt.x, realtyPt.y, realtyPt.z) > 5) realtyClose();
+    }
+}, 1000);

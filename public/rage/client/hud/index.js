@@ -388,3 +388,21 @@ mp.events.add('spawn:hotel', function (x, y, z, n) {
 mp.events.add('hud:gm', function (on) { hudExec('window.hudGm && window.hudGm(' + (on ? 'true' : 'false') + ');'); });
 
 mp.events.add('hud:voice', function (json) { hudExec('window.hudVoice && window.hudVoice(' + json + ');'); });
+
+var truckDepotBlip = null;
+mp.events.add('truck:static', function (bx, by, bz, dx, dy, dz) {
+    if (truckDepotBlip) { try { truckDepotBlip.destroy(); } catch (e) {} }
+    try { truckDepotBlip = mp.blips.new(478, new mp.Vector3(dx, dy, dz), { dimension: 4294967295, name: 'Склад / терминал налива', color: 17, scale: 0.7, shortRange: true }); } catch (e) {}
+});
+mp.events.add('truck:attach', function (vid, tid) {
+    var tries = 0;
+    var t = setInterval(function () {
+        tries++;
+        var v = mp.vehicles.atRemoteId(Number(vid)), tr = mp.vehicles.atRemoteId(Number(tid));
+        if (v && tr && v.handle && tr.handle) {
+            try { v.attachToTrailer(tr.handle, 1.0); } catch (e) {}
+            try { if (v.isAttachedToTrailer()) { clearInterval(t); return; } } catch (e) {}
+        }
+        if (tries > 20) clearInterval(t);
+    }, 500);
+});

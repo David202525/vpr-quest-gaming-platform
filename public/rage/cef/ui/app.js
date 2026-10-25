@@ -477,9 +477,18 @@ function _renderApp() {
             b.onclick = function () { trig('cef:phone:bank', b.dataset.op, Number($('bSum').value), $('bTo').value); };
         });
     } else if (phApp === 'gps') {
-        var tabs = '<div class="row3" style="margin-bottom:10px"><button class="btn' + (gpsTab === 'places' ? '' : ' ghost') + '" data-gt="places">Места</button><button class="btn' + (gpsTab === 'homes' ? '' : ' ghost') + '" data-gt="homes">Жильё</button><button class="btn' + (gpsTab === 'jobs' ? '' : ' ghost') + '" data-gt="jobs">Работы</button></div>';
+        var GT = [['places', '📍 Места'], ['homes', '🏠 Жильё'], ['biz', '💼 Бизнесы'], ['jobs', '🛠 Работы']];
+        var tabs = '<div class="gps-tabs">' + GT.map(function (t) { return '<button class="gps-tab' + (gpsTab === t[0] ? ' on' : '') + '" data-gt="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
         if (gpsTab === 'homes') {
             phoneHomesTab(body, tabs);
+        } else if (gpsTab === 'biz') {
+            var BZ = DATA.biz;
+            if (!BZ) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:phone:biz'); }
+            else body.innerHTML = tabs + BZ.map(function (c) {
+                return '<div class="gps-sub">' + esc(c.n) + '</div>' + (c.items.length ? c.items.map(function (b) {
+                    return '<div class="gps-i" data-bz="' + c.k + '" data-id="' + b.id + '"><span>📍</span><span style="flex:1">' + esc(b.n) + '<small style="display:block;color:#888;font-size:11px">' + (b.own ? 'Владелец: ' + esc(b.own) : 'Государственный') + '</small></span><span style="color:#888;font-size:11px">' + (b.d > 1000 ? (b.d / 1000).toFixed(1) + ' км' : b.d + ' м') + '</span></div>';
+                }).join('') : '<div class="empty-t">Нет</div>');
+            }).join('');
         } else if (gpsTab === 'jobs') {
             var J = DATA.jobs;
             if (!J) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:job:phone'); }
@@ -493,11 +502,18 @@ function _renderApp() {
                     }).join('') + '<div class="empty-t" style="margin-top:6px">Всего заработано на работах: ' + money(J.total) + '</div>';
             }
         } else {
-            body.innerHTML = tabs + '<div class="empty-t" style="margin:6px 0 10px;text-align:left">Выберите место — метка появится на карте.</div>' +
-                p.gps.map(function (g, i) { return '<div class="gps-i" data-g="' + i + '"><span>📍</span><span>' + esc(g.n) + '</span></div>'; }).join('');
+            var groups = {};
+            p.gps.forEach(function (g, i) { var c = g.c || 'Места'; (groups[c] = groups[c] || []).push([g, i]); });
+            body.innerHTML = tabs + '<div class="empty-t" style="margin:6px 0 4px;text-align:left">Выберите место — метка появится на карте.</div>' +
+                '<div class="gps-sub">Услуги</div><div class="gps-i" data-rl="1"><span>🔑</span><span>Агентство недвижимости · аукционы</span></div>' +
+                Object.keys(groups).map(function (c) {
+                    return '<div class="gps-sub">' + esc(c) + '</div>' + groups[c].map(function (x) { return '<div class="gps-i" data-g="' + x[1] + '"><span>📍</span><span>' + esc(x[0].n) + '</span></div>'; }).join('');
+                }).join('');
         }
         body.querySelectorAll('[data-g]').forEach(function (el) { el.onclick = function () { trig('cef:phone:gps', Number(el.dataset.g)); }; });
-        body.querySelectorAll('[data-gt]').forEach(function (el) { el.onclick = function () { gpsTab = el.dataset.gt; if (gpsTab === 'jobs') { DATA.jobs = null; } if (gpsTab === 'homes') { DATA.houses = null; } renderApp(); }; });
+        body.querySelectorAll('[data-rl]').forEach(function (el) { el.onclick = function () { trig('cef:realty:gps'); }; });
+        body.querySelectorAll('[data-bz]').forEach(function (el) { el.onclick = function () { trig('cef:phone:bizgps', el.dataset.bz, Number(el.dataset.id)); }; });
+        body.querySelectorAll('[data-gt]').forEach(function (el) { el.onclick = function () { gpsTab = el.dataset.gt; if (gpsTab === 'jobs') { DATA.jobs = null; } if (gpsTab === 'homes') { DATA.houses = null; } if (gpsTab === 'biz') { DATA.biz = null; } renderApp(); }; });
         body.querySelectorAll('[data-hg]').forEach(function (el) { el.onclick = function () { trig('cef:house:gps', el.dataset.hg, Number(el.dataset.id)); }; });
         body.querySelectorAll('[data-jg]').forEach(function (el) { el.onclick = function () { trig('cef:job:gps', el.dataset.jg); }; });
         body.querySelectorAll('[data-jq]').forEach(function (el) { el.onclick = function () { trig('cef:job:quit'); setTimeout(function () { DATA.jobs = null; renderApp(); }, 400); }; });
@@ -1391,7 +1407,7 @@ window.houseMenu = function (json) {
                 var btns = '';
                 if (h.mine) btns = '<button class="btn" data-ha="enter" data-id="' + h.id + '">Войти</button><button class="btn ghost" data-ha="lock" data-id="' + h.id + '">' + (h.locked ? '🔒 Заперто' : '🔓 Открыто') + '</button><button class="btn ghost hm-sell" data-ha="sell" data-id="' + h.id + '">Продать за ' + money(h.price * 0.6) + '</button>';
                 else if (h.owner) btns = (h.locked ? '<button class="btn ghost" data-ha="knock" data-id="' + h.id + '">Постучать</button>' : '<button class="btn" data-ha="enter" data-id="' + h.id + '">Войти в гости</button>');
-                else btns = '<button class="btn' + (h.canBuy ? '' : ' ghost') + '" data-ha="buy" data-id="' + h.id + '"' + (h.canBuy ? '' : ' disabled') + '>' + (h.canBuy ? 'Купить за ' + money(h.price) : 'У вас уже есть жильё') + '</button>';
+                else btns = '<button class="btn ghost" disabled>' + (h.auction ? 'Выставлено на аукцион — в агентстве недвижимости' : 'Покупка — в агентстве недвижимости') + '</button>';
                 return '<div class="hm-c"><div class="hm-ct"><b>' + esc(h.n) + '</b>' + st + '</div><small>Интерьер: ' + esc(h.int) + ' · Цена ' + money(h.price) + '</small><div class="hm-b">' + btns + '</div></div>';
             }).join('') + '</div>';
     }
@@ -1415,12 +1431,10 @@ function phoneHomesTab(body, tabs) {
     var H = DATA.houses;
     if (!H) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:house:phone'); return; }
     var my = H.my ? '<div class="job-c"><div class="job-h"><span class="job-i">🏠</span><div><b>' + esc(H.my.n) + '</b><small>Ваше жильё · ' + esc(H.my.int) + '</small></div></div><button class="btn" data-hg="house" data-id="' + H.my.id + '">📍 Маршрут домой</button></div>'
-        : '<div class="empty-t" style="text-align:left;margin:4px 0 10px">У вас пока нет жилья. Свободные дома видны на мини-карте зелёным, когда вы рядом.</div>';
+        : '<div class="empty-t" style="text-align:left;margin:4px 0 10px">У вас пока нет жилья. Купить дом или квартиру можно в агентстве недвижимости.</div>';
     var ht = '<div class="job-c"><div class="job-h"><span class="job-i">🛏️</span><div><b>' + esc(H.hotel.n) + '</b><small>' + (H.hotel.left ? 'Номер оплачен ещё ' + H.hotel.left + ' дн.' : money(H.hotel.price) + ' / сутки') + '</small></div></div><button class="btn" data-hg="hotel" data-id="0">📍 Маршрут в гостиницу</button></div>';
     var fac = '<div class="gps-sub">Фракции</div>' + H.fac.map(function (f) { return '<div class="gps-i" data-hg="fac" data-id="' + f.i + '"><span>🏛️</span><span>' + esc(f.n) + '</span></div>'; }).join('');
-    var free = '<div class="gps-sub">Свободные дома рядом</div>' + (H.free.length ? H.free.map(function (h) {
-        return '<div class="gps-i" data-hg="house" data-id="' + h.id + '"><span>🟢</span><span style="flex:1">' + esc(h.n) + '<small style="display:block;color:#888;font-size:11px">' + esc(h.int) + ' · ' + money(h.price) + '</small></span><span style="color:#888;font-size:11px">' + (h.d > 1000 ? (h.d / 1000).toFixed(1) + ' км' : h.d + ' м') + '</span></div>';
-    }).join('') : '<div class="empty-t">Свободных домов нет</div>');
+    var free = '<div class="gps-sub">Купить жильё</div><div class="gps-i" data-rl="1"><span>🔑</span><span>Агентство недвижимости — продажа и аукционы</span></div>';
     body.innerHTML = tabs + my + ht + free + fac;
 }
 
@@ -1473,3 +1487,74 @@ window.govMenu = function (json) {
     box.querySelectorAll('[data-gc]').forEach(function (b) { b.onclick = function () { trig('cef:gov:car', b.dataset.gc); }; });
     box.querySelector('[data-gx]').onclick = function () { trig('cef:gov:close'); };
 };
+
+window.phoneBiz = function (json) {
+    DATA.biz = typeof json === 'string' ? JSON.parse(json) : json;
+    if (current === 'phone' && phApp === 'gps' && gpsTab === 'biz') renderApp();
+};
+
+/* ================= АГЕНТСТВО НЕДВИЖИМОСТИ ================= */
+var RL = { tab: 'buy', f: 'all', d: null };
+function rlLeft(ms) { var m = Math.ceil(ms / 60000); return m >= 60 ? Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : m + ' мин'; }
+window.realtyMenu = function (json) {
+    var box = document.getElementById('realtyMenu');
+    if (!json) { if (box) box.remove(); RL.d = null; return; }
+    RL.d = typeof json === 'string' ? JSON.parse(json) : json;
+    RL.d.at = Date.now();
+    if (!box) { box = document.createElement('div'); box.id = 'realtyMenu'; document.body.appendChild(box); }
+    rlRender();
+};
+function rlRender() {
+    var box = document.getElementById('realtyMenu'), d = RL.d;
+    if (!box || !d) return;
+    var T = [['buy', '🏠 Купить жильё'], ['auc', '🔨 Аукционы'], ['sell', '📤 Выставить']];
+    var html = '<div class="rl-h"><span class="hm-i">🔑</span><div><b>Агентство недвижимости</b><small>Наличные ' + money(d.money) + ' · Банк ' + money(d.bank) + '</small></div><button class="rl-x" data-rx="1">✕</button></div>' +
+        '<div class="gps-tabs">' + T.map(function (t) { return '<button class="gps-tab' + (RL.tab === t[0] ? ' on' : '') + '" data-rt="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+        (d.err ? '<div class="rl-msg err">' + esc(d.err) + '</div>' : '') + (d.ok ? '<div class="rl-msg ok">' + esc(d.ok) + '</div>' : '');
+    if (RL.tab === 'buy') {
+        var F = [['all', 'Все'], ['house', 'Дома'], ['flat', 'Квартиры']];
+        var list = d.free.filter(function (h) { return RL.f === 'all' || (RL.f === 'flat') === h.flat; });
+        html += '<div class="rl-f">' + F.map(function (f) { return '<button class="' + (RL.f === f[0] ? 'on' : '') + '" data-rf="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
+            (d.hasHome ? '<div class="rl-msg">У вас уже есть жильё — купить второе нельзя. Продайте текущее или выставьте его на аукцион.</div>' : '') +
+            '<div class="rl-list">' + (list.length ? list.map(function (h) {
+                return '<div class="rl-c"><div class="rl-ct"><b>' + (h.flat ? '🏢 ' : '🏠 ') + esc(h.n) + '</b><span class="rl-p">' + money(h.price) + '</span></div><small>' + esc(h.int) + ' · ' + (h.d > 1000 ? (h.d / 1000).toFixed(1) + ' км' : h.d + ' м') + ' от вас</small>' +
+                    '<div class="rl-b"><button class="btn ghost" data-rg="' + h.id + '">📍 Показать</button><button class="btn" data-rb="' + h.id + '"' + (d.hasHome ? ' disabled' : '') + '>Купить</button></div></div>';
+            }).join('') : '<div class="empty-t">Свободных объектов нет</div>') + '</div>';
+    } else if (RL.tab === 'auc') {
+        var el = Date.now() - d.at;
+        html += '<div class="rl-msg">Ставка списывается с банковского счёта и замораживается. Если вас перебьют — деньги сразу вернутся. Шаг ставки от ' + d.step + '%. Ставка в последние 2 минуты продлевает торги.</div>' +
+            '<div class="rl-list">' + (d.lots.length ? d.lots.map(function (l) {
+                var act = l.mine ? (l.bid ? '<div class="job-st">Ваш лот · ставок: ' + l.bids + '</div>' : '<button class="btn ghost" data-rc="' + l.id + '">Снять с торгов</button>')
+                    : l.lead ? '<div class="job-st" style="color:#8fd14f">Ваша ставка лидирует</div>'
+                    : '<div class="rl-bid"><input type="number" id="rlb' + l.id + '" value="' + l.min + '" min="' + l.min + '"><button class="btn" data-rbid="' + l.id + '">Ставка</button></div>';
+                return '<div class="rl-c"><div class="rl-ct"><b>' + l.i + ' ' + esc(l.n) + '</b><span class="rl-k">' + esc(l.kn) + '</span></div><small>' + esc(l.sub || '') + ' · продавец ' + esc(l.seller) + '</small>' +
+                    '<div class="rl-info"><span>' + (l.bid ? 'Ставка: <b>' + money(l.bid) + '</b> · ' + esc(l.bidder) : 'Старт: <b>' + money(l.start) + '</b>') + '</span><span>⏳ ' + rlLeft(Math.max(0, l.left - el)) + '</span></div>' + act + '</div>';
+            }).join('') : '<div class="empty-t">Сейчас нет активных аукционов</div>') + '</div>' +
+            (d.hist.length ? '<div class="gps-sub">Мои сделки</div>' + d.hist.map(function (h) { return '<div class="rl-hist">' + esc(h.n) + ' — ' + money(h.sum) + '</div>'; }).join('') : '');
+    } else {
+        html += '<div class="rl-msg">Выставьте своё имущество на аукцион. Агентство берёт ' + d.fee + '% с итоговой цены. Пока идут торги, объект нельзя продать государству.</div>' +
+            '<div class="rl-list">' + (d.mine.length ? d.mine.map(function (a, i) {
+                return '<div class="rl-c"><div class="rl-ct"><b>' + ({ house: '🏠', flat: '🏢', car: '🚗', biz: '💼' }[a.kind]) + ' ' + esc(a.n) + '</b></div><small>' + esc(a.sub) + '</small>' +
+                    (a.lock ? '<div class="job-st">Уже на аукционе</div>' :
+                    '<div class="rl-sell"><input type="number" id="rls' + i + '" placeholder="Стартовая цена, $" min="1000"><select id="rlh' + i + '">' + d.hours.map(function (h) { return '<option value="' + h + '">' + h + ' ч</option>'; }).join('') + '</select><button class="btn" data-rs="' + i + '">Выставить</button></div>') + '</div>';
+            }).join('') : '<div class="empty-t">У вас нет имущества для продажи</div>') + '</div>';
+    }
+    box.innerHTML = '<div class="rl-box">' + html + '</div>';
+    box.querySelectorAll('[data-rx]').forEach(function (b) { b.onclick = function () { trig('cef:realty:close'); }; });
+    box.querySelectorAll('[data-rt]').forEach(function (b) { b.onclick = function () { RL.tab = b.dataset.rt; d.err = d.ok = null; rlRender(); }; });
+    box.querySelectorAll('[data-rf]').forEach(function (b) { b.onclick = function () { RL.f = b.dataset.rf; rlRender(); }; });
+    box.querySelectorAll('[data-rg]').forEach(function (b) { b.onclick = function () { trig('cef:realty:act', 'gps', b.dataset.rg); }; });
+    box.querySelectorAll('[data-rb]').forEach(function (b) { b.onclick = function () { if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Подтвердить'; return; } trig('cef:realty:act', 'buy', b.dataset.rb); }; });
+    box.querySelectorAll('[data-rc]').forEach(function (b) { b.onclick = function () { trig('cef:realty:act', 'cancel', b.dataset.rc); }; });
+    box.querySelectorAll('[data-rbid]').forEach(function (b) { b.onclick = function () { var v = Number(document.getElementById('rlb' + b.dataset.rbid).value); trig('cef:realty:act', 'bid', b.dataset.rbid, String(v)); }; });
+    box.querySelectorAll('[data-rs]').forEach(function (b) {
+        b.onclick = function () {
+            var i = Number(b.dataset.rs), a = d.mine[i];
+            var st = Number(document.getElementById('rls' + i).value), hr = Number(document.getElementById('rlh' + i).value);
+            if (!(st >= 1000)) { d.err = 'Укажите стартовую цену от $1.000'; d.ok = null; return rlRender(); }
+            trig('cef:realty:act', 'list', a.kind, a.ref, String(st), hr);
+        };
+    });
+}
+setInterval(function () { if (RL.d && RL.tab === 'auc') { var a = document.activeElement; if (!a || a.tagName !== 'INPUT') rlRender(); } }, 15000);
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('realtyMenu')) trig('cef:realty:close'); });

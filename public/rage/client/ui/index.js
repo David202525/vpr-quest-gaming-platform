@@ -213,6 +213,9 @@ mp.events.add('cef:phone:sms', function (to, t) { mp.events.callRemote('srv:phon
 mp.events.add('cef:phone:contact', function (json) { mp.events.callRemote('srv:phone:contact', json); });
 mp.events.add('cef:phone:bank', function (op, sum, to) { mp.events.callRemote('srv:phone:bank', op, sum, to || ''); });
 mp.events.add('cef:phone:gps', function (i) { mp.events.callRemote('srv:phone:gps', i); });
+mp.events.add('cef:phone:biz', function () { mp.events.callRemote('srv:phone:biz'); });
+mp.events.add('cef:phone:bizgps', function (k, id) { mp.events.callRemote('srv:phone:bizgps', String(k), Number(id)); });
+mp.events.add('phone:biz', function (json) { uiExec('window.phoneBiz && window.phoneBiz(' + JSON.stringify(json) + ');'); });
 mp.events.add('cef:phone:refresh', function () { mp.events.callRemote('srv:phone:get'); });
 mp.events.add('cef:phone:camera', function () {
     closeUi();

@@ -116,15 +116,18 @@ function vipOf(d) { return d.vip && d.vip.until > Date.now() && VIPS[d.vip.t] ? 
 function vipMult(d) { const v = vipOf(d); return v ? VIPS[v.t].mult : 1; }
 
 const GPS = [
-    { n: 'Больница', x: 298.6, y: -584.4 },
-    { n: 'Полиция', x: 425.1, y: -979.5 },
-    { n: 'Аэропорт', x: -1037.0, y: -2737.0 },
-    { n: 'Автосалон', x: -56.5, y: -1096.6 },
-    { n: 'Мэрия', x: -544.8, y: -204.4 },
-    { n: 'Банк', x: 150.3, y: -1040.2 },
-    { n: 'Пляж', x: -1600.0, y: -1050.0 },
-    { n: 'Сэнди-Шорс', x: 1850.0, y: 3700.0 },
-    { n: 'Палето-Бэй', x: -200.0, y: 6300.0 }
+    { c: 'Госучреждения', n: 'Мэрия', x: -544.8, y: -204.4 },
+    { c: 'Госучреждения', n: 'Полиция (Mission Row)', x: 425.1, y: -979.5 },
+    { c: 'Госучреждения', n: 'Больница Pillbox', x: 298.6, y: -584.4 },
+    { c: 'Госучреждения', n: 'Лицензионный центр', x: 228.4, y: -805.6 },
+    { c: 'Госучреждения', n: 'Военная база Форт Занкудо', x: -2344.0, y: 3267.0 },
+    { c: 'Финансы', n: 'Центральный банк', x: 150.3, y: -1040.2 },
+    { c: 'Транспорт', n: 'Автосалон', x: -56.5, y: -1096.6 },
+    { c: 'Транспорт', n: 'Аэропорт LSIA', x: -1037.0, y: -2737.0 },
+    { c: 'Транспорт', n: 'Автовокзал', x: 433.6, y: -647.4 },
+    { c: 'Районы', n: 'Пляж Vespucci', x: -1600.0, y: -1050.0 },
+    { c: 'Районы', n: 'Сэнди-Шорс', x: 1850.0, y: 3700.0 },
+    { c: 'Районы', n: 'Палето-Бэй', x: -200.0, y: 6300.0 }
 ];
 
 function rj(f, d) { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return d; } }
@@ -930,7 +933,7 @@ function phonePayload(p) {
         contacts: d.contacts, sms: d.sms.slice(-150),
         online: mp.players.toArray().map(function (x) { return { id: x.id, name: x.name, number: data(x).phone }; }),
         calls: (d.calls || []).slice(-50), pbal: Math.floor(d.pbal === undefined ? 200 : d.pbal), tariff: global.PhoneSystem ? global.PhoneSystem.TARIFF : null, call: global.PhoneSystem ? global.PhoneSystem.state(p) : null,
-        gps: GPS.map(function (g) { return { n: g.n }; })
+        gps: GPS.map(function (g) { return { n: g.n, c: g.c || 'Места' }; })
     };
 }
 
@@ -1050,6 +1053,10 @@ mp.events.add('playerQuit', function (p) { p.uiReadySent = undefined; });
 if (!global.JobSystem) {
     try { require('./jobs.js'); } catch (e) { console.log('[ui] jobs.js не найден: ' + e.message); }
 }
+setTimeout(function () {
+    try { require('./trucker.js'); } catch (e) { console.log('[ui] trucker.js: ' + e.message); }
+    try { require('./realty.js'); } catch (e) { console.log('[ui] realty.js: ' + e.message); }
+}, 1500);
 if (!global.SocialSystem) {
     try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }
 }
@@ -1433,6 +1440,7 @@ mp.events.add('srv:atm:biz', async function (p, act, val) {
         return sendAtm(p, a, { ok: 'Комиссия: ' + f + '%' });
     }
     if (act === 'sell') {
+        if (global.Realty && global.Realty.locked('biz', 'atm:' + a.id)) return sendAtm(p, a, { err: 'Банкомат выставлен на аукцион' });
         const qt = sellQuote(a);
         a.owner = null; a.ownerName = null; a.balance = 0;
         await q('UPDATE atms SET owner_id = NULL, balance = 0 WHERE id = ?', [a.id]);
@@ -1771,8 +1779,8 @@ setInterval(function () {
 
 /* поставки: пока нет дальнобойщиков — их везёт «гос. логистика» через 6 минут */
 setInterval(async function () {
-    if (global.TruckerSystem && global.TruckerSystem.active) return;
-    const rows = await q("SELECT * FROM fuel_orders WHERE status = 'pending' AND created_at < (NOW() - INTERVAL 6 MINUTE) LIMIT 20");
+    const mins = global.TruckerSystem && global.TruckerSystem.active ? 20 : 6;
+    const rows = await q("SELECT * FROM fuel_orders WHERE status = 'pending' AND created_at < (NOW() - INTERVAL " + mins + " MINUTE) LIMIT 20");
     for (const r of rows) await deliverOrder(r.id, null);
 }, 60000);
 
@@ -2116,8 +2124,8 @@ setInterval(function () {
     });
 }, 10 * 60000);
 setInterval(async function () {
-    if (global.TruckerSystem && global.TruckerSystem.active) return;
-    const rows = await q("SELECT * FROM shop_orders WHERE status = 'pending' AND created_at < (NOW() - INTERVAL 6 MINUTE) LIMIT 20");
+    const mins = global.TruckerSystem && global.TruckerSystem.active ? 20 : 6;
+    const rows = await q("SELECT * FROM shop_orders WHERE status = 'pending' AND created_at < (NOW() - INTERVAL " + mins + " MINUTE) LIMIT 20");
     for (const r of rows) await deliverShopOrder(r.id, null);
 }, 60000);
 async function deliverShopOrder(orderId, driverAcc) {
@@ -2136,6 +2144,9 @@ async function deliverShopOrder(orderId, driverAcc) {
     return true;
 }
 global.ShopSystem = {
+    supply: function (id, n) { const sh = shopOf(id); if (!sh) return 0; const add = Math.max(0, Math.min(Math.floor(n), sh.max - sh.stock)); sh.stock += add; saveShop(sh, ['stock']); if (shopBlips[sh.id]) try { shopBlips[sh.id].color = SHOP_CFG[sh.kind].color; } catch (e) {} return add; },
+    takeOrder: async function (orderId, driverAcc) { const r = await q("UPDATE shop_orders SET status = 'taken', driver_id = ? WHERE id = ? AND status = 'pending'", [driverAcc, orderId]); return !!(r && r.affectedRows); },
+    untake: function (orderId) { return q("UPDATE shop_orders SET status = 'pending', driver_id = NULL WHERE id = ? AND status = 'taken'", [orderId]); },
     list: function () { return SHOPS; }, reload: loadShops, deliver: deliverShopOrder, CFG: SHOP_CFG,
     pendingOrders: function () { return q("SELECT o.*, s.name, s.kind, s.x, s.y, s.z FROM shop_orders o JOIN shops s ON s.id = o.shop_id WHERE o.status = 'pending' ORDER BY o.id"); },
     admin: async function (p, d) {
@@ -2312,6 +2323,7 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
         return reply({ ok: 'Заказ ' + l + ' л оформлен. Доставка до 6 минут' });
     }
     if (act === 'sell') {
+        if (global.Realty && global.Realty.locked('biz', kind + ':' + b.id)) return reply({ err: 'Бизнес выставлен на аукцион — продать государству нельзя' });
         const qt = sellQuote(b);
         b.owner = null; b.ownerName = null; b.balance = 0;
         await save(['owner', 'balance']);
@@ -2349,6 +2361,8 @@ mp.events.addCommand('mybiz', function (p) {
 });
 
 global.FuelSystem = {
+    supply: function (id, l) { const st = stationOf(id); if (!st) return 0; const add = Math.max(0, Math.min(Math.floor(l), st.max - st.stock)); st.stock += add; saveStation(st, ['stock']); if (stBlips[st.id]) try { stBlips[st.id].color = 1; } catch (e) {} return add; },
+    untake: function (orderId) { return q("UPDATE fuel_orders SET status = 'pending', driver_id = NULL WHERE id = ? AND status = 'taken'", [orderId]); },
     list: function () { return STATIONS; }, reload: loadStations, deliver: deliverOrder, WHOLESALE: WHOLESALE,
     pendingOrders: function () { return q("SELECT o.*, s.name, s.x, s.y, s.z FROM fuel_orders o JOIN fuel_stations s ON s.id = o.station_id WHERE o.status = 'pending' ORDER BY o.id"); },
     takeOrder: async function (orderId, driverAcc) { const r = await q("UPDATE fuel_orders SET status = 'taken', driver_id = ? WHERE id = ? AND status = 'pending'", [driverAcc, orderId]); return r && r.affectedRows > 0; },
@@ -2577,3 +2591,73 @@ setInterval(function () {
         notify(p, 'ok', 'Вам выданы все документы для просмотра. Меню M → «Ваши документы»');
     });
 }, 5000);
+
+
+/* ================= ДОП. API: уровень, деньги по id, бизнесы, карты ================= */
+global.UiSystem.lvlOf = function (p) { return Number(data(p).lvl) || 1; };
+global.MoneySystem.addBankId = function (id, n) {
+    id = Number(id); n = Math.floor(n);
+    if (!id || !n) return;
+    const p = mp.players.toArray().find(function (x) { return accId(x) === id; });
+    if (p) return setMB(p, getMoney(p), getBank(p) + n, 'realty');
+    if (MONEY[id]) MONEY[id].bank = Math.max(0, MONEY[id].bank + n);
+    q('UPDATE accounts SET bank = GREATEST(0, bank + ?) WHERE id = ?', [n, id]);
+};
+global.MoneySystem.tx = tx;
+global.MoneySystem.gov = govAdd;
+global.BizSystem = {
+    kinds: function () { return Object.keys(BIZ_KINDS); },
+    label: function (k) { return BIZ_KINDS[k] ? BIZ_KINDS[k].n : k; },
+    icon: function (k) { return BIZ_KINDS[k] ? BIZ_KINDS[k].i : '🏢'; },
+    get: function (k, id) { const K = BIZ_KINDS[k]; return K ? K.of(id) : null; },
+    mine: function (aid) {
+        const out = [];
+        Object.keys(BIZ_KINDS).forEach(function (k) { BIZ_KINDS[k].list().forEach(function (b) { if (b.owner && b.owner === Number(aid)) out.push({ kind: k, id: b.id, name: b.name, n: BIZ_KINDS[k].n, price: b.price }); }); });
+        return out;
+    },
+    transfer: function (k, id, toId, toName) {
+        const K = BIZ_KINDS[k], b = K && K.of(id);
+        if (!b) return -1;
+        const bal = Number(b.balance) || 0;
+        b.owner = Number(toId); b.ownerName = toName; b.balance = 0;
+        if (k === 'fuel') saveStation(b, ['owner', 'balance']);
+        else if (k === 'shop' || k === 'gun') saveShop(b, ['owner', 'balance']);
+        else q('UPDATE atms SET owner_id = ?, balance = 0 WHERE id = ?', [b.owner, b.id]);
+        bizLog(k, b.id, 'Передан через аукцион: ' + toName, 0);
+        return bal;
+    }
+};
+mp.events.add('srv:phone:biz', function (p) {
+    const pos = p.position;
+    const cats = [['fuel', '⛽ АЗС'], ['shop', '🛒 Магазины 24/7'], ['gun', '🔫 Оружейные'], ['atm', '🏧 Банкоматы']].map(function (c) {
+        const K = BIZ_KINDS[c[0]];
+        return { k: c[0], n: c[1], items: K.list().map(function (b) { const pt = K.pt(b); return { id: b.id, n: b.name, d: Math.round(Math.hypot(pos.x - pt.x, pos.y - pt.y)), own: b.ownerName || '' }; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 10) };
+    });
+    p.call('phone:biz', [JSON.stringify(cats)]);
+});
+mp.events.add('srv:phone:bizgps', function (p, k, id) {
+    const K = BIZ_KINDS[k], b = K && K.of(id);
+    if (!b) return;
+    const pt = K.pt(b);
+    p.call('phone:gps', [pt.x, pt.y, b.name]);
+});
+
+global.VehSystem = {
+    mine: async function (aid) { return q('SELECT id, model, plate FROM vehicles WHERE owner_id = ? ORDER BY id', [Number(aid)]); },
+    get: async function (id) { const r = await q('SELECT id, model, plate, owner_id FROM vehicles WHERE id = ? LIMIT 1', [Number(id)]); return r[0] || null; },
+    count: async function (aid) { const r = await q('SELECT COUNT(*) AS n FROM vehicles WHERE owner_id = ?', [Number(aid)]); return r[0] ? Number(r[0].n) : 0; },
+    transfer: async function (id, toId) {
+        id = Number(id);
+        const v = ownedVeh[id];
+        if (v && mp.vehicles.exists(v)) {
+            try { (v.getOccupants ? v.getOccupants() : []).forEach(function (x) { try { x.removeFromVehicle(); } catch (e) {} }); } catch (e) {}
+            saveVeh(v);
+            setTimeout(function () { if (mp.vehicles.exists(v)) v.destroy(); }, 300);
+        }
+        delete ownedVeh[id];
+        await q('UPDATE vehicles SET owner_id = ? WHERE id = ?', [Number(toId), id]);
+        const t = mp.players.toArray().find(function (x) { return accId(x) === Number(toId); });
+        if (t) { t.ownedLoaded = false; }
+        return true;
+    }
+};

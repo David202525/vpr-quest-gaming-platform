@@ -98,7 +98,7 @@ function menuFor(p, h) {
         title: group.length > 1 ? h.n.replace(/, кв\. \d+$/, '') : h.n,
         list: group.map(function (x) {
             const i = intOf(x.int);
-            return { id: x.id, n: x.n, int: i.n, price: x.price, owner: x.owner ? x.on : '', mine: x.owner === s, locked: x.locked, canBuy: !x.owner && !my };
+            return { id: x.id, n: x.n, int: i.n, price: x.price, owner: x.owner ? x.on : '', mine: x.owner === s, locked: x.locked, canBuy: false, agency: !x.owner, auction: !!(global.Realty && global.Realty.locked('house', x.id)) };
         }),
         money: M() ? M().get(p) : 0, bank: M() ? M().bank(p) : 0, hasHome: !!my
     };
@@ -121,23 +121,7 @@ mp.events.add('srv:house:act', function (p, act, id) {
     if (!near(p, h.x, h.y, h.z, 3)) return notify(p, 'warn', 'Подойдите к двери');
     const s = sid(p);
     const done = function () { p.call('house:menu', [JSON.stringify(menuFor(p, h))]); };
-    if (act === 'buy') {
-        if (h.owner) return notify(p, 'error', 'Дом уже куплен');
-        if (mine(p)) return notify(p, 'error', 'У вас уже есть жильё. Сначала продайте его');
-        if (global.UiSystem && global.UiSystem.hasDoc && !global.UiSystem.hasDoc(p, 'passport') && admLvl(p) < 1) return notify(p, 'error', 'Нужен паспорт. Оформите его в мэрии (паспортный стол)');
-        const m = M();
-        if (!m) return;
-        const cash = m.get(p), bank = m.bank(p);
-        if (cash + bank < h.price) return notify(p, 'error', 'Не хватает денег: нужно ' + money(h.price));
-        const fromBank = Math.max(0, h.price - cash);
-        m.set(p, cash - (h.price - fromBank), bank - fromBank, 'house-buy');
-        h.owner = s; h.on = nick(p); h.locked = true;
-        dirty = true;
-        notify(p, 'ok', 'Поздравляем! Вы купили: ' + h.n + ' за ' + money(h.price) + '. Теперь можно появляться дома при входе');
-        slog(p, 'buy', h.n + ' ' + h.price);
-        broadcastList();
-        return done();
-    }
+    if (act === 'buy') return notify(p, 'warn', 'Жильё продаётся только через риэлторское агентство (Карты → Места → Агентство недвижимости)');
     if (act === 'enter') {
         if (h.owner !== s && (h.locked || !h.owner)) return notify(p, 'warn', h.owner ? 'Дверь заперта' : 'Дом продаётся — сначала купите его');
         p.call('house:menuClose');
@@ -156,6 +140,7 @@ mp.events.add('srv:house:act', function (p, act, id) {
     }
     if (act === 'sell') {
         if (h.owner !== s) return;
+        if (global.Realty && global.Realty.locked('house', h.id)) return notify(p, 'error', 'Жильё выставлено на аукцион — продать государству нельзя');
         const back = Math.round(h.price * SELL_BACK);
         mp.players.forEach(function (x) { if (x.dimension === DIM_HOUSE + h.id) { x.dimension = 0; x.position = V(h.x, h.y, h.z); } });
         h.owner = 0; h.on = ''; h.locked = true; dirty = true;
@@ -225,12 +210,9 @@ mp.events.add('srv:fac:enter', function (p, i) {
 mp.events.add('srv:house:phone', function (p) {
     const my = mine(p), pos = p.position, r = hotelDoor();
     const S = global.SpawnSystem;
-    const free = D.houses.filter(function (h) { return !h.owner; }).map(function (h) { return { id: h.id, n: h.n, price: h.price, int: intOf(h.int).n, d: Math.round(Math.hypot(pos.x - h.x, pos.y - h.y)) }; })
-        .sort(function (a, b) { return a.d - b.d; }).slice(0, 25);
     p.call('house:phone', [JSON.stringify({
         my: my ? { id: my.id, n: my.n, int: intOf(my.int).n, price: my.price, locked: my.locked } : null,
         hotel: { n: r.n, left: S && S.hotelLeft ? Math.ceil(S.hotelLeft(p) / 86400000) : 0, price: S && S.HOTEL_DAY || 150 },
-        free: free,
         fac: FAC_INT.map(function (f, i) { return { i: i, n: facInt(i).n }; })
     })]);
 });
@@ -300,6 +282,38 @@ global.HouseSystem = {
     byOwner: function (id) { const h = D.houses.find(function (x) { return x.owner === Number(id); }); return h ? h.n : null; },
     mine: mine,
     facDim: function (k) { const i = FAC_INT.findIndex(function (f) { return f.k === k; }); return i < 0 ? -1 : facInt(i).dim; },
-    refresh: sendList
+    refresh: sendList,
+    byId: byId,
+    intName: function (k) { return intOf(k).n; },
+    free: function () { return D.houses.filter(function (h) { return !h.owner; }); },
+    buyState: function (p, id) {
+        const h = byId(id);
+        if (!h) return 'Объект не найден';
+        if (h.owner) return 'Объект уже продан';
+        if (global.Realty && global.Realty.locked('house', h.id)) return 'Объект выставлен на аукцион';
+        if (mine(p)) return 'У вас уже есть жильё. Сначала продайте его';
+        if (global.UiSystem && global.UiSystem.hasDoc && !global.UiSystem.hasDoc(p, 'passport') && admLvl(p) < 1) return 'Нужен паспорт. Оформите его в мэрии (паспортный стол)';
+        const m = M();
+        if (!m) return 'Ошибка';
+        const cash = m.get(p), bank = m.bank(p);
+        if (cash + bank < h.price) return 'Не хватает денег: нужно ' + money(h.price);
+        const fromBank = Math.max(0, h.price - cash);
+        m.set(p, cash - (h.price - fromBank), bank - fromBank, 'house-buy');
+        if (m.gov) m.gov(h.price, 'Продажа жилья: ' + h.n);
+        h.owner = sid(p); h.on = nick(p); h.locked = true;
+        dirty = true;
+        slog(p, 'buy', h.n + ' ' + h.price);
+        broadcastList();
+        return null;
+    },
+    transfer: function (id, toId, toName) {
+        const h = byId(id);
+        if (!h) return false;
+        mp.players.forEach(function (x) { if (x.dimension === DIM_HOUSE + h.id) { x.dimension = 0; x.position = V(h.x, h.y, h.z); } });
+        if (toId) { h.owner = Number(toId); h.on = toName; } else { h.owner = 0; h.on = ''; }
+        h.locked = true; dirty = true;
+        broadcastList();
+        return true;
+    }
 };
 console.log('[houses] домов: ' + D.houses.length + ', интерьеров фракций: ' + FAC_INT.length);
