@@ -101,11 +101,11 @@ mp.keys.bind(0x1B, false, function () { if (tabOpen) tabShow(false); else if (gM
 /* отслеживание: примерная зона */
 mp.events.add('gov:track', function (x, y, r, name) {
     if (trackBlip) { try { trackBlip.destroy(); } catch (e) {} }
-    clearTimeout(trackT);
+    if (trackT) { try { clearTimeout(trackT); } catch (e) {} trackT = null; }
     trackBlip = mp.blips.new(9, new mp.Vector3(x, y, 0), { dimension: 4294967295, radius: r, color: 1, alpha: 110, name: 'Сигнал: ' + name, shortRange: false });
     try { trackBlip.setFlashes(true); } catch (e) {}
     mp.game.ui.setNewWaypoint(x, y);
-    trackT = setTimeout(function () { if (trackBlip) { try { trackBlip.destroy(); } catch (e) {} trackBlip = null; } }, 90000);
+    trackT = setTimeout(function () { trackT = null; if (trackBlip) { try { trackBlip.destroy(); } catch (e) {} trackBlip = null; } }, 90000);
     if (tabOpen) tabShow(false);
 });
 mp.events.add('gov:tabToast', function (t, ok) { if (tabBrowser && tabOpen) tabBrowser.execute('window.tabToast && window.tabToast(' + JSON.stringify(t) + ',' + (Number(ok) ? 'true' : 'false') + ');'); else mp.events.call('hud:notify', Number(ok) ? 'ok' : 'error', t, 4000); });
