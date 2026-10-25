@@ -177,3 +177,30 @@ mp.events.add('gov:tazed', function (ms) {
         setTimeout(function () { try { mp.game.graphics.stopScreenEffect('DrugsDrivingIn'); } catch (e) {} try { mp.game.invoke('0x068E835A1D0DC0E3', 'DrugsDrivingIn'); } catch (e) {} }, ms);
     }, 350);
 });
+
+var gClerk = null, gClerkNear = false, gClerkHint = false;
+mp.events.add('gov:clerk', function (j) { try { gClerk = JSON.parse(j); } catch (e) { gClerk = null; } });
+setInterval(function () {
+    var me = mp.players.local, n = false;
+    if (gClerk && me.dimension === gClerk.d && !me.vehicle) {
+        var c = gClerk.p, pos = me.position;
+        n = mp.game.system.vdist(pos.x, pos.y, pos.z, c[0], c[1], c[2]) < 2.3;
+    }
+    if (n && !gClerkHint) mp.events.call('hud:notify', 'ok', 'E — паспортный стол', 2500);
+    gClerkHint = n; gClerkNear = n;
+}, 400);
+mp.events.add('render', function () {
+    var me = mp.players.local;
+    if (!gClerk || me.dimension !== gClerk.d) return;
+    var c = gClerk.p;
+    mp.game.graphics.drawText('Паспортный стол', [c[0], c[1], c[2] + 1.15], { font: 4, color: [255, 215, 120, 235], scale: [0.4, 0.4], outline: true, centre: true });
+});
+mp.keys.bind(0x45, false, function () {
+    if (!gClerkNear || gBusy() || gMenuOpen || tabOpen) return;
+    mp.events.callRemote('srv:gov:passport');
+});
+mp.events.add('gov:passWait', function (ms) {
+    var me = mp.players.local;
+    try { me.freezePosition(true); } catch (e) {}
+    setTimeout(function () { try { me.freezePosition(false); } catch (e) {} }, ms);
+});

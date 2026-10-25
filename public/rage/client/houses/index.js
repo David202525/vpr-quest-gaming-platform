@@ -21,6 +21,7 @@ mp.events.add('house:list', function (json) {
 });
 mp.events.add('house:static', function (json) {
     try { HS = JSON.parse(json) || HS; } catch (e) {}
+    ['ex_dt1_11_office_01b', 'ex_dt1_11_office_01c', 'ex_dt1_11_office_02a', 'ex_dt1_11_office_02b', 'ex_dt1_11_office_02c', 'ex_dt1_11_office_03a', 'ex_dt1_11_office_03b', 'ex_dt1_11_office_03c'].forEach(function (n) { try { mp.game.streaming.removeIpl(n); } catch (e) {} });
     (HS.fac || []).forEach(function (f) { if (f[8]) try { mp.game.streaming.requestIpl(f[8]); } catch (e) {} });
 });
 mp.events.add('spawn:hotel', function (x, y, z, n) { hotel = { x: x, y: y, z: z, n: n }; });

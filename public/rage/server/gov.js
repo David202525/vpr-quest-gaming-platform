@@ -1199,3 +1199,56 @@ mp.events.add('srv:gov:taze', function (p, tid) {
     notify(p, 'ok', nick(t) + ' вытащен из машины');
 });
 mp.events.add('playerQuit', function (p) { delete tzAt[p.id]; });
+
+/* ================= МЭРИЯ: ПАСПОРТНЫЙ СТОЛ ================= */
+const PASS_FEE = 100, PASS_REPLACE = 500;
+function clerkPos() { const x = G.fac.gov; return (x && x.points && x.points.clerk) || [-75.85, -823.2, 243.39, 180]; }
+function cityDim() { return global.HouseSystem && global.HouseSystem.facDim ? global.HouseSystem.facDim('gov') : -1; }
+let clerkPed = null;
+function spawnClerk() {
+    try { if (clerkPed && mp.peds.exists(clerkPed)) clerkPed.destroy(); } catch (e) {}
+    const c = clerkPos(), d = cityDim();
+    if (d < 0) return;
+    try { clerkPed = mp.peds.new(mp.joaat('a_f_y_business_02'), V(c[0], c[1], c[2]), { dynamic: false, frozen: true, invincible: true, heading: c[3] || 0, dimension: d }); } catch (e) { clerkPed = null; }
+}
+function sendClerk(p) { p.call('gov:clerk', [JSON.stringify({ p: clerkPos(), d: cityDim() })]); }
+setTimeout(function () { spawnClerk(); mp.players.forEach(sendClerk); }, 5000);
+mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendClerk(p); }, 5000); });
+
+const passWait = {}, passAsk = {};
+mp.events.add('srv:gov:passport', function (p) {
+    const c = clerkPos();
+    if (!p.account || p.dimension !== cityDim() || !near(p, c, 2.5)) return;
+    if (passWait[p.id]) return notify(p, 'warn', 'Документы уже оформляются, подождите');
+    const has = U() && U().hasDoc && U().hasDoc(p, 'passport');
+    const fee = has ? PASS_REPLACE : PASS_FEE;
+    const MS = global.MoneySystem;
+    if (!passAsk[p.id] || Date.now() - passAsk[p.id] > 10000) {
+        passAsk[p.id] = Date.now();
+        return notify(p, 'ok', (has ? 'Замена паспорта' : 'Оформление паспорта') + ': госпошлина $' + fee + ' наличными. Нажмите E ещё раз для подтверждения');
+    }
+    delete passAsk[p.id];
+    if (!MS || MS.get(p) < fee) return notify(p, 'error', 'Недостаточно наличных: нужно $' + fee);
+    MS.add(p, -fee);
+    passWait[p.id] = true;
+    p.call('gov:passWait', [5000]);
+    notify(p, 'ok', 'Сотрудник мэрии оформляет ваш паспорт...');
+    setTimeout(function () {
+        delete passWait[p.id];
+        if (!mp.players.exists(p)) return;
+        if (U() && U().giveDoc) U().giveDoc(p, 'passport', null, 'Мэрия Лос-Сантоса');
+        if (global.GovSystem && global.GovSystem.add) try { global.GovSystem.add(fee, 'Госпошлина за паспорт: ' + nick(p)); } catch (e) {}
+        notify(p, 'ok', has ? 'Паспорт заменён. Старый аннулирован' : 'Поздравляем! Вы получили паспорт гражданина. Посмотреть — /docs');
+    }, 5000);
+});
+mp.events.add('playerQuit', function (p) { delete passWait[p.id]; delete passAsk[p.id]; });
+mp.events.addCommand('govclerk', function (p) {
+    if (admLvl(p) < 7) return;
+    if (p.dimension !== cityDim()) return p.outputChatBox('!{#ffcc66}Зайдите в мэрию и встаньте на место сотрудника паспортного стола');
+    const x = F('gov');
+    if (!x.points) x.points = { spawns: [] };
+    x.points.clerk = [p.position.x, p.position.y, p.position.z, p.heading || 0];
+    mark();
+    spawnClerk(); mp.players.forEach(sendClerk);
+    p.outputChatBox('!{#8fd14f}Место сотрудника паспортного стола сохранено. Отойдите — NPC появится здесь');
+});

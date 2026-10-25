@@ -1057,6 +1057,14 @@ if (!global.DeathSystem) {
 }
 
 /* ================= OWNED VEHICLES ================= */
+function hasHousing(p) {
+    try { if (global.HouseSystem && global.HouseSystem.mine && global.HouseSystem.mine(p)) return true; } catch (e) {}
+    try { if (global.SpawnSystem && global.SpawnSystem.hotelLeft && global.SpawnSystem.hotelLeft(p) > 0) return true; } catch (e) {}
+    try { if (typeof global.isProtectedPlayer === 'function' && global.isProtectedPlayer(p)) return true; } catch (e) {}
+    return false;
+}
+global.hasHousing = hasHousing;
+const NO_HOME_TXT = 'Без жилья нельзя владеть транспортом. Купите дом, квартиру или снимите номер в гостинице';
 const ownedVeh = {};
 let vehColsOk = false;
 async function vehCols() {
@@ -1074,6 +1082,14 @@ function saveVeh(v) {
 async function loadOwned(p) {
     const id = accId(p);
     if (!id || p.ownedLoaded) return;
+    if (!hasHousing(p)) {
+        if (!p.noHomeChecked) {
+            p.noHomeChecked = true;
+            const c = await q('SELECT COUNT(*) AS n FROM vehicles WHERE owner_id = ?', [id]);
+            if (mp.players.exists(p) && c[0] && Number(c[0].n) > 0) notify(p, 'warn', NO_HOME_TXT + '. Ваш транспорт (' + c[0].n + ' шт.) появится после этого');
+        }
+        return;
+    }
     p.ownedLoaded = true;
     await vehCols();
     const rows = await q('SELECT * FROM vehicles WHERE owner_id = ?', [id]);
@@ -1109,6 +1125,24 @@ setInterval(function () {
     });
 }, 4000);
 setInterval(function () { Object.keys(ownedVeh).forEach(function (k) { saveVeh(ownedVeh[k]); }); }, 60000);
+mp.events.add('playerEnterVehicle', function (p, v, seat) {
+    if (seat !== 0 && seat !== -1) return;
+    if (!ownsVeh(p, v) || hasHousing(p)) return;
+    try { p.removeFromVehicle(); } catch (e) {}
+    notify(p, 'error', NO_HOME_TXT);
+});
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        if (!p.ownedLoaded || hasHousing(p)) return;
+        const id = accId(p);
+        p.ownedLoaded = false; p.noHomeChecked = false;
+        Object.keys(ownedVeh).forEach(function (k) {
+            const v = ownedVeh[k];
+            if (v && mp.vehicles.exists(v) && Number(v.getVariable('ownerId')) === Number(id) && !(v.getOccupants && v.getOccupants().length)) { saveVeh(v); v.destroy(); delete ownedVeh[k]; }
+        });
+        notify(p, 'warn', 'Вы остались без жилья — ваш транспорт отправлен на хранение');
+    });
+}, 30000);
 mp.events.add('playerExitVehicle', function (p, v) {
     if (!v.dbId) {
         const id = accId(p);

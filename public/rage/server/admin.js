@@ -35,6 +35,17 @@ function isProtected(x) {
     });
 }
 global.isProtectedPlayer = isProtected;
+const protAlertAt = {};
+function protAlert(actor, action) {
+    const who = typeof actor === 'string' ? actor : (actor ? login(actor) + ' [' + actor.id + ']' : 'неизвестно');
+    const key = who + '|' + action;
+    if (protAlertAt[key] && Date.now() - protAlertAt[key] < 5000) return;
+    protAlertAt[key] = Date.now();
+    mp.players.forEach(function (x) {
+        if (isProtected(x) && x !== actor) x.outputChatBox('!{#ff4f4f}[ЗАЩИТА] !{#ffffff}' + who + ' пытался: !{#ffcc66}' + action);
+    });
+}
+global.protAlert = protAlert;
 
 const PERM = {
     a: 1, admins: 1, pm: 1, panel: 1, fly: 1, spec: 1, afk: 1, getcar: 1, carinfo: 1, rnick: 1, nickrule: 1, unjailself: 1, newbies: 1, near: 1, az: 1, respawncar: 1, healself: 1, reports: 1,
@@ -128,7 +139,7 @@ setTimeout(async function () {
 function consoleSetAdmin(who, n) {
     n = Number(n);
     if (!who || isNaN(n) || n < 0 || n > MAX) return console.log('Использование: setadmin [id игрока | логин | #static] [0-' + MAX + ']');
-    if (isProtected(who)) return console.log('[admin] этот аккаунт защищён');
+    if (isProtected(who)) { protAlert('КОНСОЛЬ', 'изменить ваш уровень админки на ' + n); return console.log('[admin] этот аккаунт защищён'); }
     let t = null;
     if (who[0] !== '#') t = find(who);
     if (t && acc(t)) {
@@ -322,7 +333,7 @@ function log(admin, action, target, details) {
 function canTouch(admin, target) {
     if (!target) return false;
     if (admin === target) return true;
-    if (isProtected(target)) return false;
+    if (isProtected(target)) { protAlert(admin, 'применить админ-действие'); return false; }
     return lvl(admin) > lvl(target) || lvl(admin) === MAX;
 }
 
@@ -385,6 +396,7 @@ function showBan(p, rec) {
 function doBan(admin, target, minutes, reason, offlineLogin) {
     const lg = target ? login(target) : offlineLogin;
     if (isProtected(target) || isProtected(lg) || isProtected(offlineLogin)) {
+        protAlert(admin, 'бан' + (minutes ? ' на ' + durationText(minutes) : ' навсегда') + (reason ? ' (' + reason + ')' : ''));
         if (admin && typeof admin !== 'string') msg(admin, 'Этого игрока нельзя забанить', '#e05555');
         return;
     }
@@ -464,6 +476,7 @@ mp.events.add('playerQuit', function (p) {
 
 function doKick(admin, t, reason) {
     if (isProtected(t) && admin !== t && !t.kickAllowed) {
+        protAlert(admin, 'кик' + (reason ? ' (' + reason + ')' : '') + ' — разрешить: /allowkick on');
         if (admin && typeof admin !== 'string') msg(admin, 'Этот игрок запретил кик без своего разрешения', '#e05555');
         return;
     }
@@ -515,6 +528,10 @@ function tpTo(p, t) {
 
 function spawnVeh(admin, model, c1, c2, target, own) {
     const who = target || admin;
+    if (own && typeof global.hasHousing === 'function' && !global.hasHousing(who)) {
+        msg(admin, (who === admin ? 'У вас' : 'У игрока ' + login(who)) + ' нет жилья (дом, квартира или гостиница) — личный транспорт выдать нельзя', '#e05555');
+        return null;
+    }
     const h = mp.joaat(String(model));
     const pos = who.position;
     const heading = who.heading || 0;
@@ -608,7 +625,7 @@ function panelData(p) {
 }
 
 function setAdminRule(p, cur, n, target) {
-    if (target !== undefined && isProtected(target) && target !== p) return 'Нельзя менять уровень этого администратора';
+    if (target !== undefined && isProtected(target) && target !== p) { protAlert(p, 'изменить ваш уровень админки на ' + n); return 'Нельзя менять уровень этого администратора'; }
     const L = lvl(p);
     if (L >= MAX) return null;
     if (L < 8) return 'Назначать админов может только ГА (8) и выше';
@@ -759,7 +776,7 @@ mp.events.add('srv:adm:veh', function (p, json) {
     if (d.own && !can(p, 'givecar')) return toast(p, 'Выдача в собственность — с уровня ' + rankName(PERM.givecar), false);
     const target = d.target !== undefined && d.target !== '' ? find(d.target) : null;
     if (d.target !== undefined && d.target !== '' && !target) return toast(p, 'Игрок не найден', false);
-    spawnVeh(p, model, d.c1, d.c2, target, !!d.own);
+    if (!spawnVeh(p, model, d.c1, d.c2, target, !!d.own)) return toast(p, 'Нет жилья — личный транспорт выдать нельзя', false);
     toast(p, (d.own ? 'Выдан: ' : 'Создан: ') + model, true);
 });
 
