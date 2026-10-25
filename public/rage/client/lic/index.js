@@ -20,21 +20,23 @@ function lGround(x, y, z) {
     return z;
 }
 function lNode(pt) {
-    var x = pt[0], y = pt[1], z = pt[2], best = null, bd = 80;
+    var x = pt[0], y = pt[1], z = pt[2];
     try { mp.game.pathfind.loadAllPathNodes(true); } catch (e) {}
-    var tries = [
-        function () { return mp.game.pathfind.getClosestVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), 0, 3.0, 0); },
-        function () { return mp.game.pathfind.getClosestMajorVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), 3.0, 0); },
-        function () { return mp.game.pathfind.getClosestVehicleNode(x, y, z, 0, 3.0, 0); },
-        function () { return mp.game.pathfind.getClosestVehicleNodeWithHeading(x, y, z, new mp.Vector3(0, 0, 0), 0, 1, 3.0, 0); }
-    ];
-    for (var k = 0; k < tries.length; k++) {
-        var v = null;
-        try { v = lVec(tries[k]()); } catch (e) {}
-        if (!v) continue;
-        var d = Math.hypot(v.x - x, v.y - y);
-        if (d < bd) { bd = d; best = v; }
-    }
+    var major = [], any = [];
+    var add = function (list, fn) { try { var v = lVec(fn()); if (v) list.push(v); } catch (e) {} };
+    add(major, function () { return mp.game.pathfind.getClosestMajorVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), 3.0, 0); });
+    add(major, function () { return mp.game.pathfind.getClosestVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), 1, 3.0, 0); });
+    add(any, function () { return mp.game.pathfind.getClosestVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), 0, 3.0, 0); });
+    add(any, function () { return mp.game.pathfind.getClosestVehicleNodeWithHeading(x, y, z, new mp.Vector3(0, 0, 0), 0, 1, 3.0, 0); });
+    var pick = function (list, maxD) {
+        var best = null, bd = maxD;
+        list.forEach(function (v) {
+            var d = Math.hypot(v.x - x, v.y - y) + Math.abs((v.z || z) - z) * 2;
+            if (d < bd) { bd = d; best = v; }
+        });
+        return best;
+    };
+    var best = pick(major, 90) || pick(any, 90);
     if (!best) return null;
     return [best.x, best.y, lGround(best.x, best.y, best.z || z)];
 }
