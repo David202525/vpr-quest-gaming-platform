@@ -92,6 +92,7 @@ mp.events.addCommand('exam', function (p, full) {
     const t = mp.players.at(Number(a[0])), cat = String(a[1] || '').toUpperCase();
     if (!t || !CAT[cat]) return p.outputChatBox('!{#ffcc66}/exam [id] [B/C/D] — сядьте на пассажирское место учебной машины, ученик рядом. /examstop — прервать');
     if (t === p || !t.account) return notify(p, 'warn', 'Нельзя');
+    if (U() && U().hasDoc && !U().hasDoc(t, 'passport')) { notify(t, 'error', 'Нужен паспорт. Оформите его в мэрии (паспортный стол)'); return notify(p, 'warn', 'У ученика нет паспорта — экзамен невозможен'); }
     if (examBy(p)) return notify(p, 'warn', 'У вас уже идёт экзамен');
     if (examOf(t)) return notify(p, 'warn', 'Этот игрок уже сдаёт экзамен');
     const v = p.vehicle;

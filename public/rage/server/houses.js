@@ -124,6 +124,7 @@ mp.events.add('srv:house:act', function (p, act, id) {
     if (act === 'buy') {
         if (h.owner) return notify(p, 'error', 'Дом уже куплен');
         if (mine(p)) return notify(p, 'error', 'У вас уже есть жильё. Сначала продайте его');
+        if (global.UiSystem && global.UiSystem.hasDoc && !global.UiSystem.hasDoc(p, 'passport') && admLvl(p) < 1) return notify(p, 'error', 'Нужен паспорт. Оформите его в мэрии (паспортный стол)');
         const m = M();
         if (!m) return;
         const cash = m.get(p), bank = m.bank(p);

@@ -504,6 +504,7 @@ function useItem(p, r) {
             if (dd < bd) { bd = dd; best = v; }
         });
         if (!best) return notify(p, 'error', 'Рядом нет машины');
+        if (isAir(best)) return notify(p, 'error', 'Канистра не подходит для авиатехники');
         const f = fuelOf(best);
         if (f >= FUEL_MAX) return notify(p, 'warn', 'Бак и так полный');
         setFuel(best, f + it.v);
@@ -1793,8 +1794,117 @@ async function deliverOrder(orderId, driverAcc) {
     return true;
 }
 
+/* ---------- авиа и военные заправки ---------- */
+const AIR_MODELS = ['buzzard', 'buzzard2', 'frogger', 'frogger2', 'maverick', 'polmav', 'swift', 'swift2', 'supervolito', 'supervolito2', 'volatus', 'annihilator', 'annihilator2', 'cargobob', 'cargobob2', 'cargobob3', 'cargobob4', 'valkyrie', 'valkyrie2', 'savage', 'hunter', 'akula', 'havok', 'seasparrow', 'seasparrow2', 'seasparrow3', 'conada', 'skylift', 'sparrow',
+    'cuban800', 'duster', 'mammatus', 'velum', 'velum2', 'dodo', 'luxor', 'luxor2', 'shamal', 'nimbus', 'vestra', 'miljet', 'besra', 'lazer', 'hydra', 'titan', 'cargoplane', 'jet', 'stunt', 'mogul', 'molotok', 'nokota', 'pyro', 'rogue', 'starling', 'seabreeze', 'tula', 'howard', 'alphaz1', 'microlight', 'bombushka', 'volatol', 'avenger', 'avenger2', 'strikeforce', 'blimp', 'blimp2', 'blimp3', 'alkonost', 'streamer216', 'raiju', 'avenger3', 'avenger4'];
+const AIR_H = {};
+AIR_MODELS.forEach(function (m) { AIR_H[mp.joaat(m) >>> 0] = m; });
+function isAir(v) { return !!AIR_H[Number(v.model) >>> 0]; }
+function isArmyVeh(v) { return v.getVariable('gov') === 'army' || v.getVariable('faction') === 'army'; }
+const PAD_FILE = path.join(__dirname, 'fuel_pads.json');
+const PAD_DEF = [
+    { t: 'air', n: 'Аэропорт LSIA · ангары', x: -1247.0, y: -3358.0, z: 13.9, r: 30 },
+    { t: 'air', n: 'Аэропорт LSIA · вертолётные площадки', x: -1112.0, y: -2884.0, z: 13.9, r: 20 },
+    { t: 'air', n: 'Аэродром Sandy Shores', x: 1735.0, y: 3295.0, z: 41.1, r: 30 },
+    { t: 'air', n: 'Аэродром McKenzie (Grapeseed)', x: 2134.0, y: 4783.0, z: 40.9, r: 30 },
+    { t: 'air', n: 'Вертодром Vespucci', x: -724.6, y: -1444.0, z: 5.0, r: 20 },
+    { t: 'air', n: 'Крыша больницы Pillbox', x: 351.6, y: -588.0, z: 74.2, r: 12 },
+    { t: 'air', n: 'Крыша LSPD Mission Row', x: 449.4, y: -981.2, z: 43.7, r: 12 },
+    { t: 'army', n: 'Форт Занкудо · автопарк', x: -2160.0, y: 3235.0, z: 32.8, r: 15 },
+    { t: 'army', n: 'Форт Занкудо · вертолётные площадки', x: -1877.0, y: 2805.0, z: 32.8, r: 25 },
+    { t: 'army', n: 'Форт Занкудо · ангары авиации', x: -2022.0, y: 2856.0, z: 32.8, r: 35 }
+];
+let PADS = (function () { try { const j = JSON.parse(fs.readFileSync(PAD_FILE, 'utf8')); return Array.isArray(j) && j.length ? j : null; } catch (e) { return null; } })() || PAD_DEF.slice();
+function savePads() { try { fs.writeFileSync(PAD_FILE, JSON.stringify(PADS)); } catch (e) {} }
+const KEROSENE = { k: 'kero', n: 'Авиакеросин', price: 5, c: '#9b6bff' };
+function padNear(pos) {
+    let best = null, bd = 1e9;
+    PADS.forEach(function (pd) { const d = Math.hypot(pos.x - pd.x, pos.y - pd.y); if (d <= (pd.r || 15) && Math.abs(pos.z - pd.z) < 15 && d < bd) { bd = d; best = pd; } });
+    return best;
+}
+function sendPads(p) { p.call('fuel:pads', [JSON.stringify(PADS.map(function (x) { return [x.t, x.x, x.y, x.z, x.n, x.r || 15]; }))]); }
+mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendPads(p); }, 5000); });
+setTimeout(function () { mp.players.forEach(sendPads); }, 4000);
+function padRule(p, v, pd) {
+    const army = isArmyVeh(v), air = isAir(v);
+    if (pd.t === 'army') {
+        if (!army) return 'Военная заправка — только для военной техники';
+        return null;
+    }
+    if (army) return 'Военная техника заправляется только на военной базе (Форт Занкудо) — бесплатно';
+    if (!air) return 'Это авиазаправка. Наземный транспорт заправляется на обычных АЗС';
+    return null;
+}
+mp.events.add('srv:afuel:open', function (p) {
+    const v = p.vehicle;
+    if (!v || (p.seat !== 0 && p.seat !== -1)) return;
+    const pd = padNear(v.position);
+    if (!pd) return notify(p, 'error', 'Рядом нет авиа- или военной заправки');
+    const why = padRule(p, v, pd);
+    if (why) return notify(p, 'error', why);
+    const free = pd.t === 'army';
+    p.afPad = pd;
+    p.call('ui:fuelOpen');
+    setTimeout(function () {
+        if (!mp.players.exists(p) || !p.vehicle) return;
+        p.call('ui:data', ['fuel', JSON.stringify({
+            fuel: Math.floor(fuelOf(v)), max: FUEL_MAX, money: getMoney(p), bank: getBank(p), cur: free ? 'mil' : 'kero',
+            station: { name: pd.n, stock: null, owner: free ? 'Министерство обороны · бесплатно' : 'Авиазаправка' },
+            types: [free ? { k: 'mil', n: 'Военное топливо', price: 0, c: '#6b8f3f' } : { k: 'kero', n: KEROSENE.n, price: KEROSENE.price, c: KEROSENE.c }]
+        })]);
+    }, 250);
+});
+function padBuy(p, v, pd, liters, pay) {
+    const why = padRule(p, v, pd);
+    if (why) return notify(p, 'error', why);
+    const free = pd.t === 'army';
+    const f = fuelOf(v);
+    const l = Math.min(Math.floor(Number(liters) || 0), Math.floor(FUEL_MAX - f));
+    if (l <= 0) return notify(p, 'warn', 'Бак и так полный');
+    const cost = free ? 0 : Math.ceil(l * KEROSENE.price);
+    if (cost) {
+        if (pay === 'card') {
+            const b = getBank(p);
+            if (b < cost) return notify(p, 'error', 'На карте недостаточно средств');
+            setMB(p, getMoney(p), b - cost);
+            tx(accId(p), 'out', -cost, 'Авиатопливо: ' + pd.n);
+        } else {
+            const m = getMoney(p);
+            if (m < cost) return notify(p, 'error', 'Недостаточно наличных');
+            setMB(p, m - cost, getBank(p));
+        }
+        govAdd(cost, 'Авиатопливо: ' + pd.n);
+    }
+    v.engine = false;
+    setFuel(v, f + l);
+    v.setVariable('fuelType', free ? 'mil' : 'kero');
+    p.call('ui:fuelDone');
+    p.afPad = null;
+    notify(p, 'ok', 'Заправлено ' + l + ' л' + (free ? ' (бесплатно, за счёт армии)' : ' авиакеросина за $' + cost) + '. Заведите двигатель (Z)');
+}
+mp.events.addCommand('fuelpad', function (p, full) {
+    const L = global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0;
+    if (L < 7) return;
+    const a = String(full || '').trim().split(/\s+/);
+    const op = a[0];
+    if (op === 'add' && (a[1] === 'air' || a[1] === 'army')) {
+        const pos = p.vehicle ? p.vehicle.position : p.position;
+        const r = Math.max(5, Math.min(60, Number(a[2]) || 15));
+        PADS.push({ t: a[1], n: a.slice(3).join(' ') || (a[1] === 'army' ? 'Военная заправка' : 'Авиазаправка'), x: pos.x, y: pos.y, z: pos.z, r: r });
+    } else if (op === 'del') {
+        const pd = padNear(p.vehicle ? p.vehicle.position : p.position);
+        if (!pd) return p.outputChatBox('!{#ffcc66}Рядом нет заправки');
+        PADS = PADS.filter(function (x) { return x !== pd; });
+    } else if (op === 'reset') PADS = PAD_DEF.slice();
+    else if (op === 'list') { PADS.forEach(function (x, i) { p.outputChatBox('!{#7fd4ff}' + i + '. [' + x.t + '] ' + x.n + ' · r ' + x.r); }); return; }
+    else return p.outputChatBox('!{#ffcc66}/fuelpad add [air/army] [радиус] [название] · /fuelpad del · /fuelpad list · /fuelpad reset');
+    savePads(); mp.players.forEach(sendPads);
+    p.outputChatBox('!{#8fd14f}Заправок: ' + PADS.length);
+});
+
 mp.events.add('srv:fuel:get', function (p) {
     const v = p.vehicle;
+    if (p.afPad) return;
     const i = nearStation(p.position);
     if (!v || i < 0) return;
     const st = STATIONS[i];
@@ -1809,6 +1919,9 @@ mp.events.add('srv:fuel:get', function (p) {
 mp.events.add('srv:fuel:buy', function (p, type, liters, pay) {
     const v = p.vehicle;
     if (!v) return notify(p, 'error', 'Вы не в машине');
+    if (p.afPad) { const pd = padNear(v.position); if (pd === p.afPad) return padBuy(p, v, pd, liters, pay); p.afPad = null; return notify(p, 'error', 'Вы отъехали от заправки'); }
+    if (isAir(v)) return notify(p, 'error', 'Самолёты и вертолёты заправляются только на аэродромах и вертолётных площадках');
+    if (isArmyVeh(v)) return notify(p, 'error', 'Военная техника заправляется только на военной базе (Форт Занкудо) — бесплатно');
     const i = nearStation(p.position);
     if (i < 0) return notify(p, 'error', 'Рядом нет заправки');
     const st = STATIONS[i];
@@ -1844,6 +1957,9 @@ mp.events.add('srv:fuel:buy', function (p, type, liters, pay) {
 
 mp.events.add('srv:fuel:refill', function (p) {
     if (!p.vehicle) return;
+    p.afPad = null;
+    if (isAir(p.vehicle)) return notify(p, 'error', 'Самолёты и вертолёты заправляются только на аэродромах и вертолётных площадках');
+    if (isArmyVeh(p.vehicle)) return notify(p, 'error', 'Военная техника заправляется только на военной базе (Форт Занкудо) — бесплатно');
     const i = nearStation(p.position);
     if (i < 0) return notify(p, 'error', 'Рядом нет заправки');
     if (STATIONS[i].stock <= 0) return notify(p, 'error', STATIONS[i].name + ': топливо закончилось, ждите поставку');

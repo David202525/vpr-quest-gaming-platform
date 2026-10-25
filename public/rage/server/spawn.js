@@ -106,6 +106,7 @@ mp.events.add('srv:hotel:rent', function (p, days) {
     if (Math.hypot(p.position.x - h.x, p.position.y - h.y) > 8) return;
     days = Math.floor(Number(days));
     if (!(days >= 1 && days <= HOTEL_MAX_DAYS)) return;
+    if (global.UiSystem && global.UiSystem.hasDoc && !global.UiSystem.hasDoc(p, 'passport') && !(global.AdminSystem && global.AdminSystem.realLvl && global.AdminSystem.realLvl(p) >= 1)) return notify(p, 'error', 'Нужен паспорт. Оформите его в мэрии (паспортный стол)');
     const id = sid(p), cost = days * HOTEL_DAY, M = global.MoneySystem;
     if (!M || M.get(p) < cost) return notify(p, 'error', 'Нужно $' + cost + ' наличными');
     M.add(p, -cost);

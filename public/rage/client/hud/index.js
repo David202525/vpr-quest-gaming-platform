@@ -178,7 +178,49 @@ mp.events.add('render', function () {
         mp.game.controls.disableControlAction(0, 72, true);
     }
 });
+var PADS = [], padBlips = [], atPad = null, padHint = '';
+mp.events.add('fuel:pads', function (j) {
+    try { PADS = JSON.parse(j) || []; } catch (e) { PADS = []; }
+    padBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
+    padBlips = [];
+    PADS.forEach(function (pd) {
+        try { padBlips.push(mp.blips.new(pd[0] === 'army' ? 361 : 361, new mp.Vector3(pd[1], pd[2], pd[3]), { dimension: 4294967295, color: pd[0] === 'army' ? 52 : 27, scale: 0.75, shortRange: true, name: pd[0] === 'army' ? 'Военная заправка' : 'Авиазаправка' })); } catch (e) {}
+    });
+});
+function vAir(v) { try { var c = v.getClass(); return c === 15 || c === 16; } catch (e) { return false; } }
+function vArmy(v) { try { return v.getVariable('gov') === 'army' || v.getVariable('faction') === 'army'; } catch (e) { return false; } }
+setInterval(function () {
+    var p = mp.players.local, v = p.vehicle, best = null;
+    if (v && v.getPedInSeat(-1) === p.handle && (vAir(v) || vArmy(v))) {
+        var pos = v.position, sp = v.getSpeed ? v.getSpeed() : 0;
+        if (sp < 2) PADS.forEach(function (pd) { var dx = pos.x - pd[1], dy = pos.y - pd[2]; if (Math.sqrt(dx * dx + dy * dy) <= pd[5] && Math.abs(pos.z - pd[3]) < 15) best = pd; });
+    }
+    atPad = best;
+    global.fuelPadNear = !!best;
+    var h = best ? best[4] : '';
+    if (h && h !== padHint) mp.events.call('hud:notify', 'ok', (best[0] === 'army' ? 'Военная заправка (бесплатно)' : 'Авиазаправка') + ': нажмите E', 5000);
+    padHint = h;
+}, 500);
+mp.events.add('render', function () {
+    var me = mp.players.local, pos = me.position;
+    if (me.dimension !== 0 || !PADS.length) return;
+    PADS.forEach(function (pd) {
+        var dx = pos.x - pd[1], dy = pos.y - pd[2];
+        if (dx * dx + dy * dy > 40000) return;
+        var c = pd[0] === 'army' ? [110, 150, 60] : [155, 107, 255];
+        var r = Math.min(pd[5], 12) * 2;
+        mp.game.graphics.drawMarker(1, pd[1], pd[2], pd[3] - 1, 0, 0, 0, 0, 0, 0, r, r, 0.6, c[0], c[1], c[2], 70, false, false, 2, false, null, null, false);
+        mp.game.graphics.drawMarker(29, pd[1], pd[2], pd[3] + 2.5, 0, 0, 0, 0, 0, 0, 2.5, 2.5, 2.5, c[0], c[1], c[2], 200, true, true, 2, false, null, null, false);
+    });
+});
 mp.keys.bind(0x45, false, function () {
+    if (!atPad || mp.gui.cursor.visible || mp.players.local.isTypingInTextChat) return;
+    if (Date.now() - lastFuelKey < 1500) return;
+    lastFuelKey = Date.now();
+    mp.events.callRemote('srv:afuel:open');
+});
+mp.keys.bind(0x45, false, function () {
+    if (atPad) return;
     if (!atStation || mp.gui.cursor.visible || mp.players.local.isTypingInTextChat) return;
     if (Date.now() - lastFuelKey < 1500) return;
     lastFuelKey = Date.now();
