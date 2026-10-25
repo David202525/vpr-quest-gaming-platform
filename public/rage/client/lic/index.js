@@ -6,26 +6,54 @@ function lClear() {
     try { if (LX.blip) LX.blip.destroy(); } catch (e) {}
     LX.cp = null; LX.blip = null;
 }
+function lVec(r) {
+    if (!r) return null;
+    var v = r.outPosition || r.outPos || r.position || r;
+    if (v && isFinite(v.x) && isFinite(v.y) && (Math.abs(v.x) + Math.abs(v.y)) > 1) return v;
+    return null;
+}
+function lGround(x, y, z) {
+    try {
+        var g = mp.game.gameplay.getGroundZFor3dCoord(x, y, z + 3, 0, false);
+        if (typeof g === 'number' && g > -100 && Math.abs(g - z) < 6) return g;
+    } catch (e) {}
+    return z;
+}
 function lNode(pt) {
-    var x = pt[0], y = pt[1], z = pt[2];
-    var types = [0, 1];
-    for (var k = 0; k < types.length; k++) {
-        try {
-            var r = mp.game.pathfind.getClosestVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), types[k], 3.0, 0);
-            var v = r && (r.outPosition || r.outPos || r.position || r);
-            if (v && isFinite(v.x) && isFinite(v.y) && (Math.abs(v.x) + Math.abs(v.y)) > 1) {
-                var d = Math.hypot(v.x - x, v.y - y);
-                if (d < 60) return [v.x, v.y, v.z || z];
-            }
-        } catch (e) {}
+    var x = pt[0], y = pt[1], z = pt[2], best = null, bd = 80;
+    try { mp.game.pathfind.loadAllPathNodes(true); } catch (e) {}
+    var tries = [
+        function () { return mp.game.pathfind.getClosestVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), 0, 3.0, 0); },
+        function () { return mp.game.pathfind.getClosestMajorVehicleNode(x, y, z, new mp.Vector3(0, 0, 0), 3.0, 0); },
+        function () { return mp.game.pathfind.getClosestVehicleNode(x, y, z, 0, 3.0, 0); },
+        function () { return mp.game.pathfind.getClosestVehicleNodeWithHeading(x, y, z, new mp.Vector3(0, 0, 0), 0, 1, 3.0, 0); }
+    ];
+    for (var k = 0; k < tries.length; k++) {
+        var v = null;
+        try { v = lVec(tries[k]()); } catch (e) {}
+        if (!v) continue;
+        var d = Math.hypot(v.x - x, v.y - y);
+        if (d < bd) { bd = d; best = v; }
     }
-    return pt;
+    if (!best) return null;
+    return [best.x, best.y, lGround(best.x, best.y, best.z || z)];
 }
 function lSnap(i) {
     if (!LX.snap) LX.snap = {};
-    if (!LX.snap[i] && LX.pts[i]) LX.snap[i] = lNode(LX.pts[i]);
+    if (!LX.snap[i] && LX.pts[i]) {
+        var pos = mp.players.local.position, pt = LX.pts[i];
+        if (Math.hypot(pos.x - pt[0], pos.y - pt[1]) < 350) { var n = lNode(pt); if (n) LX.snap[i] = n; }
+    }
     return LX.snap[i] || LX.pts[i];
 }
+setInterval(function () {
+    if (!LX || !LX.pts[LX.i]) return;
+    if (LX.snap && LX.snap[LX.i] && (!LX.pts[LX.i + 1] || LX.snap[LX.i + 1])) return;
+    var before = LX.cur;
+    var pt = lSnap(LX.i);
+    if (LX.pts[LX.i + 1]) lSnap(LX.i + 1);
+    if (!before || before[0] !== pt[0] || before[1] !== pt[1]) lPoint();
+}, 1000);
 function lPoint() {
     lClear();
     if (!LX.pts[LX.i]) return;
@@ -43,6 +71,8 @@ mp.events.add('lic:start', function (j) {
     var v = mp.players.local.vehicle;
     LX.hp = v ? v.getBodyHealth() : 1000;
     LX.hitAt = 0;
+    LX.snap = {};
+    try { mp.game.pathfind.loadAllPathNodes(true); } catch (e) {}
     lPoint();
 });
 mp.events.add('lic:next', function (i) { if (!LX) return; LX.i = Number(i); LX.sent = false; lPoint(); });
