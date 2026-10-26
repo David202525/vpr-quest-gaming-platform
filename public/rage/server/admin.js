@@ -1002,9 +1002,15 @@ cmd('invis', 'invis', '/invis', function (p) {
     log(p, 'invis', login(p), p.alpha === 0 ? 'вкл' : 'выкл');
 });
 
-cmd('fly', 'fly', '/fly', function (p) {
-    p.call('adm:noclipToggle');
-});
+(function () {
+    const flyCmd = function (p) {
+        if (can(p, 'fly')) return p.call('adm:noclipToggle');
+        if (global.MediaSystem && global.MediaSystem.flyCmd(p)) return;
+        deny(p, 'fly');
+    };
+    CMDS.fly = flyCmd;
+    mp.events.addCommand('fly', flyCmd);
+})();
 
 cmd('ban', 'ban', '/ban [id] [срок: 30m/12h/7d/0] [причина]', function (p, a, u) {
     const t = find(a[0]);

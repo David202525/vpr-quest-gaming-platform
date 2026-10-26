@@ -593,12 +593,24 @@ function renderMedia() {
     }
     box.innerHTML = M.list.length ? M.list.map(function (m) {
         return '<div class="tr md-tr"><b>' + (m.on ? '🟢 ' : '⚪ ') + esc(m.name) + ' <span class="mut">#' + m.id + '</span></b>' +
-            '<span>' + (m.code ? 'Код <b>' + esc(m.code) + '</b> · ' + m.uses + ' акт.' : '<span class="mut">без промокода</span>') + '</span>' +
+            '<span>' + (m.fly ? (m.flying ? '<span style="color:#7fd4ff">✈ сейчас летает</span>' : '<span class="mut">✈ полёт доступен</span>') : '<span style="color:#ff9aac">✈ полёт забран</span><br><span class="mut">' + esc(m.flyReason) + '</span>') + '<br>' + (m.code ? 'Код <b>' + esc(m.code) + '</b> · ' + m.uses + ' акт.' : '<span class="mut">без промокода</span>') + '</span>' +
             '<span>' + (m.paused ? '<span style="color:#ff9aac">выплаты на паузе</span>' : 'след. выплата ' + mdDate(m.nextPay)) + '<br><span class="mut">выплачено ' + m.paid + ' RC</span></span>' +
             '<span class="md-sal"><input class="search" type="number" value="' + m.salary + '" data-mdsal="' + m.id + '"><span class="mut">RC/нед</span></span>' +
-            '<span class="md-b"><button class="btn" data-mdpay="' + m.id + '">Выплатить</button><button class="btn" data-mdpause="' + m.id + '">' + (m.paused ? '▶' : '⏸') + '</button><button class="btn danger" data-mddel="' + m.id + '">✕</button></span></div>';
+            '<span class="md-b">' + (m.flying ? '<button class="btn" data-mdfstop="' + m.id + '" title="Остановить полёт">⏹✈</button>' : '') + '<button class="btn' + (m.fly ? ' danger' : ' ok') + '" data-mdfly="' + m.id + '" title="' + (m.fly ? 'Забрать полёт' : 'Вернуть полёт') + '">' + (m.fly ? '✈✕' : '✈✓') + '</button><button class="btn" data-mdpay="' + m.id + '">Выплатить</button><button class="btn" data-mdpause="' + m.id + '">' + (m.paused ? '▶' : '⏸') + '</button><button class="btn danger" data-mddel="' + m.id + '">✕</button></span></div>';
     }).join('') : '<p class="hint">Медиа-партнёров пока нет</p>';
     box.querySelectorAll('[data-mdsal]').forEach(function (i) { i.onchange = function () { act({ action: 'media', op: 'salary', id: Number(i.dataset.mdsal), value: Number(i.value) }); }; });
+    box.querySelectorAll('[data-mdfstop]').forEach(function (b) { b.onclick = function () { act({ action: 'media', op: 'flystop', id: Number(b.dataset.mdfstop) }); }; });
+    box.querySelectorAll('[data-mdfly]').forEach(function (b) {
+        b.onclick = function () {
+            var m = M.list.find(function (x) { return x.id === Number(b.dataset.mdfly); });
+            if (m && m.fly) {
+                var r = $('mdFlyReason').value.trim();
+                if (!r) { $('mdFlyReason').focus(); $('mdFlyReason').style.borderColor = '#e63950'; return; }
+                $('mdFlyReason').value = ''; $('mdFlyReason').style.borderColor = '';
+                act({ action: 'media', op: 'fly', id: m.id, reason: r });
+            } else act({ action: 'media', op: 'fly', id: Number(b.dataset.mdfly) });
+        };
+    });
     box.querySelectorAll('[data-mdpay]').forEach(function (b) { b.onclick = function () { act({ action: 'media', op: 'paynow', id: Number(b.dataset.mdpay) }); }; });
     box.querySelectorAll('[data-mdpause]').forEach(function (b) { b.onclick = function () { act({ action: 'media', op: 'pause', id: Number(b.dataset.mdpause) }); }; });
     box.querySelectorAll('[data-mddel]').forEach(function (b) { b.onclick = function () { if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; } act({ action: 'media', op: 'del', id: Number(b.dataset.mddel) }); }; });

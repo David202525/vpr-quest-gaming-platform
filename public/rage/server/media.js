@@ -60,6 +60,7 @@ function panel(p) {
         name: nick(p), since: m.since, salary: m.salary || 0, nextPay: m.nextPay || 0, paid: m.paid || 0, paused: !!m.paused,
         code: m.code || '', uses: c ? c.uses : 0, refPaid: c ? c.coins || 0 : 0, cfg: S.cfg,
         badge: m.badge !== false, streamer: !!m.streamer,
+        fly: !m.flyBan, flyReason: m.flyBan ? m.flyBan.reason : '', flying: !!p.mediaFly,
         hist: (m.hist || []).slice(-10).reverse(),
         cars: CARS, weathers: WEATHERS, car: p.mediaCar && mp.vehicles.exists(p.mediaCar) ? { m: p.mediaCarModel, left: Math.max(0, p.mediaCarUntil - Date.now()) } : null
     };
@@ -107,6 +108,7 @@ mp.events.add('srv:media:act', function (p, act, val) {
         setTimeout(function () { if (mp.players.exists(p) && mp.vehicles.exists(v)) try { p.putIntoVehicle(v, 0); } catch (e) {} }, 400);
         return reply({ ok: 'Машина на 30 минут: ' + val });
     }
+    if (act === 'fly') { flyCmd(p); return; }
     if (act === 'carDel') { carClear(p); return reply({ ok: 'Машина убрана' }); }
 });
 setInterval(function () {
@@ -147,7 +149,7 @@ function admView() {
         cfg: S.cfg,
         list: Object.keys(S.list).map(function (k) {
             const m = S.list[k], c = m.code ? S.codes[m.code] : null;
-            return { id: Number(k), name: m.name, salary: m.salary || 0, nextPay: m.nextPay || 0, paid: m.paid || 0, paused: !!m.paused, code: m.code || '', uses: c ? c.uses : 0, on: !!online(k), since: m.since };
+            const op = online(k); return { fly: !m.flyBan, flyReason: m.flyBan ? m.flyBan.reason + ' (' + m.flyBan.by + ')' : '', flying: !!(op && op.mediaFly), id: Number(k), name: m.name, salary: m.salary || 0, nextPay: m.nextPay || 0, paid: m.paid || 0, paused: !!m.paused, code: m.code || '', uses: c ? c.uses : 0, on: !!online(k), since: m.since };
         })
     };
 }
@@ -182,9 +184,18 @@ function admAct(p, d) {
     if (op === 'del') {
         if (m.code) delete S.codes[m.code];
         delete S.list[String(d.id)]; dirty = true; log('del ' + m.name);
+        if (p2 && p2.mediaFly) flyStop(p2, 'статус медиа снят');
         if (p2) { p2.setVariable('mediaBadge', 0); p2.call('media:role', [0]); p2.call('media:streamer', [0]); notify(p2, 'warn', 'Статус медиа-партнёра снят'); }
         return { ok: m.name + ' больше не медиа' };
     }
+    if (op === 'fly') {
+        if (m.flyBan) { m.flyBan = null; dirty = true; log('flyon ' + m.name); if (p2) notify(p2, 'ok', 'Администрация вернула вам полёт /fly'); return { ok: 'Полёт возвращён: ' + m.name }; }
+        const reason = String(d.reason || '').trim().slice(0, 100) || 'нарушение правил использования';
+        m.flyBan = { by: nick(p), reason: reason, at: Date.now() }; dirty = true; log('flyoff ' + m.name + ' ' + reason);
+        if (p2) { if (p2.mediaFly) flyStop(p2, 'полёт забран администрацией'); notify(p2, 'error', 'Полёт /fly забран: ' + reason); }
+        return { ok: 'Полёт забран у ' + m.name };
+    }
+    if (op === 'flystop') { if (!p2 || !p2.mediaFly) return { err: 'Партнёр сейчас не летает' }; flyStop(p2, 'остановлено администратором'); log('flystop ' + m.name); return { ok: 'Полёт остановлен' }; }
     if (op === 'salary') { m.salary = Math.max(0, Math.min(100000, Math.floor(Number(d.value) || 0))); dirty = true; log('salary ' + m.name + ' ' + m.salary); return { ok: 'Зарплата ' + m.name + ': ' + m.salary + ' RC/нед' }; }
     if (op === 'pause') { m.paused = !m.paused; if (!m.paused) m.nextPay = Date.now() + WEEK; dirty = true; return { ok: m.paused ? 'Выплаты приостановлены' : 'Выплаты возобновлены' }; }
     if (op === 'paynow') {
@@ -218,5 +229,65 @@ setInterval(function () {
     });
 }, 5000);
 
-global.MediaSystem = { admView: admView, admAct: admAct, cfgAct: cfgAct, is: function (p) { return !!me(p); } };
+/* ---------- полёт /fly для медиа ---------- */
+const FLY_RADIUS = 400;
+function flyLog(p, t) {
+    const A = global.AdminSystem;
+    if (A && A.log) try { A.log(p, 'mediafly', t); } catch (e) {}
+    if (global.SLog) try { global.SLog.add('media', { actor: nick(p), action: 'fly', details: t }); } catch (e) {}
+}
+function flyWhyNot(p) {
+    const m = me(p);
+    if (!m) return null;
+    if (m.flyBan) return 'Полёт забран администрацией' + (m.flyBan.reason ? ': ' + m.flyBan.reason : '');
+    if (p.vehicle) return 'Выйдите из транспорта';
+    if (p.health <= 0) return 'Нельзя во время смерти';
+    if (p.getVariable('cuffed')) return 'Нельзя в наручниках';
+    if (global.WantedSystem && global.WantedSystem.get(p) > 0) return 'Нельзя в розыске';
+    if (global.JailSystem && global.JailSystem.info(p)) return 'Нельзя в заключении';
+    if (p.mediaHitAt && Date.now() - p.mediaHitAt < 60000) return 'Нельзя в течение минуты после получения урона';
+    return '';
+}
+function flyStop(p, why) {
+    if (!p.mediaFly) return;
+    const st = p.mediaFly;
+    p.mediaFly = null;
+    p.alpha = 255;
+    p.call('media:flyStop');
+    if (st.pos) { p.position = st.pos; p.dimension = st.dim; }
+    flyLog(p, 'выкл' + (why ? ' (' + why + ')' : '') + ' · ' + Math.round((Date.now() - st.since) / 1000) + ' сек');
+    if (why) notify(p, 'warn', 'Полёт завершён: ' + why);
+}
+function flyCmd(p) {
+    const m = me(p);
+    if (!m) return false;
+    if (p.mediaFly) { flyStop(p); return true; }
+    const why = flyWhyNot(p);
+    if (why) { notify(p, 'error', why); return true; }
+    p.mediaFly = { since: Date.now(), pos: p.position, dim: p.dimension };
+    p.alpha = 0;
+    p.call('media:flyStart', [FLY_RADIUS]);
+    flyLog(p, 'вкл');
+    return true;
+}
+mp.events.add('srv:media:fly', function (p) { flyCmd(p); });
+mp.events.add('srv:media:flyEnd', function (p) { flyStop(p); });
+mp.events.add('playerDamage', function (p) { p.mediaHitAt = Date.now(); });
+mp.events.add('playerDeath', function (p) { if (p.mediaFly) flyStop(p, 'смерть'); });
+mp.events.add('playerQuit', function (p) { if (p.mediaFly) { p.mediaFly = null; flyLog(p, 'выход с сервера'); } });
+setInterval(function () {
+    mp.players.forEach(function (p) {
+        if (!p.mediaFly) return;
+        const m = me(p);
+        if (!m) return flyStop(p, 'статус медиа снят');
+        if (m.flyBan) return flyStop(p, 'полёт забран администрацией');
+        if (global.WantedSystem && global.WantedSystem.get(p) > 0) return flyStop(p, 'вы в розыске');
+        if (p.getVariable('cuffed')) return flyStop(p, 'наручники');
+        if (global.JailSystem && global.JailSystem.info(p)) return flyStop(p, 'заключение');
+        const a = p.mediaFly.pos, b = p.position;
+        if (a && Math.hypot(a.x - b.x, a.y - b.y) > FLY_RADIUS + 80) flyStop(p, 'слишком далеко от точки старта');
+    });
+}, 1000);
+
+global.MediaSystem = { admView: admView, admAct: admAct, cfgAct: cfgAct, flyCmd: flyCmd, is: function (p) { return !!me(p); } };
 console.log('[media] медиа-партнёров: ' + Object.keys(S.list).length);
