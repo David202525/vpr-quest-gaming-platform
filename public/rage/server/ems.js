@@ -31,8 +31,7 @@ const CFG = {
 };
 const RANKS = ['Интерн', 'Фельдшер', 'Врач', 'Зав. отделением', 'Главврач'];
 const LAY = require('./hospital_layout.js');
-const DEF_BEDS = LAY.BEDS;
-const DEF_ER = [{ x: 298.67, y: -584.43, z: 43.26 }, LAY.ER_IN];
+const LP = LAY.P;
 const AMB = mp.joaat('ambulance') >>> 0;
 const wardBusy = {};
 const lastClosed = {};
@@ -49,8 +48,8 @@ function notify(p, t, x) { if (typeof global.hudNotify === 'function') global.hu
 function chat(p, x) { p.outputChatBox('!{#ff5c5c}[EMS] !{#ffffff}' + x); }
 function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z; return Math.sqrt(dx * dx + dy * dy + dz * dz); }
 function adm(p) { const D = global.DeathSystem; return D && D.adminLvl ? D.adminLvl(p) : 0; }
-function beds() { return DEF_BEDS.concat(DB.beds); }
-function ers() { return DEF_ER.concat(DB.er); }
+function beds() { return LP.beds; }
+function ers() { return LP.er; }
 function isAmb(v) { return !!(v && mp.vehicles.exists(v) && (v.model >>> 0) === AMB); }
 function occ(v) { try { return v.getOccupants ? v.getOccupants() : []; } catch (e) { return []; } }
 
@@ -147,7 +146,7 @@ function load(m, t, v, seat) {
         try { t.putIntoVehicle(v, seat); } catch (e) {}
         t.emsVeh = v;
         notify(m, 'ok', 'Пациент в машине. Везите его в приёмное отделение больницы');
-        if (mp.players.exists(m)) m.call('medic:route', [DEF_ER[0].x, DEF_ER[0].y]);
+        if (mp.players.exists(m) && LP.er[0]) m.call('medic:route', [LP.er[0].x, LP.er[0].y]);
     }, 200);
 }
 
@@ -156,14 +155,13 @@ function toWard(p, ms, text) {
     const list = beds();
     let i = -1;
     for (let k = 0; k < list.length; k++) { if (!wardBusy[k]) { i = k; break; } }
-    const b = i >= 0 ? list[i] : list[0];
+    const b = i >= 0 ? list[i] : (list[0] || { x: LP.entry.x + 1.0, y: LP.entry.y, z: LP.entry.z, h: LP.entry.h });
     if (i >= 0) wardBusy[i] = p.id;
     p.emsWard = Date.now() + ms;
     setTimeout(function () {
         if (!mp.players.exists(p)) return;
         p.dimension = 0;
-        p.call('hosp:arrive');
-        p.position = new mp.Vector3(b.x + (i < 0 ? 1.2 : 0), b.y, b.z);
+        p.position = new mp.Vector3(b.x + (i < 0 && list.length ? 1.2 : 0), b.y, b.z);
         p.heading = b.h;
         setTimeout(function () {
             if (!mp.players.exists(p)) return;
@@ -439,38 +437,38 @@ function tabAct(p, d) {
 }
 
 /* ---------- точки ---------- */
-const bedObjs = [];
-function spawnBedObj(b) {
-    try { bedObjs.push(mp.objects.new(mp.joaat('v_med_bed2'), new mp.Vector3(b.x, b.y, b.z - 1.45), { rotation: new mp.Vector3(0, 0, b.h), dimension: 0 })); } catch (e) {}
+const erObjs = [];
+function buildER() {
+    erObjs.forEach(function (o) { try { o.destroy(); } catch (e) {} });
+    erObjs.length = 0;
+    LP.er.forEach(function (e) {
+        try {
+            erObjs.push(mp.markers.new(1, new mp.Vector3(e.x, e.y, e.z - 1.0), 3.0, { color: [255, 60, 80, 90], dimension: 0 }));
+            erObjs.push(mp.labels.new('Приёмное отделение EMS', new mp.Vector3(e.x, e.y, e.z + 0.6), { los: false, font: 4, drawDistance: 25, color: [255, 120, 130, 255], dimension: 0 }));
+        } catch (e2) {}
+    });
 }
-DB.beds.forEach(spawnBedObj);
-function spawnER(e) {
-    try {
-        mp.markers.new(1, new mp.Vector3(e.x, e.y, e.z - 1.0), 3.0, { color: [255, 60, 80, 90], dimension: 0 });
-        mp.labels.new('Приёмное отделение EMS', new mp.Vector3(e.x, e.y, e.z + 0.6), { los: false, font: 4, drawDistance: 25, color: [255, 120, 130, 255], dimension: 0 });
-    } catch (e2) {}
+buildER();
+LAY.onChange(buildER);
+function here(p, withH) {
+    const o = { x: Number(p.position.x.toFixed(2)), y: Number(p.position.y.toFixed(2)), z: Number(p.position.z.toFixed(2)) };
+    if (withH) o.h = Number(p.heading.toFixed(1));
+    return o;
 }
-ers().forEach(spawnER);
-
-mp.events.addCommand('emsbed', function (p) {
+const PT_HELP = '/emspoint [entry|locker|garage|er|bed|list] · стереть: /emspoint [er|bed]clear · убрать последнюю: /emspoint [er|bed]undo';
+mp.events.addCommand('emspoint', function (p, arg) {
     if (adm(p) < 4) return;
-    const b = { x: Number(p.position.x.toFixed(2)), y: Number(p.position.y.toFixed(2)), z: Number(p.position.z.toFixed(2)) + 0.45, h: Number(p.heading.toFixed(1)) };
-    DB.beds.push(b); mark(); spawnBedObj(b);
-    chat(p, 'Койка добавлена. Всего коек в стационаре: ' + beds().length);
-});
-mp.events.addCommand('emser', function (p) {
-    if (adm(p) < 4) return;
-    const e = { x: Number(p.position.x.toFixed(2)), y: Number(p.position.y.toFixed(2)), z: Number(p.position.z.toFixed(2)) };
-    if (Math.abs(e.z - LAY.FZ) < 10) return chat(p, 'Внутри больницы приёмное уже есть — ставьте снаружи');
-    DB.er.push(e); mark(); spawnER(e);
-    chat(p, 'Точка приёмного отделения добавлена');
-});
-mp.events.addCommand('emsbedclear', function (p) {
-    if (adm(p) < 4) return;
-    DB.beds = []; mark();
-    bedObjs.forEach(function (o) { try { o.destroy(); } catch (e) {} });
-    bedObjs.length = 0;
-    chat(p, 'Дополнительные койки удалены. Остались койки стационара (' + DEF_BEDS.length + ')');
+    const k = String(arg || '').trim().toLowerCase();
+    if (k === 'entry' || k === 'locker' || k === 'garage') { LP[k] = here(p, true); LAY.save(); return chat(p, 'Точка «' + k + '» сохранена'); }
+    if (k === 'er') { LP.er.push(here(p)); LAY.save(); return chat(p, 'Приёмное отделение добавлено (всего ' + LP.er.length + ')'); }
+    if (k === 'bed') { LP.beds.push(here(p, true)); LAY.save(); return chat(p, 'Койка #' + LP.beds.length + ' сохранена. Поворот героя = куда смотрит лежащий пациент'); }
+    if (k === 'erclear' || k === 'bedclear') { const f = k === 'erclear' ? 'er' : 'beds'; LP[f].length = 0; LAY.save(); return chat(p, 'Список очищен'); }
+    if (k === 'erundo' || k === 'bedundo') { const f = k === 'erundo' ? 'er' : 'beds'; LP[f].pop(); LAY.save(); return chat(p, 'Последняя точка удалена, осталось ' + LP[f].length); }
+    if (k === 'list') {
+        chat(p, 'Вход ' + JSON.stringify(LP.entry) + ' · раздевалка ' + JSON.stringify(LP.locker) + ' · гараж ' + JSON.stringify(LP.garage));
+        return chat(p, 'Приёмных: ' + LP.er.length + ' · коек: ' + LP.beds.length);
+    }
+    chat(p, PT_HELP);
 });
 mp.events.addCommand('emstop', function (p) {
     const R = rating().slice(0, 10);

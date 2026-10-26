@@ -4,11 +4,11 @@ try { db = require('../database'); } catch (e) { try { db = require('./database'
 const CFG = {
     adminLevel: 2,
     leaderAdminLevel: 4,
-    hospitalName: 'Pillbox Hill Medical Center',
+    hospitalName: 'Mount Zonah Medical Center',
     hospitalArea: '\u0446\u0435\u043d\u0442\u0440 \u0433\u043e\u0440\u043e\u0434\u0430, \u0440\u0430\u0439\u043e\u043d \u041f\u0438\u043b\u043b\u0431\u043e\u043a\u0441-\u0425\u0438\u043b\u043b',
-    locker: require('./hospital_layout.js').LOCKER,
-    garage: { x: 294.5, y: -609.5, z: 43.3, h: 70.0 },
-    beds: require('./hospital_layout.js').BEDS,
+    locker: require('./hospital_layout.js').P.locker,
+    garage: require('./hospital_layout.js').P.garage,
+    beds: require('./hospital_layout.js').P.beds,
     bedModel: 'v_med_bed2',
     bedPrice: 300,
     healPrice: 200,
@@ -268,7 +268,6 @@ function useBed(p, i) {
 
     const b = CFG.beds[i];
     bedBusy[i] = p.id;
-    p.call('hosp:arrive');
     p.position = new mp.Vector3(b.x, b.y, b.z);
     p.heading = b.h;
     p.playAnimation('amb@world_human_sunbathe@male@back@base', 'base', 1, 1);
@@ -357,25 +356,31 @@ function nearestDown(p, r) {
     return best;
 }
 
+const zoneObjs = [];
+let hospBlip = null;
 function zone(pos, id, color) {
-    mp.markers.new(1, new mp.Vector3(pos.x, pos.y, pos.z - 1.0), 1.2, { color: color, dimension: 0 });
+    zoneObjs.push(mp.markers.new(1, new mp.Vector3(pos.x, pos.y, pos.z - 1.0), 1.2, { color: color, dimension: 0 }));
     const s = mp.colshapes.newSphere(pos.x, pos.y, pos.z, 1.6, 0);
     s.medicZone = id;
+    zoneObjs.push(s);
 }
-
-zone(CFG.locker, 'locker', [255, 60, 60, 140]);
-zone(CFG.garage, 'garage', [60, 140, 255, 140]);
-
-CFG.beds.forEach(function (b, i) {
-    const s = mp.colshapes.newSphere(b.x, b.y, b.z, 1.4, 0);
-    s.medicZone = i;
-});
-
-mp.blips.new(61, new mp.Vector3(298.67, -584.43, 43.26), { dimension: 4294967295,
-    name: '\u0411\u043e\u043b\u044c\u043d\u0438\u0446\u0430 EMS',
-    color: 1,
-    shortRange: true
-});
+function buildZones() {
+    zoneObjs.forEach(function (o) { try { o.destroy(); } catch (e) {} });
+    zoneObjs.length = 0;
+    const LP = require('./hospital_layout.js').P;
+    CFG.locker = LP.locker; CFG.garage = LP.garage; CFG.beds = LP.beds;
+    zone(CFG.locker, 'locker', [255, 60, 60, 140]);
+    zone(CFG.garage, 'garage', [60, 140, 255, 140]);
+    CFG.beds.forEach(function (b, i) {
+        const s = mp.colshapes.newSphere(b.x, b.y, b.z, 1.2, 0);
+        s.medicZone = i;
+        zoneObjs.push(s);
+    });
+    if (hospBlip) { try { hospBlip.destroy(); } catch (e) {} }
+    hospBlip = mp.blips.new(61, new mp.Vector3(LP.entry.x, LP.entry.y, LP.entry.z), { dimension: 4294967295, name: CFG.hospitalName, color: 1, shortRange: true });
+}
+buildZones();
+require('./hospital_layout.js').onChange(buildZones);
 
 mp.events.add('playerEnterColshape', function (p, s) {
     if (s.medicZone === undefined) return;
@@ -610,81 +615,3 @@ mp.events.addCommand('medpos', function (p) {
 console.log('[EMS] \u0444\u0440\u0430\u043a\u0446\u0438\u044f \u043c\u0435\u0434\u0438\u043a\u043e\u0432 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u0430');
 
 module.exports = { isMedic: isMedic, onDuty: onDuty };
-
-const fs = require('fs');
-const path = require('path');
-const DOOR_FILE = path.join(__dirname, 'hospital_doors.json');
-
-let DOORS = {
-    out: { x: 298.67, y: -584.43, z: 43.26, h: 70.0 },
-    in: { x: 307.0, y: -595.0, z: 43.28, h: 250.0 }
-};
-
-try {
-    DOORS = JSON.parse(fs.readFileSync(DOOR_FILE, 'utf8'));
-} catch (e) {}
-DOORS.in = require('./hospital_layout.js').IN;
-
-const doorObjs = [];
-
-function buildDoors() {
-    doorObjs.forEach(function (o) {
-        try { o.destroy(); } catch (e) {}
-    });
-    doorObjs.length = 0;
-    ['out', 'in'].forEach(function (k) {
-        const d = DOORS[k];
-        const v = new mp.Vector3(d.x, d.y, d.z - 1.0);
-        const opt = { color: [255, 255, 255, 120], dimension: 0 };
-        doorObjs.push(mp.markers.new(1, v, 1.0, opt));
-        const s = mp.colshapes.newSphere(d.x, d.y, d.z, 1.3, 0);
-        s.hospDoor = k;
-        doorObjs.push(s);
-    });
-}
-
-buildDoors();
-
-mp.events.add('playerEnterColshape', function (p, s) {
-    if (!s.hospDoor) return;
-    p.hospDoor = s.hospDoor;
-    let t = 'E - выйти на улицу';
-    if (s.hospDoor === 'out') t = 'E - войти в больницу';
-    p.call('medic:hint', [t]);
-});
-
-mp.events.add('playerExitColshape', function (p, s) {
-    if (!s.hospDoor) return;
-    if (p.hospDoor === s.hospDoor) p.hospDoor = null;
-});
-
-mp.events.add('medic:interact', function (p) {
-    if (!p.hospDoor || !p.account) return;
-    if (p.account.downed || p.vehicle) return;
-    if (p.emsUsedE && Date.now() - p.emsUsedE < 400) return;
-    const key = p.hospDoor === 'out' ? 'in' : 'out';
-    const to = DOORS[key];
-    p.hospDoor = null;
-    if (key === 'in') p.call('hosp:arrive');
-    p.position = new mp.Vector3(to.x, to.y, to.z);
-    p.heading = to.h;
-    const cr = p.emsCarry !== undefined && p.emsCarry !== null ? mp.players.at(p.emsCarry) : null;
-    if (cr && mp.players.exists(cr)) { if (key === 'in') cr.call('hosp:arrive'); cr.position = new mp.Vector3(to.x, to.y, to.z + 0.5); }
-});
-
-mp.events.addCommand('hospdoor', function (p, arg) {
-    if (!isAdmin(p)) return;
-    const k = String(arg || '').trim();
-    if (k !== 'out') {
-        return msg(p, 'Пиши: /hospdoor out — встаньте у входа в больницу снаружи');
-    }
-    DOORS[k] = {
-        x: Number(p.position.x.toFixed(2)),
-        y: Number(p.position.y.toFixed(2)),
-        z: Number(p.position.z.toFixed(2)),
-        h: Number(p.heading.toFixed(1))
-    };
-    fs.writeFileSync(DOOR_FILE, JSON.stringify(DOORS, null, 2));
-    buildDoors();
-    msg(p, 'Точка двери сохранена: ' + k);
-});

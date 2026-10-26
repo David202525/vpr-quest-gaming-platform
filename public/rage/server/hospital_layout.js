@@ -1,14 +1,25 @@
-const O = { x: -2900.0, y: -3900.0 };
-const FZ = 150.0;
-function w(lx, ly, h, dz) { return { x: O.x + lx, y: O.y + ly, z: FZ + (dz === undefined ? 1.0 : dz), h: h || 0 }; }
+const fs = require('fs');
+const path = require('path');
 
-const BEDS_L = [[14.0, 1.6, 180], [17.0, 1.6, 180], [20.0, 1.6, 180], [23.0, 1.6, 180], [14.0, 16.4, 0], [17.0, 16.4, 0], [20.0, 16.4, 0], [23.0, 16.4, 0]];
-
-module.exports = {
-    O: O,
-    FZ: FZ,
-    BEDS: BEDS_L.map(function (b) { return w(b[0], b[1], b[2], 1.45); }),
-    LOCKER: w(9.6, 16.4, 0),
-    IN: w(5.5, 1.6, 0),
-    ER_IN: w(5.5, 7.6, 0)
+const FILE = path.join(__dirname, 'ems_points.json');
+const DEF = {
+    entry: { x: -449.5, y: -340.8, z: 34.5, h: 80 },
+    locker: { x: -447.2, y: -337.6, z: 34.5, h: 80 },
+    garage: { x: -457.0, y: -353.0, z: 34.3, h: 80 },
+    er: [{ x: -449.5, y: -340.8, z: 34.5 }],
+    beds: []
 };
+
+const P = JSON.parse(JSON.stringify(DEF));
+try {
+    const s = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+    Object.keys(DEF).forEach(function (k) { if (s[k] !== undefined) P[k] = s[k]; });
+} catch (e) {}
+
+const subs = [];
+function save() {
+    try { fs.writeFileSync(FILE, JSON.stringify(P, null, 2)); } catch (e) { console.log('[ems] points save: ' + e.message); }
+    subs.forEach(function (f) { try { f(); } catch (e) { console.log('[ems] points hook: ' + e.message); } });
+}
+
+module.exports = { P: P, DEF: DEF, save: save, onChange: function (f) { subs.push(f); } };
