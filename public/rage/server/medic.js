@@ -36,7 +36,8 @@ function isMedic(p) {
 
 function rank(p) {
     if (!isMedic(p)) return 0;
-    return Number(acc(p).job_rank) || 1;
+    if (Number(acc(p).leader) === 1) return 5;
+    return Math.max(1, Math.min(5, Number(acc(p).job_rank) || 1));
 }
 
 function onDuty(p) {
