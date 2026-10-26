@@ -502,10 +502,12 @@ function _renderApp() {
                     }).join('') + '<div class="empty-t" style="margin-top:6px">Всего заработано на работах: ' + money(J.total) + '</div>';
             }
         } else {
+            if (!DATA.houses) trig('cef:house:phone');
             var groups = {};
             p.gps.forEach(function (g, i) { var c = g.c || 'Места'; (groups[c] = groups[c] || []).push([g, i]); });
             body.innerHTML = tabs + '<div class="empty-t" style="margin:6px 0 4px;text-align:left">Выберите место — метка появится на карте.</div>' +
                 '<div class="gps-sub">Услуги</div><div class="gps-i" data-rl="1"><span>🔑</span><span>Агентство недвижимости · аукционы</span></div>' +
+                (DATA.houses && DATA.houses.fac ? '<div class="gps-sub">Организации</div>' + DATA.houses.fac.map(function (f) { return '<div class="gps-i" data-hg="fac" data-id="' + f.i + '"><span>🏛️</span><span>' + esc(f.n) + '</span></div>'; }).join('') : '') +
                 Object.keys(groups).map(function (c) {
                     return '<div class="gps-sub">' + esc(c) + '</div>' + groups[c].map(function (x) { return '<div class="gps-i" data-g="' + x[1] + '"><span>📍</span><span>' + esc(x[0].n) + '</span></div>'; }).join('');
                 }).join('');
@@ -1425,7 +1427,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && do
 
 window.phoneHouses = function (json) {
     DATA.houses = typeof json === 'string' ? JSON.parse(json) : json;
-    if (current === 'phone' && phApp === 'gps' && gpsTab === 'homes') renderApp();
+    if (current === 'phone' && phApp === 'gps' && (gpsTab === 'homes' || gpsTab === 'places')) renderApp();
 };
 function phoneHomesTab(body, tabs) {
     var H = DATA.houses;
@@ -1435,7 +1437,7 @@ function phoneHomesTab(body, tabs) {
     var ht = '<div class="job-c"><div class="job-h"><span class="job-i">🛏️</span><div><b>' + esc(H.hotel.n) + '</b><small>' + (H.hotel.left ? 'Номер оплачен ещё ' + H.hotel.left + ' дн.' : money(H.hotel.price) + ' / сутки') + '</small></div></div><button class="btn" data-hg="hotel" data-id="0">📍 Маршрут в гостиницу</button></div>';
     var fac = '<div class="gps-sub">Фракции</div>' + H.fac.map(function (f) { return '<div class="gps-i" data-hg="fac" data-id="' + f.i + '"><span>🏛️</span><span>' + esc(f.n) + '</span></div>'; }).join('');
     var free = '<div class="gps-sub">Купить жильё</div><div class="gps-i" data-rl="1"><span>🔑</span><span>Агентство недвижимости — продажа и аукционы</span></div>';
-    body.innerHTML = tabs + my + ht + free + fac;
+    body.innerHTML = tabs + my + ht + free;
 }
 
 window.phoneCall = function (json) {
