@@ -1,5 +1,5 @@
 var WIMG = { pistol: 'pistol', i_pistol: 'pistol', g_pistol: 'combatpistol', smg: 'microsmg', i_smg: 'microsmg', rifle: 'assaultrifle_mk2', i_rifle: 'assaultrifle', i_shotgun: 'sawnoffshotgun', g_carbine: 'carbinerifle', knife: 'knife', bat: 'bat', g_stungun: 'stungun' };
-var IIMG = {ammo_pistol: 1, ammo_rifle: 1, ammo_shotgun: 1, ammo_smg: 1, armour: 1, backpack: 1, bandage: 1, bandana: 1, bat: 1, boots: 1, c_barrel: 1, c_blueprint: 1, c_kevlar: 1, c_powder: 1, c_scrap: 1, c_shell: 1, c_spring: 1, canister: 1, cap: 1, card: 1, cash: 1, chain: 1, cuffs: 1, docs: 1, g_armour: 1, glasses: 1, gloves: 1, hat: 1, hoodie: 1, jeans: 1, knife: 1, lockpick: 1, mask: 1, medkit: 1, phone: 1, pills: 1, repair: 1, shirt: 1, shorts: 1, sneakers: 1, tshirt: 1, ukrop: 1, ukrop_pack: 1, ukrop_seed: 1, watch: 1};
+var IIMG = {radio: 1, radio_t: 1, ammo_pistol: 1, ammo_rifle: 1, ammo_shotgun: 1, ammo_smg: 1, armour: 1, backpack: 1, bandage: 1, bandana: 1, bat: 1, boots: 1, c_barrel: 1, c_blueprint: 1, c_kevlar: 1, c_powder: 1, c_scrap: 1, c_shell: 1, c_spring: 1, canister: 1, cap: 1, card: 1, cash: 1, chain: 1, cuffs: 1, docs: 1, g_armour: 1, glasses: 1, gloves: 1, hat: 1, hoodie: 1, jeans: 1, knife: 1, lockpick: 1, mask: 1, medkit: 1, phone: 1, pills: 1, repair: 1, shirt: 1, shorts: 1, sneakers: 1, tshirt: 1, ukrop: 1, ukrop_pack: 1, ukrop_seed: 1, watch: 1};
 IIMG.i_armour = 'armour';
 function icoHtml(it) { if (!it) return ''; if (WIMG[it.k]) return '<img class="wimg" src="img/w/' + WIMG[it.k] + '.webp">'; if (IIMG[it.k]) return '<img class="iimg" src="img/i/' + (IIMG[it.k] === 1 ? it.k : IIMG[it.k]) + '.webp">'; return it.i || ''; }
 function $(id) { return document.getElementById(id); }
@@ -1636,18 +1636,25 @@ window.radioPanel = function (json) {
     if (!json) { if (box) box.remove(); return; }
     var d = typeof json === 'string' ? JSON.parse(json) : json;
     if (!box) { box = document.createElement('div'); box.id = 'radioPanel'; document.body.appendChild(box); }
-    var st = d.mode === 'off' ? 'Выключена' : d.mode === 'none' ? 'Нет доступа' : d.mode === 'listen' ? 'Прослушка' : 'В сети';
-    box.innerHTML = '<div class="rp-box"><div class="rp-h"><b>📻 Рация</b><button data-rx="1">✕</button></div>' +
-        '<div class="rp-scr"><div class="rp-fq">' + (d.fq || '---.-') + '<small> МГц</small></div><div class="rp-st ' + d.mode + '">' + st + (d.ch ? ' · ' + esc(d.ch) : '') + '</div></div>' +
-        (d.err ? '<div class="rp-msg err">' + esc(d.err) + '</div>' : '') + (d.ok ? '<div class="rp-msg ok">' + esc(d.ok) + '</div>' : '') +
-        '<div class="rp-in"><input id="rpFq" maxlength="5" placeholder="Частота, напр. 101.1"><button data-ra="tune">Настроить</button></div>' +
-        (d.fac ? '<div class="rp-sec">Ваша фракция: ' + esc(d.fac) + '</div><button class="rp-wide" data-ra="inner">Внутренний канал · ' + d.inner + '</button>' : '') +
-        (d.boss ? '<div class="rp-in"><input id="rpInner" maxlength="5" placeholder="Новая внутренняя частота"><button data-ra="setInner">Сменить</button></div>' : '') +
-        (d.fac || d.tro ? '<div class="rp-sec">Дежурные каналы фракций' + (d.boss ? ' (связь лидеров)' : '') + '</div><div class="rp-chips">' +
-            d.pubs.filter(function (x) { return x.ok; }).map(function (x) { return '<button data-rq="' + x.fq + '">' + esc(x.n) + ' · ' + x.fq + '</button>'; }).join('') + '</div>' : '') +
-        (d.tro ? '<div class="rp-hint">Трофейная рация: можно только слушать. Знаете чужую частоту — введите её вручную.</div>' : '') +
-        '<div class="rp-hint">Удерживайте <b>X</b>, чтобы говорить в эфир</div>' +
-        (d.mode !== 'off' ? '<button class="rp-wide off" data-ra="off">Выключить рацию</button>' : '') + '</div>';
+    var st = d.mode === 'off' ? 'OFF' : d.mode === 'none' ? 'NO ACCESS' : d.mode === 'listen' ? 'RX ONLY' : 'ONLINE';
+    var chips = (d.fac || d.tro) ? d.pubs.filter(function (x) { return x.ok; }).map(function (x) { return '<button class="wt-ch" data-rq="' + x.fq + '">' + esc(x.n) + '<i>' + x.fq + '</i></button>'; }).join('') : '';
+    box.innerHTML = '<div class="wt">' +
+        '<div class="wt-ant"></div><div class="wt-knob k1"></div><div class="wt-knob k2"></div>' +
+        '<div class="wt-body">' +
+            '<div class="wt-top"><span class="wt-led ' + d.mode + '"></span><span class="wt-brand">AMRP · TX-900</span><button class="wt-x" data-rx="1">✕</button></div>' +
+            '<div class="wt-grill"></div>' +
+            '<div class="wt-lcd"><div class="wt-lr"><span>CH</span><span class="wt-mode ' + d.mode + '">' + st + '</span></div>' +
+                '<div class="wt-fq">' + (d.fq || '---.-') + '<small>MHz</small></div>' +
+                '<div class="wt-name">' + esc(d.ch || 'Рация выключена') + '</div></div>' +
+            (d.err ? '<div class="wt-msg err">' + esc(d.err) + '</div>' : '') + (d.ok ? '<div class="wt-msg ok">' + esc(d.ok) + '</div>' : '') +
+            '<div class="wt-pad"><input id="rpFq" maxlength="5" placeholder="___._"><button class="wt-key g" data-ra="tune">SET</button></div>' +
+            (d.fac ? '<button class="wt-key wide" data-ra="inner">ВНУТР. КАНАЛ ' + esc(d.fac) + ' · ' + d.inner + '</button>' : '') +
+            (d.boss ? '<div class="wt-pad"><input id="rpInner" maxlength="5" placeholder="новая внутр."><button class="wt-key y" data-ra="setInner">SET</button></div>' : '') +
+            (chips ? '<div class="wt-sec">' + (d.boss ? 'Связь лидеров' : 'Дежурные каналы') + '</div><div class="wt-chs">' + chips + '</div>' : '') +
+            (d.tro ? '<div class="wt-hint">Трофейная рация — только приём</div>' : '') +
+            '<div class="wt-ptt"><span>PTT</span> удерживайте <b>X</b></div>' +
+            (d.mode !== 'off' ? '<button class="wt-key wide r" data-ra="off">POWER OFF</button>' : '') +
+        '</div></div>';
 };
 document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('#radioPanel button');
