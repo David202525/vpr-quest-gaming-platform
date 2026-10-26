@@ -114,6 +114,7 @@ function pay(p, sum, jobId) {
     r.done[jobId] = (r.done[jobId] || 0) + 1;
     dirty = true;
     p.call('job:paid', [sum]);
+    if (global.QuestSystem) try { global.QuestSystem.onJob(p, jobId); } catch (e) {}
 }
 function jobOff(id) { return !!(global.AdminSystem && global.AdminSystem.jobOff && global.AdminSystem.jobOff(id)); }
 function hasLic(p, t) {

@@ -1606,3 +1606,26 @@ window.mediaMenu = function (json) {
     box.querySelectorAll('[data-mt]').forEach(function (b) { b.onclick = function () { trig('cef:media:act', 'time', b.dataset.mt); }; });
 };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('mediaMenu')) trig('cef:media:close'); });
+
+
+window.questDialog = function (json) {
+    var box = document.getElementById('questDlg');
+    if (!json) { if (box) box.remove(); return; }
+    var d = typeof json === 'string' ? JSON.parse(json) : json;
+    if (!box) { box = document.createElement('div'); box.id = 'questDlg'; document.body.appendChild(box); }
+    box.innerHTML = '<div class="qd-box"><div class="qd-n">' + esc(d.n) + '<button class="qd-x" data-qx="1">✕</button></div>' +
+        '<div class="qd-t">' + esc(d.t) + '</div><div class="qd-o">' +
+        d.o.map(function (o, i) { return '<button data-qo="' + i + '"><span>' + (i + 1) + '</span>' + esc(o) + '</button>'; }).join('') + '</div></div>';
+};
+document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('#questDlg button');
+    if (!b) return;
+    if (b.dataset.qx) return trig('cef:quest:close');
+    if (b.dataset.qo !== undefined) trig('cef:quest:answer', Number(b.dataset.qo));
+});
+document.addEventListener('keydown', function (e) {
+    if (!document.getElementById('questDlg')) return;
+    var n = Number(e.key);
+    var b = document.querySelector('#questDlg button[data-qo="' + (n - 1) + '"]');
+    if (n >= 1 && b) trig('cef:quest:answer', n - 1);
+});

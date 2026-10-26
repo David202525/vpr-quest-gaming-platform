@@ -1085,6 +1085,7 @@ setTimeout(function () {
     try { require('./trucker.js'); } catch (e) { console.log('[ui] trucker.js: ' + e.message); }
     try { require('./realty.js'); } catch (e) { console.log('[ui] realty.js: ' + e.message); }
     try { require('./media.js'); } catch (e) { console.log('[ui] media.js: ' + e.message); }
+    try { require('./quest.js'); } catch (e) { console.log('[ui] quest.js: ' + e.message); }
 }, 1500);
 if (!global.SocialSystem) {
     try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }
@@ -1597,7 +1598,7 @@ function takeItems(p, k, n) {
     mark(); sendInv(p);
     return n - left;
 }
-global.UiSystem = { invScan: invScan, takeItems: takeItems, sendInv: sendInv, driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
+global.UiSystem = { addExp: function (p, n) { if (!accId(p)) return; const d = data(p); d.exp += Math.round(n) || 0; while (d.exp >= needExp(d.lvl)) { d.exp -= needExp(d.lvl); d.lvl += 1; notify(p, 'ok', 'Новый уровень: ' + d.lvl); } mark(); }, invScan: invScan, takeItems: takeItems, sendInv: sendInv, driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
