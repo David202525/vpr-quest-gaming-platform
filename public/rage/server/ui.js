@@ -271,7 +271,7 @@ function invCap(d) { return INV_CAP + (d.equip.bag ? BAG_CAP : 0); }
 function full(x) {
     if (!x || !ITEMS[x.k]) return null;
     const it = ITEMS[x.k];
-    return { k: x.k, c: x.c, n: it.n, i: it.i, w: it.w, slot: it.slot || null, wp: !!it.wp, use: it.use || null };
+    return { k: x.k, c: x.c, n: it.n, i: it.i, w: it.w, slot: it.slot || null, wp: !!it.wp, use: it.use || null, ar: it.slot === 'armour' ? (x.ar === undefined ? 100 : x.ar) : undefined };
 }
 
 const drops = [];
@@ -296,7 +296,7 @@ function makeDrop(p, item) {
     const at = new mp.Vector3(pos.x + Math.cos(ang) * 0.6, pos.y + Math.sin(ang) * 0.6, pos.z - 0.98);
     let obj = null;
     try { obj = mp.objects.new(mp.joaat('prop_paper_bag_small'), at, { dimension: p.dimension }); } catch (e) {}
-    drops.push({ id: dropSeq++, k: item.k, c: item.c, pos: at, dim: p.dimension, obj: obj, t: Date.now() });
+    drops.push({ id: dropSeq++, k: item.k, c: item.c, ar: item.ar, pos: at, dim: p.dimension, obj: obj, t: Date.now() });
 }
 
 function trunkList(p) {
@@ -330,9 +330,9 @@ function ref(p, r) {
         if (r.i === 'new') return { b: 'ground', item: null, set: function (v) { if (v) makeDrop(p, v); } };
         if (!dr) return null;
         return {
-            b: 'ground', item: { k: dr.k, c: dr.c },
+            b: 'ground', item: dr.ar === undefined ? { k: dr.k, c: dr.c } : { k: dr.k, c: dr.c, ar: dr.ar },
             set: function (v) {
-                if (v) { dr.k = v.k; dr.c = v.c; return; }
+                if (v) { dr.k = v.k; dr.c = v.c; dr.ar = v.ar; return; }
                 if (dr.obj && mp.objects.exists(dr.obj)) dr.obj.destroy();
                 drops.splice(drops.indexOf(dr), 1);
             }
@@ -345,7 +345,7 @@ function applyCloth(p, slot, item) {
     try {
         if (slot === 'armour') {
             const fem = p.model === mp.joaat('mp_f_freemode_01');
-            const v = item ? 100 : 0;
+            const v = item ? Math.max(1, Math.min(100, item.ar === undefined ? 100 : Number(item.ar) || 0)) : 0;
             p.armour = v;
             try { p.setClothes(9, item ? (fem ? 3 : 4) : 0, 0, 0); } catch (e) {}
             p.call('inv:armour', [v]);
@@ -374,8 +374,31 @@ function applyCloth(p, slot, item) {
 function applyAll(p) {
     if (!mp.players.exists(p) || !accId(p)) return;
     const d = data(p);
-    Object.keys(d.equip).forEach(function (s) { if (s !== 'armour') applyCloth(p, s, d.equip[s]); });
+    Object.keys(d.equip).forEach(function (s) { if (s === 'armour' && p.account && p.account.downed) return; applyCloth(p, s, d.equip[s]); });
 }
+
+function armourSync(p) {
+    if (!mp.players.exists(p) || !accId(p)) return;
+    if (p.account && p.account.downed) return;
+    const d = store[key(p)];
+    const it = d && d.equip && d.equip.armour;
+    if (!it) return;
+    const cur = it.ar === undefined ? 100 : Number(it.ar);
+    const now = Math.max(0, Math.round(Number(p.armour) || 0));
+    if (now >= cur) { if (now > cur) p.armour = cur; return; }
+    if (now <= 0) {
+        delete d.equip.armour;
+        try { p.setClothes(9, 0, 0, 0); } catch (e) {}
+        notify(p, 'warn', 'Бронежилет разрушен');
+        mark();
+        sendInv(p);
+        return;
+    }
+    it.ar = now;
+    mark();
+}
+setInterval(function () { mp.players.forEach(armourSync); }, 1500);
+mp.events.add('playerQuit', function (p) { armourSync(p); });
 
 function addItem(p, k, c) {
     if (global.SLog) { try { global.SLog.add('item', { actor: p, action: 'receive', details: (ITEMS[k] ? ITEMS[k].n || k : k) + ' x' + (c || 1) }); } catch (e) {} }

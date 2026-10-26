@@ -247,7 +247,7 @@ document.addEventListener('mousemove', function (e) {
     if (!el || $('ctx').classList.contains('show')) { tip.style.display = 'none'; return; }
     var it = itemAt(el.dataset.b, el.dataset.i);
     if (!it && !el.dataset.tip) { tip.style.display = 'none'; return; }
-    tip.innerHTML = it ? '<b>' + esc(it.n) + '</b><span>' + (it.w * it.c).toFixed(2) + ' кг' + (it.c > 1 ? ' · ' + it.c + ' шт.' : '') + '</span>' : '<span>' + esc(el.dataset.tip) + '</span>';
+    tip.innerHTML = it ? '<b>' + esc(it.n) + '</b><span>' + (it.w * it.c).toFixed(2) + ' кг' + (it.c > 1 ? ' · ' + it.c + ' шт.' : '') + (it.ar !== undefined && it.ar !== null ? ' · прочность ' + it.ar + '%' : '') + '</span>' : '<span>' + esc(el.dataset.tip) + '</span>';
     tip.style.display = 'block';
     tip.style.left = (e.clientX + 16) + 'px';
     tip.style.top = (e.clientY + 14) + 'px';
