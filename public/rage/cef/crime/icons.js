@@ -37,6 +37,8 @@
     };
     I.armour = I.i_armour; I.g_armour = I.i_armour;
     var WIMG = { pistol: 'pistol', i_pistol: 'pistol', g_pistol: 'combatpistol', smg: 'microsmg', i_smg: 'microsmg', rifle: 'assaultrifle_mk2', i_rifle: 'assaultrifle', i_shotgun: 'sawnoffshotgun', g_carbine: 'carbinerifle', knife: 'knife', bat: 'bat', g_stungun: 'stungun' };
+    var PIMG = {ammo_pistol: 1, ammo_rifle: 1, ammo_shotgun: 1, ammo_smg: 1, armour: 1, backpack: 1, bandage: 1, bandana: 1, bat: 1, boots: 1, c_barrel: 1, c_blueprint: 1, c_kevlar: 1, c_powder: 1, c_scrap: 1, c_shell: 1, c_spring: 1, canister: 1, cap: 1, card: 1, cash: 1, chain: 1, cuffs: 1, docs: 1, g_armour: 1, glasses: 1, gloves: 1, hat: 1, hoodie: 1, jeans: 1, knife: 1, lockpick: 1, mask: 1, medkit: 1, phone: 1, pills: 1, repair: 1, shirt: 1, shorts: 1, sneakers: 1, tshirt: 1, ukrop: 1, ukrop_pack: 1, ukrop_seed: 1, watch: 1, i_armour: 'armour' };
     window.ICON = function (k, fallback) {
-        if (WIMG[k]) return '<span class="svgi wimg"><img src="../ui/img/w/' + WIMG[k] + '.webp"></span>'; return I[k] ? '<span class="svgi">' + I[k] + '</span>' : '<span class="svgi em">' + (fallback || '•') + '</span>'; };
+        if (WIMG[k]) return '<span class="svgi wimg"><img src="../ui/img/w/' + WIMG[k] + '.webp"></span>';
+        if (PIMG[k]) return '<span class="svgi wimg"><img src="../ui/img/i/' + (PIMG[k] === 1 ? k : PIMG[k]) + '.webp"></span>'; return I[k] ? '<span class="svgi">' + I[k] + '</span>' : '<span class="svgi em">' + (fallback || '•') + '</span>'; };
 })();

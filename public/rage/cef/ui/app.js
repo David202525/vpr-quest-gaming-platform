@@ -1,5 +1,7 @@
 var WIMG = { pistol: 'pistol', i_pistol: 'pistol', g_pistol: 'combatpistol', smg: 'microsmg', i_smg: 'microsmg', rifle: 'assaultrifle_mk2', i_rifle: 'assaultrifle', i_shotgun: 'sawnoffshotgun', g_carbine: 'carbinerifle', knife: 'knife', bat: 'bat', g_stungun: 'stungun' };
-function icoHtml(it) { return it && WIMG[it.k] ? '<img class="wimg" src="img/w/' + WIMG[it.k] + '.webp">' : (it ? it.i : ''); }
+var IIMG = {ammo_pistol: 1, ammo_rifle: 1, ammo_shotgun: 1, ammo_smg: 1, armour: 1, backpack: 1, bandage: 1, bandana: 1, bat: 1, boots: 1, c_barrel: 1, c_blueprint: 1, c_kevlar: 1, c_powder: 1, c_scrap: 1, c_shell: 1, c_spring: 1, canister: 1, cap: 1, card: 1, cash: 1, chain: 1, cuffs: 1, docs: 1, g_armour: 1, glasses: 1, gloves: 1, hat: 1, hoodie: 1, jeans: 1, knife: 1, lockpick: 1, mask: 1, medkit: 1, phone: 1, pills: 1, repair: 1, shirt: 1, shorts: 1, sneakers: 1, tshirt: 1, ukrop: 1, ukrop_pack: 1, ukrop_seed: 1, watch: 1};
+IIMG.i_armour = 'armour';
+function icoHtml(it) { if (!it) return ''; if (WIMG[it.k]) return '<img class="wimg" src="img/w/' + WIMG[it.k] + '.webp">'; if (IIMG[it.k]) return '<img class="iimg" src="img/i/' + (IIMG[it.k] === 1 ? it.k : IIMG[it.k]) + '.webp">'; return it.i || ''; }
 function $(id) { return document.getElementById(id); }
 function trig() { if (window.mp && mp.trigger) mp.trigger.apply(mp, arguments); }
 function esc(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -227,7 +229,7 @@ document.addEventListener('mousemove', function (e) {
             drag.on = true;
             hideCtx();
             drag.el.classList.add('picked');
-            $('drag').textContent = drag.it.i;
+            $('drag').innerHTML = icoHtml(drag.it);
             $('drag').style.display = 'block';
         }
         if (drag.on) {
@@ -297,7 +299,7 @@ $('wpBox').addEventListener('click', function () {
 
 function showCtx(ref, it, x, y) {
     ctxRef = ref;
-    $('ctxImg').textContent = it.i;
+    $('ctxImg').innerHTML = icoHtml(it);
     $('ctxName').textContent = it.n + (it.c > 1 ? ' (' + it.c + ')' : '');
     var useTxt = 'Использовать';
     if (ref.b === 'equip') useTxt = 'Снять';
@@ -783,7 +785,7 @@ function menuShop(d) {
         var cats = ['Все', 'Разное', 'Одежда', 'Оружие'];
         var list = d.shop.filter(function (x) { return shopCat === 'Все' || x.cat === shopCat; });
         body = '<div class="cats" style="margin-bottom:14px">' + cats.map(function (c) { return '<button data-cat="' + c + '" class="' + (c === shopCat ? 'active' : '') + '">' + c + '</button>'; }).join('') + '</div><div class="shop-grid">' +
-            list.map(function (x) { return '<div class="si"><div class="ii">' + x.i + '</div><b>' + esc(x.n) + '</b><button data-buy="' + x.k + '">' + money(x.price) + '</button></div>'; }).join('') + '</div>';
+            list.map(function (x) { return '<div class="si"><div class="ii">' + icoHtml(x) + '</div><b>' + esc(x.n) + '</b><button data-buy="' + x.k + '">' + money(x.price) + '</button></div>'; }).join('') + '</div>';
     }
     return '<div class="dn">' + head + body + '</div>';
 }
@@ -1249,7 +1251,7 @@ function renderBiz() {
             }).join('') : '<p class="bz-p">Заказов пока не было</p>') + '</div>';
     } else if (BZ.tab === 'assort' && d.assort) {
         body = '<p class="bz-p" style="margin-bottom:12px">Выключите товар, чтобы убрать его с витрины. Цены задаются наценкой в «Настройках».</p><div class="bz-assort">' + d.assort.map(function (x) {
-            return '<div class="bz-as ' + (x.on ? '' : 'off') + '"><span class="i">' + x.i + '</span><div><b>' + esc(x.n) + '</b><small>' + money(x.price) + '</small></div><button class="bz-sw ' + (x.on ? 'on' : '') + '" data-tg="' + x.k + '"><i></i></button></div>';
+            return '<div class="bz-as ' + (x.on ? '' : 'off') + '"><span class="i">' + icoHtml(x) + '</span><div><b>' + esc(x.n) + '</b><small>' + money(x.price) + '</small></div><button class="bz-sw ' + (x.on ? 'on' : '') + '" data-tg="' + x.k + '"><i></i></button></div>';
         }).join('') + '</div>';
     } else if (BZ.tab === 'set') {
         body = d.settings.map(function (s) {
@@ -1302,7 +1304,7 @@ function renderShop() {
     h += msg + '<div class="sh-grid">' + d.items.map(function (x) {
         var block = x.off || (x.lic && !d.lic) || d.stock <= 0;
         var q = SH.qty[x.k] || 1, single = /^(pistol|smg|knife|bat|armour|phone|gloves)$/.test(x.k);
-        return '<div class="sh-it ' + (block ? 'dis' : '') + '"><div class="sh-ico">' + x.i + '</div><b>' + esc(x.n) + (x.pack > 1 ? ' <em>x' + x.pack + '</em>' : '') + '</b>' +
+        return '<div class="sh-it ' + (block ? 'dis' : '') + '"><div class="sh-ico">' + icoHtml(x) + '</div><b>' + esc(x.n) + (x.pack > 1 ? ' <em>x' + x.pack + '</em>' : '') + '</b>' +
             '<span class="sh-pr">' + money(x.price) + '</span>' + (x.lic ? '<span class="sh-tag">Лицензия</span>' : '') +
             (x.off ? '<span class="sh-na">Нет в продаже</span>' : '<div class="sh-buy">' + (single ? '' : '<div class="sh-q"><button data-qm="' + x.k + '">−</button><span>' + q + '</span><button data-qp="' + x.k + '">+</button></div>') +
                 '<button class="sh-b" data-buy="' + x.k + '"' + (block ? ' disabled' : '') + '>Купить' + (q > 1 && !single ? ' · ' + money(x.price * q) : '') + '</button></div>') + '</div>';
@@ -1469,7 +1471,7 @@ window.govMenu = function (json) {
         h = '<div class="hm-h"><span class="hm-i">🗄️</span><div><b>Склад оружия · ' + esc(d.f) + '</b><small>Поставки выполняет армия. Остатки видны справа</small></div></div><div class="gv-list">' +
             d.items.map(function (x) {
                 var lock = d.rank < x.r;
-                return '<div class="gv-it' + (lock ? ' lock' : '') + '"><span class="gv-i">' + x.i + '</span><div class="gv-b"><b>' + esc(x.n) + '</b><small>' + (lock ? 'С ' + x.r + ' ранга' : x.has ? 'У вас: ' + x.has : 'Доступно') + '</small></div><span class="gv-left' + (x.left ? '' : ' z') + '">' + x.left + ' шт</span><button class="btn" data-gt="' + x.k + '"' + (lock || !x.left ? ' disabled' : '') + '>Взять</button></div>';
+                return '<div class="gv-it' + (lock ? ' lock' : '') + '"><span class="gv-i">' + icoHtml(x) + '</span><div class="gv-b"><b>' + esc(x.n) + '</b><small>' + (lock ? 'С ' + x.r + ' ранга' : x.has ? 'У вас: ' + x.has : 'Доступно') + '</small></div><span class="gv-left' + (x.left ? '' : ' z') + '">' + x.left + ' шт</span><button class="btn" data-gt="' + x.k + '"' + (lock || !x.left ? ' disabled' : '') + '>Взять</button></div>';
             }).join('') + '</div><button class="btn ghost" data-gr="1">Сдать всё снаряжение</button>';
     } else if (d.t === 'locker') {
         h = '<div class="hm-h"><span class="hm-i">👮</span><div><b>Раздевалка · ' + esc(d.f) + '</b><small>' + (d.on ? 'Вы на смене' : 'Вы не на смене') + '</small></div></div><div class="hm-days">' +

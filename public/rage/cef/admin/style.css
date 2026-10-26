@@ -802,3 +802,10 @@ label.check input {
 .tr.md-tr{grid-template-columns:1.2fr 1fr 1fr 150px auto}
 .md-sal{display:flex;align-items:center;gap:6px}.md-sal .search{width:80px;margin:0;padding:6px 8px}
 .md-b{display:flex;gap:4px}.md-b .btn{padding:6px 10px;font-size:11px;margin:0}
+
+.side { min-height: 0; overflow: hidden; }
+.side .menu { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.side .menu::-webkit-scrollbar { width: 4px; }
+.side .menu::-webkit-scrollbar-thumb { background: rgba(193, 61, 255, .45); border-radius: 4px; }
+.side .m { flex: none; padding: 9px 12px; }
+.side .quick { flex: none; }
