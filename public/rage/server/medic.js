@@ -1,4 +1,5 @@
-const db = require('./database');
+let db = null;
+try { db = require('../database'); } catch (e) { try { db = require('./database'); } catch (e2) { db = { query: function () { return Promise.resolve([]); } }; } }
 
 const CFG = {
     adminLevel: 2,
@@ -157,6 +158,7 @@ function callOf(p) {
 function closeCall(c) {
     calls = calls.filter(function (x) { return x.id !== c.id; });
     medics().forEach(function (m) { m.call('medic:callClear', [c.id]); });
+    if (global.EmsSystem) global.EmsSystem.closed(c);
 }
 
 function createCall(p, reason, urgent) {
@@ -170,9 +172,11 @@ function createCall(p, reason, urgent) {
         reason: reason,
         urgent: !!urgent,
         pos: { x: p.position.x, y: p.position.y, z: p.position.z },
-        taken: null
+        taken: null,
+        at: Date.now()
     };
     calls.push(c);
+    if (global.EmsSystem) global.EmsSystem.push();
 
     const list = medics();
     list.forEach(function (m) {
@@ -225,8 +229,7 @@ function doRevive(medic, target) {
         if (!isDown(target) || range2 > 4) return msg(medic, '\u0420\u0435\u0430\u043d\u0438\u043c\u0430\u0446\u0438\u044f \u043f\u0440\u0435\u0440\u0432\u0430\u043d\u0430.');
         if (!doReviveCore(target)) return msg(medic, '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u0434\u043d\u044f\u0442\u044c \u043f\u0430\u0446\u0438\u0435\u043d\u0442\u0430.');
 
-        giveMoney(medic, CFG.revivePay);
-        msg(medic, '\u041f\u0430\u0446\u0438\u0435\u043d\u0442 \u0441\u043f\u0430\u0441\u0451\u043d. \u041f\u0440\u0435\u043c\u0438\u044f: $' + CFG.revivePay);
+        if (global.EmsSystem) global.EmsSystem.rescued(medic, target, 'revive');
 
         mp.players.forEach(function (m) {
             if (isMedic(m) && m !== medic) {
@@ -255,6 +258,7 @@ function doHeal(medic, target) {
     msg(medic, '\u041f\u0430\u0446\u0438\u0435\u043d\u0442 \u0432\u044b\u043b\u0435\u0447\u0435\u043d. \u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a: $' + CFG.healPay);
 
     const c = callOf(target);
+    if (c && global.EmsSystem) global.EmsSystem.rescued(medic, target, 'heal');
     if (c) closeCall(c);
 }
 
@@ -403,10 +407,7 @@ mp.events.add('playerExitColshape', function (p, s) {
 mp.events.add('medic:interact', function (p) {
     if (!p.account || isDown(p)) return;
 
-    if (onDuty(p)) {
-        const t = nearestDown(p, 2.5);
-        if (t) return doRevive(p, t);
-    }
+    if (global.EmsSystem && global.EmsSystem.interact(p)) { p.emsUsedE = Date.now(); return; }
 
     if (p.medicZone === 'locker') return toggleDuty(p);
     if (p.medicZone === 'garage') return spawnAmbulance(p);
@@ -447,10 +448,9 @@ mp.events.addCommand('calls', function (p) {
     });
 });
 
-mp.events.addCommand('accept', function (p, arg) {
+function acceptCall(p, id) {
     if (!onDuty(p)) return msg(p, '\u0412\u044b \u043d\u0435 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435.');
 
-    const id = parseInt(arg, 10);
     let c = null;
     for (let i = 0; i < calls.length; i++) {
         if (calls[i].id === id) c = calls[i];
@@ -472,7 +472,10 @@ mp.events.addCommand('accept', function (p, arg) {
     });
 
     if (alive) msg(t, '\u0412\u0440\u0430\u0447 ' + p.name + ' \u0435\u0434\u0435\u0442 \u043a \u0432\u0430\u043c.');
-});
+    if (global.EmsSystem) global.EmsSystem.accepted(p, c);
+}
+global.MedicCalls = { list: function () { return calls; }, accept: acceptCall };
+global.MedicAccept = function (p, arg) { acceptCall(p, parseInt(arg, 10)); };
 
 mp.events.addCommand('heal', function (p, arg) {
     if (!onDuty(p)) return msg(p, '\u0412\u044b \u043d\u0435 \u043d\u0430 \u0441\u043c\u0435\u043d\u0435.');
@@ -664,11 +667,14 @@ mp.events.add('playerExitColshape', function (p, s) {
 mp.events.add('medic:interact', function (p) {
     if (!p.hospDoor || !p.account) return;
     if (p.account.downed || p.vehicle) return;
+    if (p.emsUsedE && Date.now() - p.emsUsedE < 400) return;
     const key = p.hospDoor === 'out' ? 'in' : 'out';
     const to = DOORS[key];
     p.hospDoor = null;
     p.position = new mp.Vector3(to.x, to.y, to.z);
     p.heading = to.h;
+    const cr = p.emsCarry !== undefined && p.emsCarry !== null ? mp.players.at(p.emsCarry) : null;
+    if (cr && mp.players.exists(cr)) cr.position = new mp.Vector3(to.x, to.y, to.z + 0.5);
 });
 
 mp.events.addCommand('hospdoor', function (p, arg) {

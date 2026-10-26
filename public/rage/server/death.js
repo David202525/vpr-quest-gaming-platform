@@ -31,7 +31,8 @@ function medicsOnDuty() {
 }
 function info(p) {
     if (!mp.players.exists(p) || !p.account) return;
-    p.call('death:info', [JSON.stringify({ called: !!p.account.downCalled, medics: medicsOnDuty(), left: Math.max(0, BLEED_MS - (Date.now() - p.account.downAt)) })]);
+    const E = global.EmsSystem;
+    p.call('death:info', [JSON.stringify({ called: !!p.account.downCalled, medics: medicsOnDuty(), left: Math.max(0, BLEED_MS - (Date.now() - p.account.downAt)), coming: E ? E.coming(p) : null, busy: E ? E.busy(p) : '' })]);
 }
 const HOSPITAL_FEE = 500;
 
@@ -119,6 +120,7 @@ async function respawn(player) {
     player.call('srv:deathEnd');
     player.outputChatBox('!{#8fd14f}\u0412\u0430\u0441 \u0434\u043e\u0441\u0442\u0430\u0432\u0438\u043b\u0438 \u0432 \u0431\u043e\u043b\u044c\u043d\u0438\u0446\u0443. \u0421\u0447\u0451\u0442 \u0437\u0430 \u043b\u0435\u0447\u0435\u043d\u0438\u0435: !{#ffffff}' + fee + '$');
 
+    if (global.EmsSystem) try { global.EmsSystem.afterRespawn(player); } catch (e) { console.log('[death] ems: ' + e.message); }
     mp.events.call('medic:resolved', player);
 
     if (db) try {
@@ -188,6 +190,8 @@ mp.events.add('srv:death:hospital', function (p) {
     ensure(p);
     if (!p.account || !p.account.downed) return;
     if (Date.now() - p.account.downAt < BLEED_MS) return info(p);
+    const busy = global.EmsSystem ? global.EmsSystem.busy(p) : '';
+    if (busy) { p.outputChatBox('!{#ffcc66}' + busy + ' — дождитесь помощи'); return info(p); }
     respawn(p);
 });
 
@@ -202,12 +206,12 @@ setInterval(function () {
     mp.players.forEach(function (p) {
         if (p.account && p.account.downed && p.account.downCalled) info(p);
     });
-}, 10000);
+}, 3000);
 
 mp.events.add('playerQuit', function (player) {
     clearTimer(player);
 });
 
-const api = { down: down, respawn: respawn, revive: revive, adminLvl: adminLvl };
+const api = { down: down, respawn: respawn, revive: revive, adminLvl: adminLvl, info: info };
 global.DeathSystem = api;
 module.exports = api;

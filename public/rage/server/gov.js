@@ -556,6 +556,7 @@ async function sendTablet(p) {
     if (p.web || mp.players.exists(p)) p.call('gov:tablet', [JSON.stringify(d)]);
 }
 mp.events.add('srv:tab:open', function (p) {
+    if (fac(p) === 'medic' && global.EmsSystem) return global.EmsSystem.openTab(p);
     if (!isGovF(fac(p))) return notify(p, 'warn', 'Планшет доступен только сотрудникам гос. структур');
     if (fac(p) === 'lic' && !canManage(p)) return notify(p, 'warn', 'Планшет лицензионного центра есть только у директора и заместителей');
     sendTablet(p);
@@ -567,6 +568,7 @@ mp.events.add('srv:tab:act', function (p, json) { tabAct(p, json); });
 async function tabAct(p, json) {
     let d; try { d = JSON.parse(json); } catch (e) { return; }
     const f = fac(p);
+    if (f === 'medic' && global.EmsSystem) return global.EmsSystem.tabAct(p, d);
     if (!isGovF(f)) return;
     const x = F(f);
     const a = d.a;

@@ -1129,6 +1129,8 @@ setTimeout(function () {
     try { require('./media.js'); } catch (e) { console.log('[ui] media.js: ' + e.message); }
     try { require('./quest.js'); } catch (e) { console.log('[ui] quest.js: ' + e.message); }
     try { require('./radio.js'); } catch (e) { console.log('[ui] radio.js: ' + e.message); }
+    try { require('./medic.js'); } catch (e) { console.log('[ui] medic.js: ' + e.message); }
+    try { require('./ems.js'); } catch (e) { console.log('[ui] ems.js: ' + e.message); }
 }, 1500);
 if (!global.SocialSystem) {
     try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }

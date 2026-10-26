@@ -1013,6 +1013,9 @@ window.deathShow = function (d) {
     var st;
     if (d.called) st = d.medics > 0 ? 'Вызов принят диспетчером. Медиков на смене: <b>' + d.medics + '</b>. Ожидайте помощи.' : 'Вызов отправлен, но медиков на смене сейчас <b>нет</b>.' + (ready ? ' Можно отправиться в больницу.' : '');
     else st = ready ? 'Время вышло. Отправляйтесь в больницу или продолжайте ждать врача.' : 'Нажмите <b>E</b>, чтобы вызвать медиков. Через 2 минуты станет доступна больница.';
+    if (d.coming) st = '🚑 Врач <b>' + esc(d.coming.n) + '</b> едет к вам · ' + d.coming.d + ' м. Не уходите в больницу — он доставит вас сам.';
+    if (d.busy) st = '🚑 <b>' + esc(d.busy) + '</b>';
+    $('dtHosp').classList.toggle('off', !ready || !!d.busy);
     $('dtStatus').innerHTML = st;
 };
 window.deathHide = function () { $('death').classList.remove('show'); };

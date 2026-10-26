@@ -497,3 +497,8 @@ tr:hover td {
 .card .grid2 .in { width: 100%; }
 .card details summary::-webkit-details-marker { color: var(--mut); }
 .card .kv .in { text-align: right; }
+
+.ecall .ec-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}.ecall .ec-h b{font-size:14px}
+.ecall .ec-p{margin-left:auto;font-weight:800;color:#3fcf8e;font-size:16px}
+.ecall.urg{border-left:3px solid var(--red)}
+tr.me-row td{background:rgba(224,35,78,.12)}

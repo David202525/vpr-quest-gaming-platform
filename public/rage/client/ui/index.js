@@ -284,7 +284,7 @@ function deathPush() {
     uiExec('window.deathShow && window.deathShow(' + JSON.stringify({
         reason: deadState.reason,
         left: Math.max(0, deadState.until - Date.now()),
-        called: deadState.called, medics: deadState.medics
+        called: deadState.called, medics: deadState.medics, coming: deadState.coming, busy: deadState.busy
     }) + ');');
 }
 mp.events.add('srv:death', function (reason, ms) {
@@ -302,6 +302,8 @@ mp.events.add('death:info', function (json) {
         var d = JSON.parse(json);
         deadState.called = !!d.called;
         deadState.medics = d.medics || 0;
+        deadState.coming = d.coming || null;
+        deadState.busy = d.busy || '';
         deadState.until = Date.now() + Number(d.left || 0);
     } catch (e) {}
     deathPush();

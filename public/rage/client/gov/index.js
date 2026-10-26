@@ -93,6 +93,7 @@ mp.events.add('gov:tablet', function (json) {
 mp.events.add('gov:tabSearch', function (json) { if (tabBrowser) tabBrowser.execute('window.tabSearch && window.tabSearch(' + JSON.stringify(json) + ');'); });
 mp.events.add('gov:tabPlate', function (json) { if (tabBrowser) tabBrowser.execute('window.tabPlate && window.tabPlate(' + JSON.stringify(json) + ');'); });
 mp.events.add('cef:tab:close', function () { tabShow(false); });
+mp.events.add('ems:tabUpd', function (json) { if (tabOpen && tabBrowser) tabBrowser.execute('window.tabData && window.tabData(' + JSON.stringify(json) + ');'); });
 mp.events.add('cef:tab:act', function (json) { mp.events.callRemote('srv:tab:act', json); });
 mp.events.add('cef:tab:refresh', function () { mp.events.callRemote('srv:tab:open'); });
 mp.events.add('cef:tab:wp', function (x, y) { mp.game.ui.setNewWaypoint(Number(x), Number(y)); });

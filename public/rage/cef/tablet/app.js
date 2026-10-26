@@ -8,7 +8,7 @@ function stars(n) { var h = ''; for (var i = 1; i <= 5; i++) h += i <= n ? '★'
 function act(o) { trig('cef:tab:act', JSON.stringify(o)); }
 
 var D = null, page = 'home', found = null, plate = null, memFilter = '';
-var COL = { lic: '#2fae9f', lspd: '#2f6fff', sheriff: '#b8892b', fib: '#555c6b', army: '#4f6b2f', gov: '#b8892b', news: '#d9541e' };
+var COL = { medic: '#e0234e', lic: '#2fae9f', lspd: '#2f6fff', sheriff: '#b8892b', fib: '#555c6b', army: '#4f6b2f', gov: '#b8892b', news: '#d9541e' };
 
 window.tabData = function (json) {
     D = typeof json === 'string' ? JSON.parse(json) : json;
@@ -35,6 +35,51 @@ function modal(title, body, ok, fn) {
 $('mNo').onclick = function () { $('modal').classList.remove('show'); };
 $('close').onclick = function () { trig('cef:tab:close'); };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if ($('modal').classList.contains('show')) $('modal').classList.remove('show'); else trig('cef:tab:close'); } });
+
+function navEms() {
+    var items = [['ecalls', '🚑', 'Вызовы' + (D.calls.length ? ' (' + D.calls.length + ')' : '')], ['erate', '🏆', 'Рейтинг врачей'], ['eme', '📋', 'Моя статистика']];
+    if (D.chief) items.push(['ecert', '⚠️', 'Переаттестация' + (D.cert.length ? ' (' + D.cert.length + ')' : '')]);
+    items.push(['elog', '📜', 'Журнал']);
+    if (!items.some(function (x) { return x[0] === page; })) page = 'ecalls';
+    $('nav').innerHTML = items.map(function (x) { return '<button data-p="' + x[0] + '" class="' + (page === x[0] ? 'on' : '') + '"><i>' + x[1] + '</i>' + x[2] + '</button>'; }).join('');
+    $('nav').querySelectorAll('[data-p]').forEach(function (b) { b.onclick = function () { page = b.dataset.p; render(); }; });
+}
+function renderEms() {
+    var h = '', my = D.my;
+    if (page === 'ecalls') {
+        h = '<h2>Вызовы</h2><div class="sub">' + (D.duty ? 'Премия зависит от срочности и расстояния. Успеете за 4 минуты — +25%. Опоздали — минус к рейтингу и уведомление главврачу' : 'Заступите на смену в раздевалке больницы, чтобы видеть вызовы') + '</div>' +
+            '<div class="stats"><div class="st"><small>Активных вызовов</small><b>' + D.calls.length + '</b></div><div class="st"><small>Срочных</small><b style="color:var(--red)">' + D.calls.filter(function (c) { return c.u; }).length + '</b></div><div class="st"><small>Врачей на смене</small><b>' + D.staff.filter(function (x) { return x.duty; }).length + '</b></div><div class="st"><small>Моё место</small><b>' + (my.pos ? '#' + my.pos : '—') + '</b></div></div>' +
+            (D.calls.length ? D.calls.map(function (c) {
+                var st = c.mine ? '<span class="tag duty">ваш вызов</span>' : c.by ? '<span class="tag">едет ' + esc(c.by) + '</span>' : '<span class="tag l">свободен</span>';
+                return '<div class="card ecall' + (c.u ? ' urg' : '') + '"><div class="ec-h"><b>' + (c.u ? '🩸 СРОЧНО' : '📞 Вызов') + ' #' + c.id + '</b>' + st + '<span class="ec-p">' + money(c.prize) + '</span></div>' +
+                    '<div class="kv"><span>Пациент</span><b>' + esc(c.n) + '</b></div><div class="kv"><span>Причина</span><b>' + esc(c.r) + '</b></div><div class="kv"><span>Расстояние</span><b>' + c.d + ' м</b></div><div class="kv"><span>Поступил</span><b>' + ago(Date.now() - c.age) + '</b></div>' +
+                    '<div class="row" style="margin:10px 0 0">' + (!c.by ? '<button class="btn" data-ea="' + c.id + '">Принять вызов</button>' : '') + '<button class="btn ghost" data-wx="' + c.x + '" data-wy="' + c.y + '">📍 Метка на карте</button></div></div>';
+            }).join('') : '<div class="empty">Вызовов нет — штат здоров</div>') +
+            '<div class="card"><h3>💡 Как работать</h3><div class="log">E у раненого — взять на руки · /revive — реанимация на месте</div><div class="log">E у скорой — положить пациента в машину (задние места)</div><div class="log">E у красного круга «Приёмное отделение» — сдать пациента, он попадёт на койку</div><div class="log">Базовая премия: срочный ' + money(D.cfg.urgent) + ', обычный ' + money(D.cfg.call) + ' + за километраж</div></div>';
+    } else if (page === 'erate') {
+        h = '<h2>Рейтинг врачей</h2><div class="sub">Место = спасённые минус проваленные вызовы</div>' +
+            (D.rating.length ? '<table><tr><th>#</th><th>Врач</th><th>Спасено</th><th>Провалов</th><th>Заработано</th><th>Очки</th></tr>' + D.rating.map(function (x, i) {
+                var md = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+                return '<tr' + (x.id === D.me.id ? ' class="me-row"' : '') + '><td><b>' + md + '</b></td><td>' + esc(x.n) + '</td><td style="color:#3fcf8e">' + x.saved + '</td><td style="color:' + (x.fail ? 'var(--red)' : 'var(--mut)') + '">' + x.fail + '</td><td>' + money(x.earn) + '</td><td><b style="color:' + (x.score < 0 ? 'var(--red)' : '#fff') + '">' + x.score + '</b></td></tr>';
+            }).join('') + '</table>' : '<div class="empty">Пока никто никого не спас</div>');
+    } else if (page === 'eme') {
+        h = '<h2>Моя статистика</h2><div class="sub">' + esc(D.me.rn) + ' ' + esc(D.me.n) + '</div>' +
+            '<div class="stats"><div class="st"><small>Место в рейтинге</small><b>' + (my.pos ? my.pos + ' из ' + my.total : '—') + '</b></div><div class="st"><small>Спасено</small><b style="color:#3fcf8e">' + my.saved + '</b></div><div class="st"><small>Провалено</small><b style="color:var(--red)">' + my.fail + '</b></div><div class="st"><small>Премий получено</small><b>' + money(my.earn) + '</b></div></div>' +
+            (my.streak ? '<div class="card" style="border-color:var(--red)"><h3>⚠️ Вы на контроле у главврача</h3><div class="log">Провалов подряд: ' + my.streak + '. Пройдите переаттестацию у главврача.</div></div>' : '<div class="card"><h3>✅ Нареканий нет</h3><div class="log">Продолжайте в том же духе</div></div>');
+    } else if (page === 'ecert') {
+        h = '<h2>Переаттестация</h2><div class="sub">Сотрудники, которые не успели на вызов. Проведите с ними беседу или экзамен и отметьте результат</div>' +
+            (D.cert.length ? '<table><tr><th>Сотрудник</th><th>Провалов подряд</th><th>Последний</th><th></th></tr>' + D.cert.map(function (x) {
+                return '<tr><td>' + esc(x.n) + '</td><td style="color:var(--red)"><b>' + x.f + '</b></td><td>' + ago(x.at) + '</td><td><button class="btn green sm" data-ec="' + x.id + '">Аттестован</button></td></tr>';
+            }).join('') + '</table>' : '<div class="empty">Все сотрудники в норме</div>');
+    } else if (page === 'elog') {
+        h = '<h2>Журнал EMS</h2><div class="sub">Спасения, провалы и переаттестации</div><div class="card">' + (D.log.map(function (l) { return '<div class="log"><span>' + dt(l.t) + '</span>' + esc(l.x) + '</div>'; }).join('') || '<div class="empty">Пусто</div>') + '</div>';
+    }
+    var m = $('main');
+    m.innerHTML = h;
+    m.querySelectorAll('[data-ea]').forEach(function (b) { b.onclick = function () { act({ a: 'accept', id: Number(b.dataset.ea) }); }; });
+    m.querySelectorAll('[data-ec]').forEach(function (b) { b.onclick = function () { act({ a: 'certok', id: Number(b.dataset.ec) }); }; });
+    m.querySelectorAll('[data-wx]').forEach(function (b) { b.onclick = function () { trig('cef:tab:wp', b.dataset.wx, b.dataset.wy); toast('Метка поставлена'); }; });
+}
 
 function nav() {
     var items = [['home', '🏠', 'Главная'], ['members', '👥', 'Состав'], ['squads', '🛡️', 'Отряды']];
@@ -64,6 +109,7 @@ function nav() {
 
 function render() {
     if (!D) return;
+    if (D.ems) { navEms(); return renderEms(); }
     nav();
     if (D.lite && ['members', 'ranks'].indexOf(page) < 0) page = 'members';
     var m = $('main'), h = '';

@@ -21,3 +21,5 @@ require('./crime/index.js');
 require('./media/index.js');
 require('./quest/index.js');
 require('./radio/index.js');
+require('./medic/index.js');
+require('./medic/ems.js');
