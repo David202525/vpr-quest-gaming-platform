@@ -71,6 +71,7 @@ mp.events.add('srv:media:open', function (p) {
     if (!me(p)) return;
     send(p);
 });
+mp.events.addCommand('media', function (p) { if (!me(p)) return notify(p, 'warn', 'Панель доступна только медиа-партнёрам'); send(p); });
 function carClear(p) {
     if (p.mediaCar && mp.vehicles.exists(p.mediaCar)) p.mediaCar.destroy();
     p.mediaCar = null;

@@ -56,11 +56,6 @@ mp.keys.bind(0x79, false, function () {
     if (busy()) return;
     mp.events.callRemote('srv:media:open');
 });
-mp.events.add('playerCommand', function (cmd) {
-    if (cmd !== 'media' && cmd !== 'медиа') return;
-    if (!mediaRole) return mp.events.call('hud:notify', 'warn', 'Панель доступна только медиа-партнёрам', 3000);
-    mp.events.callRemote('srv:media:open');
-});
 
 /* ---------- кинокамера ---------- */
 function camOn() {
