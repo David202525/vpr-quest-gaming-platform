@@ -507,9 +507,9 @@ function _renderApp() {
             p.gps.forEach(function (g, i) { var c = g.c || 'Места'; (groups[c] = groups[c] || []).push([g, i]); });
             body.innerHTML = tabs + '<div class="empty-t" style="margin:6px 0 4px;text-align:left">Выберите место — метка появится на карте.</div>' +
                 '<div class="gps-sub">Услуги</div><div class="gps-i" data-rl="1"><span>🔑</span><span>Агентство недвижимости · аукционы</span></div>' +
-                (DATA.houses && DATA.houses.fac ? '<div class="gps-sub">Организации</div>' + DATA.houses.fac.map(function (f) { return '<div class="gps-i" data-hg="fac" data-id="' + f.i + '"><span>🏛️</span><span>' + esc(f.n) + '</span></div>'; }).join('') : '') +
                 Object.keys(groups).map(function (c) {
-                    return '<div class="gps-sub">' + esc(c) + '</div>' + groups[c].map(function (x) { return '<div class="gps-i" data-g="' + x[1] + '"><span>📍</span><span>' + esc(x[0].n) + '</span></div>'; }).join('');
+                    var org = c === 'Госучреждения' && DATA.houses && DATA.houses.fac ? DATA.houses.fac.map(function (f) { return '<div class="gps-i" data-hg="fac" data-id="' + f.i + '"><span>🏛️</span><span>' + esc(f.n) + '</span></div>'; }).join('') : '';
+                    return '<div class="gps-sub">' + esc(c) + '</div>' + org + groups[c].map(function (x) { return '<div class="gps-i" data-g="' + x[1] + '"><span>📍</span><span>' + esc(x[0].n) + '</span></div>'; }).join('');
                 }).join('');
         }
         body.querySelectorAll('[data-g]').forEach(function (el) { el.onclick = function () { trig('cef:phone:gps', Number(el.dataset.g)); }; });
