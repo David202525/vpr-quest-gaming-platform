@@ -240,3 +240,5 @@ body {
     transform: scaleX(1);
   }
 }
+
+#title .t-logo { width: 16vh; height: 16vh; object-fit: contain; margin-bottom: 2vh; filter: drop-shadow(0 6px 18px rgba(0,0,0,.6)); }

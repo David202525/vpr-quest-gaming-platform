@@ -23,7 +23,7 @@ mp.events.add('srv:intro:done', function (p) {
         seen[id] = Date.now();
         dirty = true;
         mp.events.call('story:start', p);
-        if (typeof global.hudNotify === 'function') global.hudNotify(p, 'ok', 'Добро пожаловать в Лос-Сантос! Телефон — F3, меню — M, помощь — /help. Пересмотреть историю — /intro');
+        if (typeof global.hudNotify === 'function') global.hudNotify(p, 'ok', 'Добро пожаловать на AMRP! Телефон — F3, меню — M, помощь — /help. Пересмотреть историю — /intro');
     }
 });
 

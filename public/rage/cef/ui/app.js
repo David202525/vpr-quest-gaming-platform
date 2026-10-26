@@ -559,7 +559,7 @@ function _renderApp() {
         body.innerHTML = '<textarea class="f-in" id="notesT" style="height:440px;resize:none;line-height:1.5" placeholder="Ваши заметки...">' + esc(LS.get('ph_notes') || '') + '</textarea>';
         $('notesT').oninput = function () { LS.set('ph_notes', this.value); };
     } else if (phApp === 'settings') {
-        body.innerHTML = '<div style="text-align:center;font-size:60px;margin:20px 0 6px">📱</div><div style="text-align:center;font-weight:700;font-size:16px;margin-bottom:20px">RPhone 15</div>' +
+        body.innerHTML = '<div style="text-align:center;margin:16px 0 6px"><img src="logo.png" style="width:90px;height:90px;object-fit:contain"></div><div style="text-align:center;font-weight:700;font-size:16px;margin-bottom:20px">AMRP Phone</div>' +
             '<div class="kv"><span>Владелец</span><b>' + esc(p.name) + '</b></div><div class="kv"><span>Номер</span><b>' + esc(p.number) + '</b></div>' +
             '<div class="kv"><span>Контактов</span><b>' + p.contacts.length + '</b></div><div class="kv"><span>Сообщений</span><b>' + p.sms.length + '</b></div>' +
             '<div class="kv"><span>Баланс телефона</span><b>$' + (p.pbal || 0) + '</b></div>' +
@@ -741,7 +741,7 @@ function menuShop(d) {
     var coins = d.coins || 0;
     var secs = [['vip', '👑', 'VIP-статус'], ['coins', '💎', 'Коины'], ['sim', '📶', 'Связь'], ['lic', '📄', 'Лицензии'], ['items', '🛒', 'Предметы']];
     var head = '<div class="dn-hero" style="background-image:linear-gradient(90deg,rgba(20,8,30,.96) 30%,rgba(20,8,30,.35)),url(img/banner.jpg)">' +
-        '<div class="dn-h-l"><span class="dn-tag">ДОНАТ-МАГАЗИН</span><h2>Поддержи сервер — получи бонусы</h2><p>VIP ускоряет прокачку и Battle Pass, коины меняются на игровую валюту</p></div>' +
+        '<div class="dn-h-l"><span class="dn-tag">ДОНАТ-МАГАЗИН</span><h2>Поддержи AMRP — получи бонусы</h2><p>VIP ускоряет прокачку и Battle Pass, коины меняются на игровую валюту</p></div>' +
         '<div class="dn-bal"><div class="dn-coin"><img src="img/bp_coins.jpg"><div><small>Баланс</small><b>' + coins.toLocaleString('ru-RU') + ' RC</b></div></div>' +
         '<div class="dn-cash"><small>Наличные</small><b>' + money(d.money) + '</b></div>' +
         (d.vip ? '<div class="dn-vipnow" style="--c:' + d.vip.color + '">' + esc(d.vip.n) + ' · ещё ' + d.vip.left + ' дн.</div>' : '') + '</div></div>' +
