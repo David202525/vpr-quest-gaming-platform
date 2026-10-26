@@ -79,7 +79,7 @@ function camOn() {
     mp.game.ui.displayRadar(false);
     mp.events.call('hud:show', false);
     mp.gui.chat.show(false);
-    mp.events.call('hud:notify', 'ok', 'Кинокамера: WASD, мышь, Q/E — вниз/вверх, Shift — быстрее, колесо — зум. F10 — выход', 6000);
+    mp.events.call('hud:notify', 'ok', 'Кинокамера: WASD, мышь, Q/E — вниз/вверх, Shift — быстрее, Alt — плавно, колесо — зум. F10 — выход и возврат на место', 6000);
 }
 function camOff() {
     if (!mCamOn) return;
@@ -87,6 +87,7 @@ function camOff() {
     try { mCam.setActive(false); mCam.destroy(); } catch (e) {}
     mCam = null;
     mp.game.cam.renderScriptCams(false, true, 400, true, false);
+    try { mp.game.streaming.clearFocus(); } catch (e) {}
     mp.players.local.freezePosition(false);
     mp.game.ui.displayRadar(true);
     mp.events.call('hud:show', true);
@@ -102,7 +103,7 @@ mp.events.add('render', function () {
     var rz = mCamRot.z * Math.PI / 180, rx = mCamRot.x * Math.PI / 180;
     var fw = { x: -Math.sin(rz) * Math.cos(rx), y: Math.cos(rz) * Math.cos(rx), z: Math.sin(rx) };
     var rt = { x: Math.cos(rz), y: Math.sin(rz) };
-    var sp = mp.game.controls.isDisabledControlPressed(0, 21) ? 0.9 : 0.25;
+    var sp = mp.game.controls.isDisabledControlPressed(0, 21) ? 2.5 : (mp.game.controls.isDisabledControlPressed(0, 19) ? 0.05 : 0.35);
     var c = mCam.getCoord(), n = { x: c.x, y: c.y, z: c.z };
     if (mp.game.controls.isDisabledControlPressed(0, 32)) { n.x += fw.x * sp; n.y += fw.y * sp; n.z += fw.z * sp; }
     if (mp.game.controls.isDisabledControlPressed(0, 33)) { n.x -= fw.x * sp; n.y -= fw.y * sp; n.z -= fw.z * sp; }
@@ -112,12 +113,10 @@ mp.events.add('render', function () {
     if (mp.game.controls.isDisabledControlPressed(0, 38)) n.z += sp;
     if (mp.game.controls.isDisabledControlJustPressed(0, 241)) mFov = Math.max(10, mFov - 4);
     if (mp.game.controls.isDisabledControlJustPressed(0, 242)) mFov = Math.min(90, mFov + 4);
-    var pp = mp.players.local.position;
-    var dd = Math.hypot(n.x - pp.x, n.y - pp.y, n.z - pp.z);
-    if (dd > 120) { var k = 120 / dd; n.x = pp.x + (n.x - pp.x) * k; n.y = pp.y + (n.y - pp.y) * k; n.z = pp.z + (n.z - pp.z) * k; }
     mCam.setCoord(n.x, n.y, n.z);
     mCam.setRot(mCamRot.x, 0, mCamRot.z, 2);
     mCam.setFov(mFov);
+    mp.game.streaming.setFocusArea(n.x, n.y, n.z, 0, 0, 0);
     mp.game.ui.hideHudAndRadarThisFrame();
 });
 
@@ -165,13 +164,13 @@ mp.events.add('render', function () {
     [245, 249, 1, 2, 241, 242].forEach(function (k) { mp.game.controls.enableControlAction(0, k, true); });
     if (mp.gui.cursor.visible) return;
     var dx = mp.game.controls.getDisabledControlNormal(0, 1) * 8, dy = mp.game.controls.getDisabledControlNormal(0, 2) * 8;
-    if (mp.game.controls.isControlJustPressed(0, 241)) mFlySpeed = Math.min(4, mFlySpeed * 1.5);
+    if (mp.game.controls.isControlJustPressed(0, 241)) mFlySpeed = Math.min(8, mFlySpeed * 1.5);
     if (mp.game.controls.isControlJustPressed(0, 242)) mFlySpeed = Math.max(0.1, mFlySpeed / 1.5);
     var rot = mFlyCam.getRot(2);
     var rx = Math.max(-89, Math.min(89, rot.x - dy)), rz = rot.z - dx;
     mFlyCam.setRot(rx, 0, rz, 2);
     var sp = mFlySpeed;
-    if (mp.keys.isDown(0x10)) sp *= 3;
+    if (mp.keys.isDown(0x10)) sp *= 4;
     if (mp.keys.isDown(0x12)) sp *= 0.2;
     var a = rz * Math.PI / 180, b = rx * Math.PI / 180;
     var fx = -Math.sin(a) * Math.cos(b), fy = Math.cos(a) * Math.cos(b), fz = Math.sin(b);
@@ -182,12 +181,8 @@ mp.events.add('render', function () {
     if (mp.keys.isDown(0x44)) { nx += Math.cos(a) * sp; ny += Math.sin(a) * sp; }
     if (mp.keys.isDown(0x45)) nz += sp;
     if (mp.keys.isDown(0x51)) nz -= sp;
-    var s = mFlyStart, ddx = nx - s.x, ddy = ny - s.y, dd = Math.hypot(ddx, ddy);
-    if (dd > mFlyR) { nx = s.x + ddx * mFlyR / dd; ny = s.y + ddy * mFlyR / dd; }
-    nz = Math.max(s.z - 60, Math.min(s.z + 300, nz));
     mFlyCam.setCoord(nx, ny, nz);
     p.setCoordsNoOffset(nx, ny, nz - 3, false, false, false);
     mp.game.streaming.setFocusArea(nx, ny, nz, 0, 0, 0);
-    var left = Math.round(mFlyR - Math.min(mFlyR, dd));
-    mp.game.graphics.drawText('ПОЛЁТ МЕДИА  x' + mFlySpeed.toFixed(1) + '   до границы ' + left + ' м   Backspace — выход', [0.5, 0.94], { font: 4, color: [217, 59, 200, 230], scale: [0.4, 0.4], outline: true });
+    mp.game.graphics.drawText('ПОЛЁТ  x' + mFlySpeed.toFixed(1) + '   /fly или Backspace — выход и возврат на место', [0.5, 0.94], { font: 4, color: [217, 59, 200, 230], scale: [0.4, 0.4], outline: true });
 });

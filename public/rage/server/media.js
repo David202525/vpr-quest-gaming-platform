@@ -284,8 +284,6 @@ setInterval(function () {
         if (global.WantedSystem && global.WantedSystem.get(p) > 0) return flyStop(p, 'вы в розыске');
         if (p.getVariable('cuffed')) return flyStop(p, 'наручники');
         if (global.JailSystem && global.JailSystem.info(p)) return flyStop(p, 'заключение');
-        const a = p.mediaFly.pos, b = p.position;
-        if (a && Math.hypot(a.x - b.x, a.y - b.y) > FLY_RADIUS + 80) flyStop(p, 'слишком далеко от точки старта');
     });
 }, 1000);
 
