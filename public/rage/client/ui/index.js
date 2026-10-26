@@ -196,6 +196,19 @@ mp.events.add('inv:ammoReq', function (hash) {
     mp.events.callRemote('srv:inv:ammo', Number(n) || 0);
 });
 
+mp.events.add('inv:vestCheck', function (json) {
+    var list = [];
+    try { list = JSON.parse(json) || []; } catch (e) {}
+    setTimeout(function () {
+        var h = mp.players.local.handle;
+        for (var i = 0; i < list.length; i++) {
+            var ok = false;
+            try { ok = !!mp.game.invoke('0xE825F6B6CEA7671D', h, 9, list[i][0], list[i][1]); } catch (e) { ok = i === 0; }
+            if (ok) { if (i > 0) mp.events.callRemote('srv:inv:vest', i); return; }
+        }
+    }, 400);
+});
+
 mp.events.add('inv:armour', function (v) {
     v = Number(v) || 0;
     var go = function () {

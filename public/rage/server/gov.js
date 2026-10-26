@@ -307,6 +307,7 @@ mp.events.add('srv:gov:uniApply', function (p, json) {
     try { [1, 7, 9, 10].forEach(function (c) { p.setClothes(c, 0, 0, 0); }); p.setProp(0, -1, 0); p.call('inv:clearProp', [0]); } catch (e) {}
     Object.keys(u.c).forEach(function (c) { if (bad.c.indexOf(Number(c)) >= 0) return; try { p.setClothes(Number(c), u.c[c][0], u.c[c][1], 0); } catch (e) {} });
     Object.keys(u.p).forEach(function (c) { if (bad.p.indexOf(Number(c)) >= 0) return; try { p.setProp(Number(c), u.p[c][0], u.p[c][1]); } catch (e) {} });
+    if (!u.c[9] && U() && U().armourLook) U().armourLook(p);
     if (bad.c.length || bad.p.length) console.log('[gov] форма «' + u.n + '» (' + fac(p) + '): пропущены слоты ' + bad.c.concat(bad.p.map(function (x) { return 'prop' + x; })).join(','));
 });
 mp.events.add('srv:gov:uniform', function (p, i) {

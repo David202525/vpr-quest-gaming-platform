@@ -341,14 +341,49 @@ function ref(p, r) {
     return null;
 }
 
+const VEST = {
+    lspd: { m: [[11, 1], [11, 0], [12, 0]], f: [[13, 1], [13, 0], [12, 0]] },
+    sheriff: { m: [[11, 2], [11, 1], [12, 0]], f: [[13, 2], [13, 1], [12, 0]] },
+    fib: { m: [[12, 0], [16, 2]], f: [[12, 0], [18, 2]] },
+    army: { m: [[16, 0], [12, 0]], f: [[18, 0], [12, 0]] },
+    gang: { m: [[16, 1], [16, 0], [12, 0]], f: [[18, 1], [18, 0], [12, 0]] },
+    mafia: { m: [[12, 2], [12, 1], [12, 0]], f: [[12, 2], [12, 1], [12, 0]] },
+    civil: { m: [[16, 0], [12, 0], [11, 0]], f: [[18, 0], [12, 0], [13, 0]] }
+};
+const GANGS = ['ballas', 'families', 'vagos', 'marabunta', 'bloods'], MAFIA = ['lcn', 'russian', 'yakuza'];
+function vestKind(p) {
+    const j = String((p.account && p.account.job) || '');
+    if (VEST[j]) return j;
+    if (GANGS.indexOf(j) >= 0) return 'gang';
+    if (MAFIA.indexOf(j) >= 0) return 'mafia';
+    return 'civil';
+}
+function armourLook(p, on) {
+    if (!mp.players.exists(p)) return;
+    if (!on) { try { p.setClothes(9, 0, 0, 0); } catch (e) {} p.vestPick = null; return; }
+    if (p.govSkin) return;
+    const fem = p.model === mp.joaat('mp_f_freemode_01');
+    const list = VEST[vestKind(p)][fem ? 'f' : 'm'];
+    p.vestList = list;
+    try { p.setClothes(9, list[0][0], list[0][1], 0); } catch (e) {}
+    p.call('inv:vestCheck', [JSON.stringify(list)]);
+}
+mp.events.add('srv:inv:vest', function (p, i) {
+    const list = p.vestList;
+    const d = store[key(p)];
+    if (!list || !d || !d.equip || !d.equip.armour) return;
+    const v = list[Number(i)];
+    if (!v) return;
+    try { p.setClothes(9, v[0], v[1], 0); } catch (e) {}
+});
+
 function applyCloth(p, slot, item) {
     try {
         if (slot === 'armour') {
-            const fem = p.model === mp.joaat('mp_f_freemode_01');
             const v = item ? Math.max(1, Math.min(100, item.ar === undefined ? 100 : Number(item.ar) || 0)) : 0;
             p.armour = v;
             p.arSeen = false; p.arSetAt = Date.now();
-            try { p.setClothes(9, item ? (fem ? 3 : 4) : 0, 0, 0); } catch (e) {}
+            armourLook(p, !!item);
             p.call('inv:armour', [v]);
             return;
         }
@@ -394,7 +429,7 @@ function armourSync(p) {
     if (now >= cur) { if (now > cur) p.armour = cur; return; }
     if (now <= 0) {
         delete d.equip.armour;
-        try { p.setClothes(9, 0, 0, 0); } catch (e) {}
+        armourLook(p, false);
         notify(p, 'warn', 'Бронежилет разрушен');
         mark();
         sendInv(p);
@@ -1580,6 +1615,7 @@ function redress(p) {
     if (!mp.players.exists(p) || !accId(p)) return;
     const d = data(p);
     SLOTS.forEach(function (s) { if (s !== 'armour' && s !== 'phone') applyCloth(p, s, d.equip[s] || null); });
+    if (d.equip.armour) armourLook(p, true);
 }
 global.UiPhone = { data: data, store: store, mark: mark, sendPhone: sendPhone, sendMenu: sendMenu, key: key, online: online };
 function driveCats(p) { const x = docList(data(p)).find(function (z) { return z.t === 'drive'; }); return x ? (x.cats || ['A', 'B', 'C', 'D']) : []; }
@@ -1604,7 +1640,7 @@ function takeItems(p, k, n) {
     mark(); sendInv(p);
     return n - left;
 }
-global.UiSystem = { addExp: function (p, n) { if (!accId(p)) return; const d = data(p); d.exp += Math.round(n) || 0; while (d.exp >= needExp(d.lvl)) { d.exp -= needExp(d.lvl); d.lvl += 1; notify(p, 'ok', 'Новый уровень: ' + d.lvl); } mark(); }, invScan: invScan, takeItems: takeItems, sendInv: sendInv, driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
+global.UiSystem = { armourLook: function (p) { const d = store[key(p)]; if (d && d.equip && d.equip.armour) armourLook(p, true); }, addExp: function (p, n) { if (!accId(p)) return; const d = data(p); d.exp += Math.round(n) || 0; while (d.exp >= needExp(d.lvl)) { d.exp -= needExp(d.lvl); d.lvl += 1; notify(p, 'ok', 'Новый уровень: ' + d.lvl); } mark(); }, invScan: invScan, takeItems: takeItems, sendInv: sendInv, driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 
