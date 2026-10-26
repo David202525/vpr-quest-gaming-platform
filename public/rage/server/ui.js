@@ -347,6 +347,7 @@ function applyCloth(p, slot, item) {
             const fem = p.model === mp.joaat('mp_f_freemode_01');
             const v = item ? Math.max(1, Math.min(100, item.ar === undefined ? 100 : Number(item.ar) || 0)) : 0;
             p.armour = v;
+            p.arSeen = false; p.arSetAt = Date.now();
             try { p.setClothes(9, item ? (fem ? 3 : 4) : 0, 0, 0); } catch (e) {}
             p.call('inv:armour', [v]);
             return;
@@ -385,6 +386,11 @@ function armourSync(p) {
     if (!it) return;
     const cur = it.ar === undefined ? 100 : Number(it.ar);
     const now = Math.max(0, Math.round(Number(p.armour) || 0));
+    if (now > 0) p.arSeen = true;
+    if (!p.arSeen) {
+        if (!p.arSetAt || Date.now() - p.arSetAt > 4000) { p.arSetAt = Date.now(); p.armour = cur; p.call('inv:armour', [cur]); }
+        return;
+    }
     if (now >= cur) { if (now > cur) p.armour = cur; return; }
     if (now <= 0) {
         delete d.equip.armour;

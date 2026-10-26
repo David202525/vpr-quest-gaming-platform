@@ -13,8 +13,11 @@ const NPC = {
     vova: { n: 'Дядя Вова', model: 'a_m_m_hillbilly_01', p: [-1039.2, -2730.6, 13.76, 240], idle: 'Город большой, а люди всё те же. Заходи, если что.' },
     mark: { n: 'Марк, начальник склада', model: 's_m_m_postal_01', p: [-421.6, -2786.9, 6.0, 135], idle: 'Работы много, болтать некогда. Хочешь подзаработать — бери фургон.' },
     tony: { n: 'Тони', model: 'g_m_y_famca_01', p: [104.2, -1938.4, 20.8, 45], idle: 'Это Grove Street, брат. Тут свои правила.' },
-    anna: { n: 'Анна, фермер', model: 'a_f_y_hippie_01', p: [2026.1, 4977.4, 41.1, 300], idle: 'Земля любит тех, кто не ленится.' }
+    anna: { n: 'Анна, фермер', model: 'a_f_y_hippie_01', p: [2026.1, 4977.4, 41.1, 300], idle: 'Земля любит тех, кто не ленится.' },
+    lexa: { n: 'Лёха Ключ', model: 'g_m_y_mexgoon_02', p: [483.9, -1311.6, 29.2, 120], idle: 'Мастерская закрыта. Для тебя — тоже.' },
+    santiago: { n: 'Сантьяго', model: 's_m_y_dockwork_01', p: [1179.3, -3113.4, 6.0, 90], idle: 'Я тебя не знаю. И знать не хочу.' }
 };
+const CH2 = 9;
 const PLACES = {
     gov: [-545.2, -204.0, 38.2, 'Мэрия Лос-Сантоса'],
     lic: [226.0, -808.5, 30.6, 'Лицензионный центр'],
@@ -30,7 +33,9 @@ function st(p) {
     const k = sid(p);
     if (!k) return null;
     if (!DB.players[k]) DB.players[k] = { s: 0, cnt: 0, f: {}, done: false };
-    return DB.players[k];
+    const s = DB.players[k];
+    if (s.done && s.f && s.f.greedy && !s.ch2) { s.done = false; s.s = CH2; s.ch2 = 1; s.cnt = 0; dirty = true; }
+    return s;
 }
 function npcPos(id) { return DB.npc[id] || NPC[id].p; }
 function dist(a, b) { const dx = a.x - b[0], dy = a.y - b[1], dz = a.z - b[2]; return Math.sqrt(dx * dx + dy * dy + dz * dz); }
@@ -39,6 +44,7 @@ function count(p, k) { return U() && U().countItem ? U().countItem(p, k) : 0; }
 
 function setup() {
     if (U() && U().ITEMS && !U().ITEMS.q_parcel) U().ITEMS.q_parcel = { n: 'Посылка дяди Вовы', i: '📦', w: 1, s: 1 };
+    if (U() && U().ITEMS && !U().ITEMS.q_bag) U().ITEMS.q_bag = { n: 'Сумка Лёхи (не открывать)', i: '👜', w: 2, s: 1 };
 }
 
 function reward(p, r) {
@@ -143,10 +149,72 @@ const STEPS = [
         ],
         reward: { money: 3000, exp: 60, items: [['medkit', 2]] },
         extra: function (p, s) { if (!s.f.greedy) reward(p, { money: 2000, items: [['armour', 1]] }); }
+    },
+    {
+        task: 'Тони хочет поговорить. Езжайте на Grove Street', npc: 'tony', goal: 'npc',
+        dlg: [
+            { t: 'А вот и наш человек. Ты взял деньги и не моргнул — значит, с тобой можно работать. Вова хороший мужик, но живёт по старым правилам. А в этом городе деньги делают по новым.', o: [['Что за работа?', 1], ['Я не из таких.', 'close']] },
+            { t: 'Для начала проверка. Купи отмычку в любом 24/7 и покажи мне. Потом познакомлю с нужным человеком.', o: [['Сделаю.', 'done']] }
+        ],
+        reward: { exp: 20 }
+    },
+    {
+        task: 'Купите отмычку в магазине 24/7 и покажите Тони', npc: 'tony',
+        check: function (p) { return count(p, 'lockpick') >= 1; },
+        wait: 'Отмычку, брат. В любом 24/7 продаётся. Без неё не возвращайся.',
+        dlg: [
+            { t: 'Хороший инструмент. Теперь слушай: в мастерской Хейс на юге города сидит Лёха Ключ. Ему нужна тачка. Любая чужая, не полицейская и не рабочая. Сядешь за руль с отмычкой в кармане — и гони к нему.', o: [['А если поймают?', 1], ['Понял.', 'done']] },
+            { t: 'Тогда ты меня не знаешь. Но не ссы — копы в этом районе медленные.', o: [['Еду.', 'done']] }
+        ],
+        reward: { exp: 20 }
+    },
+    {
+        task: 'Угоните чужую машину и пригоните её Лёхе в мастерскую', npc: 'lexa', goal: 'npc', steal: 1,
+        check: function (p, s) { return !!s.f.car; },
+        wait: 'Где тачка? Мне нужна машина, а не разговоры. Чужая, с отмычкой, сюда в бокс.',
+        dlg: [
+            { t: 'Неплохо для первого раза. Только тебя срисовали — сирены слышно отсюда. Пересиди минуты три где-нибудь подальше от копов, потом поговорим о деньгах.', o: [['Понял, залягу на дно.', 'done']] }
+        ],
+        reward: { exp: 30 }
+    },
+    {
+        task: 'Заляжьте на дно и не попадитесь полиции', npc: 'lexa', timer: 1,
+        begin: function (p, s) { s.until = s.f.retry ? 0 : Date.now() + 180000; },
+        check: function (p, s) { return Date.now() >= (s.until || 0); },
+        wait: function (p, s) { return 'Рано ещё. Ты что, хочешь привести копов прямо ко мне? Подожди ' + left(s) + '.'; },
+        dlg: [
+            { t: function (p, s) {
+                return s.f.retry
+                    ? 'Опоздал, значит. Сантьяго ждать не любит. Ладно — последний шанс. Вот новая сумка, и в этот раз уложись в пять минут.'
+                    : 'Чисто. Держи за тачку. И раз уж ты такой шустрый — отвези эту сумку Сантьяго в порт. У тебя пять минут, он ждать не будет. И внутрь не заглядывай.';
+            }, o: [['Взять сумку', 'done']] }
+        ],
+        finish: function (p) { if (U().addItem) U().addItem(p, 'q_bag', 1); },
+        extra: function (p, s) { if (!s.f.paid) { s.f.paid = 1; reward(p, { money: 2500, exp: 20 }); } }
+    },
+    {
+        task: 'Доставьте сумку Сантьяго в порт', npc: 'santiago', goal: 'npc', timer: 1,
+        begin: function (p, s) { s.until = Date.now() + 300000; },
+        check: function (p, s) { return count(p, 'q_bag') >= 1 && Date.now() <= (s.until || 0); },
+        wait: 'Где сумка? Без неё нам не о чем говорить.',
+        dlg: [
+            { t: 'Минута в минуту. Лёха не ошибся в тебе. Передай Тони — товар на месте, следующая партия через неделю.', o: [['Отдать сумку', 'done']] }
+        ],
+        finish: function (p) { if (U().takeItems) U().takeItems(p, 'q_bag', 1); },
+        reward: { money: 3000, exp: 30 }
+    },
+    {
+        task: 'Вернитесь к Тони на Grove Street', npc: 'tony', goal: 'npc',
+        dlg: [
+            { t: 'Сантьяго звонил. Говорит, ты быстрый и не задаёшь лишних вопросов. Ценю. Знаешь, Вова думал, что тебя испортил город. А город просто показал, кто ты есть.', o: [['И кто же я?', 1]] },
+            { t: 'Свой человек. Держи ствол без номера и долю. Захочешь большего — ищи семью: мафии и банды берут таких, как ты. А мой номер у тебя есть.', o: [['До связи, Тони.', 'done']] }
+        ],
+        reward: { money: 5000, exp: 60, items: [['i_pistol', 1], ['ammo_pistol', 60]] }
     }
 ];
+function left(s) { const ms = Math.max(0, (s.until || 0) - Date.now()); const m = Math.floor(ms / 60000), sec = Math.floor(ms / 1000) % 60; return m + ':' + (sec < 10 ? '0' : '') + sec; }
 
-function stepTitle(s) { return TITLE + ' · ' + Math.min(s.s + 1, STEPS.length) + '/' + STEPS.length; }
+function stepTitle(s) { return s.s >= CH2 ? 'Грязные деньги · ' + (s.s - CH2 + 1) + '/' + (STEPS.length - CH2) : TITLE + ' · ' + (s.s + 1) + '/' + CH2; }
 function goalOf(step) {
     if (!step) return null;
     if (step.goal === 'npc') { const q = npcPos(step.npc); return [q[0], q[1], q[2], NPC[step.npc].n]; }
@@ -160,7 +228,7 @@ function sync(p, wp) {
     const step = s.done ? null : STEPS[s.s];
     const jobActive = global.JobSystem && global.JobSystem.current && global.JobSystem.current(p);
     if (step && !jobActive && typeof global.hudQuest === 'function') {
-        const tasks = [step.task + (step.need ? ' (' + Math.min(s.cnt, step.need) + '/' + step.need + ')' : '')];
+        const tasks = [step.task + (step.need ? ' (' + Math.min(s.cnt, step.need) + '/' + step.need + ')' : '') + (step.timer && s.until > Date.now() ? ' · ' + left(s) : '')];
         if (step.goal && step.goal !== 'npc' && step.check && step.check(p, s)) tasks.push({ text: 'Вернитесь: ' + NPC[step.npc].n, done: false });
         global.hudQuest(p, stepTitle(s), tasks);
     } else if (!step && !jobActive && s.hudShown) {
@@ -179,6 +247,8 @@ function sync(p, wp) {
 
 function begin(p, s) {
     s.cnt = 0;
+    const step = STEPS[s.s];
+    if (step && step.begin) step.begin(p, s);
     dirty = true;
     sync(p, true);
 }
@@ -189,11 +259,15 @@ function advance(p, s) {
     if (step.reward) reward(p, step.reward);
     if (step.extra) step.extra(p, s);
     s.s++;
-    if (s.s >= STEPS.length) {
+    if (s.s === CH2 && s.f.greedy) {
+        s.ch2 = 1;
+        notify(p, 'ok', 'Глава «' + TITLE + '» завершена! Новая глава: «Грязные деньги»');
+    } else if (s.s === CH2 || s.s >= STEPS.length) {
         s.done = true;
         dirty = true;
-        notify(p, 'ok', 'Сюжетная линия «' + TITLE + '» завершена!');
-        mp.players.broadcast('!{#ffd34f}[Сюжет] !{#ffffff}' + p.name + ' завершил линию «' + TITLE + '»');
+        const nm = s.s > CH2 ? 'Грязные деньги' : TITLE;
+        notify(p, 'ok', 'Сюжетная линия «' + nm + '» завершена!');
+        mp.players.broadcast('!{#ffd34f}[Сюжет] !{#ffffff}' + p.name + ' завершил линию «' + nm + '»');
         sync(p, false);
         return;
     }
@@ -263,6 +337,66 @@ function onJob(p, jobId) {
     sync(p, s.cnt === step.need);
 }
 
+function okCar(v) {
+    if (!v || !mp.vehicles.exists(v)) return false;
+    const g = function (k) { try { return v.getVariable(k); } catch (e) { return null; } };
+    if (g('ownerId') || g('gov') || g('faction')) return false;
+    if (g('jobVeh') !== null && g('jobVeh') !== undefined) return false;
+    if (g('rent') !== null && g('rent') !== undefined) return false;
+    return v.jobOwner === undefined && !v.dbId;
+}
+function W() { return global.WantedSystem; }
+function tick(p) {
+    const s = st(p);
+    if (!s || s.done) return;
+    const step = STEPS[s.s];
+    if (!step) return;
+    if (step.steal && !s.f.car) {
+        const v = p.vehicle;
+        const driver = v && (p.seat === 0 || p.seat === -1);
+        if (driver && okCar(v) && p.qCar !== v) {
+            if (p.qWarn === v) return;
+            if (count(p, 'lockpick') < 1) { p.qWarn = v; return notify(p, 'warn', 'Без отмычки эту машину не завести для Лёхи'); }
+            if (U().takeItems) U().takeItems(p, 'lockpick', 1);
+            p.qCar = v;
+            if (W() && W().add) W().add(p, 1, 'Угон автомобиля', 'Система');
+            s.f.star = 1;
+            dirty = true;
+            notify(p, 'warn', 'Машина угнана! Отмычка сломалась. Вас заметили: +1★. Гоните к Лёхе');
+            return;
+        }
+        if (v && p.qCar === v && dist(v.position, npcPos('lexa')) < 14) {
+            s.f.car = 1;
+            dirty = true;
+            try { p.removeFromVehicle(); } catch (e) {}
+            setTimeout(function () { try { if (mp.vehicles.exists(v) && !v.getOccupants().length) v.destroy(); } catch (e) {} }, 4000);
+            notify(p, 'ok', 'Лёха загнал машину в бокс. Поговорите с ним');
+            sync(p, false);
+        }
+        return;
+    }
+    if (step.timer && s.s === CH2 + 3 && s.until && Date.now() >= s.until && !s.f.cool) {
+        s.f.cool = 1;
+        dirty = true;
+        if (s.f.star && W() && W().get && W().get(p) > 0) W().add(p, -1, 'Потеряли след', 'Система');
+        notify(p, 'ok', 'Вас потеряли. Возвращайтесь к Лёхе');
+        sync(p, true);
+        return;
+    }
+    if (step.timer && s.s === CH2 + 4 && s.until && Date.now() > s.until) {
+        if (U().takeItems) U().takeItems(p, 'q_bag', 99);
+        s.s = CH2 + 3;
+        s.f.retry = 1;
+        s.until = 0;
+        dirty = true;
+        notify(p, 'error', 'Вы не успели! Сантьяго ушёл, сумку забрали люди Лёхи. Возвращайтесь к Лёхе');
+        sync(p, true);
+        return;
+    }
+    if (step.timer && s.until > Date.now() && (!p.qSyncAt || Date.now() - p.qSyncAt > 5000)) { p.qSyncAt = Date.now(); sync(p, false); }
+}
+setInterval(function () { mp.players.forEach(function (p) { if (sid(p)) try { tick(p); } catch (e) { console.log('[quest] tick: ' + e.message); } }); }, 2000);
+
 let peds = {};
 function spawnPeds() {
     Object.keys(peds).forEach(function (k) { try { if (peds[k] && mp.peds.exists(peds[k])) peds[k].destroy(); } catch (e) {} });
@@ -278,7 +412,7 @@ function sendNpcs(p) { p.call('quest:npcs', [JSON.stringify(npcList())]); }
 setTimeout(function () { setup(); spawnPeds(); mp.players.forEach(function (p) { sendNpcs(p); sync(p, false); }); }, 3000);
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (!mp.players.exists(p)) return; sendNpcs(p); sync(p, false); }, 7000); });
 setInterval(function () { mp.players.forEach(function (p) { if (sid(p)) sync(p, false); }); }, 10000);
-mp.events.add('playerQuit', function (p) { p.qDlg = null; });
+mp.events.add('playerQuit', function (p) { p.qDlg = null; p.qCar = null; });
 
 function adminLvl(p) { return global.AdminSystem && global.AdminSystem.lvl ? global.AdminSystem.lvl(p) : 0; }
 mp.events.addCommand('quest', function (p) {
@@ -306,7 +440,8 @@ mp.events.addCommand('questset', function (p, full) {
     if (!t || isNaN(n) || n < 0 || n > STEPS.length) return p.outputChatBox('!{#ffd34f}/questset [id] [этап 0-' + STEPS.length + ']');
     const s = st(t);
     if (!s) return;
-    s.s = Math.min(n, STEPS.length - 1); s.done = n >= STEPS.length; s.cnt = 0; s.f = {};
+    s.s = Math.min(n, STEPS.length - 1); s.done = n >= STEPS.length; s.cnt = 0; s.f = n >= CH2 ? { greedy: 1 } : {}; s.ch2 = n >= CH2 ? 1 : 0; s.until = 0;
+    const sb = STEPS[s.s]; if (!s.done && sb && sb.begin) sb.begin(t, s);
     dirty = true;
     sync(t, true);
     p.outputChatBox('!{#8fd14f}Этап квеста ' + t.name + ': ' + n);
