@@ -5,6 +5,7 @@ var UNARMED = 0xA2719263;
 
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
+global.hudExecG = function (c) { hudExec(c); };
 function hudExec(code) {
     if (hudBrowser) hudBrowser.execute(code);
 }
@@ -272,6 +273,7 @@ setInterval(function () {
         mp.players.forEachInStreamRange(function (p) {
             if (!p.handle || p.dimension !== me.dimension) return;
             var b = Number(p.getVariable('admBadge')) || 0;
+            if (!b && Number(p.getVariable('mediaBadge'))) b = 'media';
             if (!b) return;
             if (p.getAlpha && p.getAlpha() < 50) return;
             var pos = p.position;

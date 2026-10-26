@@ -1054,6 +1054,7 @@ if (!global.JobSystem) {
 setTimeout(function () {
     try { require('./trucker.js'); } catch (e) { console.log('[ui] trucker.js: ' + e.message); }
     try { require('./realty.js'); } catch (e) { console.log('[ui] realty.js: ' + e.message); }
+    try { require('./media.js'); } catch (e) { console.log('[ui] media.js: ' + e.message); }
 }, 1500);
 if (!global.SocialSystem) {
     try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }

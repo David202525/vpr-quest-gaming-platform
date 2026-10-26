@@ -1560,3 +1560,47 @@ function rlRender() {
 }
 setInterval(function () { if (RL.d && RL.tab === 'auc') { var a = document.activeElement; if (!a || a.tagName !== 'INPUT') rlRender(); } }, 15000);
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('realtyMenu')) trig('cef:realty:close'); });
+
+/* ================= ПАНЕЛЬ МЕДИА-ПАРТНЁРА ================= */
+var MD = null;
+function mdT(t) { var d = new Date(t); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+window.mediaMenu = function (json) {
+    var box = document.getElementById('mediaMenu');
+    if (!json) { if (box) box.remove(); MD = null; return; }
+    MD = typeof json === 'string' ? JSON.parse(json) : json;
+    if (!box) { box = document.createElement('div'); box.id = 'mediaMenu'; document.body.appendChild(box); }
+    var d = MD;
+    var sw = function (k, on) { return '<button class="md-sw' + (on ? ' on' : '') + '" data-ma="' + k + '"><i></i></button>'; };
+    var H = [6, 9, 12, 15, 18, 20, 22, 0];
+    box.innerHTML = '<div class="md-box">' +
+        '<div class="md-h"><img src="logo.png"><div><b>Панель медиа-партнёра</b><small>' + esc(d.name) + ' · с ' + mdT(d.since) + '</small></div><button class="md-x" data-mx="1">✕</button></div>' +
+        (d.err ? '<div class="md-msg err">' + esc(d.err) + '</div>' : '') + (d.ok ? '<div class="md-msg ok">' + esc(d.ok) + '</div>' : '') +
+        '<div class="md-grid">' +
+        '<div class="md-c"><h4>💰 Медиа-зарплата</h4><div class="md-big">' + d.salary + ' RC <small style="font-size:12px;color:#b7a9c6">/ неделя</small></div>' +
+            '<div class="md-kv"><span>Следующая выплата</span><b>' + (d.paused ? 'на паузе' : d.salary ? mdT(d.nextPay) : '—') + '</b></div><div class="md-kv"><span>Всего получено</span><b>' + d.paid + ' RC</b></div></div>' +
+        '<div class="md-c"><h4>🎟 Промокод</h4>' + (d.code ? '<div class="md-big">' + esc(d.code) + '</div><div class="md-kv"><span>Активаций</span><b>' + d.uses + '</b></div><div class="md-kv"><span>Заработано на коде</span><b>' + d.refPaid + ' RC</b></div>' : '<p>Создайте свой код — новички вводят /promo КОД и получают бонус' + (d.cfg.bonusMoney ? ' $' + d.cfg.bonusMoney : '') + (d.cfg.bonusCoins ? ' + ' + d.cfg.bonusCoins + ' RC' : '') + ', а вы — ' + d.cfg.refCoins + ' RC за каждого.</p>') +
+            (d.uses ? '' : '<div class="md-in" style="margin-top:8px"><input id="mdCode" maxlength="16" placeholder="Например, AMRP_IVAN"><button class="md-btn" data-ma="code">' + (d.code ? 'Сменить' : 'Создать') + '</button></div>') + '</div>' +
+        '<div class="md-c"><h4>🎥 Съёмка</h4><button class="md-btn" data-ma="cam" style="width:100%;margin-bottom:8px">Кинокамера (без интерфейса)</button>' +
+            '<div class="md-tg"><span>Режим стримера<br><small style="color:#b7a9c6;font-size:11px">скрыть ник, номер и деньги</small></span>' + sw('streamer', d.streamer) + '</div>' +
+            '<div class="md-tg"><span>Метка MEDIA над головой</span>' + sw('badge', d.badge) + '</div></div>' +
+        '<div class="md-c"><h4>🌤 Погода и время <small style="color:#b7a9c6;font-weight:400">— видите только вы</small></h4>' +
+            '<div class="md-chips" style="margin-bottom:8px">' + d.weathers.map(function (w) { return '<button data-mw="' + w + '">' + w + '</button>'; }).join('') + '<button data-mw="reset">↺ сервер</button></div>' +
+            '<div class="md-chips">' + H.map(function (h) { return '<button data-mt="' + h + '">' + h + ':00</button>'; }).join('') + '<button data-mt="-1">↺ сервер</button></div></div>' +
+        '<div class="md-c w"><h4>🚗 Машина для контента <small style="color:#b7a9c6;font-weight:400">— на 30 минут</small></h4>' +
+            (d.car ? '<div class="md-kv" style="margin-bottom:8px"><span>Сейчас: <b>' + esc(d.car.m) + '</b></span><b>осталось ' + Math.ceil(d.car.left / 60000) + ' мин</b></div>' : '') +
+            '<div class="md-in"><select id="mdCar">' + d.cars.map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select><button class="md-btn" data-ma="car">Получить</button>' + (d.car ? '<button class="md-btn g" data-ma="carDel">Убрать</button>' : '') + '</div></div>' +
+        (d.hist.length ? '<div class="md-c w"><h4>📜 История выплат</h4>' + d.hist.map(function (h) { return '<div class="md-hist"><span>' + mdT(h.t) + ' · ' + esc(h.w) + '</span><b>+' + h.n + ' RC</b></div>'; }).join('') + '</div>' : '') +
+        '</div></div>';
+    box.querySelector('[data-mx]').onclick = function () { trig('cef:media:close'); };
+    box.querySelectorAll('[data-ma]').forEach(function (b) {
+        b.onclick = function () {
+            var a = b.dataset.ma, v = '';
+            if (a === 'code') v = document.getElementById('mdCode').value;
+            if (a === 'car') v = document.getElementById('mdCar').value;
+            trig('cef:media:act', a, v);
+        };
+    });
+    box.querySelectorAll('[data-mw]').forEach(function (b) { b.onclick = function () { trig('cef:media:act', 'weather', b.dataset.mw); }; });
+    box.querySelectorAll('[data-mt]').forEach(function (b) { b.onclick = function () { trig('cef:media:act', 'time', b.dataset.mt); }; });
+};
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('mediaMenu')) trig('cef:media:close'); });

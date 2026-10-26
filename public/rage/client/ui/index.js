@@ -33,7 +33,7 @@ var jobMenuOpen = false;
 function cursorSync() {
     if (global.introOpen) { mp.gui.cursor.show(false, false); return; }
     if (global.authOpen || global.creatorOpen || global.intOpen || global.chatOpen) { mp.gui.cursor.show(true, true); return; }
-    var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (global.houseMenuOpen && global.houseMenuOpen()) || (global.govMenuOpen && global.govMenuOpen()) || (typeof admOpen !== 'undefined' && admOpen);
+    var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (global.houseMenuOpen && global.houseMenuOpen()) || (global.mediaOpen && global.mediaOpen()) || (global.govMenuOpen && global.govMenuOpen()) || (typeof admOpen !== 'undefined' && admOpen);
     mp.gui.cursor.show(need, need);
 }
 

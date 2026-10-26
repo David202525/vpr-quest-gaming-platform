@@ -69,7 +69,7 @@ window.admData = function (json) {
     $('meRank').style.color = D.me.color;
     $('meAva').textContent = (D.me.name || '?').charAt(0).toUpperCase();
     $('meAva').style.borderColor = D.me.color;
-    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt].forEach(function (f) {
+    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt, renderMedia].forEach(function (f) {
         try { f(); } catch (e) { if (window.console) console.log('[admin] ' + (f.name || '') + ': ' + e.message); }
     });
 };
@@ -581,3 +581,27 @@ setInterval(function () {
     b.classList.toggle('on', !!D.me.gm);
     b.disabled = D.me.level < 3;
 }, 300);
+
+function mdDate(t) { if (!t) return '—'; var d = new Date(t); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+var mdCfgSet = false;
+function renderMedia() {
+    var M = D.media, box = $('mdList');
+    if (!box) return;
+    if (!M) { box.innerHTML = '<p class="hint">Доступно с 7 уровня</p>'; return; }
+    if (!mdCfgSet || document.activeElement.closest && !document.activeElement.closest('.md-cfg')) {
+        $('mcMoney').value = M.cfg.bonusMoney; $('mcCoins').value = M.cfg.bonusCoins; $('mcRef').value = M.cfg.refCoins; $('mcLvl').value = M.cfg.maxLvl; mdCfgSet = true;
+    }
+    box.innerHTML = M.list.length ? M.list.map(function (m) {
+        return '<div class="tr md-tr"><b>' + (m.on ? '🟢 ' : '⚪ ') + esc(m.name) + ' <span class="mut">#' + m.id + '</span></b>' +
+            '<span>' + (m.code ? 'Код <b>' + esc(m.code) + '</b> · ' + m.uses + ' акт.' : '<span class="mut">без промокода</span>') + '</span>' +
+            '<span>' + (m.paused ? '<span style="color:#ff9aac">выплаты на паузе</span>' : 'след. выплата ' + mdDate(m.nextPay)) + '<br><span class="mut">выплачено ' + m.paid + ' RC</span></span>' +
+            '<span class="md-sal"><input class="search" type="number" value="' + m.salary + '" data-mdsal="' + m.id + '"><span class="mut">RC/нед</span></span>' +
+            '<span class="md-b"><button class="btn" data-mdpay="' + m.id + '">Выплатить</button><button class="btn" data-mdpause="' + m.id + '">' + (m.paused ? '▶' : '⏸') + '</button><button class="btn danger" data-mddel="' + m.id + '">✕</button></span></div>';
+    }).join('') : '<p class="hint">Медиа-партнёров пока нет</p>';
+    box.querySelectorAll('[data-mdsal]').forEach(function (i) { i.onchange = function () { act({ action: 'media', op: 'salary', id: Number(i.dataset.mdsal), value: Number(i.value) }); }; });
+    box.querySelectorAll('[data-mdpay]').forEach(function (b) { b.onclick = function () { act({ action: 'media', op: 'paynow', id: Number(b.dataset.mdpay) }); }; });
+    box.querySelectorAll('[data-mdpause]').forEach(function (b) { b.onclick = function () { act({ action: 'media', op: 'pause', id: Number(b.dataset.mdpause) }); }; });
+    box.querySelectorAll('[data-mddel]').forEach(function (b) { b.onclick = function () { if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; } act({ action: 'media', op: 'del', id: Number(b.dataset.mddel) }); }; });
+}
+$('mdAdd').onclick = function () { var w = $('mdWho').value.trim(); if (!w) return; act({ action: 'media', op: 'add', who: w, salary: Number($('mdSal').value) || 0 }); $('mdWho').value = ''; };
+$('mcSave').onclick = function () { act({ action: 'mediacfg', bonusMoney: $('mcMoney').value, bonusCoins: $('mcCoins').value, refCoins: $('mcRef').value, maxLvl: $('mcLvl').value }); };

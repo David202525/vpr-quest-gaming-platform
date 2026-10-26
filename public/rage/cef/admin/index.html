@@ -37,6 +37,7 @@
                 <button class="m" data-tab="server"><i>🌐</i>Сервер</button>
                 <button class="m" data-tab="staff"><i>⭐</i>Администрация</button>
                 <button class="m" data-tab="logs"><i>📜</i>Логи</button>
+                <button class="m" data-tab="media" data-min="7"><i>🎬</i>Медиа</button>
             </nav>
             <div class="quick">
                 <button class="q" data-quick="fly">Полёт</button>
@@ -186,6 +187,29 @@
                         <p class="hint">Открой адрес в браузере, вставь ключ — баны, админ-чат, объявления и репорты без входа в игру. Новый ключ отменяет старый.</p>
                     </div>
                 </div>
+            </section>
+
+            <section class="tab" data-tab="media">
+                <header class="head"><h2>Медиа-партнёры <span class="lvl">7+</span></h2></header>
+                <div class="grid2">
+                    <div class="card">
+                        <h3>Назначить медиа-партнёра</h3>
+                        <div class="md-row"><input class="search" id="mdWho" placeholder="ID в сети или #static"><input class="search" id="mdSal" type="number" placeholder="Зарплата RC/нед"><button class="btn ok" id="mdAdd">Назначить</button></div>
+                        <p class="hint">Партнёр получает панель на F10, метку «MEDIA» над головой и автоматическую зарплату в донат-валюте (RC) раз в 7 дней.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Промокоды партнёров</h3>
+                        <div class="md-cfg">
+                            <label>Бонус новичку, $<input class="search" id="mcMoney" type="number"></label>
+                            <label>Бонус новичку, RC<input class="search" id="mcCoins" type="number"></label>
+                            <label>Партнёру за активацию, RC<input class="search" id="mcRef" type="number"></label>
+                            <label>Активировать до уровня<input class="search" id="mcLvl" type="number"></label>
+                        </div>
+                        <button class="btn" id="mcSave">Сохранить</button>
+                        <p class="hint">Игроки вводят код командой /promo [код] — один раз на аккаунт.</p>
+                    </div>
+                </div>
+                <div class="card"><h3>Список партнёров</h3><div class="table" id="mdList"></div></div>
             </section>
 
             <section class="tab" data-tab="cmds">

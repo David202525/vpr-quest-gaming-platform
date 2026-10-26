@@ -795,3 +795,10 @@ label.check input {
 .tab[data-tab="factions"] .tr > .btn.primary { width: auto; flex: none; padding: 7px 12px; }
 .tab[data-tab="factions"] .row3 { flex-wrap: nowrap; }
 .tab[data-tab="factions"] .row3 > .btn { width: auto; }
+
+.md-row{display:flex;gap:8px}.md-row .search{flex:1;max-width:none;margin:0}.md-row .btn{flex:none}
+.md-cfg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.md-cfg label{font-size:11px;color:var(--mut);display:flex;flex-direction:column;gap:4px}.md-cfg .search{max-width:none;margin:0}
+.tr.md-tr{grid-template-columns:1.2fr 1fr 1fr 150px auto}
+.md-sal{display:flex;align-items:center;gap:6px}.md-sal .search{width:80px;margin:0;padding:6px 8px}
+.md-b{display:flex;gap:4px}.md-b .btn{padding:6px 10px;font-size:11px;margin:0}

@@ -18,3 +18,4 @@ require('./army/index.js');
 require('./lic/index.js');
 require('./power/index.js');
 require('./crime/index.js');
+require('./media/index.js');

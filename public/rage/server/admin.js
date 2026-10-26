@@ -610,6 +610,7 @@ function panelData(p) {
         locks: locks, features: FEATURE_NAMES,
         ranks: RANKS,
         me2: null,
+        media: realLvl(p) >= 7 && global.MediaSystem ? global.MediaSystem.admView() : null,
         perm: PERM,
         maxBan: maxBan(p),
         players: playersData(),
@@ -664,6 +665,12 @@ mp.events.add('srv:adm:act', function (p, json) {
     const reason = String(d.reason || 'нарушение правил').slice(0, 100);
     const needT = ['tp', 'bring', 'heal', 'kick', 'slap', 'freeze', 'unfreeze', 'mute', 'unmute', 'warn', 'ban', 'goto', 'revive', 'givemoney', 'sethp'];
     if (global.AdminCore && global.AdminCore.panelAct && global.AdminCore.panelAct(p, d, t)) return;
+    if (a === 'media' || a === 'mediacfg') {
+        if (!global.MediaSystem) return toast(p, 'Модуль медиа не загружен', false);
+        const r = a === 'media' ? global.MediaSystem.admAct(p, d) : global.MediaSystem.cfgAct(p, d);
+        if (r && r.err) toast(p, r.err, false); else if (r && r.ok) toast(p, r.ok, true);
+        return sendPanel(p);
+    }
 
     if (a === 'gov') {
         if (!global.GovSystem) return toast(p, 'Казна не загружена', false);
