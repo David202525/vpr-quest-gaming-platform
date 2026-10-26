@@ -1629,3 +1629,33 @@ document.addEventListener('keydown', function (e) {
     var b = document.querySelector('#questDlg button[data-qo="' + (n - 1) + '"]');
     if (n >= 1 && b) trig('cef:quest:answer', n - 1);
 });
+
+
+window.radioPanel = function (json) {
+    var box = document.getElementById('radioPanel');
+    if (!json) { if (box) box.remove(); return; }
+    var d = typeof json === 'string' ? JSON.parse(json) : json;
+    if (!box) { box = document.createElement('div'); box.id = 'radioPanel'; document.body.appendChild(box); }
+    var st = d.mode === 'off' ? 'Выключена' : d.mode === 'none' ? 'Нет доступа' : d.mode === 'listen' ? 'Прослушка' : 'В сети';
+    box.innerHTML = '<div class="rp-box"><div class="rp-h"><b>📻 Рация</b><button data-rx="1">✕</button></div>' +
+        '<div class="rp-scr"><div class="rp-fq">' + (d.fq || '---.-') + '<small> МГц</small></div><div class="rp-st ' + d.mode + '">' + st + (d.ch ? ' · ' + esc(d.ch) : '') + '</div></div>' +
+        (d.err ? '<div class="rp-msg err">' + esc(d.err) + '</div>' : '') + (d.ok ? '<div class="rp-msg ok">' + esc(d.ok) + '</div>' : '') +
+        '<div class="rp-in"><input id="rpFq" maxlength="5" placeholder="Частота, напр. 101.1"><button data-ra="tune">Настроить</button></div>' +
+        (d.fac ? '<div class="rp-sec">Ваша фракция: ' + esc(d.fac) + '</div><button class="rp-wide" data-ra="inner">Внутренний канал · ' + d.inner + '</button>' : '') +
+        (d.boss ? '<div class="rp-in"><input id="rpInner" maxlength="5" placeholder="Новая внутренняя частота"><button data-ra="setInner">Сменить</button></div>' : '') +
+        (d.fac || d.tro ? '<div class="rp-sec">Дежурные каналы фракций' + (d.boss ? ' (связь лидеров)' : '') + '</div><div class="rp-chips">' +
+            d.pubs.filter(function (x) { return x.ok; }).map(function (x) { return '<button data-rq="' + x.fq + '">' + esc(x.n) + ' · ' + x.fq + '</button>'; }).join('') + '</div>' : '') +
+        (d.tro ? '<div class="rp-hint">Трофейная рация: можно только слушать. Знаете чужую частоту — введите её вручную.</div>' : '') +
+        '<div class="rp-hint">Удерживайте <b>X</b>, чтобы говорить в эфир</div>' +
+        (d.mode !== 'off' ? '<button class="rp-wide off" data-ra="off">Выключить рацию</button>' : '') + '</div>';
+};
+document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('#radioPanel button');
+    if (!b) return;
+    if (b.dataset.rx) return trig('cef:radio:close');
+    if (b.dataset.rq) return trig('cef:radio:act', 'tune', b.dataset.rq);
+    var a = b.dataset.ra;
+    if (a === 'tune') return trig('cef:radio:act', 'tune', document.getElementById('rpFq').value);
+    if (a === 'setInner') return trig('cef:radio:act', 'setInner', document.getElementById('rpInner').value);
+    if (a) trig('cef:radio:act', a, '');
+});

@@ -41,6 +41,7 @@ function tick() {
                 const lp = l.position, dx = lp.x - sp.x, dy = lp.y - sp.y, dz = lp.z - sp.z;
                 if ((s.vehicle && s.vehicle === l.vehicle) || dx * dx + dy * dy + dz * dz <= range * range) want.add(l.id);
             });
+            if (global.RadioSystem) try { global.RadioSystem.targets(s).forEach(function (id) { if (id !== peer) want.add(id); }); } catch (e) {}
         }
         want.forEach(function (id) {
             if (set.has(id)) return;

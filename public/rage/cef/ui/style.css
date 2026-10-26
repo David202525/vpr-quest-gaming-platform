@@ -2349,3 +2349,17 @@ body.streamer .tile.hello h2, body.streamer .t-kv b, body.streamer .t-big, body.
 .qd-o button{display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#fff;padding:10px 12px;border-radius:7px;font-size:14px;cursor:pointer;transition:.12s;font-family:inherit}
 .qd-o button:hover{background:rgba(255,211,79,.12);border-color:rgba(255,211,79,.5)}
 .qd-o button span{flex:0 0 22px;height:22px;border-radius:50%;background:#ffd34f;color:#111;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+
+#radioPanel{position:fixed;right:40px;top:50%;transform:translateY(-50%);z-index:60}
+.rp-box{width:330px;background:linear-gradient(180deg,#1b1f24,#101317);border:1px solid #2c333b;border-radius:16px;padding:16px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.rp-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.rp-h button{background:none;border:0;color:#888;font-size:16px;cursor:pointer}
+.rp-scr{background:#0b1a10;border:1px solid #1f3d27;border-radius:10px;padding:12px;margin-bottom:10px;font-family:monospace;color:#7dff9a;text-shadow:0 0 8px rgba(125,255,154,.4)}
+.rp-fq{font-size:34px;font-weight:700}.rp-fq small{font-size:14px}
+.rp-st{font-size:12px;margin-top:4px;color:#9fdcb0}.rp-st.none{color:#ff7a7a}.rp-st.listen{color:#ffbe5c}.rp-st.off{color:#777}
+.rp-in{display:flex;gap:6px;margin-bottom:8px}.rp-in input{flex:1;background:#0e1114;border:1px solid #2c333b;border-radius:8px;color:#fff;padding:8px 10px;font-size:14px;outline:none}
+.rp-in button,.rp-wide,.rp-chips button{background:#2b6ef2;border:0;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.rp-wide{width:100%;margin-bottom:8px}.rp-wide.off{background:#3a2226;color:#ff9a9a}
+.rp-sec{font-size:11px;text-transform:uppercase;color:#8a96a3;margin:10px 0 6px;letter-spacing:.05em}
+.rp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.rp-chips button{background:#232a31;padding:6px 9px;font-size:12px}.rp-chips button:hover{background:#2b6ef2}
+.rp-hint{font-size:12px;color:#8a96a3;margin:6px 0}.rp-hint b{color:#fff}
+.rp-msg{font-size:12px;padding:7px 10px;border-radius:8px;margin-bottom:8px}.rp-msg.err{background:#3a2226;color:#ff9a9a}.rp-msg.ok{background:#1e3527;color:#8fe0a6}

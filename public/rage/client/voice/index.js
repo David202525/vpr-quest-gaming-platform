@@ -23,7 +23,7 @@ mp.events.add('render', function () {
     if (down && !nWas) global.nDownAt = Date.now();
     if (!down && nWas) setTimeout(function () { global.nDownAt = 0; }, 0);
     nWas = down;
-    var want = down && !blocked();
+    var want = (down || !!(global.radioDown && global.radioDown())) && !blocked();
     if (want !== talking) micSet(want);
     else if (talking && !inCall()) { try { if (mp.voiceChat.muted) mp.voiceChat.muted = false; } catch (e) {} }
 });
@@ -61,6 +61,7 @@ setInterval(function () {
     mp.players.forEachInStreamRange(function (p) {
         if (p === me || p.remoteId === peer) return;
         try {
+            if (global.radioHear && global.radioHear(p)) { p.voice3d = false; p.voiceVolume = 0.85; return; }
             var mega = !!p.getVariable('mega');
             if (veh && p.vehicle === veh) { p.voice3d = false; p.voiceVolume = 1.0; return; }
             var d = mp.game.system.vdist(me.position.x, me.position.y, me.position.z, p.position.x, p.position.y, p.position.z);

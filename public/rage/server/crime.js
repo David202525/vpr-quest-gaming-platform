@@ -488,7 +488,7 @@ mp.events.addCommand('orgpoint', function (p, full) {
 });
 
 /* ======================= ОБЩАК-СКЛАД ======================= */
-const STASH_KEYS = ['ukrop_seed', 'ukrop', 'ukrop_pack', 'c_scrap', 'c_shell', 'c_powder', 'c_spring', 'c_barrel', 'c_kevlar', 'c_blueprint', 'i_pistol', 'i_shotgun', 'i_smg', 'i_rifle', 'i_armour', 'ammo_pistol', 'ammo_smg', 'ammo_shotgun', 'ammo_rifle', 'medkit', 'bandage', 'armour', 'lockpick'];
+const STASH_KEYS = ['ukrop_seed', 'ukrop', 'ukrop_pack', 'c_scrap', 'c_shell', 'c_powder', 'c_spring', 'c_barrel', 'c_kevlar', 'c_blueprint', 'i_pistol', 'i_shotgun', 'i_smg', 'i_rifle', 'i_armour', 'ammo_pistol', 'ammo_smg', 'ammo_shotgun', 'ammo_rifle', 'medkit', 'bandage', 'armour', 'lockpick', 'radio_t'];
 function stashPos(k) { const o = O(k); if (o.stash) return { x: o.stash[0], y: o.stash[1], z: o.stash[2] }; const h = home(k); return { x: h.x - 4, y: h.y - 3, z: h.z }; }
 function stashOf(k) { const o = O(k); if (!o.items) o.items = {}; return o.items; }
 function stashOpen(p) {
