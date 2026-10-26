@@ -19,16 +19,16 @@ mp.events.add('media:streamer', function (on) {
     if (global.hudExecG) global.hudExecG(js);
 });
 mp.events.add('media:weather', function (w) {
-    if (w === 'reset') { mediaWeather = null; try { mp.game.gameplay.clearWeatherTypePersist(); } catch (e) {} return; }
+    if (w === 'reset') { mediaWeather = null; try { mp.game.invoke('0xCCC39339BEF76CF5'); } catch (e) {} return; }
     mediaWeather = String(w);
 });
 mp.events.add('media:time', function (h) { mediaHour = Number(h); });
 setInterval(function () {
     if (!mediaRole) return;
-    if (mediaWeather) try { mp.game.gameplay.setWeatherTypeNowPersist(mediaWeather); } catch (e) {}
+    if (mediaWeather) try { mp.game.invoke('0xED712CA327900C8A', mediaWeather); } catch (e) {}
 }, 1000);
 mp.events.add('render', function () {
-    if (mediaRole && mediaHour >= 0) try { mp.game.time.setClockTime(mediaHour, 0, 0); } catch (e) {}
+    if (mediaRole && mediaHour >= 0) try { mp.game.invoke('0x47C3B5848C3E45D8', mediaHour, 0, 0); } catch (e) {}
 });
 
 function mOpen(json) {
@@ -97,7 +97,7 @@ var mFov = 50;
 mp.events.add('render', function () {
     if (!mCamOn || !mCam) return;
     mp.game.controls.disableAllControlActions(0);
-    [1, 2, 249].forEach(function (k) { mp.game.controls.enableControlAction(0, k, true); });
+    [1, 2, 249, 241, 242].forEach(function (k) { mp.game.controls.enableControlAction(0, k, true); });
     var dx = mp.game.controls.getDisabledControlNormal(0, 1), dy = mp.game.controls.getDisabledControlNormal(0, 2);
     mCamRot.z -= dx * 8; mCamRot.x = Math.max(-89, Math.min(89, mCamRot.x - dy * 8));
     var rz = mCamRot.z * Math.PI / 180, rx = mCamRot.x * Math.PI / 180;
@@ -111,13 +111,13 @@ mp.events.add('render', function () {
     if (mp.game.controls.isDisabledControlPressed(0, 35)) { n.x += rt.x * sp; n.y += rt.y * sp; }
     if (mp.game.controls.isDisabledControlPressed(0, 44)) n.z -= sp;
     if (mp.game.controls.isDisabledControlPressed(0, 38)) n.z += sp;
-    if (mp.game.controls.isDisabledControlJustPressed(0, 241)) mFov = Math.max(10, mFov - 4);
-    if (mp.game.controls.isDisabledControlJustPressed(0, 242)) mFov = Math.min(90, mFov + 4);
+    if (mp.game.controls.isControlJustPressed(0, 241)) mFov = Math.max(10, mFov - 4);
+    if (mp.game.controls.isControlJustPressed(0, 242)) mFov = Math.min(90, mFov + 4);
     mCam.setCoord(n.x, n.y, n.z);
     mCam.setRot(mCamRot.x, 0, mCamRot.z, 2);
     mCam.setFov(mFov);
     mp.game.streaming.setFocusArea(n.x, n.y, n.z, 0, 0, 0);
-    mp.game.ui.hideHudAndRadarThisFrame();
+    try { mp.game.invoke('0x719FF505F097FD20'); } catch (e) {}
 });
 
 /* ---------- полёт /fly ---------- */
