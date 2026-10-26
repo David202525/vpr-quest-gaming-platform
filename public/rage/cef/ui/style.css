@@ -2330,3 +2330,11 @@ body.streamer .tile.hello h2, body.streamer .t-kv b, body.streamer .t-big, body.
 .md-chips button:hover{border-color:#d93bc8}
 .md-msg{font-size:12px;border-radius:10px;padding:9px 10px;margin-bottom:10px}.md-msg.ok{background:rgba(90,200,90,.13);color:#8fe08f}.md-msg.err{background:rgba(220,80,80,.13);color:#ff8a8a}
 .md-hist{font-size:11.5px;color:#b7a9c6;display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+
+.g5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.cell { min-width: 0; overflow: hidden; }
+.cell img.iimg, .cell img.wimg { width: 72%; height: 72%; max-width: 72%; max-height: 72%; object-fit: contain; }
+.cell img.wimg { width: 86%; max-width: 86%; }
+.slot { overflow: hidden; }
+.slot img.iimg, .slot img.wimg { width: 68%; height: 68%; max-width: 68%; max-height: 68%; object-fit: contain; }
+#wpBox img.wimg, #wpBox img.iimg { width: 110px; height: 44px; max-width: 110px; max-height: 44px; object-fit: contain; }
