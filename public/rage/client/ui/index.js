@@ -196,6 +196,16 @@ mp.events.add('inv:ammoReq', function (hash) {
     mp.events.callRemote('srv:inv:ammo', Number(n) || 0);
 });
 
+mp.events.add('inv:armour', function (v) {
+    v = Number(v) || 0;
+    var go = function () {
+        try { mp.game.invoke('0x77DFCCF5948B8C71', mp.game.invoke('0x4F8644AF03D0E0D6'), 100); } catch (e) {}
+        try { mp.game.invoke('0xCEA04D83135264CC', mp.players.local.handle, v); } catch (e) {}
+    };
+    go();
+    setTimeout(go, 300);
+});
+
 mp.events.add('inv:clearProp', function (idx) {
     try { mp.players.local.clearProp(idx); } catch (e) {}
 });

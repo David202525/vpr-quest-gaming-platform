@@ -343,7 +343,14 @@ function ref(p, r) {
 
 function applyCloth(p, slot, item) {
     try {
-        if (slot === 'armour') { p.armour = item ? 100 : 0; return; }
+        if (slot === 'armour') {
+            const fem = p.model === mp.joaat('mp_f_freemode_01');
+            const v = item ? 100 : 0;
+            p.armour = v;
+            try { p.setClothes(9, item ? (fem ? 3 : 4) : 0, 0, 0); } catch (e) {}
+            p.call('inv:armour', [v]);
+            return;
+        }
         const c = item && ITEMS[item.k] ? ITEMS[item.k].cloth : null;
         if (item && c) {
             if (c.p !== undefined) p.setProp(c.p, c.d, 0);
