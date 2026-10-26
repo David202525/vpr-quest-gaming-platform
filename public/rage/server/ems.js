@@ -30,13 +30,9 @@ const CFG = {
     nearBlock: 40
 };
 const RANKS = ['Интерн', 'Фельдшер', 'Врач', 'Зав. отделением', 'Главврач'];
-const DEF_BEDS = [
-    { x: 324.2, y: -582.8, z: 43.28, h: 340.0 },
-    { x: 322.6, y: -587.2, z: 43.28, h: 340.0 },
-    { x: 317.7, y: -585.3, z: 43.28, h: 160.0 },
-    { x: 319.4, y: -581.0, z: 43.28, h: 160.0 }
-];
-const DEF_ER = [{ x: 298.67, y: -584.43, z: 43.26 }];
+const LAY = require('./hospital_layout.js');
+const DEF_BEDS = LAY.BEDS;
+const DEF_ER = [{ x: 298.67, y: -584.43, z: 43.26 }, LAY.ER_IN];
 const AMB = mp.joaat('ambulance') >>> 0;
 const wardBusy = {};
 const lastClosed = {};
@@ -166,6 +162,7 @@ function toWard(p, ms, text) {
     setTimeout(function () {
         if (!mp.players.exists(p)) return;
         p.dimension = 0;
+        p.call('hosp:arrive');
         p.position = new mp.Vector3(b.x + (i < 0 ? 1.2 : 0), b.y, b.z);
         p.heading = b.h;
         setTimeout(function () {
@@ -444,7 +441,7 @@ function tabAct(p, d) {
 /* ---------- точки ---------- */
 const bedObjs = [];
 function spawnBedObj(b) {
-    try { bedObjs.push(mp.objects.new(mp.joaat('v_med_bed2'), new mp.Vector3(b.x, b.y, b.z - 1.0), { rotation: new mp.Vector3(0, 0, b.h), dimension: 0 })); } catch (e) {}
+    try { bedObjs.push(mp.objects.new(mp.joaat('v_med_bed2'), new mp.Vector3(b.x, b.y, b.z - 1.45), { rotation: new mp.Vector3(0, 0, b.h), dimension: 0 })); } catch (e) {}
 }
 DB.beds.forEach(spawnBedObj);
 function spawnER(e) {
@@ -457,15 +454,23 @@ ers().forEach(spawnER);
 
 mp.events.addCommand('emsbed', function (p) {
     if (adm(p) < 4) return;
-    const b = { x: Number(p.position.x.toFixed(2)), y: Number(p.position.y.toFixed(2)), z: Number(p.position.z.toFixed(2)), h: Number(p.heading.toFixed(1)) };
+    const b = { x: Number(p.position.x.toFixed(2)), y: Number(p.position.y.toFixed(2)), z: Number(p.position.z.toFixed(2)) + 0.45, h: Number(p.heading.toFixed(1)) };
     DB.beds.push(b); mark(); spawnBedObj(b);
     chat(p, 'Койка добавлена. Всего коек в стационаре: ' + beds().length);
 });
 mp.events.addCommand('emser', function (p) {
     if (adm(p) < 4) return;
     const e = { x: Number(p.position.x.toFixed(2)), y: Number(p.position.y.toFixed(2)), z: Number(p.position.z.toFixed(2)) };
+    if (Math.abs(e.z - LAY.FZ) < 10) return chat(p, 'Внутри больницы приёмное уже есть — ставьте снаружи');
     DB.er.push(e); mark(); spawnER(e);
     chat(p, 'Точка приёмного отделения добавлена');
+});
+mp.events.addCommand('emsbedclear', function (p) {
+    if (adm(p) < 4) return;
+    DB.beds = []; mark();
+    bedObjs.forEach(function (o) { try { o.destroy(); } catch (e) {} });
+    bedObjs.length = 0;
+    chat(p, 'Дополнительные койки удалены. Остались койки стационара (' + DEF_BEDS.length + ')');
 });
 mp.events.addCommand('emstop', function (p) {
     const R = rating().slice(0, 10);

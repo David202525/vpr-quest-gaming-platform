@@ -71,7 +71,5 @@ mp.events.add('render', function () {
     });
 });
 
-mp.game.streaming.removeIpl('RC12B_Destroyed');
-['RC12B_Default', 'RC12B_Fixed', 'RC12B_HospitalInterior'].forEach(function (n) {
-    mp.game.streaming.requestIpl(n);
-});
+['RC12B_Destroyed', 'RC12B_HospitalInterior', 'RC12B_Fixed'].forEach(function (n) { try { mp.game.streaming.removeIpl(n); } catch (e) {} });
+try { mp.game.streaming.requestIpl('RC12B_Default'); } catch (e) {}
