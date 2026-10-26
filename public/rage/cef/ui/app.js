@@ -1590,7 +1590,7 @@ window.mediaMenu = function (json) {
             '<div class="md-chips">' + H.map(function (h) { return '<button data-mt="' + h + '">' + h + ':00</button>'; }).join('') + '<button data-mt="-1">↺ сервер</button></div></div>' +
         '<div class="md-c w"><h4>🚗 Машина для контента <small style="color:#b7a9c6;font-weight:400">— на 30 минут</small></h4>' +
             (d.car ? '<div class="md-kv" style="margin-bottom:8px"><span>Сейчас: <b>' + esc(d.car.m) + '</b></span><b>осталось ' + Math.ceil(d.car.left / 60000) + ' мин</b></div>' : '') +
-            '<div class="md-in"><select id="mdCar">' + d.cars.map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select><button class="md-btn" data-ma="car">Получить</button>' + (d.car ? '<button class="md-btn g" data-ma="carDel">Убрать</button>' : '') + '</div></div>' +
+            '<div class="md-chips">' + d.cars.map(function (c) { return '<button data-mc="' + c + '">' + c + '</button>'; }).join('') + '</div>' + (d.car ? '<button class="md-btn g" data-ma="carDel" style="margin-top:8px">Убрать машину</button>' : '') + '</div>' +
         (d.hist.length ? '<div class="md-c w"><h4>📜 История выплат</h4>' + d.hist.map(function (h) { return '<div class="md-hist"><span>' + mdT(h.t) + ' · ' + esc(h.w) + '</span><b>+' + h.n + ' RC</b></div>'; }).join('') + '</div>' : '') +
         '</div></div>';
     box.querySelector('[data-mx]').onclick = function () { trig('cef:media:close'); };
@@ -1598,10 +1598,10 @@ window.mediaMenu = function (json) {
         b.onclick = function () {
             var a = b.dataset.ma, v = '';
             if (a === 'code') v = document.getElementById('mdCode').value;
-            if (a === 'car') v = document.getElementById('mdCar').value;
             trig('cef:media:act', a, v);
         };
     });
+    box.querySelectorAll('[data-mc]').forEach(function (b) { b.onclick = function () { trig('cef:media:act', 'car', b.dataset.mc); }; });
     box.querySelectorAll('[data-mw]').forEach(function (b) { b.onclick = function () { trig('cef:media:act', 'weather', b.dataset.mw); }; });
     box.querySelectorAll('[data-mt]').forEach(function (b) { b.onclick = function () { trig('cef:media:act', 'time', b.dataset.mt); }; });
 };

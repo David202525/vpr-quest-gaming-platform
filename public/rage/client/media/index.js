@@ -65,8 +65,11 @@ mp.events.add('playerCommand', function (cmd) {
 function camOn() {
     if (mCamOn) return;
     var me = mp.players.local;
-    var gp = mp.game.cam.getGameplayCamCoord(), gr = mp.game.cam.getGameplayCamRot(2);
-    mCam = mp.cameras.new('mediaCam', gp, gr, 50);
+    var gr = { x: 0, z: me.getHeading() };
+    try { var r0 = mp.game.cam.getGameplayCamRot(2); if (r0) gr = { x: r0.x, z: r0.z }; } catch (e) {}
+    var pp = me.position, rz0 = gr.z * Math.PI / 180;
+    var gp = new mp.Vector3(pp.x + Math.sin(rz0) * 3, pp.y - Math.cos(rz0) * 3, pp.z + 1);
+    mCam = mp.cameras.new('DEFAULT_SCRIPTED_CAMERA', gp, new mp.Vector3(gr.x, 0, gr.z), 50);
     mCamRot = { x: gr.x, z: gr.z };
     mCam.setActive(true);
     mp.game.cam.renderScriptCams(true, true, 400, true, false);
