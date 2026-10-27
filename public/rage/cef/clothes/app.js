@@ -58,26 +58,61 @@ function dlcGroups() {
     (D.dlc || []).forEach(function (x) {
         if (x.enc) return;
         var k = x.sex + ':' + x.part;
-        if (!g[k]) g[k] = { sex: x.sex, part: x.part, slot: x.slot, n: 0, packs: [], ids: [] };
-        g[k].n += x.n; (x.ids || []).forEach(function (id) { if (g[k].ids.indexOf(id) < 0) g[k].ids.push(id); }); if (g[k].packs.indexOf(x.pack) < 0) g[k].packs.push(x.pack);
+        if (!g[k]) g[k] = { sex: x.sex, part: x.part, slot: x.slot, n: 0, packs: [], parts: [] };
+        g[k].parts.push({ pack: x.pack, ids: (x.ids || []).slice().sort(function (a, b) { return a - b; }), n: x.n });
+        g[k].n += (x.ids && x.ids.length) || x.n;
+        if (g[k].packs.indexOf(x.pack) < 0) g[k].packs.push(x.pack);
     });
-    return Object.keys(g).map(function (k) { g[k].ids.sort(function (a, b) { return a - b; }); if (g[k].ids.length) g[k].n = g[k].ids.length; return g[k]; });
+    return Object.keys(g).map(function (k) { g[k].parts.sort(function (a, b) { return a.pack < b.pack ? -1 : a.pack > b.pack ? 1 : 0; }); return g[k]; });
 }
+function dlcNames(x) {
+    var base = PART_N[x.part] || x.part, out = [];
+    x.parts.forEach(function (p) { (p.ids.length ? p.ids : Array.apply(null, Array(p.n)).map(function (_, i) { return i; })).forEach(function (id) { out.push(base + ' · ' + x.part + '_' + ('00' + id).slice(-3)); }); });
+    return out;
+}
+var DLCV = null, DLCV_SEL = -1;
 function renderDlc() {
     var enc = (D.dlc || []).filter(function (x) { return x.enc; });
     var gr = dlcGroups();
-    var h = '<div class="panel"><h4>Одежда из загруженных DLC</h4><div class="hint">Здесь видны все вещи из папки dlcpacks. Нажмите «Добавить» — вещи появятся в каталоге магазина со всеми цветами, потом переименуйте их и поставьте цены. Женские вещи добавляются, когда ваш персонаж женский, мужские — когда мужской.</div></div>';
-    if (!gr.length && !enc.length) return h + '<div class="empty">Одежда в DLC не найдена.<br>Проверьте, что папки лежат в client_packages/game_resources/dlcpacks, и введите /dlc rescan</div>';
-    h += gr.map(function (x, i) {
+    if (DLCV) {
+        var x = DLCV.g, nm = dlcNames(x), inCat = {};
+        D.list.forEach(function (it) { if (it.slot === x.slot && it.sex === D.sex) inCat[it.d] = it; });
+        var h = '<div class="panel"><h4>' + (x.sex === 'f' ? '♀ ' : '♂ ') + esc(PART_N[x.part] || x.part) + ' · модели №' + DLCV.from + '–' + DLCV.to + '</h4><div class="hint">Нажимайте номера — вещь сразу появится на персонаже. Нашли нужную — добавьте её в каталог.</div><div class="sw">';
+        for (var i = DLCV.from; i <= DLCV.to; i++) h += '<span data-dv="' + i + '" class="' + (i === DLCV_SEL ? 'on' : '') + '" style="' + (inCat[i] ? 'border-color:#6fd36a' : '') + '">' + i + '</span>';
+        h += '</div>';
+        if (DLCV_SEL >= 0) {
+            var guess = nm[DLCV_SEL - DLCV.from] || '';
+            h += inCat[DLCV_SEL] ? '<div class="hint">Уже в каталоге: «' + esc(inCat[DLCV_SEL].n) + '»</div><div class="btns"><button class="btn" data-dvedit="' + inCat[DLCV_SEL].id + '">Изменить название и цену</button></div>'
+                : '<div class="f"><label>Название в магазине</label><input id="dvn" value="' + esc(guess || (PART_N[x.part] || '') + ' #' + DLCV_SEL) + '"></div><div class="btns"><button class="btn main" id="dvadd">Добавить №' + DLCV_SEL + ' в каталог</button></div>';
+        }
+        h += '<div class="btns" style="margin-top:8px"><button class="btn" id="dvback">← К списку DLC</button></div></div>';
+        return h;
+    }
+    var h2 = '<div class="panel"><h4>Одежда из загруженных DLC</h4><div class="hint">«Смотреть» — пролистать модели прямо на персонаже и добавить нужные по одной. «Все» — добавить всё разом. Женские вещи видны женскому персонажу, мужские — мужскому.</div></div>';
+    if (!gr.length && !enc.length) return h2 + '<div class="empty">Одежда в DLC не найдена.<br>Проверьте, что папки лежат в client_packages/game_resources/dlcpacks, и введите /dlc rescan</div>';
+    h2 += gr.map(function (x, i) {
         var mine = x.sex === D.sex, can = mine && x.slot;
         var why = !x.slot ? 'этот тип не продаётся отдельно' : !mine ? 'смените пол персонажа на ' + (x.sex === 'f' ? 'женский' : 'мужской') : '';
         return '<div class="li"><b>' + (x.sex === 'f' ? '♀ ' : '♂ ') + esc(PART_N[x.part] || x.part) + ' · ' + x.n + ' шт.<br><small>' + esc(x.packs.join(', ')) + (why ? ' · ' + why : '') + '</small></b>' +
-            (can ? '<button class="btn main" style="flex:0 0 auto;padding:7px 12px" data-dlc="' + i + '">Добавить</button>' : '') + '</div>';
+            (can ? '<button class="btn" style="flex:0 0 auto;padding:7px 10px" data-dlcv="' + i + '">Смотреть</button><button class="btn main" style="flex:0 0 auto;padding:7px 10px" data-dlc="' + i + '">Все</button>' : '') + '</div>';
     }).join('');
-    if (enc.length) h += '<div class="hint">Зашифрованные архивы (состав не прочитать): ' + esc(enc.map(function (x) { return x.pack; }).join(', ')) + ' — добавляйте их вкладкой «Пачкой», это последние номера в слоте.</div>';
-    return h;
+    if (enc.length) h2 += '<div class="hint">Зашифрованные архивы (состав не прочитать): ' + esc(enc.map(function (x) { return x.pack; }).join(', ')) + ' — смотрите их вкладкой «Одна вещь», это последние номера в слоте.</div>';
+    return h2;
 }
-window.csCount = function (j) { var d = JSON.parse(j); if (d.k === 'dlc' && DLC_PEND) { var x = DLC_PEND, s = slotOf(x.slot); DLC_PEND = null; if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC'); var f = Math.max(0, d.n - x.n); var nm = x.ids.map(function (id) { return (PART_N[x.part] || s.n) + ' · ' + x.part + '_' + ('00' + id).slice(-3); }); trig('cef:cs:range', JSON.stringify({ from: f, to: d.n - 1, c: s.c, p: s.p, slot: x.slot, sex: D.sex, name: (PART_N[x.part] || s.n) + ' DLC', nm: nm, price: 500, cap: 20, t: 15 })); CAT = x.slot; TAB = 'one'; ED = null; Q = ''; if ($('q')) $('q').value = ''; toast('Добавляю ' + x.n + ' шт…'); return; } MAXD = d.n; MAXT = d.t; if (ED && !ED.id && ED.tx.length <= 1) { ED.tx = []; for (var i = 0; i < Math.max(1, Math.min(MAXT, 32)); i++) ED.tx.push(i); } paintEdInfo(); };
+window.csCount = function (j) {
+    var d = JSON.parse(j);
+    if (d.k === 'dvtx' && DVTX_CB) { var cb = DVTX_CB; DVTX_CB = null; cb(d.t); return; }
+    if (d.k === 'dlcv' && DLCV_PEND) {
+        var gv = DLCV_PEND; DLCV_PEND = null;
+        if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC');
+        DLCV = { g: gv, from: Math.max(0, d.n - gv.n), to: d.n - 1 }; DLCV_SEL = -1; CAT = gv.slot; render(); trig('cef:cs:zoom', ZOOM[gv.slot] || 'body'); return;
+    }
+    if (d.k === 'dlc' && DLC_PEND) { var x = DLC_PEND, s = slotOf(x.slot); DLC_PEND = null; if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC'); var f = Math.max(0, d.n - x.n); trig('cef:cs:range', JSON.stringify({ from: f, to: d.n - 1, c: s.c, p: s.p, slot: x.slot, sex: D.sex, name: (PART_N[x.part] || s.n) + ' DLC', nm: dlcNames(x), price: 500, cap: 20, t: 15 })); CAT = x.slot; TAB = 'one'; ED = null; Q = ''; if ($('q')) $('q').value = ''; toast('Добавляю ' + x.n + ' шт…'); return; }
+    MAXD = d.n; MAXT = d.t; if (ED && !ED.id && ED.tx.length <= 1) { ED.tx = []; for (var i = 0; i < Math.max(1, Math.min(MAXT, 32)); i++) ED.tx.push(i); } paintEdInfo();
+};
+var DLCV_PEND = null;
+function dvTx(n, cb) { DVTX_CB = cb; var s = slotOf(DLCV.g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dvtx', c: s.c, p: s.p, d: n })); }
+var DVTX_CB = null;
 function preview() { if (ED) tryOn(ED, ED.tx[0] || 0); }
 function paintEdInfo() {
     var e = $('edinfo'); if (!e) return;
@@ -134,7 +169,12 @@ function renderEdit() {
 }
 $('body').addEventListener('click', function (e) {
     var c;
-    if ((c = e.target.closest('[data-tab]'))) { TAB = c.dataset.tab; render(); return; }
+    if ((c = e.target.closest('[data-tab]'))) { TAB = c.dataset.tab; DLCV = null; DLCV_SEL = -1; render(); return; }
+    if ((c = e.target.closest('[data-dlcv]'))) { var gv = dlcGroups()[Number(c.dataset.dlcv)]; if (!gv) return; DLCV_PEND = gv; var sv = slotOf(gv.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlcv', c: sv.c, p: sv.p })); return; }
+    if ((c = e.target.closest('[data-dv]'))) { DLCV_SEL = Number(c.dataset.dv); tryOn({ slot: DLCV.g.slot, d: DLCV_SEL, t: 15, u: -1 }, 0); render(); return; }
+    if ((c = e.target.closest('[data-dvedit]'))) { var xe = D.list.find(function (z) { return z.id === Number(c.dataset.dvedit); }); if (xe) { ED = JSON.parse(JSON.stringify(xe)); CAT = xe.slot; TAB = 'one'; DLCV = null; askCount(); render(); } return; }
+    if (e.target.id === 'dvback') { DLCV = null; DLCV_SEL = -1; trig('cef:cs:reset'); render(); return; }
+    if (e.target.id === 'dvadd') { var num = DLCV_SEL, nmv = $('dvn').value; dvTx(num, function (t) { var tx = []; for (var k = 0; k < Math.max(1, Math.min(t, 32)); k++) tx.push(k); trig('cef:ce:save', JSON.stringify({ id: 0, n: nmv, sex: D.sex, slot: DLCV.g.slot, d: num, tx: tx, t: 15, u: -1, ut: 0, price: 500, cap: 20 })); }); return; }
     if ((c = e.target.closest('[data-dlc]'))) { var g = dlcGroups()[Number(c.dataset.dlc)]; if (!g) return; DLC_PEND = g; var gs = slotOf(g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlc', c: gs.c, p: gs.p })); return; }
     if ((c = e.target.closest('[data-s]'))) { ED.d = Math.max(0, Math.min(Math.max(0, MAXD - 1), ED.d + Number(c.dataset.s))); $('ed').value = ED.d; if (!ED.id) ED.tx = [0]; askCount(); preview(); return; }
     if ((c = e.target.closest('[data-e]'))) { var x = D.list.find(function (z) { return z.id === Number(c.dataset.e); }); if (x) { CAT = x.slot; ED = JSON.parse(JSON.stringify(x)); TAB = 'one'; askCount(); render(); } return; }
