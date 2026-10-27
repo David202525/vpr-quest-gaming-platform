@@ -144,7 +144,7 @@ function uniformsOf(p) { const u = UNIFORMS[fac(p)] || UNIFORMS.lspd; return u[f
 const DEF_POINTS = {
     lspd: { armory: [452.1, -980.1, 30.69], locker: [458.2, -992.9, 30.69], garage: [454.6, -1017.4, 28.4], spawns: [[446.0, -1025.0, 28.6, 2], [442.4, -1025.6, 28.7, 2], [438.6, -1026.0, 28.8, 2], [434.9, -1026.5, 28.9, 2], [431.2, -1027.0, 29.0, 2]] },
     sheriff: { armory: [1851.1, 3690.0, 34.27], locker: [1849.2, 3694.5, 34.27], garage: [1866.0, 3695.0, 33.9], spawns: [[1870.0, 3700.0, 33.6, 210], [1873.0, 3703.0, 33.6, 210]] },
-    fib: { armory: [105.5, -745.8, 45.75], locker: [110.4, -744.2, 45.75], garage: [130.0, -712.0, 33.1], spawns: [[136.0, -705.0, 33.1, 160], [140.0, -707.0, 33.1, 160], [144.0, -709.0, 33.1, 160], [148.0, -711.0, 33.1, 160]] },
+    fib: { armory: [2525.5, -381.0, 93.0], locker: [2521.0, -381.0, 93.0], garage: [2548.0, -372.0, 93.0], spawns: [[2555.0, -380.0, 92.99, 90], [2555.0, -385.0, 92.99, 90], [2555.0, -390.0, 92.99, 90], [2555.0, -395.0, 92.99, 90]] },
     lic: { locker: [228.4, -805.6, 30.6], garage: [222.0, -812.5, 30.6], spawns: [[230.6, -796.6, 30.5, 160], [233.4, -797.6, 30.5, 160], [236.2, -798.6, 30.5, 160], [239.0, -799.6, 30.5, 160]] },
     gov: { locker: [-541.6, -208.6, 37.65], garage: [-550.3, -195.4, 38.22], spawns: [[-558.0, -187.5, 38.0, 300], [-561.5, -190.0, 38.0, 300], [-565.0, -192.5, 38.0, 300]] },
     army: { armory: [-2350.0, 3270.0, 32.8], locker: [-2347.0, 3264.0, 32.8], garage: [-2400.0, 3300.0, 32.8], spawns: [[-2405.0, 3310.0, 32.8, 240], [-2410.0, 3316.0, 32.8, 240]] }
@@ -191,10 +191,13 @@ function F(f) {
     if (!x.squads) x.squads = [];
     if (!x.stock) x.stock = {};
     if (!x.points) x.points = DEF_POINTS[f] ? JSON.parse(JSON.stringify(DEF_POINTS[f])) : null;
-    if (f === 'fib' && x.points && !x.fibMoved) {
-        x.fibMoved = 1;
-        ['armory', 'locker'].forEach(function (k) { const pt = x.points[k]; if (!pt || pt[2] > 200) x.points[k] = DEF_POINTS.fib[k].slice(); });
-        if (x.points.home && x.points.home[2] > 200) delete x.points.home;
+    if (f === 'fib' && x.points && x.fibMoved !== 2) {
+        const oldDef = x.fibMoved === 1;
+        x.fibMoved = 2;
+        const far = function (pt) { return !pt || pt[2] > 200 || Math.hypot(pt[0] - 2523, pt[1] + 384) > 400 && (oldDef || Math.hypot(pt[0] - 120, pt[1] + 730) < 120); };
+        ['armory', 'locker', 'garage'].forEach(function (k) { if (far(x.points[k])) x.points[k] = DEF_POINTS.fib[k].slice(); });
+        if (!x.points.spawns || !x.points.spawns.length || far(x.points.spawns[0])) x.points.spawns = JSON.parse(JSON.stringify(DEF_POINTS.fib.spawns));
+        if (x.points.home && far(x.points.home)) delete x.points.home;
         if (!Object.keys(x.stock).some(function (k) { return x.stock[k] > 0; })) Object.keys(SUPPLY_PACK).forEach(function (k) { x.stock[k] = SUPPLY_PACK[k]; });
         mark();
     }
@@ -411,7 +414,7 @@ mp.events.add('srv:gov:point', function (p, f, k) {
 const DEF_HOME = {
     lspd: [457.0, -990.5, 30.69, 90, 'Полицейский участок Mission Row'],
     sheriff: [1853.5, 3687.0, 34.27, 210, 'Офис шерифа Sandy Shores'],
-    fib: [112.5, -749.0, 45.75, 340, 'Штаб FIB'],
+    fib: [2523.0, -384.4, 93.0, 90, 'Штаб FIB (здание НУБ)'],
     army: [-2345.0, 3268.0, 32.8, 240, 'Военная база Форт Занкудо'],
     gov: [-544.8, -204.4, 38.2, 210, 'Мэрия Лос-Сантоса'],
     lic: [226.0, -808.5, 30.6, 160, 'Лицензионный центр'],

@@ -1,4 +1,3 @@
-try { mp.game.streaming.requestIpl('FIBlobby'); mp.game.streaming.removeIpl('FIBlobbyfake'); } catch (e) {}
 var GP = [];
 var gNear = null, gHint = '';
 var tabBrowser = null, tabOpen = false, gMenuOpen = false;
