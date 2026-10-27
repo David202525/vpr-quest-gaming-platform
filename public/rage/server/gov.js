@@ -725,6 +725,7 @@ async function tabAct(p, json) {
         const id = Number(d.s), n = Math.max(0, Math.min(5, Number(d.stars) || 0));
         if (!id) return;
         if (n && !String(d.r || '').trim()) return tabErr(p, 'Укажите причину');
+        if (global.FibSystem && !global.FibSystem.canTouchWanted(p, id)) return tabErr(p, 'Это дело ведёт FIB — розыск меняет только FIB');
         const W = global.WantedSystem; if (!W) return;
         W.setById(id, n, String(d.r || '').slice(0, 80), nick(p));
         addRecord(id, p, n ? 'Объявлен в розыск ' + n + '★: ' + d.r : 'Розыск снят');

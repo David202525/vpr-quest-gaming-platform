@@ -179,7 +179,7 @@ mp.events.addCommand('obank', function (p, full) {
     p.outputChatBox('!{#ffcc66}Общак: ' + money(o.bank) + ' · /obank put [сумма] · /obank take [сумма] (лидер)');
 });
 /* рации */
-function toOrg(k, line) { mp.players.forEach(function (x) { if (x.account && org(x) === k) x.outputChatBox(line); }); }
+function toOrg(k, line) { mp.players.forEach(function (x) { if (x.account && org(x) === k) x.outputChatBox(line); }); if (global.FibSystem) try { global.FibSystem.tap(k, line); } catch (e) {} }
 mp.events.addCommand('f', function (p, full) {
     const k = org(p);
     if (!k) return notify(p, 'warn', 'Вы не в банде / мафии');

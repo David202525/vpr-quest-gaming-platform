@@ -125,6 +125,7 @@ mp.events.addCommand('su', function (p, full) {
     const reason = a.slice(2).join(' ');
     if (!t || !(n >= 1 && n <= MAX) || !reason) return notify(p, 'warn', '/su [id] [1-5] [причина]');
     if (t === p) return;
+    if (global.FibSystem && !global.FibSystem.canTouchWanted(p, sid(t))) return notify(p, 'error', 'Это дело ведёт FIB — розыск меняет только FIB');
     set(t, Math.max(get(t), n), reason, nick(p));
     notify(t, 'warn', 'Вы объявлены в розыск: ' + get(t) + '★ · ' + reason);
     notify(p, 'ok', nick(t) + ' объявлен в розыск: ' + get(t) + '★');
@@ -134,6 +135,7 @@ mp.events.addCommand('clear', function (p, full) {
     if (!copOnly(p)) return;
     const t = find(full);
     if (!t) return notify(p, 'warn', '/clear [id]');
+    if (global.FibSystem && !global.FibSystem.canTouchWanted(p, sid(t))) return notify(p, 'error', 'Это дело ведёт FIB — розыск меняет только FIB');
     set(t, 0);
     notify(t, 'ok', 'Ваш розыск снят офицером ' + nick(p));
     notify(p, 'ok', 'Розыск снят');
