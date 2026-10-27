@@ -115,6 +115,24 @@ function scan() {
     return { root: root, fixes: fixes, list: list };
 }
 
+const CL_MAP = { jbib: 'top', lowr: 'legs', feet: 'shoes', hand: 'bag', berd: 'mask', teef: 'chain', p_head: 'hat', p_eyes: 'glasses', p_lwrist: 'watch' };
+function clothesOf(files) {
+    const g = {};
+    files.forEach(function (f) {
+        const sx = f.match(/mp_([mf])_freemode_01/);
+        if (!sx) return;
+        const base = f.slice(f.lastIndexOf('/') + 1).split('^').pop();
+        const m = base.match(/^((?:p_)?[a-z]+)_(\d{3})(?:_[a-z]+)?\.ydd$/);
+        if (!m) return;
+        const k = sx[1] + ':' + m[1];
+        (g[k] = g[k] || {})[Number(m[2])] = 1;
+    });
+    return Object.keys(g).map(function (k) {
+        const p = k.split(':');
+        return { sex: p[0], part: p[1], slot: CL_MAP[p[1]] || '', n: Object.keys(g[k]).length };
+    });
+}
+
 function scanOne(root, n, list) {
     {
         const f = path.join(root, n, 'dlc.rpf');
@@ -148,7 +166,7 @@ function scanOne(root, n, list) {
             }
         }
         list.push({
-            name: n, ok: !out.errors.length, errors: out.errors, warns: warns,
+            name: n, ok: !out.errors.length, errors: out.errors, warns: warns, cl: clothesOf(out.files), enc: out.encrypted.length,
             ymaps: Array.from(new Set(out.ymaps)), models: Array.from(new Set(out.models)), ytyps: out.ytyps.length, files: out.files.length
         });
     }
@@ -205,4 +223,5 @@ mp.events.addCommand('dlc', function (p, full) {
     p.call('dlc:load', [payload(), true]);
 });
 
-module.exports = { scan: scan };
+global.DlcSystem = { scan: scan, get: function () { return R; } };
+module.exports = global.DlcSystem;

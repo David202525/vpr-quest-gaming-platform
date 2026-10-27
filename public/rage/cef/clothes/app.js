@@ -49,7 +49,33 @@ function renderShop() {
 /* ---------- редактор ---------- */
 function newEd() { return { id: 0, n: '', sex: D.sex, slot: CAT, d: 0, tx: [0], t: 15, u: -1, ut: 0, price: 500, cap: 20 }; }
 function askCount() { var s = slotOf(ED.slot); trig('cef:cs:count', JSON.stringify({ k: 'ed', c: s.c, p: s.p, d: ED.d })); }
-window.csCount = function (j) { var d = JSON.parse(j); MAXD = d.n; MAXT = d.t; if (ED && !ED.id && ED.tx.length <= 1) { ED.tx = []; for (var i = 0; i < Math.max(1, Math.min(MAXT, 32)); i++) ED.tx.push(i); } paintEdInfo(); };
+var PART_N = { jbib: 'Верх', lowr: 'Низ', feet: 'Обувь', hand: 'Рюкзаки и сумки', berd: 'Маски', teef: 'Аксессуары на шею', p_head: 'Головные уборы', p_eyes: 'Очки', p_lwrist: 'Часы', uppr: 'Торс / руки', accs: 'Майки под низ', decl: 'Нашивки', task: 'Бронежилеты', hair: 'Причёски' };
+var DLC_PEND = null;
+function dlcGroups() {
+    var g = {};
+    (D.dlc || []).forEach(function (x) {
+        if (x.enc) return;
+        var k = x.sex + ':' + x.part;
+        if (!g[k]) g[k] = { sex: x.sex, part: x.part, slot: x.slot, n: 0, packs: [] };
+        g[k].n += x.n; if (g[k].packs.indexOf(x.pack) < 0) g[k].packs.push(x.pack);
+    });
+    return Object.keys(g).map(function (k) { return g[k]; });
+}
+function renderDlc() {
+    var enc = (D.dlc || []).filter(function (x) { return x.enc; });
+    var gr = dlcGroups();
+    var h = '<div class="panel"><h4>Одежда из загруженных DLC</h4><div class="hint">Здесь видны все вещи из папки dlcpacks. Нажмите «Добавить» — вещи появятся в каталоге магазина со всеми цветами, потом переименуйте их и поставьте цены. Женские вещи добавляются, когда ваш персонаж женский, мужские — когда мужской.</div></div>';
+    if (!gr.length && !enc.length) return h + '<div class="empty">Одежда в DLC не найдена.<br>Проверьте, что папки лежат в client_packages/game_resources/dlcpacks, и введите /dlc rescan</div>';
+    h += gr.map(function (x, i) {
+        var mine = x.sex === D.sex, can = mine && x.slot;
+        var why = !x.slot ? 'этот тип не продаётся отдельно' : !mine ? 'смените пол персонажа на ' + (x.sex === 'f' ? 'женский' : 'мужской') : '';
+        return '<div class="li"><b>' + (x.sex === 'f' ? '♀ ' : '♂ ') + esc(PART_N[x.part] || x.part) + ' · ' + x.n + ' шт.<br><small>' + esc(x.packs.join(', ')) + (why ? ' · ' + why : '') + '</small></b>' +
+            (can ? '<button class="btn main" style="flex:0 0 auto;padding:7px 12px" data-dlc="' + i + '">Добавить</button>' : '') + '</div>';
+    }).join('');
+    if (enc.length) h += '<div class="hint">Зашифрованные архивы (состав не прочитать): ' + esc(enc.map(function (x) { return x.pack; }).join(', ')) + ' — добавляйте их вкладкой «Пачкой», это последние номера в слоте.</div>';
+    return h;
+}
+window.csCount = function (j) { var d = JSON.parse(j); if (d.k === 'dlc' && DLC_PEND) { var x = DLC_PEND, s = slotOf(x.slot); DLC_PEND = null; if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC'); var f = Math.max(0, d.n - x.n); trig('cef:cs:range', JSON.stringify({ from: f, to: d.n - 1, c: s.c, p: s.p, slot: x.slot, sex: D.sex, name: (PART_N[x.part] || s.n) + ' DLC', price: 500, cap: 20, t: 15 })); toast('Добавляю ' + x.n + ' шт…'); return; } MAXD = d.n; MAXT = d.t; if (ED && !ED.id && ED.tx.length <= 1) { ED.tx = []; for (var i = 0; i < Math.max(1, Math.min(MAXT, 32)); i++) ED.tx.push(i); } paintEdInfo(); };
 function preview() { if (ED) tryOn(ED, ED.tx[0] || 0); }
 function paintEdInfo() {
     var e = $('edinfo'); if (!e) return;
@@ -62,8 +88,10 @@ function renderEdit() {
     cats();
     if (!ED) { ED = newEd(); askCount(); }
     var s = slotOf(ED.slot);
-    var h = '<div class="tabs"><div class="cat' + (TAB === 'one' ? ' on' : '') + '" data-tab="one">Одна вещь</div><div class="cat' + (TAB === 'bulk' ? ' on' : '') + '" data-tab="bulk">Пачкой (диапазон)</div></div>';
-    if (TAB === 'one') {
+    var h = '<div class="tabs"><div class="cat' + (TAB === 'one' ? ' on' : '') + '" data-tab="one">Одна вещь</div><div class="cat' + (TAB === 'bulk' ? ' on' : '') + '" data-tab="bulk">Пачкой (диапазон)</div><div class="cat' + (TAB === 'dlc' ? ' on' : '') + '" data-tab="dlc">Из DLC</div></div>';
+    if (TAB === 'dlc') {
+        h += renderDlc();
+    } else if (TAB === 'one') {
         h += '<div class="panel"><h4>' + (ED.id ? 'Изменить: ' + esc(ED.n) : 'Новая вещь · ' + esc(s.n)) + '</h4>' +
             '<div class="f"><label>Номер модели (drawable)</label><div class="stp"><button data-s="-10">«</button><button data-s="-1">‹</button><input id="ed" value="' + ED.d + '"><button data-s="1">›</button><button data-s="10">»</button></div></div>' +
             '<div class="hint" id="edinfo"></div>' +
@@ -93,7 +121,7 @@ function renderEdit() {
         if ($('edel')) $('edel').onclick = function () { trig('cef:ce:del', ED.id); ED = newEd(); askCount(); };
         if ($('enew')) $('enew').onclick = function () { ED = newEd(); askCount(); render(); };
         preview();
-    } else {
+    } else if ($('bgo')) {
         $('bgo').onclick = function () {
             var f = Number($('bf').value) || 0, t = Number($('bt').value) || 0;
             if (t < f) return toast('Неверный диапазон');
@@ -105,6 +133,7 @@ function renderEdit() {
 $('body').addEventListener('click', function (e) {
     var c;
     if ((c = e.target.closest('[data-tab]'))) { TAB = c.dataset.tab; render(); return; }
+    if ((c = e.target.closest('[data-dlc]'))) { var g = dlcGroups()[Number(c.dataset.dlc)]; if (!g) return; DLC_PEND = g; var gs = slotOf(g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlc', c: gs.c, p: gs.p })); return; }
     if ((c = e.target.closest('[data-s]'))) { ED.d = Math.max(0, Math.min(Math.max(0, MAXD - 1), ED.d + Number(c.dataset.s))); $('ed').value = ED.d; if (!ED.id) ED.tx = [0]; askCount(); preview(); return; }
     if ((c = e.target.closest('[data-e]'))) { var x = D.list.find(function (z) { return z.id === Number(c.dataset.e); }); if (x) { ED = JSON.parse(JSON.stringify(x)); TAB = 'one'; askCount(); render(); } return; }
     if ((c = e.target.closest('[data-i]'))) { SEL = D.list.find(function (z) { return z.id === Number(c.dataset.i); }); TX = SEL.tx[0]; tryOn(SEL, TX); render(); return; }

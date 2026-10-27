@@ -119,8 +119,18 @@ mp.events.add('srv:cs:buy', function (p, shopId, itemId, tx, wear) {
 
 /* ---------- редактор каталога ---------- */
 function canEdit(p) { if (admLvl(p) >= 6) return true; notify(p, 'error', 'Редактор одежды доступен с 6 уровня администрации'); return false; }
+function dlcClothes() {
+    const R = global.DlcSystem && global.DlcSystem.get ? global.DlcSystem.get() : null;
+    const out = [];
+    if (!R) return out;
+    R.list.forEach(function (d) {
+        (d.cl || []).forEach(function (c) { out.push({ pack: d.name, ok: d.ok, sex: c.sex, part: c.part, slot: c.slot, n: c.n }); });
+        if (d.enc && !(d.cl || []).length) out.push({ pack: d.name, ok: d.ok, enc: 1 });
+    });
+    return out;
+}
 function editorData(p) {
-    return { mode: 'edit', sex: sexOf(p), list: Object.keys(C.items).map(function (k) { return pub(C.items[k]); }).filter(function (x) { return !x.hide; }),
+    return { mode: 'edit', sex: sexOf(p), dlc: dlcClothes(), list: Object.keys(C.items).map(function (k) { return pub(C.items[k]); }).filter(function (x) { return !x.hide; }),
         slots: Object.keys(SLOTS).map(function (k) { return { k: k, n: SLOTS[k].n, i: SLOTS[k].i, c: SLOTS[k].c, p: SLOTS[k].p }; }) };
 }
 mp.events.addCommand('clothedit', function (p) {
