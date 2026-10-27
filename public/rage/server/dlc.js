@@ -129,7 +129,8 @@ function clothesOf(files) {
     });
     return Object.keys(g).map(function (k) {
         const p = k.split(':');
-        return { sex: p[0], part: p[1], slot: CL_MAP[p[1]] || '', n: Object.keys(g[k]).length };
+        const ids = Object.keys(g[k]).map(Number).sort(function (a, b) { return a - b; });
+        return { sex: p[0], part: p[1], slot: CL_MAP[p[1]] || '', n: ids.length, ids: ids };
     });
 }
 

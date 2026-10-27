@@ -110,7 +110,8 @@ mp.events.add('cef:cs:range', function (j) {
         try { t = d.p !== undefined && d.p !== null ? me.getNumberOfPropTextureVariations(Number(d.p), i) : me.getNumberOfTextureVariations(Number(d.c), i); } catch (e) {}
         if (t <= 0) continue;
         var tx = []; for (var k = 0; k < Math.min(t, 32); k++) tx.push(k);
-        out.push({ n: d.name + ' #' + i, sex: d.sex, slot: d.slot, d: i, tx: tx, t: d.t, u: -1, price: d.price, cap: d.cap });
+        var nm = Array.isArray(d.nm) && d.nm[i - Number(d.from)] ? d.nm[i - Number(d.from)] : d.name + ' #' + i;
+        out.push({ n: nm, sex: d.sex, slot: d.slot, d: i, tx: tx, t: d.t, u: -1, price: d.price, cap: d.cap });
     }
     mp.events.callRemote('srv:ce:bulk', JSON.stringify(out));
 });

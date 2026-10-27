@@ -4,9 +4,10 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function 
 function money(n) { return '$' + String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function toast(t) { var e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(function () { e.classList.remove('on'); }, 2200); }
 
-var D = null, CAT = '', SEL = null, TX = 0, ED = null, MAXD = 0, MAXT = 0, TAB = 'one';
+var Q = '', D = null, CAT = '', SEL = null, TX = 0, ED = null, MAXD = 0, MAXT = 0, TAB = 'one';
 var ZOOM = { top: 'body', legs: 'legs', shoes: 'feet', hat: 'head', glasses: 'head', mask: 'head', chain: 'head', watch: 'body', bag: 'body' };
 
+function hit(x) { if (!Q) return true; var q = Q.toLowerCase(); return String(x.n).toLowerCase().indexOf(q) >= 0 || String(x.d) === q; }
 function slotOf(k) { return D.slots.find(function (s) { return s.k === k; }); }
 function tryOn(it, tx) {
     var s = slotOf(it.slot);
@@ -29,7 +30,8 @@ function renderShop() {
     $('ico').textContent = '👕'; $('ttl').textContent = D.n; $('sub').textContent = 'Наличные: ' + money(D.money);
     if (!D.list.length) { $('cats').innerHTML = ''; $('body').innerHTML = '<div class="empty">' + esc(D.empty) + '</div>'; return; }
     cats();
-    var list = D.list.filter(function (x) { return x.slot === CAT; });
+    var list = D.list.filter(function (x) { return Q ? hit(x) : x.slot === CAT; });
+    if (!list.length) { $('body').innerHTML = '<div class="empty">Ничего не найдено</div>'; return; }
     var h = '<div class="grid">' + list.map(function (it) {
         return '<div class="card' + (SEL && SEL.id === it.id ? ' on' : '') + '" data-i="' + it.id + '"><b>' + esc(it.n) + '</b><small>' + (it.tx.length > 1 ? 'Цветов: ' + it.tx.length : '1 цвет') + (it.slot === 'bag' ? ' · +' + it.cap + ' кг' : '') + '</small><div class="pr">' + money(it.price) + '</div></div>';
     }).join('') + '</div>';
@@ -56,10 +58,10 @@ function dlcGroups() {
     (D.dlc || []).forEach(function (x) {
         if (x.enc) return;
         var k = x.sex + ':' + x.part;
-        if (!g[k]) g[k] = { sex: x.sex, part: x.part, slot: x.slot, n: 0, packs: [] };
-        g[k].n += x.n; if (g[k].packs.indexOf(x.pack) < 0) g[k].packs.push(x.pack);
+        if (!g[k]) g[k] = { sex: x.sex, part: x.part, slot: x.slot, n: 0, packs: [], ids: [] };
+        g[k].n += x.n; (x.ids || []).forEach(function (id) { if (g[k].ids.indexOf(id) < 0) g[k].ids.push(id); }); if (g[k].packs.indexOf(x.pack) < 0) g[k].packs.push(x.pack);
     });
-    return Object.keys(g).map(function (k) { return g[k]; });
+    return Object.keys(g).map(function (k) { g[k].ids.sort(function (a, b) { return a - b; }); if (g[k].ids.length) g[k].n = g[k].ids.length; return g[k]; });
 }
 function renderDlc() {
     var enc = (D.dlc || []).filter(function (x) { return x.enc; });
@@ -75,7 +77,7 @@ function renderDlc() {
     if (enc.length) h += '<div class="hint">Зашифрованные архивы (состав не прочитать): ' + esc(enc.map(function (x) { return x.pack; }).join(', ')) + ' — добавляйте их вкладкой «Пачкой», это последние номера в слоте.</div>';
     return h;
 }
-window.csCount = function (j) { var d = JSON.parse(j); if (d.k === 'dlc' && DLC_PEND) { var x = DLC_PEND, s = slotOf(x.slot); DLC_PEND = null; if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC'); var f = Math.max(0, d.n - x.n); trig('cef:cs:range', JSON.stringify({ from: f, to: d.n - 1, c: s.c, p: s.p, slot: x.slot, sex: D.sex, name: (PART_N[x.part] || s.n) + ' DLC', price: 500, cap: 20, t: 15 })); toast('Добавляю ' + x.n + ' шт…'); return; } MAXD = d.n; MAXT = d.t; if (ED && !ED.id && ED.tx.length <= 1) { ED.tx = []; for (var i = 0; i < Math.max(1, Math.min(MAXT, 32)); i++) ED.tx.push(i); } paintEdInfo(); };
+window.csCount = function (j) { var d = JSON.parse(j); if (d.k === 'dlc' && DLC_PEND) { var x = DLC_PEND, s = slotOf(x.slot); DLC_PEND = null; if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC'); var f = Math.max(0, d.n - x.n); var nm = x.ids.map(function (id) { return (PART_N[x.part] || s.n) + ' · ' + x.part + '_' + ('00' + id).slice(-3); }); trig('cef:cs:range', JSON.stringify({ from: f, to: d.n - 1, c: s.c, p: s.p, slot: x.slot, sex: D.sex, name: (PART_N[x.part] || s.n) + ' DLC', nm: nm, price: 500, cap: 20, t: 15 })); CAT = x.slot; TAB = 'one'; ED = null; Q = ''; if ($('q')) $('q').value = ''; toast('Добавляю ' + x.n + ' шт…'); return; } MAXD = d.n; MAXT = d.t; if (ED && !ED.id && ED.tx.length <= 1) { ED.tx = []; for (var i = 0; i < Math.max(1, Math.min(MAXT, 32)); i++) ED.tx.push(i); } paintEdInfo(); };
 function preview() { if (ED) tryOn(ED, ED.tx[0] || 0); }
 function paintEdInfo() {
     var e = $('edinfo'); if (!e) return;
@@ -107,9 +109,9 @@ function renderEdit() {
             (ED.slot === 'bag' ? field('bc', 'Вместимость, кг', 20, 'number') : '') + (ED.slot === 'top' ? field('btt', 'Торс / руки (3)', 15, 'number') : '') +
             '<div class="hint" id="edinfo"></div><div class="btns"><button class="btn main" id="bgo">Добавить диапазон</button></div></div>';
     }
-    var mine = D.list.filter(function (x) { return x.slot === CAT && x.sex === D.sex; });
-    h += '<div class="lst"><h4 style="font-size:13px;margin-bottom:6px">В каталоге (' + mine.length + ')</h4>' + (mine.length ? mine.map(function (x) {
-        return '<div class="li" data-e="' + x.id + '"><b>' + esc(x.n) + '</b><small>№' + x.d + ' · ' + x.tx.length + ' цв. · ' + money(x.price) + '</small></div>';
+    var mine = D.list.filter(function (x) { return Q ? hit(x) : x.slot === CAT && x.sex === D.sex; });
+    h += '<div class="lst"><h4 style="font-size:13px;margin-bottom:6px">' + (Q ? 'Найдено по «' + esc(Q) + '»' : 'В каталоге') + ' (' + mine.length + ')</h4>' + (mine.length ? mine.map(function (x) {
+        return '<div class="li" data-e="' + x.id + '"><b>' + (Q ? (x.sex === 'f' ? '♀ ' : '♂ ') : '') + esc(x.n) + (Q ? ' <small>· ' + esc((slotOf(x.slot) || {}).n || '') + '</small>' : '') + '</b><small>№' + x.d + ' · ' + x.tx.length + ' цв. · ' + money(x.price) + '</small></div>';
     }).join('') : '<div class="hint">Пусто — добавьте первую вещь</div>') + '</div>';
     $('body').innerHTML = h;
     paintEdInfo();
@@ -135,15 +137,16 @@ $('body').addEventListener('click', function (e) {
     if ((c = e.target.closest('[data-tab]'))) { TAB = c.dataset.tab; render(); return; }
     if ((c = e.target.closest('[data-dlc]'))) { var g = dlcGroups()[Number(c.dataset.dlc)]; if (!g) return; DLC_PEND = g; var gs = slotOf(g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlc', c: gs.c, p: gs.p })); return; }
     if ((c = e.target.closest('[data-s]'))) { ED.d = Math.max(0, Math.min(Math.max(0, MAXD - 1), ED.d + Number(c.dataset.s))); $('ed').value = ED.d; if (!ED.id) ED.tx = [0]; askCount(); preview(); return; }
-    if ((c = e.target.closest('[data-e]'))) { var x = D.list.find(function (z) { return z.id === Number(c.dataset.e); }); if (x) { ED = JSON.parse(JSON.stringify(x)); TAB = 'one'; askCount(); render(); } return; }
+    if ((c = e.target.closest('[data-e]'))) { var x = D.list.find(function (z) { return z.id === Number(c.dataset.e); }); if (x) { CAT = x.slot; ED = JSON.parse(JSON.stringify(x)); TAB = 'one'; askCount(); render(); } return; }
     if ((c = e.target.closest('[data-i]'))) { SEL = D.list.find(function (z) { return z.id === Number(c.dataset.i); }); TX = SEL.tx[0]; tryOn(SEL, TX); render(); return; }
     if ((c = e.target.closest('[data-t]'))) { TX = Number(c.dataset.t); tryOn(SEL, TX); render(); return; }
 });
 
 function render() { if (!D) return; if (D.mode === 'shop') renderShop(); else renderEdit(); }
-window.csOpen = function (j) { D = typeof j === 'string' ? JSON.parse(j) : j; CAT = ''; SEL = null; ED = null; TAB = 'one'; render(); trig('cef:cs:zoom', 'body'); };
+window.csOpen = function (j) { D = typeof j === 'string' ? JSON.parse(j) : j; Q = ''; $('q').value = ''; CAT = ''; SEL = null; ED = null; TAB = 'one'; render(); trig('cef:cs:zoom', 'body'); };
 window.csEditList = function (j) { D.list = typeof j === 'string' ? JSON.parse(j) : j; if (ED && !ED.id) ED = newEd(); render(); if (ED) askCount(); };
 window.csBought = function (slot, worn, m) { D.money = m; toast(worn ? 'Куплено и надето' : 'Куплено — вещь в инвентаре'); render(); };
+$('q').addEventListener('input', function () { Q = $('q').value.trim(); if (D && D.mode === 'edit' && Q && TAB !== 'one') TAB = 'one'; render(); });
 $('close').onclick = function () { trig('cef:cs:close'); };
 document.querySelectorAll('[data-z]').forEach(function (b) { b.onclick = function () { trig('cef:cs:zoom', b.dataset.z); }; });
 document.querySelectorAll('[data-r]').forEach(function (b) { b.onclick = function () { trig('cef:cs:rot', Number(b.dataset.r)); }; });
