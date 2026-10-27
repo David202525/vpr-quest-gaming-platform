@@ -162,16 +162,20 @@ mp.events.add('srv:ce:bulk', function (p, json) {
     if (!canEdit(p)) return;
     let arr; try { arr = JSON.parse(json); } catch (x) { return; }
     if (!Array.isArray(arr)) return;
-    let n = 0, skip = 0;
+    let n = 0, skip = 0, ren = 0;
     arr.slice(0, 300).forEach(function (e) {
         const it = sanitize(e, p);
         if (!it) return;
-        const dup = Object.keys(C.items).some(function (k) { const x = C.items[k]; return !x.hide && x.sex === it.sex && x.slot === it.slot && x.d === it.d; });
-        if (dup) { skip++; return; }
+        const dupK = Object.keys(C.items).find(function (k) { const x = C.items[k]; return !x.hide && x.sex === it.sex && x.slot === it.slot && x.d === it.d; });
+        if (dupK) {
+            const dx = C.items[dupK];
+            if (/ · [a-z_]+_\d{3}$/.test(it.n) && / #\d+$/.test(dx.n)) { dx.n = it.n; register(dx); ren++; } else skip++;
+            return;
+        }
         it.id = C.seq++; C.items[it.id] = it; register(it); n++;
     });
     mark();
-    notify(p, 'ok', 'Добавлено вещей: ' + n + (skip ? ' · пропущено (уже были): ' + skip : ''));
+    notify(p, 'ok', 'Добавлено вещей: ' + n + (ren ? ' · переименовано: ' + ren : '') + (skip ? ' · пропущено (уже были): ' + skip : ''));
     p.call('cs:editList', [JSON.stringify(editorData(p).list)]);
 });
 mp.events.add('srv:ce:del', function (p, id) {
