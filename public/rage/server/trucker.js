@@ -229,3 +229,9 @@ function register(force) {
 }
 register();
 console.log('[trucker] работа «Дальнобойщик» загружена');
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+[['base', 'Устройство на работу', basePt], ['spot', 'Выдача грузовика', spotPt], ['depot', 'Погрузка / налив', depotPt]].forEach(function (a) {
+    PR.add('truck.' + a[0], { g: 'Работа: Дальнобойщик', n: a[1], get: a[2], set: function (v) { S[a[0]] = v; dirty = true; register(true); }, reset: function () { S[a[0]] = null; dirty = true; register(true); } });
+});

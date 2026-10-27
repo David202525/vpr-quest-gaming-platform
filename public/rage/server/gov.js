@@ -1255,3 +1255,33 @@ mp.events.addCommand('govclerk', function (p) {
     spawnClerk(); mp.players.forEach(sendClerk);
     p.outputChatBox('!{#8fd14f}Место сотрудника паспортного стола сохранено. Отойдите — NPC появится здесь');
 });
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.provider(function () {
+    const out = [];
+    Object.keys(DEF_RANKS).forEach(function (f) {
+        const g = 'Фракция: ' + (NAMES[f] || f);
+        const L = { armory: 'Склад оружия', locker: 'Раздевалка', garage: 'Гараж', home: 'Спавн фракции' };
+        Object.keys(L).forEach(function (k) {
+            const x = F(f);
+            const pts = x.points || {};
+            if (!pts[k] && !(DEF_POINTS[f] && DEF_POINTS[f][k]) && k !== 'home' && k !== 'locker') return;
+            out.push({ id: 'gov.' + f + '.' + k, g: g, n: L[k],
+                get: function () { const P = F(f).points || {}; return P[k] || (k === 'home' ? DEF_HOME[f] : null); },
+                set: function (v) { const X = F(f); if (!X.points) X.points = { spawns: [] }; X.points[k] = k === 'home' ? [v.x, v.y, v.z, v.h] : [v.x, v.y, v.z]; mark(); mp.players.forEach(sendPoints); },
+                reset: DEF_POINTS[f] && DEF_POINTS[f][k] ? function () { F(f).points[k] = DEF_POINTS[f][k].slice(); mark(); mp.players.forEach(sendPoints); } : null });
+        });
+        ['spawns', 'air'].forEach(function (k) {
+            (((F(f).points || {})[k]) || []).forEach(function (s, i) {
+                out.push({ id: 'gov.' + f + '.' + k + '.' + i, g: g, n: (k === 'air' ? 'Вертолётная площадка #' : 'Парковка #') + (i + 1),
+                    get: function () { return F(f).points[k][i]; },
+                    set: function (v) { F(f).points[k][i] = [v.x, v.y, v.z, v.h]; mark(); },
+                    del: function () { F(f).points[k].splice(i, 1); mark(); } });
+            });
+        });
+    });
+    out.push({ id: 'gov.gov.clerk', g: 'Фракция: Правительство', n: 'Паспортный стол (NPC)', dim: cityDim,
+        get: clerkPos, set: function (v) { const X = F('gov'); if (!X.points) X.points = { spawns: [] }; X.points.clerk = [v.x, v.y, v.z, v.h]; mark(); spawnClerk(); mp.players.forEach(sendClerk); } });
+    return out;
+});

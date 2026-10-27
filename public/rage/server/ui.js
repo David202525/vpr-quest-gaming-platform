@@ -267,7 +267,7 @@ function addMoney(p, n) { setMB(p, getMoney(p) + n, getBank(p)); }
 
 function itemW(x) { return x && ITEMS[x.k] ? ITEMS[x.k].w * x.c : 0; }
 function weight(list) { return list.reduce(function (s, x) { return s + itemW(x); }, 0); }
-function invCap(d) { return INV_CAP + (d.equip.bag ? BAG_CAP : 0); }
+function invCap(d) { const b = d.equip.bag; return INV_CAP + (b ? ((ITEMS[b.k] && ITEMS[b.k].cap) || BAG_CAP) : 0); }
 function full(x) {
     if (!x || !ITEMS[x.k]) return null;
     const it = ITEMS[x.k];
@@ -389,10 +389,10 @@ function applyCloth(p, slot, item) {
         }
         const c = item && ITEMS[item.k] ? ITEMS[item.k].cloth : null;
         if (item && c) {
-            if (c.p !== undefined) p.setProp(c.p, c.d, 0);
+            if (c.p !== undefined) p.setProp(c.p, c.d, c.tx || 0);
             else {
-                p.setClothes(c.c, c.d, 0, 0);
-                if (c.t !== undefined) { p.setClothes(3, c.t, 0, 0); p.setClothes(8, 15, 0, 0); }
+                p.setClothes(c.c, c.d, c.tx || 0, 0);
+                if (c.t !== undefined) { p.setClothes(3, c.t, 0, 0); p.setClothes(8, c.u !== undefined ? c.u : 15, c.ut || 0, 0); }
             }
         } else if (!item && DEF[slot]) {
             const df = DEF[slot];
@@ -480,6 +480,7 @@ function move(p, from, to, count) {
 
     if (t.b === 'equip') {
         if (it.slot !== t.slot) return notify(p, 'error', 'Этот предмет сюда не надевается');
+        if (it.sex && it.sex !== (p.model === mp.joaat('mp_f_freemode_01') ? 'f' : 'm')) return notify(p, 'error', it.sex === 'f' ? 'Это женская вещь' : 'Это мужская вещь');
         if (t.item && s.b !== 'equip') {
             if (s.b !== 'ground' && s.list && weight(s.list) - itemW(s.item) + itemW(t.item) > s.cap + 0.001) return notify(p, 'error', 'Не хватает места');
         }
@@ -498,6 +499,7 @@ function move(p, from, to, count) {
         }
         if (t.list && weight(t.list) + itemW(s.item) - itemW(t.item) > t.cap + 0.001) return notify(p, 'error', 'Не хватает места');
         if (s.slot === 'bag' && !t.item && weight(data(p).inv) > INV_CAP) return notify(p, 'error', 'Без рюкзака вещи не поместятся');
+        if (s.slot === 'bag' && t.item && ITEMS[t.item.k].slot === 'bag' && weight(data(p).inv) - itemW(t.item) > INV_CAP + ((ITEMS[t.item.k].cap) || BAG_CAP) + 0.001) return notify(p, 'error', 'В этот рюкзак вещи не поместятся');
         const old = t.item;
         if (t.b === 'ground') { t.set(s.item); s.set(null); }
         else { t.set(s.item); s.set(old); }
@@ -1120,6 +1122,8 @@ setInterval(function () {
 }, 1500);
 mp.events.add('playerQuit', function (p) { p.uiReadySent = undefined; });
 
+try { require('./points.js'); } catch (e) { console.log('[ui] points.js: ' + e.message); }
+setTimeout(function () { try { require('./clothes.js'); } catch (e) { console.log('[ui] clothes.js: ' + e.message); } }, 1200);
 if (!global.JobSystem) {
     try { require('./jobs.js'); } catch (e) { console.log('[ui] jobs.js не найден: ' + e.message); }
 }
@@ -1621,6 +1625,15 @@ function redress(p) {
     SLOTS.forEach(function (s) { if (s !== 'armour' && s !== 'phone') applyCloth(p, s, d.equip[s] || null); });
     if (d.equip.armour) armourLook(p, true);
 }
+function equipKey(p, k) {
+    const d = data(p), it = ITEMS[k];
+    if (!it || !it.slot) return false;
+    const i = d.inv.findIndex(function (x) { return x && x.k === k; });
+    if (i < 0) return false;
+    move(p, { b: 'inv', i: i }, { b: 'equip', i: it.slot });
+    mark();
+    return true;
+}
 global.UiPhone = { data: data, store: store, mark: mark, sendPhone: sendPhone, sendMenu: sendMenu, key: key, online: online };
 function driveCats(p) { const x = docList(data(p)).find(function (z) { return z.t === 'drive'; }); return x ? (x.cats || ['A', 'B', 'C', 'D']) : []; }
 function addDriveCat(p, cat, by) {
@@ -1644,7 +1657,30 @@ function takeItems(p, k, n) {
     mark(); sendInv(p);
     return n - left;
 }
-global.UiSystem = { dropAt: function (p, item) { makeDrop(p, item); }, armourLook: function (p) { const d = store[key(p)]; if (d && d.equip && d.equip.armour) armourLook(p, true); }, addExp: function (p, n) { if (!accId(p)) return; const d = data(p); d.exp += Math.round(n) || 0; while (d.exp >= needExp(d.lvl)) { d.exp -= needExp(d.lvl); d.lvl += 1; notify(p, 'ok', 'Новый уровень: ' + d.lvl); } mark(); }, invScan: invScan, takeItems: takeItems, sendInv: sendInv, driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
+global.UiSystem = { equipKey: equipKey, invCap: function (p) { return invCap(data(p)); }, dropAt: function (p, item) { makeDrop(p, item); }, armourLook: function (p) { const d = store[key(p)]; if (d && d.equip && d.equip.armour) armourLook(p, true); }, addExp: function (p, n) { if (!accId(p)) return; const d = data(p); d.exp += Math.round(n) || 0; while (d.exp >= needExp(d.lvl)) { d.exp -= needExp(d.lvl); d.lvl += 1; notify(p, 'ok', 'Новый уровень: ' + d.lvl); } mark(); }, invScan: invScan, takeItems: takeItems, sendInv: sendInv, driveCats: driveCats, addDriveCat: addDriveCat, addCoins: addCoins, coinsOf: function (p) { return data(p).coins || 0; }, showDoc: function (from, to, t) { const l = docList(data(from)); const i = l.findIndex(function (x) { return x.t === t; }); if (i < 0) return false; sendDocs(to, from, i); return true; }, takeDoc: function (p, t) { const l = docList(data(p)); for (let i = l.length - 1; i >= 0; i--) if (l[i].t === t) l.splice(i, 1); mark(); }, setOwner: function (v, id) { v.setVariable('ownerId', id); }, giveDoc: function (p, t, opt, by) { return giveDoc(p, t, opt, by); }, hasDoc: function (p, t, f) { return hasDoc(data(p), t, f); }, addItem: addItem, countItem: function (p, k) { return countItem(data(p), k); }, ITEMS: ITEMS, govStrip: govStrip, redress: redress, docsOf: function (k) { const d = store[k]; return d ? docList(d) : []; }, phoneOf: function (k) { return store[k] ? store[k].phone : null; }, sidByPhone: function (n) { const k = store._numbers[n]; return k && k[0] === 'a' ? Number(k.slice(1)) : 0; } };
+
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.provider(function () {
+    const out = [];
+    const mv = function (tbl, list, g, lab, reload) {
+        list.forEach(function (s) {
+            out.push({ id: tbl + '.' + s.id, g: g, n: s.name || (lab + ' #' + s.id), get: function () { return s; },
+                set: function (v) { s.x = v.x; s.y = v.y; s.z = v.z; q('UPDATE ' + tbl + ' SET x = ?, y = ?, z = ? WHERE id = ?', [v.x, v.y, v.z, s.id]).then(reload); } });
+        });
+    };
+    mv('shops', SHOPS.filter(function (s) { return s.kind === 'shop'; }), 'Бизнесы: магазины 24/7', 'Магазин', loadShops);
+    mv('shops', SHOPS.filter(function (s) { return s.kind === 'gun'; }), 'Бизнесы: оружейные', 'Оружейный', loadShops);
+    mv('atms', ATMS, 'Банкоматы', 'Банкомат', loadAtms);
+    STATIONS.forEach(function (st) {
+        out.push({ id: 'fuel.' + st.id, g: 'Бизнесы: АЗС', n: st.name + ' — колонки', get: function () { return st; },
+            set: function (v) { st.x = v.x; st.y = v.y; st.z = v.z; if (!st.nodb) q('UPDATE fuel_stations SET x = ?, y = ?, z = ? WHERE id = ?', [v.x, v.y, v.z, st.id]).then(loadStations); } });
+        out.push({ id: 'fuelbiz.' + st.id, g: 'Бизнесы: АЗС', n: st.name + ' — касса', get: function () { return { x: st.bx, y: st.by, z: st.bz }; },
+            set: function (v) { st.bx = v.x; st.by = v.y; st.bz = v.z; if (!st.nodb) q('UPDATE fuel_stations SET bx = ?, by_ = ?, bz = ? WHERE id = ?', [v.x, v.y, v.z, st.id]).then(loadStations); } });
+    });
+    return out;
+});
 
 console.log('[ui] инвентарь, телефон и меню загружены. Предметов в каталоге: ' + Object.keys(ITEMS).length);
 

@@ -614,4 +614,23 @@ mp.events.addCommand('medpos', function (p) {
 
 console.log('[EMS] \u0444\u0440\u0430\u043a\u0446\u0438\u044f \u043c\u0435\u0434\u0438\u043a\u043e\u0432 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u0430');
 
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+const LAYP = require('./hospital_layout.js');
+PR.provider(function () {
+    const P = LAYP.P, g = 'Больница EMS', out = [];
+    ['entry', 'locker', 'garage'].forEach(function (k) {
+        out.push({ id: 'ems.' + k, g: g, n: ({ entry: 'Вход (метка на карте)', locker: 'Раздевалка', garage: 'Гараж скорой' })[k],
+            get: function () { return P[k]; }, set: function (v) { P[k] = v; LAYP.save(); }, reset: function () { P[k] = JSON.parse(JSON.stringify(LAYP.DEF[k])); LAYP.save(); } });
+    });
+    ['beds', 'er'].forEach(function (k) {
+        P[k].forEach(function (b, i) {
+            out.push({ id: 'ems.' + k + '.' + i, g: g, n: (k === 'beds' ? 'Койка #' : 'Приёмное #') + (i + 1),
+                get: function () { return P[k][i]; }, set: function (v) { P[k][i] = v; LAYP.save(); }, del: function () { P[k].splice(i, 1); LAYP.save(); } });
+        });
+    });
+    return out;
+});
+
 module.exports = { isMedic: isMedic, onDuty: onDuty };

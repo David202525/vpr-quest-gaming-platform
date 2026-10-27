@@ -1015,3 +1015,33 @@ mp.events.addCommand('zoneset', function (p, full) {
 
 global.CrimeSystem = { inNeutral: inNeutral, home: orgHome, ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName };
 console.log('[crime] банды: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).length + ', мафии: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'mafia'; }).length + ', районов: ' + ZONES_DEF.length);
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+function A4(v) { return [v.x, v.y, v.z, v.h || 0]; }
+function orgRefresh(k) { mark(); zonesAll(); mp.players.forEach(function (x) { if (org(x) === k) pointsSend(x); }); }
+PR.provider(function () {
+    const out = [];
+    Object.keys(ORGS).forEach(function (k) {
+        const g = (ORGS[k].t === 'mafia' ? 'Мафия: ' : 'Банда: ') + ORGS[k].n;
+        const P = function (key, n, get, def) {
+            out.push({ id: 'org.' + k + '.' + key, g: g, n: n, get: get,
+                set: function (v) { O(k)[key] = A4(v); orgRefresh(k); },
+                reset: function () { delete O(k)[key]; orgRefresh(k); } });
+        };
+        P('home', 'База / спавн', function () { return home(k); });
+        P('garage', 'Гараж (выдача машин)', function () { return garage(k); });
+        P('stash', 'Общак-склад', function () { return stashPos(k); });
+        P('bench', 'Верстак', function () { return benchPos(k); });
+        if (ORG_INT[k]) P('door', 'Вход в особняк', function () { return doorPos(k); });
+        if (ORGS[k].t === 'mafia') P('green', 'Теплица', function () { return greenPos(k); });
+        (O(k).spots || []).forEach(function (s, i) {
+            out.push({ id: 'org.' + k + '.spot.' + i, g: g, n: 'Парковка #' + (i + 1), get: function () { return O(k).spots[i]; },
+                set: function (v) { O(k).spots[i] = A4(v); orgRefresh(k); },
+                del: function () { O(k).spots.splice(i, 1); orgRefresh(k); } });
+        });
+    });
+    return out;
+});
+PR.add('crime.dealer', { g: 'Криминал', n: 'Поставщик укропа', get: dealer, set: function (v) { S.dealer = v; mark(); spawnDealer(); mp.players.forEach(dealerSend); }, reset: function () { S.dealer = null; mark(); spawnDealer(); mp.players.forEach(dealerSend); } });
+PR.add('crime.buyer', { g: 'Криминал', n: 'Скупщик (нейтральная зона)', get: buyer, set: function (v) { S.buyer = v; mark(); spawnBuyer(); mp.players.forEach(pointsSend); }, reset: function () { S.buyer = null; mark(); spawnBuyer(); mp.players.forEach(pointsSend); } });

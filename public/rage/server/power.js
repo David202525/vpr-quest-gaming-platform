@@ -293,3 +293,8 @@ function register() {
 }
 register();
 console.log('[power] прокат скутеров и работа «Аварийный энергетик» загружены');
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.add('power.rent', { g: 'Город', n: 'Прокат скутеров', get: rentPt, set: function (v) { S.rent = v; dirty = true; mp.players.forEach(sendStatic); }, reset: function () { S.rent = null; dirty = true; mp.players.forEach(sendStatic); } });
+PR.add('power.base', { g: 'Работа: Энергетик', n: 'Устройство на работу', get: basePt, set: function (v) { S.base = v; dirty = true; register(); }, reset: function () { S.base = null; dirty = true; register(); } });

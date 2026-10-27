@@ -316,3 +316,13 @@ mp.events.addCommand('arrestpt', function (p, full) {
 });
 global.WantedSystem = { setById: setById, list: list, info: info, get: get, set: set, add: add, cuff: cuff, arrest: arrest, pact: pact, MIN_PER_STAR: MIN_PER_STAR };
 console.log('[wanted] розыск и наручники загружены');
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.provider(function () {
+    return APT.map(function (a, i) {
+        return { id: 'apt.' + i, g: 'Полиция: точки ареста', n: a.n || ('КПЗ #' + (i + 1)), get: function () { return APT[i]; },
+            set: function (v) { APT[i].x = v.x; APT[i].y = v.y; APT[i].z = v.z; aptSave(); aptSend(); },
+            del: APT.length > 1 ? function () { APT.splice(i, 1); aptSave(); aptSend(); } : null };
+    });
+});

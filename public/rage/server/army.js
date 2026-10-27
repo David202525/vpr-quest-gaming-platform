@@ -290,3 +290,7 @@ global.ArmySystem = {
 };
 drawPile();
 console.log('[army] поставки: ящиков ' + S.left + ', интервал ' + S.intervalH + ' ч, ворот ' + S.gates.length);
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.add('army.pile', { g: 'Фракция: Армия', n: 'Площадка поставок', get: function () { return S.pile; }, set: function (v) { S.pile = [v.x, v.y, v.z]; save(); drawPile(); sendAll(); } });

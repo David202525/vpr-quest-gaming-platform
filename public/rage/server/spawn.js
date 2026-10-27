@@ -129,3 +129,7 @@ mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.play
 
 global.SpawnSystem = { offer: offer, options: options, hotelLeft: function (p) { return hotelLeft(sid(p)); }, hotelPos: hotelPos, HOTEL_DAY: HOTEL_DAY, HOTEL_MAX: HOTEL_MAX_DAYS };
 console.log('[spawn] выбор места появления загружен');
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.add('spawn.hotel', { g: 'Город', n: 'Гостиница (вход)', get: hotelPos, set: function (v) { S.hotelPos = { x: v.x, y: v.y, z: v.z, h: v.h, n: hotelPos().n }; dirty = true; mp.players.forEach(sendHotel); }, reset: function () { S.hotelPos = null; dirty = true; mp.players.forEach(sendHotel); } });

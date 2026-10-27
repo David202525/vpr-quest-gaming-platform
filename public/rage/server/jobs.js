@@ -593,5 +593,31 @@ function sendBases(p) {
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendBases(p); }, 4000); });
 setTimeout(function () { mp.players.forEach(sendBases); }, 3000);
 
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+if (!store._bases) store._bases = {};
+const JOB_BASE_DEF = {};
+function jobBaseFix() { Object.keys(store._bases).forEach(function (k) { if (JOBS[k]) { if (!JOB_BASE_DEF[k]) JOB_BASE_DEF[k] = Object.assign({}, JOBS[k].base); Object.assign(JOBS[k].base, store._bases[k]); } }); }
+jobBaseFix();
+PR.provider(function () {
+    const out = [];
+    Object.keys(JOBS).forEach(function (k) {
+        const j = JOBS[k], g = 'Работа: ' + j.n;
+        if (k !== 'trucker' && k !== 'power') {
+            out.push({ id: 'job.' + k + '.base', g: g, n: 'Устройство на работу', get: function () { return JOBS[k].base; },
+                set: function (v) { if (!JOB_BASE_DEF[k]) JOB_BASE_DEF[k] = Object.assign({}, JOBS[k].base); store._bases[k] = { x: v.x, y: v.y, z: v.z }; Object.assign(JOBS[k].base, store._bases[k]); if (k === 'farm') Object.assign(FARM_DROP, store._bases[k]); dirty = true; mp.players.forEach(sendBases); },
+                reset: function () { delete store._bases[k]; if (JOB_BASE_DEF[k]) Object.assign(JOBS[k].base, JOB_BASE_DEF[k]); dirty = true; mp.players.forEach(sendBases); } });
+        }
+        if (j.car && k !== 'power') {
+            out.push({ id: 'job.' + k + '.car', g: g, n: 'Выдача транспорта', get: function () { return carSpot(k); },
+                set: function (v) { store._spots[k] = { x: v.x, y: v.y, z: v.z + 0.3, h: v.h }; dirty = true; },
+                reset: function () { delete store._spots[k]; dirty = true; } });
+        }
+    });
+    return out;
+});
+if (store._bases.farm) Object.assign(FARM_DROP, store._bases.farm);
+
 global.JobSystem = { pay: pay, addXp: addXp, jobVeh: jobVeh, quest: quest, notify: notify, sendBases: function () { mp.players.forEach(sendBases); }, level: lvlInfo, JOBS: JOBS, stop: stopJob, phone: phoneJobs, current: function (p) { return p.job ? p.job.id : null; } };
 console.log('[jobs] работы загружены: ' + Object.keys(JOBS).join(', '));

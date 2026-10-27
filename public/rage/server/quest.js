@@ -449,3 +449,13 @@ mp.events.addCommand('questset', function (p, full) {
 
 global.QuestSystem = { onJob: onJob, sync: sync };
 console.log('[quest] сюжетная линия загружена, этапов: ' + STEPS.length);
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.provider(function () {
+    return Object.keys(NPC).map(function (id) {
+        return { id: 'npc.' + id, g: 'Квестовые NPC', n: NPC[id].n, get: function () { return npcPos(id); },
+            set: function (v) { DB.npc[id] = [v.x, v.y, v.z, v.h]; dirty = true; spawnPeds(); mp.players.forEach(sendNpcs); },
+            reset: function () { delete DB.npc[id]; dirty = true; spawnPeds(); mp.players.forEach(sendNpcs); } };
+    });
+});

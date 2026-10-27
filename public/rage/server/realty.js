@@ -220,3 +220,7 @@ mp.events.addCommand('auctionstop', function (p, full) {
 
 global.Realty = { locked: locked, pt: pt };
 console.log('[realty] агентство недвижимости и аукционы загружены');
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.add('realty.pt', { g: 'Бизнесы', n: 'Агентство недвижимости', get: pt, set: function (v) { S.pt = v; dirty = true; mp.players.forEach(sendPt); }, reset: function () { S.pt = null; dirty = true; mp.players.forEach(sendPt); } });

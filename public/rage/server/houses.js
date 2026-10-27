@@ -268,6 +268,32 @@ mp.events.addCommand('facdoor', function (p, full) {
     p.outputChatBox('!{#8fd14f}Точка ' + a[1] + ' для «' + FAC_INT[i].n + '» сохранена');
 });
 
+
+/* ---------- метки в редакторе /points ---------- */
+const PR = global.PointReg || require('./points.js');
+PR.provider(function () {
+    const out = [];
+    FAC_INT.forEach(function (f, i) {
+        const g = 'Здание: ' + f.n;
+        ['out', 'in'].forEach(function (k) {
+            out.push({ id: 'facint.' + f.k + '.' + k, g: g, n: k === 'out' ? 'Вход с улицы' : 'Выход внутри', dim: k === 'in' ? function () { return facInt(i).dim; } : 0,
+                get: function () { return facInt(i)[k]; },
+                set: function (v) { if (!D.fac[f.k]) D.fac[f.k] = {}; D.fac[f.k][k] = [v.x, v.y, v.z, v.h]; dirty = true; mp.players.forEach(sendStatic); },
+                reset: function () { if (D.fac[f.k]) delete D.fac[f.k][k]; dirty = true; mp.players.forEach(sendStatic); } });
+        });
+    });
+    Object.keys(INTS).forEach(function (k) {
+        out.push({ id: 'hint.' + k, g: 'Интерьеры домов', n: 'Выход: ' + INTS[k].n, get: function () { return intOf(k); },
+            set: function (v) { D.ints[k] = v; dirty = true; mp.players.forEach(sendStatic); },
+            reset: function () { delete D.ints[k]; dirty = true; mp.players.forEach(sendStatic); } });
+    });
+    D.houses.forEach(function (h) {
+        out.push({ id: 'house.' + h.id, g: 'Дома', n: '#' + h.id + ' ' + h.n, get: function () { return h; },
+            set: function (v) { h.x = v.x; h.y = v.y; h.z = v.z; h.h = v.h; dirty = true; mp.players.forEach(sendList); } });
+    });
+    return out;
+});
+
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) { sendStatic(p); sendList(p); } }, 4500); });
 setTimeout(function () { mp.players.forEach(function (p) { sendStatic(p); sendList(p); }); }, 3000);
 
