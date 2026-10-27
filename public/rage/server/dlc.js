@@ -134,6 +134,39 @@ function clothesOf(files) {
     });
 }
 
+function extCount(files) {
+    const c = {};
+    files.forEach(function (x) { const e = x.slice(x.lastIndexOf('.') + 1); if (e && e.length < 6) c[e] = (c[e] || 0) + 1; });
+    return c;
+}
+function summary() {
+    const lines = [];
+    const groups = {};
+    R.list.forEach(function (d) {
+        const m = d.name.match(/^(.+?)_?part_?(\d+)$/i);
+        if (!m) return;
+        const g = groups[m[1]] = groups[m[1]] || { parts: [], ymt: false, cl: 0 };
+        g.parts.push(Number(m[2])); if (d.ymt) g.ymt = true; g.cl += (d.cl || []).reduce(function (a, c) { return a + c.n; }, 0);
+    });
+    Object.keys(groups).forEach(function (k) {
+        const g = groups[k]; g.parts.sort(function (a, b) { return a - b; });
+        lines.push('!{#ffcc66}Пак ' + k + ': загружено частей ' + g.parts.length + ' (' + g.parts.join(', ') + '), вещей в них ' + g.cl);
+        if (!g.ymt) lines.push('!{#e05555}   ✖ нет главной части со списком вещей (файл mp_*_freemode_01_*.ymt). Без неё одежда не появится. Обычно это ' + k + '_part0000 или первая часть — загрузите её');
+        if (g.parts.length && g.parts[0] > 0) lines.push('!{#e05555}   ✖ не хватает частей с 0 по ' + (g.parts[0] - 1) + ' — грузите пак целиком, а не выборочно');
+    });
+    const empty = R.list.filter(function (d) { return !d.models.length && !d.ymaps.length && !(d.cl || []).length && !d.ytyps && !d.enc; });
+    if (empty.length) {
+        lines.push('!{#7fd3ff}Без моделей, карт и одежды (' + empty.length + '):');
+        empty.forEach(function (d) {
+            const e = d.ext || {}; const what = Object.keys(e).filter(function (x) { return x !== 'xml'; }).map(function (x) { return x + ' ' + e[x]; }).join(', ');
+            const meta = e.meta || e.ymt || e.ytd;
+            lines.push('   ' + d.name + ' — ' + (what || 'пусто') + (meta ? ' · похоже на дополнение (текстуры/настройки), удалять только если не нужно' : ' · можно удалить'));
+        });
+    }
+    lines.push('!{#7fd3ff}Всего DLC: ' + R.list.length + '. Чем их больше, тем дольше загрузка у игроков; если часть модов не грузится — уберите лишние.');
+    return lines;
+}
+
 function scanOne(root, n, list) {
     {
         const f = path.join(root, n, 'dlc.rpf');
@@ -179,7 +212,7 @@ function scanOne(root, n, list) {
             if (ct && /SHOP_PED_APPAREL_META_FILE/i.test(ct) && !meta) out.errors.push('одежда: нет файла *_freemode_01_*.meta (описание вещей для магазина)');
         }
         list.push({
-            name: n, ok: !out.errors.length, errors: out.errors, warns: warns, cl: cl, enc: out.encrypted.length,
+            name: n, ok: !out.errors.length, errors: out.errors, warns: warns, cl: cl, enc: out.encrypted.length, ymt: out.files.some(function (x) { return /freemode_01[^/]*\.ymt$/.test(x); }), ext: extCount(out.files),
             ymaps: Array.from(new Set(out.ymaps)), models: Array.from(new Set(out.models)), ytyps: out.ytyps.length, files: out.files.length
         });
     }
@@ -234,6 +267,7 @@ mp.events.addCommand('dlc', function (p, full) {
         mp.players.forEach(function (x) { x.call('dlc:load', [payload(), isDev(x)]); });
     }
     report(function (l) { p.outputChatBox('!{#7fd3ff}[DLC] ' + l); });
+    summary().forEach(function (l) { p.outputChatBox(l); });
     p.call('dlc:load', [payload(), true]);
 });
 
