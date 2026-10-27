@@ -81,10 +81,11 @@ function renderDlc() {
         for (var i = DLCV.from; i <= DLCV.to; i++) h += '<span data-dv="' + i + '" class="' + (i === DLCV_SEL ? 'on' : '') + '" style="' + (inCat[i] ? 'border-color:#6fd36a' : '') + '">' + i + '</span>';
         h += '</div>';
         if (DLCV_SEL >= 0) {
-            var guess = nm[DLCV_SEL - DLCV.from] || '';
+            var guess = nm[DLCV_SEL - (DLCV.total - nm.length)] || '';
             h += inCat[DLCV_SEL] ? '<div class="hint">Уже в каталоге: «' + esc(inCat[DLCV_SEL].n) + '»</div><div class="btns"><button class="btn" data-dvedit="' + inCat[DLCV_SEL].id + '">Изменить название и цену</button></div>'
                 : '<div class="f"><label>Название в магазине</label><input id="dvn" value="' + esc(guess || (PART_N[x.part] || '') + ' #' + DLCV_SEL) + '"></div><div class="btns"><button class="btn main" id="dvadd">Добавить №' + DLCV_SEL + ' в каталог</button></div>';
         }
+        h += '<div class="hint" style="margin-top:8px">Всего моделей в этом слоте у игры: ' + DLCV.total + '. Если здесь только обычные вещи GTA — значит игра не подгрузила ваш DLC.</div>' + (DLCV.from > 0 ? '<div class="btns"><button class="btn" id="dvmore">Показать ещё 30 номеров раньше</button></div>' : '');
         h += '<div class="btns" style="margin-top:8px"><button class="btn" id="dvback">← К списку DLC</button></div></div>';
         return h;
     }
@@ -105,7 +106,7 @@ window.csCount = function (j) {
     if (d.k === 'dlcv' && DLCV_PEND) {
         var gv = DLCV_PEND; DLCV_PEND = null;
         if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC');
-        DLCV = { g: gv, from: Math.max(0, d.n - gv.n), to: d.n - 1 }; DLCV_SEL = -1; CAT = gv.slot; render(); trig('cef:cs:zoom', ZOOM[gv.slot] || 'body'); return;
+        DLCV = { g: gv, from: Math.max(0, d.n - gv.n), to: d.n - 1, total: d.n }; DLCV_SEL = -1; CAT = gv.slot; render(); trig('cef:cs:zoom', ZOOM[gv.slot] || 'body'); return;
     }
     if (d.k === 'dlc' && DLC_PEND) { var x = DLC_PEND, s = slotOf(x.slot); DLC_PEND = null; if (d.n <= 0) return toast('Игра не видит эти вещи — перезайдите после загрузки DLC'); var f = Math.max(0, d.n - x.n); trig('cef:cs:range', JSON.stringify({ from: f, to: d.n - 1, c: s.c, p: s.p, slot: x.slot, sex: D.sex, name: (PART_N[x.part] || s.n) + ' DLC', nm: dlcNames(x), price: 500, cap: 20, t: 15 })); CAT = x.slot; TAB = 'one'; ED = null; Q = ''; if ($('q')) $('q').value = ''; toast('Добавляю ' + x.n + ' шт…'); return; }
     MAXD = d.n; MAXT = d.t; if (ED && !ED.id && ED.tx.length <= 1) { ED.tx = []; for (var i = 0; i < Math.max(1, Math.min(MAXT, 32)); i++) ED.tx.push(i); } paintEdInfo();
@@ -173,6 +174,7 @@ $('body').addEventListener('click', function (e) {
     if ((c = e.target.closest('[data-dlcv]'))) { var gv = dlcGroups()[Number(c.dataset.dlcv)]; if (!gv) return; DLCV_PEND = gv; var sv = slotOf(gv.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlcv', c: sv.c, p: sv.p })); return; }
     if ((c = e.target.closest('[data-dv]'))) { DLCV_SEL = Number(c.dataset.dv); tryOn({ slot: DLCV.g.slot, d: DLCV_SEL, t: 15, u: -1 }, 0); render(); return; }
     if ((c = e.target.closest('[data-dvedit]'))) { var xe = D.list.find(function (z) { return z.id === Number(c.dataset.dvedit); }); if (xe) { ED = JSON.parse(JSON.stringify(xe)); CAT = xe.slot; TAB = 'one'; DLCV = null; askCount(); render(); } return; }
+    if (e.target.id === 'dvmore') { DLCV.from = Math.max(0, DLCV.from - 30); render(); return; }
     if (e.target.id === 'dvback') { DLCV = null; DLCV_SEL = -1; trig('cef:cs:reset'); render(); return; }
     if (e.target.id === 'dvadd') { var num = DLCV_SEL, nmv = $('dvn').value; dvTx(num, function (t) { var tx = []; for (var k = 0; k < Math.max(1, Math.min(t, 32)); k++) tx.push(k); trig('cef:ce:save', JSON.stringify({ id: 0, n: nmv, sex: D.sex, slot: DLCV.g.slot, d: num, tx: tx, t: 15, u: -1, ut: 0, price: 500, cap: 20 })); }); return; }
     if ((c = e.target.closest('[data-dlc]'))) { var g = dlcGroups()[Number(c.dataset.dlc)]; if (!g) return; DLC_PEND = g; var gs = slotOf(g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlc', c: gs.c, p: gs.p })); return; }
