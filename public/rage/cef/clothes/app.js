@@ -56,7 +56,7 @@ var DLC_PEND = null;
 function dlcGroups() {
     var g = {};
     (D.dlc || []).forEach(function (x) {
-        if (x.enc) return;
+        if (x.enc || x.bad) return;
         var k = x.sex + ':' + x.part;
         if (!g[k]) g[k] = { sex: x.sex, part: x.part, slot: x.slot, n: 0, packs: [], parts: [] };
         g[k].parts.push({ pack: x.pack, ids: (x.ids || []).slice().sort(function (a, b) { return a - b; }), n: x.n });
@@ -97,6 +97,7 @@ function renderDlc() {
         return '<div class="li"><b>' + (x.sex === 'f' ? '♀ ' : '♂ ') + esc(PART_N[x.part] || x.part) + ' · ' + x.n + ' шт.<br><small>' + esc(x.packs.join(', ')) + (why ? ' · ' + why : '') + '</small></b>' +
             (can ? '<button class="btn" style="flex:0 0 auto;padding:7px 10px" data-dlcv="' + i + '">Смотреть</button><button class="btn main" style="flex:0 0 auto;padding:7px 10px" data-dlc="' + i + '">Все</button>' : '') + '</div>';
     }).join('');
+    (D.dlc || []).filter(function (x) { return x.bad; }).forEach(function (x) { h2 += '<div class="panel" style="border-color:#e05555"><h4 style="color:#ff7b7b">Пак «' + esc(x.pack) + '» не загрузится в игру</h4>' + x.err.map(function (e) { return '<div class="hint">✖ ' + esc(e) + '</div>'; }).join('') + '</div>'; });
     if (enc.length) h2 += '<div class="hint">Зашифрованные архивы (состав не прочитать): ' + esc(enc.map(function (x) { return x.pack; }).join(', ')) + ' — смотрите их вкладкой «Одна вещь», это последние номера в слоте.</div>';
     return h2;
 }

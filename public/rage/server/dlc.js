@@ -166,8 +166,20 @@ function scanOne(root, n, list) {
                 }
             }
         }
+        const cl = clothesOf(out.files);
+        if (cl.length) {
+            const sexes = {}; cl.forEach(function (c) { sexes[c.sex] = 1; });
+            Object.keys(sexes).forEach(function (sx) {
+                const ped = 'mp_' + sx + '_freemode_01';
+                const ymt = out.files.some(function (x) { return x.indexOf(ped) >= 0 && /\.ymt$/.test(x); });
+                if (!ymt) out.errors.push((sx === 'f' ? 'женская' : 'мужская') + ' одежда: нет файла ' + ped + '_*.ymt — игра не узнает о вещах. Он лежит в другой части пака, загрузите её тоже');
+            });
+            if (ct && !/SHOP_PED_APPAREL_META_FILE/i.test(ct)) out.errors.push('одежда: в content.xml нет SHOP_PED_APPAREL_META_FILE — вещи не зарегистрируются');
+            const meta = out.files.some(function (x) { return /freemode_01[^/]*\.meta$/.test(x); });
+            if (ct && /SHOP_PED_APPAREL_META_FILE/i.test(ct) && !meta) out.errors.push('одежда: нет файла *_freemode_01_*.meta (описание вещей для магазина)');
+        }
         list.push({
-            name: n, ok: !out.errors.length, errors: out.errors, warns: warns, cl: clothesOf(out.files), enc: out.encrypted.length,
+            name: n, ok: !out.errors.length, errors: out.errors, warns: warns, cl: cl, enc: out.encrypted.length,
             ymaps: Array.from(new Set(out.ymaps)), models: Array.from(new Set(out.models)), ytyps: out.ytyps.length, files: out.files.length
         });
     }
@@ -182,7 +194,8 @@ function report(to) {
     if (R.missing) lines.push('папка dlcpacks не найдена: ' + R.root);
     R.fixes.forEach(function (f) { lines.push(f); });
     R.list.forEach(function (d) {
-        lines.push(d.name + ': ' + (d.ok ? 'OK' : 'ОШИБКА') + ' — моделей ' + d.models.length + ', ymap ' + d.ymaps.length + (d.ytyps ? ', ytyp ' + d.ytyps : ''));
+        const clt = (d.cl || []).map(function (c) { return (c.sex === 'f' ? '♀' : '♂') + c.part + ' ' + c.n; }).join(', ');
+        lines.push(d.name + ': ' + (d.ok ? 'OK' : 'ОШИБКА') + (clt ? ' — одежда: ' + clt : ' — моделей ' + d.models.length + ', ymap ' + d.ymaps.length + (d.ytyps ? ', ytyp ' + d.ytyps : '')));
         d.errors.forEach(function (e) { lines.push('   ✖ ' + e); });
         d.warns.forEach(function (e) { lines.push('   ! ' + e); });
     });

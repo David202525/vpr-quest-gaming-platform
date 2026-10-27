@@ -126,6 +126,7 @@ function dlcClothes() {
     R.list.forEach(function (d) {
         (d.cl || []).forEach(function (c) { out.push({ pack: d.name, ok: d.ok, sex: c.sex, part: c.part, slot: c.slot, n: c.n, ids: c.ids || [] }); });
         if (d.enc && !(d.cl || []).length) out.push({ pack: d.name, ok: d.ok, enc: 1 });
+        if ((d.cl || []).length && !d.ok) out.push({ pack: d.name, ok: false, bad: 1, err: d.errors.slice(0, 4) });
     });
     return out;
 }
