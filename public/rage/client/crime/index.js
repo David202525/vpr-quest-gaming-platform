@@ -73,7 +73,7 @@ setInterval(function () {
     if (n && !cGHint) mp.events.call('hud:notify', 'ok', 'Гараж организации: нажмите E', 3000);
     cGHint = n;
 }, 400);
-mp.events.add('crime:war', function (j) { if (!j) { cWar = null; return; } try { cWar = JSON.parse(j); cWar.at = Date.now(); } catch (e) {} });
+mp.events.add('crime:war', function (j) { if (global.hudExecG) global.hudExecG('window.hudWar && window.hudWar(' + JSON.stringify(j || '') + ');'); if (!j) { cWar = null; return; } try { cWar = JSON.parse(j); cWar.at = Date.now(); } catch (e) {} });
 mp.events.add('crime:dealer', function (x, y, z, mine) {
     cDealer = [x, y, z, mine];
 });
@@ -130,11 +130,6 @@ mp.events.add('render', function () {
             var col = parseInt(cGarage.c.replace('#', ''), 16);
             mp.game.graphics.drawMarker(36, cGarage.x, cGarage.y, cGarage.z, 0, 0, 0, 0, 0, 0, 1, 1, 1, (col >> 16) & 255, (col >> 8) & 255, col & 255, 200, true, true, 2, false, null, null, false);
         }
-    }
-    if (cWar) {
-        var left = Math.max(0, cWar.left - Math.floor((Date.now() - cWar.at) / 1000));
-        mp.game.graphics.drawText('⚔ ВОЙНА · ' + cWar.n + ' · ' + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2), [0.5, 0.03], { font: 4, color: [255, 90, 90, 255], scale: [0.5, 0.5], outline: true, centre: true });
-        mp.game.graphics.drawText(cWar.a + ': ' + cWar.ka + ' убийств · ' + cWar.ia + ' на точке    |    ' + cWar.d + ': ' + cWar.kd + ' убийств · ' + cWar.id + ' на точке', [0.5, 0.065], { font: 4, color: [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
     }
     if (cAdd.lv > 0) {
         var c = cAdd.wd ? [255, 80, 80, 230] : cAdd.high ? [160, 255, 140, 230] : [200, 200, 200, 160];

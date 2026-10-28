@@ -159,3 +159,39 @@ window.hudVoice = function (d) {
     if (d.y !== undefined) m.style.bottom = d.y + '%';
     m.title = d.mega ? 'Мегафон' : 'Голосовой чат';
 };
+
+var warT = null, warD = null;
+function warEmb(k, n, c) {
+    var L = { ballas: 1, families: 1, vagos: 1, marabunta: 1, bloods: 1 };
+    if (L[k]) return '<img src="gang/' + k + '.png">';
+    return '<b style="color:' + c + ';text-shadow:0 0 12px ' + c + '">' + String(n || '?').charAt(0) + '</b>';
+}
+window.hudWar = function (j) {
+    var el = document.getElementById('war');
+    if (!j) { el.classList.remove('show'); warD = null; clearInterval(warT); warT = null; return; }
+    var d = typeof j === 'string' ? JSON.parse(j) : j;
+    var first = !warD; warD = d; warD.at = Date.now();
+    el.style.setProperty('--ca', d.ac || '#9b4fd1'); el.style.setProperty('--cd', d.dc || '#9aa4b8');
+    if (first || el.dataset.k !== d.ak + d.dk) {
+        document.getElementById('wEa').innerHTML = warEmb(d.ak, d.a, d.ac);
+        document.getElementById('wEd').innerHTML = d.dk ? warEmb(d.dk, d.d, d.dc) : '<b style="color:#9aa4b8">—</b>';
+        el.dataset.k = d.ak + d.dk;
+    }
+    var sa = document.getElementById('wSa'), sd = document.getElementById('wSd');
+    if (sa.textContent !== String(d.ka)) { sa.textContent = d.ka; if (!first) { sa.classList.remove('pop'); void sa.offsetWidth; sa.classList.add('pop'); } }
+    if (sd.textContent !== String(d.kd)) { sd.textContent = d.kd; if (!first) { sd.classList.remove('pop'); void sd.offsetWidth; sd.classList.add('pop'); } }
+    document.getElementById('wZ').textContent = String(d.n || '').replace('Квадрат ', 'КАПТ · ');
+    document.getElementById('wNa').textContent = d.a + (d.me === d.ak ? ' (вы)' : '');
+    document.getElementById('wNd').textContent = d.d + (d.me && d.me === d.dk ? ' (вы)' : '');
+    document.getElementById('wIn').textContent = 'на точке ' + d.ia + ' : ' + d.id;
+    el.classList.add('show');
+    if (!warT) warT = setInterval(warTick, 250);
+    warTick();
+};
+function warTick() {
+    if (!warD) return;
+    var left = Math.max(0, warD.left - Math.floor((Date.now() - warD.at) / 1000));
+    var t = document.getElementById('wT');
+    t.textContent = ('0' + Math.floor(left / 60)).slice(-2) + ':' + ('0' + left % 60).slice(-2);
+    t.classList.toggle('low', left <= 30);
+}

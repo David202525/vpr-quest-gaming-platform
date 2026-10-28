@@ -328,7 +328,7 @@ setInterval(function () {
         const z = ZONES_DEF[w.z];
         const inA = mp.players.toArray().filter(function (x) { return org(x) === w.a && inSq(x.position, z[1], z[2], ZONE_R); }).length;
         const inD = w.d ? mp.players.toArray().filter(function (x) { return org(x) === w.d && inSq(x.position, z[1], z[2], ZONE_R); }).length : 0;
-        mp.players.forEach(function (x) { const o = org(x); if (o === w.a || o === w.d) x.call('crime:war', [JSON.stringify({ n: z[0], a: ORGS[w.a].n, d: w.d ? ORGS[w.d].n : 'никто', ka: w.kills[w.a] || 0, kd: w.d ? w.kills[w.d] || 0 : 0, ia: inA, id: inD, left: Math.max(0, Math.ceil((w.end - now) / 1000)) })]); });
+        mp.players.forEach(function (x) { const o = org(x); if (o === w.a || o === w.d) x.call('crime:war', [JSON.stringify({ ak: w.a, dk: w.d || '', ac: ORGS[w.a].c, dc: w.d ? ORGS[w.d].c : '#9aa4b8', me: o, n: z[0], a: ORGS[w.a].n, d: w.d ? ORGS[w.d].n : 'никто', ka: w.kills[w.a] || 0, kd: w.d ? w.kills[w.d] || 0 : 0, ia: inA, id: inD, left: Math.max(0, Math.ceil((w.end - now) / 1000)) })]); });
         if (now < w.end) return true;
         const sa = (w.kills[w.a] || 0) * 2 + inA, sd = w.d ? (w.kills[w.d] || 0) * 2 + inD : 0;
         const win = sa > sd ? w.a : (w.d || w.a);
