@@ -127,7 +127,7 @@ mp.events.addCommand('sethotel', function (p) {
 function sendHotel(p) { const h = hotelPos(); p.call('spawn:hotel', [h.x, h.y, h.z, h.n]); }
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) sendHotel(p); }, 4000); });
 
-global.SpawnSystem = { offer: offer, options: options, hotelLeft: function (p) { return hotelLeft(sid(p)); }, hotelPos: hotelPos, HOTEL_DAY: HOTEL_DAY, HOTEL_MAX: HOTEL_MAX_DAYS };
+global.SpawnSystem = { hotelLeftId: hotelLeft, offer: offer, options: options, hotelLeft: function (p) { return hotelLeft(sid(p)); }, hotelPos: hotelPos, HOTEL_DAY: HOTEL_DAY, HOTEL_MAX: HOTEL_MAX_DAYS };
 console.log('[spawn] выбор места появления загружен');
 
 /* ---------- метки в редакторе /points ---------- */

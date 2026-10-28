@@ -288,5 +288,5 @@ setInterval(function () {
     });
 }, 1000);
 
-global.MediaSystem = { admView: admView, admAct: admAct, cfgAct: cfgAct, flyCmd: flyCmd, is: function (p) { return !!me(p); } };
+global.MediaSystem = { rec: rec, admView: admView, admAct: admAct, cfgAct: cfgAct, flyCmd: flyCmd, is: function (p) { return !!me(p); } };
 console.log('[media] медиа-партнёров: ' + Object.keys(S.list).length);

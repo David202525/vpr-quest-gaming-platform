@@ -1189,6 +1189,50 @@ if (CONSOLE_CFG.enabled) {
                         return send(200, { rows: rows.slice(0, per), more: rows.length > per, page: page });
                     } catch (e) { return send(500, { err: e.message }); }
                 }
+                if (d.op === 'profile') {
+                    const id = Number(d.sid) || 0;
+                    if (!id) return send(400, { err: 'Static?' });
+                    try {
+                        const ar = await q('SELECT * FROM accounts WHERE id = ? LIMIT 1', [id]);
+                        const a = ar[0];
+                        if (!a) return send(404, { err: 'Аккаунт не найден' });
+                        const hide = ['password', 'pass', 'hash', 'salt', 'token', 'session'];
+                        if (L < 9) hide.push('social_club', 'serial', 'ip', 'last_ip', 'reg_ip', 'hwid');
+                        Object.keys(a).forEach(function (k) { if (hide.some(function (h) { return k.toLowerCase().indexOf(h) >= 0; })) delete a[k]; });
+                        const out = { acc: a, adminRank: rankName(Number(a.admin) || 0) };
+                        const on = mp.players.toArray().find(function (x) { return sid(x) === id; });
+                        if (on) out.online = { id: on.id, ping: on.ping, hp: on.health, armour: on.armour, dim: on.dimension, pos: [Math.round(on.position.x), Math.round(on.position.y), Math.round(on.position.z)] };
+                        const MS = global.MediaSystem; const m = MS && MS.rec ? MS.rec(id) : null;
+                        if (m) out.media = { name: m.name, since: m.since, salary: m.salary, paid: m.paid, paused: !!m.paused, streamer: !!m.streamer, code: m.code || '' };
+                        const j = a.job ? String(a.job) : '';
+                        if (j) {
+                            const CS = global.CrimeSystem, GF = global.GovFaction;
+                            let rn = '';
+                            try { if (CS && CS.isOrg(j)) rn = CS.rankName(j, Number(a.job_rank) || 1); else if (GF && GF.rankName) rn = GF.rankName(j, Number(a.job_rank) || 1); } catch (e) {}
+                            out.fac = { k: j, n: FACTIONS[j] || JOBS[j] || j, rank: Number(a.job_rank) || 0, rankName: Number(a.leader) ? 'Лидер' : rn, leader: !!Number(a.leader), crime: !!(CS && CS.isOrg(j)) };
+                        }
+                        const HS = global.HouseSystem;
+                        out.houses = HS && HS.allOwned ? HS.allOwned(id) : [];
+                        const SP = global.SpawnSystem;
+                        const hl = SP && SP.hotelLeftId ? SP.hotelLeftId(id) : 0;
+                        if (hl) out.hotel = Date.now() + hl;
+                        out.cars = await q('SELECT id, model, plate, fuel, impound, impound_fee, impound_reason, created_at FROM vehicles WHERE owner_id = ? ORDER BY id', [id]).catch(function () { return []; });
+                        out.shops = await q('SELECT id, kind, name, price, balance, stock, max_stock FROM shops WHERE owner_id = ? ORDER BY id', [id]).catch(function () { return []; });
+                        out.fuel = await q('SELECT id, name, price, balance, stock, max_stock FROM fuel_stations WHERE owner_id = ? ORDER BY id', [id]).catch(function () { return []; });
+                        const st = global.UiStore ? global.UiStore(id) : null;
+                        if (st) {
+                            const v = global.UiVipOf ? global.UiVipOf(st) : null;
+                            out.ui = { lvl: st.lvl || 1, exp: st.exp || 0, coins: st.coins || 0, phone: st.phone || '', vip: v ? { t: v.t, until: v.until } : null, skills: st.skills || {}, docs: (st.docs || []).map(function (x) { return x && x.t; }).filter(Boolean),
+                                inv: (st.inv || []).filter(Boolean).map(function (x) { const it = global.UiSystem && global.UiSystem.ITEMS ? global.UiSystem.ITEMS[x.k] : null; return { n: it ? it.n : x.k, c: x.c }; }) };
+                        }
+                        out.jail = S.jail[id] || null;
+                        out.nicks = (S.nicks[id] || []).slice(-15);
+                        out.warns = A.warnsOf ? A.warnsOf(a.login) : 0;
+                        out.ochs = S.ochs.filter(function (o) { return o.s === id && (!o.until || o.until > Date.now()); }).map(function (o) { return { f: FACTIONS[o.f] || (o.f === 'all' ? 'Все фракции' : o.f), reason: o.reason, until: o.until }; });
+                        out.logs = await q('SELECT t, cat, action, details, actor, target FROM server_logs WHERE actor_id = ? OR target_id = ? ORDER BY id DESC LIMIT 30', [id, id]).catch(function () { return []; });
+                        return send(200, out);
+                    } catch (e) { return send(500, { err: e.message }); }
+                }
                 if (d.op === 'ans') {
                     const r = reports.find(function (x) { return x.id === Number(d.rid); });
                     if (!r || r.done) return send(400, { err: 'Репорт закрыт' });

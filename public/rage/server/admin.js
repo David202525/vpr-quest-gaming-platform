@@ -1187,6 +1187,7 @@ global.AdminCore = {
     doBan: doBan, doUnban: doUnban, doKick: doKick, doMute: doMute, doHeal: doHeal, doFreeze: doFreeze, tpTo: tpTo, spawnVeh: spawnVeh,
     moneyOf: moneyOf, addMoney: addMoney, getBans: function () { return bans; }, muted: muted, frozen: frozen, adminVehs: adminVehs, dlc: function () { return dlc; },
     runCmd: runCmd, parseDuration: parseDuration, durationText: durationText, maxBan: maxBan, cmd: cmd, need: need, setAdminRule: setAdminRule, loadAcc: loadAcc,
+    warnsOf: function (lg) { return warns[String(lg || '').toLowerCase()] || 0; },
     locks: locks, FEATURE_NAMES: FEATURE_NAMES, saveLocks: function () { writeJson(LOCK_FILE, locks); }, readJson: readJson, writeJson: writeJson, dir: __dirname
 };
 try { require('./admin_ext.js'); } catch (e) { console.log('[admin] admin_ext.js: ' + e.message); }

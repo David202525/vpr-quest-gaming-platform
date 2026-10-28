@@ -49,6 +49,29 @@ tr:hover td{background:#16161a}
 #login{max-width:420px;margin:14vh auto}
 #toast{position:fixed;right:20px;bottom:20px;background:#1f8a4c;padding:12px 16px;border-radius:8px;display:none;z-index:9}
 #toast.bad{background:#a8263c}
+tr.click{cursor:pointer}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-start;justify-content:center;z-index:8;overflow:auto;padding:30px 16px}
+.ov.on{display:flex}
+.pf{width:100%;max-width:1100px;background:#0f0f12;border:1px solid #24242b;border-radius:14px;padding:20px}
+.pf-h{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.pf-av{width:54px;height:54px;border-radius:12px;background:linear-gradient(135deg,#7a2bd9,#c13dff);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900}
+.pf-h h2{font-size:20px}
+.pf-x{margin-left:auto}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.tag{padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#26262c;color:#ddd}
+.tag.adm{background:#3a1760;color:#d9b3ff}.tag.pr{background:#5a3a08;color:#ffd27a}.tag.vip{background:#4d3d06;color:#ffe066}.tag.on{background:#163a24;color:#7fe0a0}.tag.off{background:#26262c;color:#999}.tag.bad{background:#4a1520;color:#ff8a9a}.tag.fac{background:#14304f;color:#8cc4ff}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.st{background:#141417;border:1px solid #222228;border-radius:10px;padding:11px 12px}
+.st .k{font-size:11px;color:#8a8a98;margin-bottom:4px}.st .v{font-size:17px;font-weight:800}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sec{background:#141417;border:1px solid #222228;border-radius:12px;padding:14px}
+.sec h4{font-size:13px;margin-bottom:10px;display:flex;justify-content:space-between}
+.sec h4 span{color:#8a8a98;font-weight:600}
+.li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #1d1d22}
+.li:last-child{border:0}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 10px}
+.kv div:nth-child(odd){color:#8a8a98}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
 .empty{padding:30px;text-align:center;color:#77778a}
 @media(max-width:900px){.side{display:none}.fl,.grid2{grid-template-columns:1fr}}
 </style>
@@ -88,6 +111,7 @@ tr:hover td{background:#16161a}
     </div>
 </div>
 <div id="toast"></div>
+<div class="ov" id="ov"><div class="pf" id="pf"></div></div>
 <script>
 var TK=sessionStorage.getItem('tk')||'';
 var CUR='dash',ST={page:0,asc:false,f:{}},STATE=null,timer=null;
@@ -160,15 +184,59 @@ function renderAccounts(){
         api(Object.assign({op:'accounts',page:ST.page,asc:ST.asc,sort:ST.sort||'id'},ST.f)).then(function(d){
             if(d.err){$('tbl').innerHTML='<div class="empty">'+esc(d.err)+'</div>';return}
             var s=function(k,t){return '<th data-s="'+k+'">'+t+((ST.sort||'id')===k?(ST.asc?' ↑':' ↓'):' ⇅')+'</th>'};
-            var h='<tr>'+s('id','Static')+'<th>Логин</th><th>Ник</th><th>Пол</th>'+s('admin','Админ')+s('money','Наличные')+s('bank','Банк')+s('playtime','Часов')+(CUR==='banned'?'<th>Бан</th>':'')+s('last_login','Последний вход')+s('created_at','Создан')+'</tr>';
+            var h='<tr>'+s('id','Static')+'<th>Логин</th><th>Ник</th><th>Пол</th>'+s('admin','Роль')+s('money','Наличные')+s('bank','Банк')+s('playtime','Часов')+(CUR==='banned'?'<th>Бан</th>':'')+s('last_login','Последний вход')+s('created_at','Создан')+'</tr>';
             var b=d.rows.map(function(r){
-                return '<tr><td>#'+r.id+'</td><td>'+esc(r.login)+'</td><td>'+esc(r.nick||'—')+'</td><td>'+(Number(r.gender)?'Ж':'М')+'</td><td>'+(r.admin||0)+'</td><td>'+money(r.money)+'</td><td>'+money(r.bank)+'</td><td>'+Math.round((r.playtime||0)/60)+'</td>'+(CUR==='banned'?'<td>'+esc(r.ban_reason||'')+' <span class="mut">'+(Number(r.ban_until)?'до '+dt(Number(r.ban_until)):'навсегда')+'</span></td>':'')+'<td>'+(r.last_login?dt(r.last_login):'—')+'</td><td>'+dt(r.created_at)+'</td></tr>'
+                return '<tr class="click" data-sid="'+r.id+'"><td>#'+r.id+'</td><td>'+esc(r.login)+'</td><td>'+esc(r.nick||'—')+'</td><td>'+(Number(r.gender)?'Ж':'М')+'</td><td>'+(Number(r.admin)?'<span class="tag adm">'+esc(RANKS[r.admin]||('Ур. '+r.admin))+'</span>':'<span class="mut">Игрок</span>')+'</td><td>'+money(r.money)+'</td><td>'+money(r.bank)+'</td><td>'+Math.round((r.playtime||0)/60)+'</td>'+(CUR==='banned'?'<td>'+esc(r.ban_reason||'')+' <span class="mut">'+(Number(r.ban_until)?'до '+dt(Number(r.ban_until)):'навсегда')+'</span></td>':'')+'<td>'+(r.last_login?dt(r.last_login):'—')+'</td><td>'+dt(r.created_at)+'</td></tr>'
             }).join('');
             $('tbl').innerHTML=pager(d.more)+'<table>'+h+(b||'<tr><td colspan="11" class="empty">Нет аккаунтов</td></tr>')+'</table>';
             bindCommon(load);
+            document.querySelectorAll('tr[data-sid]').forEach(function(tr){tr.onclick=function(){openProfile(Number(tr.dataset.sid))}});
         });
     };
     bindCommon(load);load();
+}
+
+var RANKS=['Игрок','Хелпер','Помощник администрации','Младшая администрация','Администрация (тест)','Старшая администрация','Руководящая администрация','ЗГА','ГА','МГА / Разработчик'];
+var VIPN={silver:'Silver VIP',gold:'Gold VIP',platinum:'Platinum VIP'};
+var DOCN={passport:'Паспорт',drive:'Права',military:'Военный билет',med:'Медкнижка',psych:'Справка психиатра',gun:'Лиц. на оружие',faction:'Удостоверение'};
+var SKN={shoot:'Стрельба',drive:'Вождение',stamina:'Выносливость',survive:'Выживание'};
+function usd(n){return '$'+money(n)}
+function sec(t,cnt,body){return '<div class="sec"><h4>'+t+(cnt!==undefined?'<span>'+cnt+'</span>':'')+'</h4>'+(body||'<div class="mut">Нет</div>')+'</div>'}
+function li(a,b){return '<div class="li"><div>'+a+'</div><div class="mut" style="text-align:right">'+b+'</div></div>'}
+function closeProfile(){$('ov').classList.remove('on')}
+$('ov').onclick=function(e){if(e.target===$('ov'))closeProfile()};
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeProfile()});
+function openProfile(id){
+    $('pf').innerHTML='<div class="empty">Загрузка профиля #'+id+'…</div>';$('ov').classList.add('on');
+    api({op:'profile',sid:id}).then(function(d){
+        if(d.err){$('pf').innerHTML='<div class="empty">'+esc(d.err)+'</div>';return}
+        var a=d.acc,u=d.ui||{},tags=[];
+        tags.push(d.online?'<span class="tag on">В сети · ID '+d.online.id+'</span>':'<span class="tag off">Не в сети</span>');
+        if(Number(a.admin))tags.push('<span class="tag adm">'+esc(d.adminRank)+' ('+a.admin+')</span>');
+        if(d.media)tags.push('<span class="tag pr">PR / Медиа-партнёр'+(d.media.streamer?' · стример':'')+(d.media.paused?' · пауза':'')+'</span>');
+        if(u.vip)tags.push('<span class="tag vip">'+(VIPN[u.vip.t]||u.vip.t)+' до '+dt(u.vip.until).slice(0,10)+'</span>');
+        if(d.fac)tags.push('<span class="tag fac">'+esc(d.fac.n)+(d.fac.rankName?' · '+esc(d.fac.rankName):'')+'</span>');
+        if(Number(a.banned))tags.push('<span class="tag bad">Забанен'+(Number(a.ban_until)?' до '+dt(Number(a.ban_until)):' навсегда')+'</span>');
+        if(d.jail)tags.push('<span class="tag bad">'+({kpz:'КПЗ',prison:'Тюрьма',demorgan:'Деморган'}[d.jail.type]||d.jail.type)+' до '+dt(d.jail.until)+'</span>');
+        if(d.warns)tags.push('<span class="tag bad">Варнов: '+d.warns+'</span>');
+        var carsVal=(d.cars||[]).length,houses=d.houses||[],biz=(d.shops||[]).length+(d.fuel||[]).length;
+        var stats=[['Наличные',usd(a.money)],['Банк',usd(a.bank)],['Всего денег',usd(Number(a.money||0)+Number(a.bank||0))],['Донат (RC)',money(u.coins||0)],['Уровень',(u.lvl||1)+' <span class="mut" style="font-size:12px">'+money(u.exp||0)+' exp</span>'],['Отыграно',Math.round((a.playtime||0)/60)+' ч'],['Недвижимость',houses.length+(d.hotel?' + отель':'')],['Транспорт',carsVal],['Бизнесы',biz]];
+        var h='<div class="pf-h"><div class="pf-av">'+esc((a.nick||a.login||'?').charAt(0).toUpperCase())+'</div><div><h2>'+esc(a.nick||'Без ника')+' <span class="mut">#'+a.id+'</span></h2><div class="mut">Логин: '+esc(a.login)+(a.username&&a.username!==a.login?' · '+esc(a.username):'')+' · '+(Number(a.gender)?'Женский':'Мужской')+'</div><div class="tags">'+tags.join('')+'</div></div><button class="s pf-x" onclick="closeProfile()">Закрыть</button></div>';
+        h+='<div class="stats">'+stats.map(function(x){return '<div class="st"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+'</div></div>'}).join('')+'</div>';
+        var hs=houses.map(function(x){return li((x.flat?'Квартира':'Дом')+' №'+x.id+' — '+esc(x.n),usd(x.price))}).join('');
+        if(d.hotel)hs+=li('Номер в гостинице','до '+dt(d.hotel));
+        var cs=(d.cars||[]).map(function(c){return li('<b>'+esc(c.model)+'</b> <span class="mut">'+esc(c.plate)+'</span>',Number(c.impound)?'<span style="color:#ff8a9a">штрафстоянка · '+usd(500+Number(c.impound_fee||0))+'</span>':'бак '+(c.fuel||0)+'%')}).join('');
+        var bs=(d.shops||[]).map(function(b){return li((b.kind==='gun'?'Оружейный':'Магазин 24/7')+' — '+esc(b.name||('#'+b.id)),'касса '+usd(b.balance)+' · склад '+b.stock+'/'+b.max_stock)}).join('')+(d.fuel||[]).map(function(b){return li('АЗС — '+esc(b.name||('#'+b.id)),'касса '+usd(b.balance)+' · топливо '+b.stock+'/'+b.max_stock)}).join('');
+        var role='<div class="kv"><div>Администрирование</div><div>'+(Number(a.admin)?esc(d.adminRank)+' (уровень '+a.admin+')':'Нет')+'</div><div>PR / Медиа</div><div>'+(d.media?'Да, с '+dt(d.media.since).slice(0,10)+(d.media.salary?' · ЗП '+usd(d.media.salary):'')+(d.media.code?' · код '+esc(d.media.code):''):'Нет')+'</div><div>Фракция</div><div>'+(d.fac?esc(d.fac.n)+' · '+(d.fac.leader?'Лидер':(esc(d.fac.rankName)||('ранг '+d.fac.rank))):'Нет')+'</div><div>VIP</div><div>'+(u.vip?(VIPN[u.vip.t]||u.vip.t)+' до '+dt(u.vip.until):'Нет')+'</div><div>Телефон</div><div>'+esc(u.phone||'—')+'</div><div>Создан</div><div>'+dt(a.created_at)+'</div><div>Последний вход</div><div>'+(a.last_login?dt(a.last_login):'—')+'</div>'+(a.social_club?'<div>Social Club</div><div>'+esc(a.social_club)+'</div>':'')+(a.serial?'<div>Serial</div><div class="mono" style="word-break:break-all">'+esc(a.serial)+'</div>':'')+(d.online?'<div>Сейчас</div><div>HP '+d.online.hp+' · броня '+d.online.armour+' · пинг '+d.online.ping+' · мир '+d.online.dim+'</div>':'')+'</div>';
+        var sk=u.skills?Object.keys(SKN).map(function(k){return li(SKN[k],(u.skills[k]||0)+'%')}).join(''):'';
+        var docs=(u.docs||[]).map(function(t){return '<span class="tag">'+(DOCN[t]||t)+'</span>'}).join(' ');
+        var inv=(u.inv||[]).map(function(x){return li(esc(x.n),'x'+x.c)}).join('');
+        var pun=(d.ochs||[]).map(function(o){return li('ЧС: '+esc(o.f),esc(o.reason||'')+(o.until?' · до '+dt(o.until):''))}).join('')+(Number(a.banned)?li('Бан',esc(a.ban_reason||'')):'')+(d.jail?li('Заключение: '+esc(d.jail.reason||''),'выдал '+esc(d.jail.by||'')):'')+(d.warns?li('Предупреждений',d.warns+'/3'):'');
+        var nk=(d.nicks||[]).slice().reverse().map(function(x){return li(esc(x.n),dt(x.d))}).join('');
+        var lg=(d.logs||[]).map(function(r){return '<div class="li"><div>'+actHtml(r)+'</div><div class="mut" style="white-space:nowrap">'+dt(r.t)+'</div></div>'}).join('');
+        h+='<div class="cols">'+sec('Роль и статус',undefined,role)+sec('Недвижимость',houses.length+(d.hotel?1:0),hs)+sec('Транспорт',carsVal,cs)+sec('Бизнесы',biz,bs)+sec('Навыки',undefined,sk)+sec('Документы',(u.docs||[]).length,docs?'<div class="tags">'+docs+'</div>':'')+sec('Инвентарь',(u.inv||[]).length,inv?'<div class="list">'+inv+'</div>':'')+sec('Наказания',undefined,pun)+sec('История ников',(d.nicks||[]).length,nk?'<div class="list">'+nk+'</div>':'')+sec('Последние события',(d.logs||[]).length,lg?'<div class="list">'+lg+'</div>':'')+'</div>';
+        $('pf').innerHTML=h;
+    }).catch(function(){$('pf').innerHTML='<div class="empty">Ошибка загрузки</div>'});
 }
 
 function renderDash(){

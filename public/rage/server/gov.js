@@ -1192,7 +1192,7 @@ radio('gov', function (p, f, t) {
     flog(f, nick(p) + ' подал гос. новость: ' + t.slice(0, 60));
 });
 
-global.GovFaction = { can: can, rank: rank, fac: fac, sid: sid, nick: nick, isLeaderP: isLeader, canManage: canManage, F: F, flog: flog, mark: mark, POLICE: POLICE, SUPPLY_PACK: SUPPLY_PACK, ARMORY_ITEMS: ARMORY_ITEMS, autoFine: autoFine, money: money, rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
+global.GovFaction = { rankName: rankName, can: can, rank: rank, fac: fac, sid: sid, nick: nick, isLeaderP: isLeader, canManage: canManage, F: F, flog: flog, mark: mark, POLICE: POLICE, SUPPLY_PACK: SUPPLY_PACK, ARMORY_ITEMS: ARMORY_ITEMS, autoFine: autoFine, money: money, rankName: rankName, isLeader: isLeader, canManage: canManage, fines: finesOf, F: F, NAMES: NAMES, isGov: isGovF, sync: syncCop, log: flog, admin: adminFac, home: factionHome };
 console.log('[gov] госструктуры: склад, раздевалка, автопарк, планшет загружены');
 
 const TZ_W = [mp.joaat('weapon_stungun') >>> 0, mp.joaat('weapon_stungun_mp') >>> 0];

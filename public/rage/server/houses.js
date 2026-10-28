@@ -305,6 +305,7 @@ global.HouseSystem = {
         return { x: i.x, y: i.y, z: i.z, h: i.h, dim: DIM_HOUSE + h.id, n: h.flat ? 'Моя квартира' : 'Мой дом', d: h.n, flat: !!h.flat };
     },
     hotelRoom: hotelRoom,
+    allOwned: function (id) { return D.houses.filter(function (x) { return x.owner === Number(id); }).map(function (x) { return { id: x.id, n: x.n, price: x.price, flat: !!x.flat }; }); },
     byOwner: function (id) { const h = D.houses.find(function (x) { return x.owner === Number(id); }); return h ? h.n : null; },
     mine: mine,
     facDim: function (k) { const i = FAC_INT.findIndex(function (f) { return f.k === k; }); return i < 0 ? -1 : facInt(i).dim; },
