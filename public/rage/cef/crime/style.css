@@ -129,3 +129,20 @@ button:disabled { opacity: .35; cursor: default; }
 .cp-empty { margin: auto 0; text-align: center; color: rgba(255,255,255,.5); font-size: 14px; line-height: 1.6; }
 .cp-empty::first-line { font-size: 32px; }
 .cp-msg { font-size: 12.5px; min-height: 16px; } .cp-msg.ok { color: #8fe68a; } .cp-msg.err { color: #ff8a96; }
+.cp-tabs { display: flex; gap: 6px; padding: 12px 20px 0; }
+.cp-tab { padding: 9px 16px; border-radius: 10px 10px 0 0; font-size: 13px; font-weight: 700; color: rgba(255,255,255,.55); cursor: pointer; border-bottom: 2px solid transparent; }
+.cp-tab.on { color: #fff; border-bottom-color: var(--g); background: rgba(255,255,255,.04); }
+.cp-c.here em { position: absolute; bottom: 0; left: 3px; font-style: normal; font-size: 10px; color: #fff; text-shadow: 0 0 4px #000; }
+.cp-hist { padding: 16px 20px 20px; min-height: 470px; max-height: 560px; overflow-y: auto; }
+.cp-hstat { display: flex; gap: 12px; margin-bottom: 14px; align-items: stretch; }
+.cp-hstat > div:not(.cp-sw) { padding: 12px 18px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); min-width: 140px; }
+.cp-hstat b { font-size: 24px; display: block; } .cp-hstat small { font-size: 11.5px; color: rgba(255,255,255,.5); }
+.cp-sw { margin-left: auto; display: flex; align-self: center; background: rgba(255,255,255,.05); border-radius: 10px; padding: 3px; }
+.cp-sw span { padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: rgba(255,255,255,.6); }
+.cp-sw span.on { background: var(--g); color: #fff; }
+.cp-h { display: grid; grid-template-columns: 100px 70px 1fr 120px 170px 110px; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,.03); margin-bottom: 5px; font-size: 13px; }
+.cp-hh { background: none; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,.4); padding-top: 0; padding-bottom: 4px; }
+.cp-hd { color: rgba(255,255,255,.55); } .cp-hz { font-weight: 800; } .cp-hv i { font-style: normal; color: rgba(255,255,255,.4); font-size: 12px; margin: 0 4px; }
+.cp-hk small { display: block; font-size: 10.5px; color: rgba(255,255,255,.45); }
+.cp-res { text-align: center; font-size: 11px; font-weight: 800; padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.07); color: rgba(255,255,255,.7); }
+.cp-res.win { background: rgba(111,211,106,.18); color: #8fe68a; } .cp-res.lose { background: rgba(255,90,110,.15); color: #ff8a96; }

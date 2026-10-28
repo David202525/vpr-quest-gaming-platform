@@ -251,6 +251,11 @@ function captCheck(p, z, def) {
     if (S.wars.some(function (w) { return w.a === k || w.d === k; })) return 'Ваша банда уже участвует в войне';
     if (def && S.wars.some(function (w) { return w.a === def || w.d === def; })) return ORGS[def].n + ' уже участвуют в другой войне';
     if (Date.now() < z.cd) return 'Квадрат недавно захватывали. Ещё ' + Math.ceil((z.cd - Date.now()) / 60000) + ' мин';
+    if (admLvl(p) < 6) {
+        if (!inSq(p.position, z.x, z.y, ZONE_R)) return 'Чтобы начать капт, встаньте на квадрат ' + z.n.replace('Квадрат ', '');
+        const mine = mp.players.toArray().filter(function (x) { return org(x) === k && inSq(x.position, z.x, z.y, ZONE_R); }).length;
+        if (mine < 3) return 'Нужно минимум 3 бойца на квадрате (сейчас ' + mine + ')';
+    }
     return '';
 }
 function captStart(p, z, def) {
@@ -285,7 +290,9 @@ function captData(p) {
     return {
         me: k, meN: ORGS[k].n, meC: ORGS[k].c, cols: GRID.cols, rows: GRID.rows,
         can: rank(p) >= 4 || mgr(p), hours: CAP_HOURS, hourOk: capHour() || admLvl(p) >= 6, min: Math.round(CAP_SEC / 60),
-        orgs: orgs,
+        orgs: orgs, myPos: (function () { const zz = zoneAt(p.position); return zz ? zz.i : -1; })(),
+        hist: (S.capHist || []).filter(function (h) { return h.a === k || h.d === k; }).slice(0, 25).concat([]).map(function (h) { return h; }),
+        all: (S.capHist || []).slice(0, 25),
         z: zoneList().map(function (z) { return [z.i, z.n.replace('Квадрат ', ''), z.o || '', z.base ? 1 : 0, z.cd > Date.now() ? Math.ceil((z.cd - Date.now()) / 60000) : 0, war[z.i] || null]; })
     };
 }
@@ -331,6 +338,9 @@ setInterval(function () {
             if (o === w.a || o === w.d) { x.outputChatBox('!{#ffd24d}[ВОЙНА] !{#ffffff}Район ' + z[0] + ' остаётся за ' + ORGS[win].n + ' (' + sa + ' : ' + sd + ')'); x.call('crime:war', ['']); }
         });
         olog(win, 'Район ' + z[0] + (win === w.a ? ' захвачен' : ' удержан'));
+        S.capHist = (S.capHist || []);
+        S.capHist.unshift({ t: now, z: z[0].replace('Квадрат ', ''), a: w.a, d: w.d || '', w: win, ka: w.kills[w.a] || 0, kd: w.d ? w.kills[w.d] || 0 : 0, sa: sa, sd: sd });
+        S.capHist = S.capHist.slice(0, 60);
         setTimeout(zonesAll, 200);
         return false;
     });
@@ -378,10 +388,20 @@ function moveVeh(v, pos, dim) {
         setTimeout(function () { if (mp.players.exists(x[0]) && mp.vehicles.exists(v)) try { x[0].putIntoVehicle(v, x[1]); } catch (e) {} }, 250);
     });
 }
+function carsOf(k) {
+    const base = ORGS[k].cars.map(function (c) { return [c[0], c[1]]; });
+    const C = global.FactionCfg;
+    const fl = C && C.fleet ? C.fleet(k) : null;
+    if (!fl || !fl.length) return base;
+    const out = [];
+    fl.forEach(function (x) { if (x.on !== false) out.push([x.m, Math.max(1, Number(x.r) || 1)]); });
+    base.forEach(function (c) { const x = fl.find(function (y) { return y.m === c[0]; }); if (!x) out.push(c); });
+    return out;
+}
 const parked = {};
 function ugSpots(k) { const o = O(k); return o.ugspots && o.ugspots.length ? o.ugspots : GAR_INT.spots; }
 function parkCar(k, i) {
-    const c = ORGS[k].cars[i], sp = ugSpots(k)[i % ugSpots(k).length];
+    const c = carsOf(k)[i], sp = ugSpots(k)[i % ugSpots(k).length];
     if (!c || !sp) return;
     const old = parked[k][i];
     if (old && mp.vehicles.exists(old)) { try { old.destroy(); } catch (e) {} }
@@ -392,7 +412,19 @@ function parkCar(k, i) {
     v.adminSpawned = false; v.lastUse = Date.now();
     parked[k][i] = v;
 }
-function parkAll(k) { parked[k] = parked[k] || []; ORGS[k].cars.forEach(function (c, i) { parkCar(k, i); }); }
+function parkAll(k) {
+    parked[k] = parked[k] || [];
+    const n = carsOf(k).length;
+    parked[k].forEach(function (v, i) { if (i >= n && v && mp.vehicles.exists(v)) try { v.destroy(); } catch (e) {} });
+    parked[k].length = Math.min(parked[k].length, n);
+    carsOf(k).forEach(function (c, i) { parkCar(k, i); });
+}
+let fleetSig = '';
+setInterval(function () {
+    const sig = JSON.stringify(Object.keys(UG).map(carsOf));
+    if (fleetSig && sig !== fleetSig) Object.keys(UG).forEach(function (k) { if (!mp.players.toArray().some(function (o) { return o.vehicle && o.vehicle.getVariable('org') === k && o.vehicle.getVariable('orgPark') !== null && o.vehicle.getVariable('orgPark') !== undefined; })) parkAll(k); });
+    fleetSig = sig;
+}, 15000);
 setTimeout(function () { Object.keys(UG).forEach(parkAll); }, 3000);
 setInterval(function () {
     Object.keys(UG).forEach(function (k) {
@@ -463,7 +495,7 @@ function orgHome(p) {
 function garageOpen(p) {
     const k = org(p), r = rank(p), mine = orgCars[sid(p)];
     p.call('crime:garage', [JSON.stringify({ org: ORGS[k].n, c: ORGS[k].c, out: mine && mp.vehicles.exists(mine) ? mine.getVariable('orgModel') : null,
-        list: ORGS[k].cars.map(function (c) { return { m: c[0], r: c[1], rn: rankName(k, c[1]), ok: r >= c[1] }; }) })]);
+        list: carsOf(k).map(function (c) { return { m: c[0], r: c[1], rn: rankName(k, c[1]), ok: r >= c[1] }; }) })]);
 }
 mp.events.add('srv:crime:garage', function (p) {
     const k = org(p);
@@ -482,7 +514,7 @@ mp.events.add('srv:crime:car', function (p, m) {
         notify(p, 'ok', 'Машина возвращена в гараж');
         return garageOpen(p);
     }
-    const c = ORGS[k].cars.find(function (z) { return z[0] === m; });
+    const c = carsOf(k).find(function (z) { return z[0] === m; });
     if (!c) return;
     if (rank(p) < c[1]) return notify(p, 'warn', 'Доступно с ранга «' + rankName(k, c[1]) + '»');
     if (orgCars[s] && mp.vehicles.exists(orgCars[s])) return notify(p, 'warn', 'Сначала верните прошлую машину');
@@ -492,7 +524,7 @@ mp.events.add('srv:crime:car', function (p, m) {
     const v = mp.vehicles.new(mp.joaat(m), new mp.Vector3(sp[0], sp[1], sp[2] + 0.3), { heading: sp[3] || 0, numberPlate: k.slice(0, 4).toUpperCase() + String(s).padStart(4, '0'), dimension: dim });
     const rgb = ORGS[k].rgb;
     try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {}
-    v.setVariable('org', k); v.setVariable('orgModel', m); v.setVariable('orgOwner', s);
+    v.setVariable('org', k); v.setVariable('orgModel', m); v.setVariable('orgOwner', s); v.setVariable('orgRank', c[1]);
     v.adminSpawned = false;
     orgCars[s] = v;
     p.call('house:menuClose');
