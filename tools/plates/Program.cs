@@ -19,5 +19,6 @@ class P{
   var gta=RpfFile.CreateDirectory(x64,"gta5");
   var inner=RpfFile.CreateNew(gta,"vehicles.rpf");
   RpfFile.CreateFile(inner.Root,"vehshare.ytd",ytd);
+  var ex=Environment.GetEnvironmentVariable("EXTRA");if(!string.IsNullOrEmpty(ex))foreach(var p in ex.Split(';')){RpfFile.CreateFile(inner.Root,Path.GetFileName(p),File.ReadAllBytes(p));Console.WriteLine("extra "+Path.GetFileName(p));}
   File.Move(fn,"dlc.rpf",true);Console.WriteLine("rpf "+new FileInfo("dlc.rpf").Length);
  }}
