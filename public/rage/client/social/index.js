@@ -206,8 +206,26 @@ mp.keys.bind(0x47, false, function () {
     if (typeof global.uiBusy === 'function' && global.uiBusy()) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (mp.gui.cursor.visible) return;
-    if (enterAsPassenger()) return;
+    enterAsPassenger();
+});
+mp.keys.bind(0x71, false, function () {
+    if (global.authOpen || global.creatorOpen || global.gateEditOpen) return;
+    if (global.intOpen) { intClose(); return; }
+    var me = mp.players.local;
+    if (me.isTypingInTextChat || me.isDead() || global.chatOpen) return;
+    if (me.vehicle) { mp.events.call('hud:notify', 'warn', 'Выйдите из транспорта', 2000); return; }
+    if (typeof global.uiBusy === 'function' && global.uiBusy()) return;
+    if (typeof admOpen !== 'undefined' && admOpen) return;
+    if (mp.gui.cursor.visible) return;
     intOpenMenu();
+});
+var pointAt = 0;
+mp.keys.bind(0x42, false, function () {
+    var me = mp.players.local;
+    if (me.vehicle || me.isTypingInTextChat || me.isDead() || global.chatOpen || global.intOpen || mp.gui.cursor.visible) return;
+    if (Date.now() - pointAt < 1500) return;
+    pointAt = Date.now();
+    mp.events.callRemote('srv:emote', 'point');
 });
 
 mp.events.add('cef:int:close', intClose);

@@ -97,7 +97,7 @@ mp.keys.bind(0x49, false, function () { openUi('inv'); });
 mp.keys.bind(0xC0, false, function () { openUi('inv', { trunk: !!(mp.players.local.vehicle || nearVeh()) }); });
 mp.keys.bind(0x72, false, function () { openUi('phone'); });
 mp.keys.bind(0x4D, false, function () { openUi('menu'); });
-mp.keys.bind(0x71, false, function () {
+mp.keys.bind(0x78, false, function () {
     if (global.authOpen || global.creatorOpen) { mp.gui.cursor.show(true, true); return; }
     if (mp.players.local.isTypingInTextChat || deadState) return;
     if (uiOpen) { closeUi(); return; }

@@ -49,7 +49,7 @@ function setHover(i) {
     labels.querySelectorAll('.lab').forEach(function (s) { s.classList.toggle('hover', Number(s.dataset.l) === i && !ITEMS[i].off); });
     if (core.classList.contains('paying')) return;
     $('title').textContent = i >= 0 ? ITEMS[i].t : 'Взаимодействие';
-    $('sub').textContent = i >= 0 ? (ITEMS[i].d || '') : 'G — закрыть';
+    $('sub').textContent = i >= 0 ? (ITEMS[i].d || '') : 'F2 — закрыть';
 }
 
 function pick(i) {

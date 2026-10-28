@@ -195,6 +195,7 @@ mp.events.add('srv:int:showdoc', function (p, rid, idx) {
 
 const EMOTES = {
     wave: ['friends@frj@ig_1', 'wave_a', 48, 0],
+    point: ['gestures@m@standing@casual', 'gesture_point', 48, 0],
     handsup: ['missminuteman_1ig_2', 'handsup_base', 49, 1],
     surrender: ['random@arrests@busted', 'idle_a', 1, 1],
     salute: ['mp_player_int_uppersalute', 'mp_player_int_salute', 48, 0],
@@ -221,7 +222,7 @@ mp.events.add('srv:emote', function (p, id) {
 });
 mp.events.addCommand('e', function (p, a) {
     a = String(a || '').trim().toLowerCase();
-    if (!a) return p.outputChatBox('!{#ffc93c}/e [жест]: ' + Object.keys(EMOTES).join(', ') + ', stop. Или G → Жесты');
+    if (!a) return p.outputChatBox('!{#ffc93c}/e [жест]: ' + Object.keys(EMOTES).join(', ') + ', stop. Или F2 → Жесты');
     mp.events.call('srv:emote', p, a);
 });
 
@@ -340,5 +341,5 @@ function docRp(p, to, type) {
 }
 
 global.SocialSystem = { learn: learn, seen: seen, knows: knows, sid: sid, me: rpMe, do: rpDo, docRp: docRp };
-console.log('[social] ники, статики, меню (G) и отыгровки /me /do /try /todo /b /s /w загружены');
+console.log('[social] ники, статики, меню (F2) и отыгровки /me /do /try /todo /b /s /w загружены');
 module.exports = global.SocialSystem;
