@@ -28,31 +28,57 @@ function sysState(d, st) {
     inv('0x6BAB9442830C7F53', dHash(d), st, false, true);
 }
 function closedHead(d) { return d[8] === null || d[8] === undefined ? null : Number(d[8]); }
+function dRatio(d) {
+    if (!d.sys) return null;
+    var r = null;
+    try { r = mp.game.invokeFloat('0x65499865FCA6E5EC', dHash(d)); } catch (e) { r = null; }
+    return typeof r === 'number' && isFinite(r) ? r : null;
+}
+function lockHere(d, h) {
+    eFreeze(h, true); d.frozen = 1; d.closing = 0; d.tries = 0;
+}
+function startClose(d, h) {
+    if (d.closing) return;
+    if (d.frozen) { eFreeze(h, false); d.frozen = 0; }
+    d.closing = 1; d.tries = 0; d.pr = null; d.dir = d.dir || 1;
+}
 function dApply(d) {
     try { mp.game.object.doorControl(d[1], d[2], d[3], d[4], !!d[5], 0, 0, 0); } catch (e) {}
     sysState(d, d[5] ? 1 : 0);
     var h = dFind(d);
     if (!h) return;
-    d.h = h;
-    if (closedHead(d) === null && !d.hd0) { var c0 = eHead(h); if (c0 !== null) { d[8] = c0; d.hd0 = 1; } }
+    if (d.h !== h) { d.h = h; d.frozen = 0; }
     if (!d[5]) { if (d.frozen) { eFreeze(h, false); d.frozen = 0; } d.closing = 0; return; }
+    if (d.closing) return;
+    var r = dRatio(d);
+    if (r !== null && Math.abs(r) > 0.03) { startClose(d, h); return; }
     var want = closedHead(d), cur = eHead(h);
-    if (want === null || cur === null) { if (!d.frozen) { eFreeze(h, true); d.frozen = 1; } return; }
-    if (Math.abs(angDiff(cur, want)) > 1) { if (d.frozen) { eFreeze(h, false); d.frozen = 0; } d.closing = 1; }
-    else if (!d.frozen) { eSetHead(h, want); eFreeze(h, true); d.frozen = 1; d.closing = 0; }
+    if (r === null && want !== null && cur !== null && Math.abs(angDiff(cur, want)) > 1.5) { startClose(d, h); return; }
+    if (!d.frozen) lockHere(d, h);
 }
 mp.events.add('render', function () {
     for (var i = 0; i < DOORS.length; i++) {
         var d = DOORS[i];
         if (!d.closing) continue;
         if (!d[5] || !d.h) { d.closing = 0; continue; }
-        var want = closedHead(d), cur = eHead(d.h);
-        if (want === null || cur === null) { d.closing = 0; continue; }
-        var df = angDiff(want, cur);
-        if (Math.abs(df) <= 2.5) {
-            eSetHead(d.h, want); eFreeze(d.h, true); d.frozen = 1; d.closing = 0;
+        var cur = eHead(d.h);
+        if (cur === null) { d.closing = 0; continue; }
+        d.tries = (d.tries || 0) + 1;
+        var r = dRatio(d), want = closedHead(d);
+        if (r !== null && !(d.tries > 240 && want !== null)) {
+            var ar = Math.abs(r);
+            if (ar <= 0.03) { lockHere(d, d.h); continue; }
+            if (d.pr !== null && ar > d.pr + 0.002) d.dir = -(d.dir || 1);
+            d.pr = ar;
+            var step = Math.max(0.6, Math.min(3, ar * 6));
+            eFreeze(d.h, false);
+            eSetHead(d.h, cur + (r > 0 ? -step : step) * (d.dir || 1));
+            if (d.tries > 600) lockHere(d, d.h);
             continue;
         }
+        if (want === null) { lockHere(d, d.h); continue; }
+        var df = angDiff(want, cur);
+        if (Math.abs(df) <= 2.5) { eSetHead(d.h, want); lockHere(d, d.h); continue; }
         eSetHead(d.h, cur + (df > 0 ? 2.5 : -2.5));
     }
 });
@@ -60,13 +86,14 @@ mp.events.add('doors:all', function (json) {
     var old = {};
     DOORS.forEach(function (d) { old[d[0] + ':' + d[1]] = d; });
     try { DOORS = JSON.parse(json) || []; } catch (e) { DOORS = []; }
-    DOORS.forEach(function (d) { var o = old[d[0] + ':' + d[1]]; if (o) { d.sys = o.sys; if (closedHead(d) === null && o.hd0) { d[8] = o[8]; d.hd0 = 1; } } dApply(d); });
+    DOORS.forEach(function (d) { var o = old[d[0] + ':' + d[1]]; if (o) { d.sys = o.sys; d.dir = o.dir; } dApply(d); });
 });
 mp.events.add('doors:set', function (i, l) {
     var d = DOORS.find(function (x) { return x[0] === Number(i); });
     if (!d) return;
     d[5] = Number(l);
     if (d.h && d.frozen) { eFreeze(d.h, false); d.frozen = 0; }
+    d.closing = 0;
     dApply(d);
     try { mp.game.audio.playSoundFrontend(-1, Number(l) ? 'LOCK_DOOR' : 'UNLOCK_DOOR', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true); } catch (e) {}
 });
