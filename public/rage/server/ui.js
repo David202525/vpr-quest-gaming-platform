@@ -1133,6 +1133,7 @@ setTimeout(function () {
     try { require('./media.js'); } catch (e) { console.log('[ui] media.js: ' + e.message); }
     try { require('./quest.js'); } catch (e) { console.log('[ui] quest.js: ' + e.message); }
     try { require('./radio.js'); } catch (e) { console.log('[ui] radio.js: ' + e.message); }
+    try { require('./outfits.js'); } catch (e) { console.log('[ui] outfits.js: ' + e.message); }
     try { require('./doors.js'); } catch (e) { console.log('[ui] doors.js: ' + e.message); }
     try { require('./jobs2.js'); } catch (e) { console.log('[ui] jobs2.js: ' + e.message); }
     try { require('./taxi.js'); } catch (e) { console.log('[ui] taxi.js: ' + e.message); }

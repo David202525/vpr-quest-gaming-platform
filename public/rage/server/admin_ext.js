@@ -341,6 +341,7 @@ function applyJail(t) {
     else if (j.type === 'prison') { t.dimension = 0; t.position = V(PRISON.x, PRISON.y, PRISON.z); }
     else { t.dimension = 0; t.position = V(KPZ.x, KPZ.y, KPZ.z); }
     t.call('adm:jail', [j.type, Math.max(0, j.until - Date.now()), j.reason]);
+    if (j.type !== 'demorgan' && global.Outfits) { if (t.job && global.JobSystem) try { global.JobSystem.stop(t, true); } catch (e) {} setTimeout(function () { if (mp.players.exists(t)) global.Outfits.wear(t, 'prison'); }, 300); }
 }
 function release(t, why) {
     const j = S.jail[sid(t)];
@@ -350,6 +351,7 @@ function release(t, why) {
     t.dimension = 0;
     t.position = j.type === 'demorgan' ? V(-1037.7, -2737.8, 20.2) : j.type === 'prison' ? V(PRISON.out.x, PRISON.out.y, PRISON.out.z) : V(KPZ.out.x, KPZ.out.y, KPZ.out.z);
     t.call('adm:jail', ['', 0, '']);
+    if (global.Outfits) global.Outfits.off(t);
     msg(t, 'Вы освобождены' + (why ? ' (' + why + ')' : ''), '#8fd14f');
 }
 setInterval(function () {

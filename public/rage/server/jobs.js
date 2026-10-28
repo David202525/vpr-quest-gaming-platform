@@ -21,9 +21,12 @@ const JOBS = {
     }
 };
 
-const MINLVL = { farm: 1, build: 1, courier: 4, bus: 4, garbage: 4, power: 5, trucker: 6, collector: 8 };
+const MINLVL = { farm: 1, build: 1, loader: 1, courier: 4, bus: 4, garbage: 4, power: 5, trucker: 6, collector: 8 };
 function charLvl(p) { return global.UiSystem && global.UiSystem.lvlOf ? global.UiSystem.lvlOf(p) : 1; }
 function admL(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0; }
+const JOB_OUTFIT = { farm: 'farm', courier: 'loader', loader: 'loader', build: 'build', garbage: 'garbage' };
+function outfitOn(p, id) { if (global.Outfits && JOB_OUTFIT[id]) try { global.Outfits.wear(p, JOB_OUTFIT[id]); } catch (e) {} }
+function outfitOff(p) { if (global.Outfits) try { global.Outfits.off(p); } catch (e) {} }
 function needLvl(id) { return MINLVL[id] || (JOBS[id] && JOBS[id].minLvl) || 1; }
 const FARM_DROP = { x: 2029.8, y: 4980.6, z: 42.1 };
 
@@ -133,6 +136,7 @@ function stopJob(p, silent) {
     if (JOBS[s.id] && JOBS[s.id].stop) try { JOBS[s.id].stop(p, s); } catch (e) {}
     if (s.veh && mp.vehicles.exists(s.veh)) s.veh.destroy();
     p.job = null;
+    outfitOff(p);
     p.call('job:state', ['']);
     quest(p, '', []);
     if (!silent) notify(p, 'warn', 'Вы закончили смену: ' + JOBS[s.id].n);
@@ -154,13 +158,13 @@ function startJob(p, id, opt) {
     if (!j) return 'Нет такой работы';
     if (jobOff(id)) return 'Работа временно отключена администрацией';
     if (p.job) return 'Сначала закончите текущую смену (/quitjob)';
-    if (charLvl(p) < needLvl(id) && admL(p) < 1) return 'Работа «' + j.n + '» доступна с ' + needLvl(id) + ' уровня персонажа. Новичкам (1–3 ур.) — стройка и ферма';
+    if (charLvl(p) < needLvl(id) && admL(p) < 1) return 'Работа «' + j.n + '» доступна с ' + needLvl(id) + ' уровня персонажа. Новичкам (1–3 ур.) — стройка, грузчик и ферма';
     if (dist(p.position, j.base.x, j.base.y, j.base.z) > 12) return 'Устроиться можно только на месте работы — поставьте метку в телефоне (Карты → Работы)';
     if (j.lic && !hasLic(p, j.lic)) return 'Ваши права отобраны администрацией — работа водителем недоступна';
     if (id === 'bus' && !hasLic(p, 'bus')) return 'Лицензия на автобус отобрана администрацией';
     const s = { id: id, step: 0, since: Date.now() };
     p.job = s;
-    if (j.start) { const er = j.start(p, s, opt); if (er) { p.job = null; return er; } notify(p, 'ok', 'Вы начали работу: ' + j.n + '. Закончить — /quitjob или в телефоне'); return null; }
+    if (j.start) { const er = j.start(p, s, opt); if (er) { p.job = null; return er; } outfitOn(p, id); notify(p, 'ok', 'Вы начали работу: ' + j.n + '. Закончить — /quitjob или в телефоне'); return null; }
     if (id === 'farm') {
         const lv = lvlInfo(p, 'farm').lvl;
         const ck = CROPS[opt] ? opt : 'lettuce';
@@ -190,6 +194,7 @@ function startJob(p, id, opt) {
             setTimeout(function () { if (s.spotCb) { s.spotCb = null; go(null); } }, 2500);
         }
     }
+    outfitOn(p, id);
     notify(p, 'ok', 'Вы начали работу: ' + j.n + '. Закончить — /quitjob или в телефоне');
     return null;
 }

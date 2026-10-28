@@ -25,27 +25,27 @@ function buildDef() {
             const lv = J().level(p, 'build').lvl;
             const k = BUILD_TASKS[opt] ? opt : 'bricks';
             if (BUILD_TASKS[k].lvl > lv) return 'Откроется на ' + BUILD_TASKS[k].lvl + ' уровне мастерства';
-            s.task = k; s.carry = false; s.n = 0;
+            s.task = k; s.carry = false; s.n = 0; s.T = BUILD_TASKS; s.jid = 'build';
             buildNext(p, s);
             return null;
         },
         here: function (p, s) {
             if (p.vehicle || s.busy) return;
-            const t = BUILD_TASKS[s.task];
+            const t = (s.T || BUILD_TASKS)[s.task], jid = s.jid || 'build';
             if (!s.pt || d2(p.position, s.pt[0], s.pt[1]) > 3) return;
             s.busy = true;
-            p.call('job:anim', [s.carry ? 'put' : (s.task === 'bricks' ? 'box' : 'pick'), t.ms]);
+            p.call('job:anim', [s.carry ? 'put' : (s.task === 'bricks' || jid === 'loader' ? 'box' : 'pick'), t.ms]);
             setTimeout(function () {
                 if (!mp.players.exists(p) || p.job !== s) return;
                 s.busy = false;
-                if (!s.carry) { s.carry = true; if (s.task !== 'bricks') p.call('job:anim', ['box', 0]); return buildNext(p, s); }
+                if (!s.carry) { s.carry = true; if (s.task !== 'bricks' && jid !== 'loader') p.call('job:anim', ['box', 0]); return buildNext(p, s); }
                 s.carry = false; s.n++;
-                const L = J().level(p, 'build');
+                const L = J().level(p, jid);
                 const sum = Math.round(rnd(t.pay[0], t.pay[1]) * L.mult);
-                J().pay(p, sum, 'build');
-                J().addXp(p, 'build', 1);
+                J().pay(p, sum, jid);
+                J().addXp(p, jid, 1);
                 if (global.UiSystem && global.UiSystem.addExp) global.UiSystem.addExp(p, 4);
-                notify(p, 'ok', 'Прораб: +$' + sum + ' · ходок за смену: ' + s.n);
+                notify(p, 'ok', (jid === 'loader' ? 'Бригадир' : 'Прораб') + ': +$' + sum + ' · ходок за смену: ' + s.n);
                 buildNext(p, s);
             }, t.ms);
         },
@@ -53,11 +53,11 @@ function buildDef() {
     };
 }
 function buildNext(p, s) {
-    const t = BUILD_TASKS[s.task];
+    const t = (s.T || BUILD_TASKS)[s.task];
     const pt = s.carry ? pick(t.to, s.pt) : pick(t.from, s.pt);
     s.pt = pt;
     p.call('job:point', [pt[0], pt[1], pt[2], 1.4, s.carry ? 'Отнести на площадку (E)' : 'Взять материалы (E)', 'pick', '']);
-    J().quest(p, 'Стройка · ' + t.n.slice(2), [s.carry ? 'Несите материал на отмеченную точку' : 'Возьмите материал на складе', 'Ходок за смену: ' + s.n]);
+    J().quest(p, (s.jid === 'loader' ? 'Грузчик · ' : 'Стройка · ') + t.n.slice(2), [s.carry ? 'Несите материал на отмеченную точку' : 'Возьмите материал на складе', 'Ходок за смену: ' + s.n]);
 }
 
 /* ======================= МУСОРОВОЗ (4+ ур.) ======================= */
@@ -196,12 +196,42 @@ function colNext(p, s) {
     J().quest(p, 'Инкассатор', ['Точка: ' + s.pt[0], 'Осталось точек: ' + s.route.length, 'Мешков в фургоне: ' + s.bags]);
 }
 
+/* ======================= ГРУЗЧИК (1+ ур.) ======================= */
+const LOAD_BASE = { x: 153.8, y: -3077.0, z: 5.9 };
+const LOAD_LV = [0, 30, 90, 200, 400];
+const LOAD_TASKS = {
+    boxes: { n: '📦 Ящики со склада', lvl: 1, pay: [10, 14], ms: 2200, from: [[160.6, -3084.5, 5.9], [165.0, -3084.5, 5.9]], to: [[123.0, -3106.6, 5.9], [131.5, -3106.6, 5.9], [139.6, -3106.6, 5.9]] },
+    port: { n: '🚢 Разгрузка контейнера', lvl: 2, pay: [15, 20], ms: 3200, from: [[180.0, -3120.0, 5.8], [186.0, -3120.0, 5.8]], to: [[123.0, -3106.6, 5.9], [139.6, -3106.6, 5.9]] },
+    heavy: { n: '🏋️ Тяжёлый груз', lvl: 3, pay: [24, 31], ms: 4200, from: [[214.0, -3093.0, 5.8]], to: [[123.0, -3106.6, 5.9], [131.5, -3106.6, 5.9]] }
+};
+function loaderDef() {
+    const d = buildDef();
+    return Object.assign(d, {
+        n: 'Грузчик', i: '📦', lv: LOAD_LV, minLvl: 1,
+        pay: 'от 10$ за ходку · для новичков',
+        d: 'Работа для новичков в порту Лос-Сантоса. Носите ящики со склада на погрузку, с ростом мастерства — разгрузка контейнеров и тяжёлые грузы за повышенную плату.',
+        base: LOAD_BASE, blip: 478, color: 17,
+        opts: function (p, lv) {
+            return Object.keys(LOAD_TASKS).map(function (k) { const t = LOAD_TASKS[k]; return { id: k, n: t.n, sub: Math.round(t.pay[0] * lv.mult) + '–' + Math.round(t.pay[1] * lv.mult) + '$ за ходку', need: t.lvl, locked: t.lvl > lv.lvl }; });
+        },
+        start: function (p, s, opt) {
+            const lv = J().level(p, 'loader').lvl;
+            const k = LOAD_TASKS[opt] ? opt : 'boxes';
+            if (LOAD_TASKS[k].lvl > lv) return 'Откроется на ' + LOAD_TASKS[k].lvl + ' уровне мастерства';
+            s.task = k; s.carry = false; s.n = 0; s.T = LOAD_TASKS; s.jid = 'loader';
+            buildNext(p, s);
+            return null;
+        }
+    });
+}
+
 function register() {
     if (!J() || !J().JOBS) return setTimeout(register, 1000);
     J().JOBS.build = buildDef();
+    J().JOBS.loader = loaderDef();
     J().JOBS.garbage = garbDef();
     J().JOBS.collector = colDef();
     if (J().sendBases) J().sendBases();
 }
 register();
-console.log('[jobs2] работы: стройка, мусоровоз, инкассатор');
+console.log('[jobs2] работы: стройка, грузчик, мусоровоз, инкассатор');

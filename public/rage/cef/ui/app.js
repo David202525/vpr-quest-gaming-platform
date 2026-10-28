@@ -497,7 +497,7 @@ function _renderApp() {
             var J = DATA.jobs;
             if (!J) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:job:phone'); }
             else {
-                body.innerHTML = tabs + '<div class="empty-t" style="text-align:left;margin:6px 0">Ваш уровень: <b>' + (J.lvl || 1) + '</b>. Новичкам 1–3 ур. — стройка и ферма, дальше открываются новые работы.</div>' + (J.working ? '<div class="job-now">Сейчас: <b>' + esc(J.working.n) + '</b><button class="btn ghost" data-jq="1" style="margin:8px 0 0">Закончить смену</button></div>' : '') +
+                body.innerHTML = tabs + '<div class="empty-t" style="text-align:left;margin:6px 0">Ваш уровень: <b>' + (J.lvl || 1) + '</b>. Новичкам 1–3 ур. — стройка, грузчик и ферма, дальше открываются новые работы.</div>' + (J.working ? '<div class="job-now">Сейчас: <b>' + esc(J.working.n) + '</b><button class="btn ghost" data-jq="1" style="margin:8px 0 0">Закончить смену</button></div>' : '') +
                     J.list.map(function (j) {
                         return '<div class="job-c' + (j.off || j.lock ? ' off' : '') + '"><div class="job-h"><span class="job-i">' + j.i + '</span><div><b>' + esc(j.n) + '</b><small>' + esc(j.pay) + '</small></div><span class="job-lv' + (j.lock ? ' lk' : '') + '">' + (j.lock ? '🔒 ' : '') + j.need + '+ ур.</span></div>' +
                             '<p>' + esc(j.d) + '</p>' +
