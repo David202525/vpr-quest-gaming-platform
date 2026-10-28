@@ -132,7 +132,23 @@ var EMOTE_ITEMS = [
     { id: 'em:arms', t: 'Скрестить руки', ic: '🙅', d: 'Стоять со скрещёнными руками' },
     { id: 'em:sit', t: 'Сесть', ic: '🪑', d: 'Сесть на землю' },
     { id: 'em:dance', t: 'Танец', ic: '💃', d: 'Потанцевать' },
+    { id: 'em_more', t: 'Ещё', ic: '➕', d: 'Сценки: курить, лечь, отжиматься…' },
     { id: 'em:stop', t: 'Отмена', ic: '✖️', d: 'Прекратить анимацию' }
+];
+var EMOTE_MORE = [
+    { id: 'em:lean', t: 'Опереться', ic: '🧱', d: 'Прислониться к стене' },
+    { id: 'em:smoke', t: 'Курить', ic: '🚬', d: 'Закурить сигарету' },
+    { id: 'em:phone', t: 'Телефон', ic: '📱', d: 'Залипнуть в телефон' },
+    { id: 'em:coffee', t: 'Кофе', ic: '☕', d: 'Пить кофе' },
+    { id: 'em:drink', t: 'Пить', ic: '🍺', d: 'Пить из бутылки' },
+    { id: 'em:lie', t: 'Лечь', ic: '🛏️', d: 'Лечь на спину' },
+    { id: 'em:sleep', t: 'Спать', ic: '💤', d: 'Уснуть' },
+    { id: 'em:pushups', t: 'Отжиматься', ic: '💪', d: 'Отжимания' },
+    { id: 'em:yoga', t: 'Йога', ic: '🧘', d: 'Позы йоги' },
+    { id: 'em:guitar', t: 'Гитара', ic: '🎸', d: 'Играть на гитаре' },
+    { id: 'em:photo', t: 'Фото', ic: '📷', d: 'Фотографировать' },
+    { id: 'em:dance2', t: 'Клубный танец', ic: '🪩', d: 'Танец как в клубе' },
+    { id: 'em_back', t: 'Назад', ic: '↩️', d: 'К основным анимациям' }
 ];
 var GREET_ITEMS = [
     { id: 'shake', t: 'Пожать руку', ic: '🤝', d: 'Познакомиться — увидите ник друг друга' },
@@ -186,12 +202,44 @@ mp.events.add('social:docs', function (rid, json) {
     items.push({ id: 'back', t: 'Назад', ic: '↩️', d: 'Вернуться в меню' });
     intShow(whoOf(t), items);
 });
+function emoApply(p, v) {
+    if (!p || !p.handle) return;
+    if (!v) {
+        if (p.__emoLoop) { try { if (p.__emoScn) p.clearTasksImmediately(); else p.clearTasks(); } catch (e) {} }
+        p.__emoScn = false; p.__emoLoop = false;
+        return;
+    }
+    if (p.getVariable('cuffed')) return;
+    var a = String(v).split('|');
+    var dict = a[0], name = a[1], flag = Number(a[2]) || 0;
+    p.__emoLoop = dict.indexOf('S:') === 0 || (flag & 1) === 1;
+    if (dict.indexOf('S:') === 0) {
+        try { p.clearTasks(); p.taskStartScenarioInPlace(dict.slice(2), 0, true); p.__emoScn = true; } catch (e) {}
+        return;
+    }
+    p.__emoScn = false;
+    mp.game.streaming.requestAnimDict(dict);
+    var tries = 0;
+    var t = setInterval(function () {
+        tries++;
+        if (!p.handle) { clearInterval(t); return; }
+        if (mp.game.streaming.hasAnimDictLoaded(dict)) {
+            clearInterval(t);
+            if (p.getVariable('emo') !== v) return;
+            try { p.taskPlayAnim(dict, name, 8.0, -8.0, -1, flag, 0, false, false, false); } catch (e) {}
+        } else if (tries > 60) clearInterval(t);
+    }, 50);
+}
+mp.events.addDataHandler('emo', function (p, v) { if (p && p.type === 'player') emoApply(p, v); });
+mp.events.add('entityStreamIn', function (e) {
+    if (e && e.type === 'player') { var v = e.getVariable('emo'); if (v) emoApply(e, v); }
+});
 var emoteLoop = false;
 mp.events.add('social:emoteLoop', function (on) { emoteLoop = !!on; });
 mp.events.add('render', function () {
     if (!emoteLoop) return;
     var c = mp.game.controls;
-    if (c.isControlJustPressed(0, 32) || c.isControlJustPressed(0, 33) || c.isControlJustPressed(0, 34) || c.isControlJustPressed(0, 35) || c.isControlJustPressed(0, 22)) {
+    if (c.isControlJustPressed(0, 32) || c.isControlJustPressed(0, 33) || c.isControlJustPressed(0, 34) || c.isControlJustPressed(0, 35) || c.isControlJustPressed(0, 22) || c.isControlJustPressed(0, 73)) {
         emoteLoop = false;
         mp.events.callRemote('srv:emote', 'stop');
     }
@@ -237,6 +285,8 @@ mp.events.add('cef:int:pick', function (id, arg) {
     id = String(id);
     if (id.indexOf('sto:') === 0) { intClose(); if (id !== 'sto:x') mp.events.callRemote('srv:sto:pick', id.slice(4)); return; }
     if (id.indexOf('imp:') === 0) { intClose(); if (id !== 'imp:x') mp.events.callRemote('srv:imp:take', id.slice(4)); return; }
+    if (id === 'em_more') { intShow('Анимации · ещё', EMOTE_MORE); return; }
+    if (id === 'em_back') { intShow('Анимации', EMOTE_ITEMS); return; }
     if (id.indexOf('em:') === 0) { intClose(); mp.events.callRemote('srv:emote', id.slice(3)); return; }
     if (id === 'back') { intClose(); if (t && mp.players.exists(t)) intOpenMenu(); return; }
     if (id === 'emotes') { intOpenEmotes(); return; }

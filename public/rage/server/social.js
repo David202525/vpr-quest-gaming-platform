@@ -157,14 +157,14 @@ mp.events.add('srv:int:answer', function (p, yes) {
     face(p, from);
     face(from, p);
     if (k) {
-        try { from.stopAnimation(); p.stopAnimation(); from.playAnimation(k.a[0], k.a[1], 8, 0); p.playAnimation(k.b[0], k.b[1], 8, 0); } catch (e) {}
+        anim(from, k.a[0], k.a[1], 0); anim(p, k.b[0], k.b[1], 0);
         if (global.SLog) global.SLog.add('social', { actor: from, target: p, action: o.kind, details: k.t });
         notify(p, 'ok', k.done); notify(from, 'ok', k.done);
         return;
     }
     try {
-        from.playAnimation('mp_ped_interaction', 'handshake_guy_a', 8, 0);
-        p.playAnimation('mp_ped_interaction', 'handshake_guy_b', 8, 0);
+        anim(from, 'mp_ped_interaction', 'handshake_guy_a', 0);
+        anim(p, 'mp_ped_interaction', 'handshake_guy_b', 0);
     } catch (e) {}
     learn(p, from);
     learn(from, p);
@@ -208,18 +208,49 @@ const EMOTES = {
     arms: ['amb@world_human_hang_out_street@female_arms_crossed@base', 'base', 49, 1],
     think: ['missheist_jewelleadinout', 'jh_int_outro_loop_a', 49, 1],
     sit: ['anim@heists@fleeca_bank@ig_7_jetski_owner', 'owner_idle', 1, 1],
-    dance: ['misschinese2_crystalmazemcs1_cs', 'dance_loop_tao', 1, 1]
+    dance: ['misschinese2_crystalmazemcs1_cs', 'dance_loop_tao', 1, 1],
+    dance2: ['anim@amb@nightclub@dancers@crowddance_facedj@hi_intensity', 'hi_dance_facedj_09_v2_male^1', 1, 1],
+    lie: ['amb@world_human_sunbathe@male@back@base', 'base', 1, 1],
+    sleep: ['timetable@tracy@sleep@', 'idle_c', 1, 1],
+    lean: ['S:WORLD_HUMAN_LEANING', '', 0, 1],
+    smoke: ['S:WORLD_HUMAN_SMOKING', '', 0, 1],
+    phone: ['S:WORLD_HUMAN_STAND_MOBILE', '', 0, 1],
+    coffee: ['S:WORLD_HUMAN_AA_COFFEE', '', 0, 1],
+    pushups: ['S:WORLD_HUMAN_PUSH_UPS', '', 0, 1],
+    situps: ['S:WORLD_HUMAN_SIT_UPS', '', 0, 1],
+    yoga: ['S:WORLD_HUMAN_YOGA', '', 0, 1],
+    guard: ['S:WORLD_HUMAN_GUARD_STAND', '', 0, 1],
+    notes: ['S:WORLD_HUMAN_CLIPBOARD', '', 0, 1],
+    photo: ['S:WORLD_HUMAN_PAPARAZZI', '', 0, 1],
+    guitar: ['S:WORLD_HUMAN_MUSICIAN', '', 0, 1],
+    drink: ['S:WORLD_HUMAN_DRINKING', '', 0, 1]
 };
+let emoSeq = 0;
+function anim(p, dict, name, flag) {
+    if (!p || !mp.players.exists(p)) return;
+    emoSeq = (emoSeq + 1) % 100000;
+    const v = dict + '|' + (name || '') + '|' + (Number(flag) || 0) + '|' + emoSeq;
+    p.setVariable('emo', v);
+    if (!(Number(flag) & 1) && dict.indexOf('S:') !== 0) setTimeout(function () { if (mp.players.exists(p) && p.getVariable('emo') === v) p.setVariable('emo', null); }, 8000);
+}
+function animStop(p) {
+    if (!p || !mp.players.exists(p)) return;
+    if (p.getVariable('emo')) p.setVariable('emo', null);
+    try { p.stopAnimation(); } catch (e) {}
+}
+global.SocialAnim = { play: anim, stop: animStop };
 mp.events.add('srv:emote', function (p, id) {
-    if (id === 'stop') { try { p.stopAnimation(); } catch (e) {} p.call('social:emoteLoop', [false]); return; }
+    if (id === 'stop') { animStop(p); p.call('social:emoteLoop', [false]); return; }
     const e = EMOTES[id];
     if (!e || !sid(p)) return;
     if (p.vehicle) return notify(p, 'warn', 'Выйдите из транспорта');
     if (p.getVariable('cuffed')) return notify(p, 'warn', 'Вы в наручниках');
     if (p.health <= 0) return;
-    try { p.stopAnimation(); p.playAnimation(e[0], e[1], 8, e[2]); } catch (x) {}
+    anim(p, e[0], e[1], e[2]);
     p.call('social:emoteLoop', [!!e[3]]);
 });
+mp.events.add('playerDeath', function (p) { if (p.getVariable('emo')) p.setVariable('emo', null); });
+mp.events.add('playerEnterVehicle', function (p) { if (p.getVariable('emo')) p.setVariable('emo', null); });
 mp.events.addCommand('e', function (p, a) {
     a = String(a || '').trim().toLowerCase();
     if (!a) return p.outputChatBox('!{#ffc93c}/e [жест]: ' + Object.keys(EMOTES).join(', ') + ', stop. Или F2 — меню анимаций');
@@ -253,8 +284,8 @@ mp.events.add('srv:int:pay', function (p, rid, amount) {
     global.__moneyWhy = null;
     if (global.SLog) global.SLog.add('money', { tag: 'transfer', actor: p, target: t, action: 'pay', amount: n, details: 'передал наличные' });
     try {
-        p.playAnimation('mp_common', 'givetake1_a', 8, 0);
-        t.playAnimation('mp_common', 'givetake1_b', 8, 0);
+        anim(p, 'mp_common', 'givetake1_a', 0);
+        anim(t, 'mp_common', 'givetake1_b', 0);
     } catch (e) {}
     notify(p, 'ok', 'Вы передали $' + n.toLocaleString('ru-RU') + ' — ' + seen(p, t));
     notify(t, 'ok', seen(t, p) + ' передал вам $' + n.toLocaleString('ru-RU'));
@@ -262,7 +293,7 @@ mp.events.add('srv:int:pay', function (p, rid, amount) {
 });
 
 mp.events.add('srv:int:wave', function (p) {
-    try { p.playAnimation('friends@frj@ig_1', 'wave_a', 8, 48); } catch (e) {}
+    anim(p, 'friends@frj@ig_1', 'wave_a', 48);
 });
 
 const RP_RADIUS = 15;
@@ -337,7 +368,7 @@ function docRp(p, to, type) {
         if (!mp.players.exists(p)) return;
         nearby(p, RP_RADIUS, function (x) { x.outputChatBox('!{#7fd4ff}' + r[1] + ' (( ' + seen(x, p) + ' ))'); });
     }, 700);
-    try { p.playAnimation('mp_common', 'givetake1_a', 8, 48); } catch (e) {}
+    anim(p, 'mp_common', 'givetake1_a', 48);
 }
 
 global.SocialSystem = { learn: learn, seen: seen, knows: knows, sid: sid, me: rpMe, do: rpDo, docRp: docRp };
