@@ -12,6 +12,7 @@ function blocked() {
 }
 function micSet(on) {
     talking = on;
+    try { mp.events.callRemote('srv:voice:talk', !!on); } catch (e) {}
     if (inCall()) return;
     try { mp.voiceChat.muted = !on; } catch (e) {}
 }

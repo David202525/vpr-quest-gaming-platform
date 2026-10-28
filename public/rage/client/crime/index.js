@@ -13,6 +13,7 @@ function areaBlip(x, y, w, col, alpha, flash) {
     var b = mp.game.invoke('0xCE5D0E5E315DB238', fl(x), fl(y), fl(30), fl(w), fl(w));
     if (!b) return 0;
     mp.game.invoke('0xF87683CDF73C3F6E', b, 0);
+    mp.game.invoke('0x9029B2F3DA924928', b, 3);
     mp.game.invoke('0x03D7FB09E75D6B7E', b, col);
     mp.game.invoke('0x45FF974EEE1C8734', b, alpha);
     mp.game.invoke('0xBE8BE4FE60E27B72', b, true);

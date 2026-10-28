@@ -19,6 +19,16 @@ function titleOf(p) {
 }
 function intExec(code) { if (intBrowser) intBrowser.execute(code); }
 
+var micTex = false;
+function micDraw(x, y, z, k) {
+    if (!micTex) { mp.game.graphics.requestStreamedTextureDict('mpleaderboard', true); micTex = mp.game.graphics.hasStreamedTextureDictLoaded('mpleaderboard'); if (!micTex) return; }
+    var sc = mp.game.graphics.world3dToScreen2d(new mp.Vector3(x, y, z));
+    if (!sc) return;
+    var res = mp.game.graphics.getActiveScreenResolution(0, 0);
+    var ar = res && res.x ? res.y / res.x : 0.5625;
+    var h = 0.034 * (k / 0.42);
+    mp.game.graphics.drawSprite('mpleaderboard', 'leaderboard_audio_3', sc.x, sc.y, h * ar, h, 0, 70, 230, 110, 245, false);
+}
 mp.events.add('render', function () {
     if (global.authOpen || global.creatorOpen) return;
     var me = mp.players.local;
@@ -38,6 +48,10 @@ mp.events.add('render', function () {
         var known = !!names[s];
         mp.game.graphics.drawText((known ? names[s] + ' ' : '') + '[' + p.remoteId + ']', [pos.x, pos.y, z], { font: 4, color: known ? [255, 255, 255, 235] : [210, 210, 220, 225], scale: [k, k], outline: true, centre: true });
         mp.game.graphics.drawText('#' + s, [pos.x, pos.y, z - 0.1 - d * 0.004], { font: 4, color: [193, 140, 255, 235], scale: [k * 0.85, k * 0.85], outline: true, centre: true });
+        var spk = false;
+        try { spk = !!p.isVoiceActive; } catch (e) {}
+        if (!spk) spk = !!p.getVariable('talk');
+        if (spk) micDraw(pos.x, pos.y, z + 0.13 + d * 0.004, k);
     });
 });
 

@@ -80,3 +80,8 @@ mp.events.addCommand('mega', toggleMega);
 
 global.VoiceSystem = { NEAR: NEAR, MEGA: MEGA };
 console.log('[voice] голосовой чат: рядом ' + NEAR + ' м, мегафон ' + MEGA + ' м');
+
+mp.events.add('srv:voice:talk', function (p, on) {
+    on = !!on;
+    if (!!p.getVariable('talk') !== on) p.setVariable('talk', on);
+});
