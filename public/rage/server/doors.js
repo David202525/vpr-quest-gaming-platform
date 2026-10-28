@@ -36,7 +36,7 @@ function canUse(p, d) {
     if (a && a.indexOf(j) >= 0) return true;
     return !!(global.CrimeSystem && global.CrimeSystem.ORGS && global.CrimeSystem.ORGS[d.f] && j === d.f);
 }
-function pack() { return JSON.stringify(DB.list.map(function (d, i) { return [i, d.m, d.x, d.y, d.z, d.l ? 1 : 0, d.f, d.n]; })); }
+function pack() { return JSON.stringify(DB.list.map(function (d, i) { return [i, d.m, d.x, d.y, d.z, d.l ? 1 : 0, d.f, d.n, d.hd === undefined ? null : d.hd, d.g || 0]; })); }
 function sendAll() { const j = pack(); mp.players.forEach(function (p) { p.call('doors:all', [j]); }); }
 function sendOne(i) { const d = DB.list[i]; mp.players.forEach(function (p) { p.call('doors:set', [i, d.l ? 1 : 0]); }); }
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) p.call('doors:all', [pack()]); }, 5000); });
@@ -53,6 +53,7 @@ mp.events.add('srv:door:toggle', function (p, i) {
     d.l = d.l ? 0 : 1;
     dirty = true;
     sendOne(i);
+    if (d.g) DB.list.forEach(function (x, j) { if (j !== i && x.g === d.g) { x.l = d.l; sendOne(j); } });
     try { p.playAnimation('anim@heists@keycard@', 'exit', 8, 48); } catch (e) {}
     notify(p, d.l ? 'warn' : 'ok', (d.l ? '🔒 Закрыто: ' : '🔓 Открыто: ') + d.n);
 });
@@ -87,24 +88,47 @@ mp.events.addCommand('door', function (p, full) {
         dirty = true; sendAll();
         return notify(p, 'ok', 'Двери сброшены по умолчанию');
     }
-    p.outputChatBox('!{#ffcc66}/door add [lspd|sheriff|fib|army|gov|medic|news|lic|банда] [название] · /door del · /door list · /door reset');
+    p.outputChatBox('!{#ffcc66}/door add [lspd|sheriff|fib|army|gov|medic|news|lic|банда] [название] — встаньте лицом к закрытой двери (двойные створки добавятся обе)');
+    p.outputChatBox('!{#ffcc66}/door del · /door list · /door reset · /doorfix — запомнить текущее закрытое положение двери');
 });
 function nearest(p) {
     let best = -1, bd = 3.5;
     DB.list.forEach(function (d, i) { const r = Math.hypot(p.position.x - d.x, p.position.y - d.y); if (r < bd && Math.abs(p.position.z - d.z) < 3) { bd = r; best = i; } });
     return best;
 }
-mp.events.add('srv:door:found', function (p, m, x, y, z) {
+mp.events.add('srv:door:found', function (p, json) {
     const a = p.doorAdd;
     p.doorAdd = null;
     if (!a || admLvl(p) < 5) return;
-    m = Number(m); x = Number(x); y = Number(y); z = Number(z);
-    if (!m || !isFinite(x)) return notify(p, 'error', 'Дверь не найдена — подойдите вплотную');
-    if (DB.list.some(function (d) { return d.m === m && Math.hypot(d.x - x, d.y - y) < 0.5; })) return notify(p, 'warn', 'Эта дверь уже добавлена');
-    DB.list.push({ f: a.f, n: a.n, m: m, x: x, y: y, z: z, l: 1 });
+    let list = [];
+    try { list = JSON.parse(json) || []; } catch (e) {}
+    list = list.filter(function (x) { return x && Number(x[0]) && isFinite(Number(x[1])) && Math.hypot(Number(x[1]) - p.position.x, Number(x[2]) - p.position.y) < 3.5; });
+    if (!list.length) return notify(p, 'error', 'Дверь не найдена — встаньте вплотную лицом к двери');
+    const g = list.length > 1 ? Date.now() % 1000000 : 0;
+    let n = 0;
+    list.slice(0, 2).forEach(function (x, k) {
+        const m = Number(x[0]), X = Number(x[1]), Y = Number(x[2]), Z = Number(x[3]);
+        if (DB.list.some(function (d) { return d.m === m && Math.hypot(d.x - X, d.y - Y) < 0.5; })) return;
+        DB.list.push({ f: a.f, n: a.n + (list.length > 1 ? (k ? ' (прав.)' : ' (лев.)') : ''), m: m, x: X, y: Y, z: Z, hd: Number(x[4]) || 0, g: g, l: 1 });
+        n++;
+    });
+    if (!n) return notify(p, 'warn', 'Эта дверь уже добавлена');
     dirty = true;
     sendAll();
-    notify(p, 'ok', 'Дверь добавлена: ' + a.n + ' (' + a.f + ')');
+    notify(p, 'ok', 'Добавлено створок: ' + n + ' · ' + a.n + ' (' + a.f + '). Двери должны быть закрыты в момент добавления');
+});
+mp.events.addCommand('doorfix', function (p) {
+    if (admLvl(p) < 5) return;
+    const i = nearest(p);
+    if (i < 0) return notify(p, 'warn', 'Рядом нет служебных дверей');
+    p.doorFix = i;
+    p.call('doors:scanFix', [DB.list[i].m, DB.list[i].x, DB.list[i].y, DB.list[i].z]);
+});
+mp.events.add('srv:door:fixed', function (p, hd) {
+    const i = p.doorFix; p.doorFix = undefined;
+    if (i === undefined || !DB.list[i] || admLvl(p) < 5) return;
+    DB.list[i].hd = Number(hd) || 0; dirty = true; sendAll();
+    notify(p, 'ok', 'Закрытое положение двери сохранено: ' + DB.list[i].n);
 });
 
 global.DoorSystem = { list: function () { return DB.list; }, canUse: canUse };

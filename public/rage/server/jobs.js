@@ -24,7 +24,7 @@ const JOBS = {
 const MINLVL = { farm: 1, build: 1, loader: 1, courier: 4, bus: 4, garbage: 4, power: 5, trucker: 6, collector: 8 };
 function charLvl(p) { return global.UiSystem && global.UiSystem.lvlOf ? global.UiSystem.lvlOf(p) : 1; }
 function admL(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0; }
-const JOB_OUTFIT = { farm: 'farm', courier: 'loader', loader: 'loader', build: 'build', garbage: 'garbage' };
+const JOB_OUTFIT = { farm: 'farm', courier: 'loader', loader: 'loader', build: 'build', garbage: 'garbage', collector: 'collector' };
 function outfitOn(p, id) { if (global.Outfits && JOB_OUTFIT[id]) try { global.Outfits.wear(p, JOB_OUTFIT[id]); } catch (e) {} }
 function outfitOff(p) { if (global.Outfits) try { global.Outfits.off(p); } catch (e) {} }
 function needLvl(id) { return MINLVL[id] || (JOBS[id] && JOBS[id].minLvl) || 1; }
