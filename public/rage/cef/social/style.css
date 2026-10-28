@@ -21,13 +21,15 @@ svg { width: 100%; height: 100%; overflow: visible; }
 .pay-btns button { flex: 1; padding: 7px 0; border: 0; border-radius: 7px; background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
 .pay-btns button.ghost { background: rgba(255,255,255,.1); }
 .labels { position: absolute; inset: 0; pointer-events: none; }
-.lab { position: absolute; width: 96px; margin-left: -48px; margin-top: -34px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; transition: transform .15s; }
-.lab .ic { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #e6dcff; background: linear-gradient(160deg, rgba(139,61,255,.28), rgba(139,61,255,.08)); border: 1px solid rgba(193,150,255,.25); box-shadow: 0 4px 14px rgba(0,0,0,.45); transition: all .15s; }
+.lab { position: absolute; width: 104px; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; transition: transform .15s; }
+.lab .ic { position: relative; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #e6dcff; background: linear-gradient(160deg, rgba(139,61,255,.28), rgba(139,61,255,.08)); border: 1px solid rgba(193,150,255,.25); box-shadow: 0 4px 14px rgba(0,0,0,.45); transition: all .15s; }
 .lab .ic svg { width: 24px; height: 24px; }
-.lab.hover .ic { color: #fff; background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.5); }
-.lab .tx { font-size: 12.5px; font-weight: 700; text-shadow: 0 1px 2px #000; }
-.lab .num { position: absolute; top: -8px; right: 14px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 4px; background: rgba(139, 61, 255, .9); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-.lab.hover { transform: scale(1.12); }
+.lab.pic .ic { width: 60px; height: 60px; border-radius: 14px; padding: 0; background: #1b1830; }
+.lab .ic img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+.lab.hover .ic { color: #fff; background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.75); box-shadow: 0 0 0 2px rgba(255,255,255,.25), 0 6px 18px rgba(0,0,0,.5); }
+.lab .tx { width: 100%; height: 30px; display: flex; align-items: flex-start; justify-content: center; font-size: 12px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 2px #000; overflow: hidden; }
+.lab .num { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 5px; background: #8b3dff; box-shadow: 0 2px 6px rgba(0,0,0,.5); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.lab.hover { transform: translate(-50%, -50%) scale(1.08); }
 .lab.off { opacity: .4; }
 .offer { position: fixed; left: 50%; bottom: 17vh; transform: translateX(-50%); min-width: 340px; padding: 14px 18px 12px; border-radius: 14px; background: rgba(14, 12, 28, .92); border: 1px solid rgba(139, 61, 255, .55); box-shadow: 0 12px 40px rgba(0,0,0,.5); display: none; text-align: center; }
 .offer.show { display: block; animation: fade .2s ease-out; }
@@ -39,8 +41,11 @@ svg { width: 100%; height: 100%; overflow: visible; }
 .offer-bar { margin-top: 10px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; }
 .offer-bar i { display: block; height: 100%; width: 100%; background: var(--acc); }
 
-.labels.many .lab { width: 74px; margin-left: -37px; margin-top: -28px; }
-.labels.many .lab .ic { width: 34px; height: 34px; border-radius: 10px; }
-.labels.many .lab .ic svg { width: 19px; height: 19px; }
-.labels.many .lab .tx { font-size: 10.5px; line-height: 1.1; }
-.labels.many .lab .num { right: 6px; }
+.ring.big { width: 540px; height: 540px; }
+.labels.many .lab { width: 84px; gap: 4px; }
+.labels.many .lab .ic { width: 38px; height: 38px; border-radius: 10px; }
+.labels.many .lab .ic svg { width: 20px; height: 20px; }
+.labels.many .lab.pic .ic { width: 52px; height: 52px; border-radius: 12px; }
+.labels.many .lab .tx { font-size: 10.5px; height: 26px; }
+.labels.few .lab.pic .ic { width: 72px; height: 72px; border-radius: 16px; }
+.labels.few .lab .tx { font-size: 13px; }

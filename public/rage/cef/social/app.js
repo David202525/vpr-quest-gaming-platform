@@ -11,6 +11,9 @@ var offerTimer = null;
 function $(id) { return document.getElementById(id); }
 function trig(name) { if (window.mp && mp.trigger) mp.trigger.apply(null, arguments); }
 
+var IMG = { 'em:handsup': 'handsup', 'em:surrender': 'surrender', 'em:wave': 'wave', 'em:salute': 'salute', 'em:thumbs': 'thumbs', 'em:peace': 'peace', 'em:clap': 'clap', 'em:facepalm': 'facepalm', 'em:shrug': 'shrug', 'em:arms': 'arms', 'em:sit': 'sit', 'em:dance': 'dance', 'sto:body': 'body', 'sto:e': 'engine', 'sto:s': 'susp', 'sto:t': 'tire', 'sto:all': 'all' };
+function imgOf(id) { return IMG[id] || null; }
+
 function pt(r, a) { return [Math.cos(a) * r, Math.sin(a) * r]; }
 function arc(a0, a1) {
     var p1 = pt(R_OUT, a0), p2 = pt(R_OUT, a1), p3 = pt(R_IN, a1), p4 = pt(R_IN, a0);
@@ -30,9 +33,12 @@ function render() {
         html += '<path class="seg' + (it.off ? ' off' : '') + '" data-i="' + i + '" d="' + arc(a0, a1) + '"/>';
         var m = pt((R_IN + R_OUT) / 2, (a0 + a1) / 2);
         var x = 50 + m[0] / 400 * 100, y = 50 + m[1] / 400 * 100;
-        lab += '<div class="lab' + (it.off ? ' off' : '') + '" data-l="' + i + '" style="left:' + x + '%;top:' + (y + 7) + '%"><span class="num">' + (i + 1) + '</span><div class="ic">' + icon(it.ic) + '</div><div class="tx">' + it.t + '</div></div>';
+        var im = imgOf(it.id);
+        lab += '<div class="lab' + (it.off ? ' off' : '') + (im ? ' pic' : '') + '" data-l="' + i + '" style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%"><div class="ic">' + (im ? '<img src="img/' + im + '.jpg">' : icon(it.ic)) + '<span class="num">' + (i + 1) + '</span></div><div class="tx">' + it.t + '</div></div>';
     });
     labels.classList.toggle('many', n > 8);
+    labels.classList.toggle('few', n <= 4);
+    $('ring').classList.toggle('big', n > 8);
     svg.innerHTML = html;
     labels.innerHTML = lab;
     svg.querySelectorAll('.seg').forEach(function (s) {
