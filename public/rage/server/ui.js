@@ -1141,6 +1141,7 @@ setTimeout(function () {
     try { require('./news.js'); } catch (e) { console.log('[ui] news.js: ' + e.message); }
     try { require('./medic.js'); } catch (e) { console.log('[ui] medic.js: ' + e.message); }
     try { require('./ems.js'); } catch (e) { console.log('[ui] ems.js: ' + e.message); }
+    try { require('./service.js'); } catch (e) { console.log('[ui] service.js: ' + e.message); }
 }, 1500);
 if (!global.SocialSystem) {
     try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }
@@ -1165,12 +1166,43 @@ async function vehCols() {
     vehColsOk = true;
     try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(10) NULL'); } catch (e) {}
     try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS dimension INT NOT NULL DEFAULT 0'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS impound INT NOT NULL DEFAULT 0'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS impound_fee INT NOT NULL DEFAULT 0'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS impound_reason VARCHAR(80) NULL'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS wear_e FLOAT NOT NULL DEFAULT 100'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS wear_s FLOAT NOT NULL DEFAULT 100'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS wear_t FLOAT NOT NULL DEFAULT 100'); } catch (e) {}
+}
+setTimeout(function () { vehCols(); }, 4000);
+function spawnRow(r, ownerId, at) {
+    const P = at || { x: r.pos_x, y: r.pos_y, z: r.pos_z, h: r.heading, dim: r.dimension };
+    const v = mp.vehicles.new(mp.joaat(String(r.model)), new mp.Vector3(Number(P.x), Number(P.y), Number(P.z) + 0.3), {
+        heading: Number(P.h) || 0, numberPlate: r.plate, dimension: Number(P.dim) || 0,
+        locked: at ? false : !!Number(r.locked), engine: false
+    });
+    try { v.setColor(Number(r.color1) || 0, Number(r.color2) || 0); } catch (e) {}
+    v.dbId = r.id;
+    v.modelName = String(r.model);
+    v.setVariable('ownerId', ownerId);
+    v.setVariable('fuel', r.fuel === null || r.fuel === undefined ? 100 : Number(r.fuel));
+    if (r.fuel_type) v.setVariable('fuelType', r.fuel_type);
+    const w = [r.wear_e, r.wear_s, r.wear_t].map(function (x) { return x === null || x === undefined ? 100 : Math.round(Number(x) * 10) / 10; });
+    v.setVariable('wear', w.join(','));
+    ownedVeh[r.id] = v;
+    return v;
 }
 function saveVeh(v) {
     if (!v || !mp.vehicles.exists(v) || !v.dbId) return;
+    saveWear(v);
     const pos = v.position;
     q('UPDATE vehicles SET pos_x = ?, pos_y = ?, pos_z = ?, heading = ?, fuel = ?, locked = ?, fuel_type = ? WHERE id = ?',
         [pos.x, pos.y, pos.z, v.heading || 0, Math.round(fuelOf(v)), v.locked ? 1 : 0, v.getVariable('fuelType') || 'ai92', v.dbId]);
+}
+function saveWear(v) {
+    if (!v || !mp.vehicles.exists(v) || !v.dbId) return;
+    const w = String(v.getVariable('wear') || '').split(',').map(Number);
+    if (w.length !== 3 || w.some(function (x) { return !isFinite(x); })) return;
+    q('UPDATE vehicles SET wear_e = ?, wear_s = ?, wear_t = ? WHERE id = ?', [w[0], w[1], w[2], v.dbId]);
 }
 async function loadOwned(p) {
     const id = accId(p);
@@ -1179,31 +1211,25 @@ async function loadOwned(p) {
         if (!p.noHomeChecked) {
             p.noHomeChecked = true;
             const c = await q('SELECT COUNT(*) AS n FROM vehicles WHERE owner_id = ?', [id]);
-            if (mp.players.exists(p) && c[0] && Number(c[0].n) > 0) notify(p, 'warn', NO_HOME_TXT + '. Ваш транспорт (' + c[0].n + ' шт.) появится после этого');
+            if (mp.players.exists(p) && c[0] && Number(c[0].n) > 0) notify(p, 'warn', NO_HOME_TXT + '. Ваш транспорт (' + c[0].n + ' шт.) можно будет забрать со штрафстоянки после этого');
         }
         return;
     }
     p.ownedLoaded = true;
     await vehCols();
-    const rows = await q('SELECT * FROM vehicles WHERE owner_id = ?', [id]);
+    const all = await q('SELECT * FROM vehicles WHERE owner_id = ?', [id]);
+    const rows = all.filter(function (r) { return !Number(r.impound); });
+    const imp = all.length - rows.length;
     rows.forEach(function (r) {
         const cur = ownedVeh[r.id];
         if (cur && mp.vehicles.exists(cur)) { if (cur.despawnAt) cur.despawnAt = 0; return; }
         let exist = null;
         mp.vehicles.forEach(function (v) { if (!exist && String(v.numberPlate || '').trim() === String(r.plate).trim()) exist = v; });
-        if (exist) { exist.dbId = r.id; exist.setVariable('ownerId', id); ownedVeh[r.id] = exist; return; }
+        if (exist) { exist.dbId = r.id; exist.modelName = String(r.model); exist.setVariable('ownerId', id); ownedVeh[r.id] = exist; return; }
         if (r.pos_x === null || r.pos_x === undefined) return;
-        const v = mp.vehicles.new(mp.joaat(String(r.model)), new mp.Vector3(r.pos_x, r.pos_y, r.pos_z + 0.3), {
-            heading: Number(r.heading) || 0, numberPlate: r.plate, dimension: Number(r.dimension) || 0,
-            locked: !!Number(r.locked), engine: false
-        });
-        try { v.setColor(Number(r.color1) || 0, Number(r.color2) || 0); } catch (e) {}
-        v.dbId = r.id;
-        v.setVariable('ownerId', id);
-        v.setVariable('fuel', r.fuel === null || r.fuel === undefined ? 100 : Number(r.fuel));
-        if (r.fuel_type) v.setVariable('fuelType', r.fuel_type);
-        ownedVeh[r.id] = v;
+        spawnRow(r, id, null);
     });
+    if (imp) notify(p, 'warn', 'На штрафстоянке ваш транспорт: ' + imp + ' шт. Заберите его там (метка на карте)');
     if (rows.length) notify(p, 'ok', 'Ваш транспорт на месте: ' + rows.length + ' шт.');
 }
 setInterval(function () {
@@ -1231,9 +1257,12 @@ setInterval(function () {
         p.ownedLoaded = false; p.noHomeChecked = false;
         Object.keys(ownedVeh).forEach(function (k) {
             const v = ownedVeh[k];
-            if (v && mp.vehicles.exists(v) && Number(v.getVariable('ownerId')) === Number(id) && !(v.getOccupants && v.getOccupants().length)) { saveVeh(v); v.destroy(); delete ownedVeh[k]; }
+            if (v && mp.vehicles.exists(v) && Number(v.getVariable('ownerId')) === Number(id) && !(v.getOccupants && v.getOccupants().length)) {
+                if (global.ServiceSystem) global.ServiceSystem.impound(v, 0, 'Владелец остался без жилья');
+                else { saveVeh(v); v.destroy(); delete ownedVeh[k]; }
+            }
         });
-        notify(p, 'warn', 'Вы остались без жилья — ваш транспорт отправлен на хранение');
+        notify(p, 'warn', 'Вы остались без жилья — ваш транспорт отправлен на штрафстоянку. Забрать его можно, когда появится жильё');
     });
 }, 30000);
 mp.events.add('playerExitVehicle', function (p, v) {
@@ -1244,6 +1273,7 @@ mp.events.add('playerExitVehicle', function (p, v) {
     }
     saveVeh(v);
 });
+global.VehStore = { owned: ownedVeh, save: saveVeh, spawn: spawnRow, q: q, cols: vehCols, hasHousing: hasHousing, accId: accId, money: getMoney, bank: getBank, setMB: setMB, tx: function (id, t, a, x) { tx(id, t, a, x); } };
 mp.events.add('playerQuit', function (p) {
     const id = accId(p);
     if (!id) return;

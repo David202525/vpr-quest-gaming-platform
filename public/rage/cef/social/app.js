@@ -30,7 +30,7 @@ function render() {
         html += '<path class="seg' + (it.off ? ' off' : '') + '" data-i="' + i + '" d="' + arc(a0, a1) + '"/>';
         var m = pt((R_IN + R_OUT) / 2, (a0 + a1) / 2);
         var x = 50 + m[0] / 400 * 100, y = 50 + m[1] / 400 * 100;
-        lab += '<div class="lab' + (it.off ? ' off' : '') + '" data-l="' + i + '" style="left:' + x + '%;top:' + (y + 7) + '%"><span class="num">' + (i + 1) + '</span><div class="ic">' + it.ic + '</div><div class="tx">' + it.t + '</div></div>';
+        lab += '<div class="lab' + (it.off ? ' off' : '') + '" data-l="' + i + '" style="left:' + x + '%;top:' + (y + 7) + '%"><span class="num">' + (i + 1) + '</span><div class="ic">' + icon(it.ic) + '</div><div class="tx">' + it.t + '</div></div>';
     });
     labels.classList.toggle('many', n > 8);
     svg.innerHTML = html;
@@ -101,6 +101,7 @@ window.intClose = function () {
     sum.blur();
 };
 
+$('offerIco').innerHTML = icon('🤝');
 window.offerShow = function (text, ms) {
     $('offerTxt').textContent = text;
     var o = $('offer');

@@ -27,3 +27,4 @@ require('./points/index.js');
 require('./clothes/index.js');
 require('./doors/index.js');
 require('./taxi/index.js');
+require('./service/index.js');

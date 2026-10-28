@@ -305,7 +305,8 @@ mp.events.add('srv:lic:punish', function (p, tid, kind) {
         if (!v || !mp.vehicles.exists(v) || v.position.subtract(p.position).length() > 25) return notify(p, 'warn', 'Машина нарушителя не найдена рядом');
         if (v.getOccupants && v.getOccupants().length) return notify(p, 'warn', 'В машине кто-то есть');
         if (GF && GF.autoFine) GF.autoFine(t, cats.length ? PENALTY.nocat : PENALTY.nolic, why, nick(p));
-        try { v.engine = false; v.position = new mp.Vector3(v.spawnPos ? v.spawnPos.x : 409.0, v.spawnPos ? v.spawnPos.y : -1623.0, v.spawnPos ? v.spawnPos.z : 29.3); } catch (e) {}
+        if (v.dbId && global.ServiceSystem) global.ServiceSystem.impound(v, 1500, why);
+        else { try { v.engine = false; v.position = new mp.Vector3(v.spawnPos ? v.spawnPos.x : 409.0, v.spawnPos ? v.spawnPos.y : -1623.0, v.spawnPos ? v.spawnPos.z : 29.3); } catch (e) {} }
         notify(t, 'error', 'Ваш транспорт эвакуирован на штрафстоянку + штраф');
         say('вызывает эвакуатор для транспорта ' + nick(t));
     } else if (kind === 'wanted') {

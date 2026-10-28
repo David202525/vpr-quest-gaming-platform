@@ -148,6 +148,7 @@ function intShow(who, items) {
     mp.gui.chat.activate(false);
     mp.gui.cursor.show(true, true);
 }
+global.intShowG = function (who, items) { intTarget = null; intSolo = true; intShow(who, items); };
 function whoOf(t) { return titleOf(t) + ' · #' + sidOf(t); }
 function intOpenEmotes() {
     intSolo = !intTarget;
@@ -234,6 +235,8 @@ mp.events.add('cef:int:close', intClose);
 mp.events.add('cef:int:pick', function (id, arg) {
     var t = intTarget;
     id = String(id);
+    if (id.indexOf('sto:') === 0) { intClose(); if (id !== 'sto:x') mp.events.callRemote('srv:sto:pick', id.slice(4)); return; }
+    if (id.indexOf('imp:') === 0) { intClose(); if (id !== 'imp:x') mp.events.callRemote('srv:imp:take', id.slice(4)); return; }
     if (id.indexOf('em:') === 0) { intClose(); mp.events.callRemote('srv:emote', id.slice(3)); return; }
     if (id === 'back') { intClose(); if (t && mp.players.exists(t)) intOpenMenu(); return; }
     if (id === 'emotes') { intOpenEmotes(); return; }
