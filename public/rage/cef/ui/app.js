@@ -1183,7 +1183,7 @@ function renderAtm() {
     } else if (v === 'biz' || v === 'bizinfo' || v === 'info') {
         var A = d.atm;
         if (A.own) h = '<div class="as-menu"><h3>🏧 ' + esc(A.name) + '</h3><div class="biz-g"><div><small>Касса</small><b>' + money(A.balance) + '</b></div><div><small>Заработано всего</small><b>' + money(A.earned) + '</b></div><div><small>Комиссия</small><b>' + A.fee + '%</b></div></div>' + atmMsg() +
-            '<div class="as-row">' + atmBtn('fee-', '− 0.5%') + atmBtn('fee+', '+ 0.5%') + atmBtn('collect', 'Забрать доход', 'pri') + '</div><div class="as-row">' + atmBtn('back', 'Назад') + atmBtn('sell', 'Продать гос-ву (60%)', 'dan') + '</div></div>';
+            '<div class="as-row">' + atmBtn('fee-', '− 0.5%') + atmBtn('fee+', '+ 0.5%') + atmBtn('collect', 'Забрать доход', 'pri') + '</div><div class="as-row">' + atmBtn('back', 'Назад') + '</div></div>';
         else if (A.forSale) h = '<div class="as-menu"><h3>🏷 Банкомат продаётся</h3><p class="as-p">Владелец получает комиссию с каждого снятия наличных (0–5%, настраивается). Деньги копятся в кассе, их можно забрать на карту.</p><div class="biz-g"><div><small>Цена</small><b>' + money(A.price) + '</b></div><div><small>Ваша карта</small><b>' + money(d.bank) + '</b></div></div>' + atmMsg() +
             '<div class="as-row">' + atmBtn('back', 'Назад') + (d.auth ? atmBtn('buy', 'Купить', 'pri') : '') + '</div>' + (d.auth ? '' : '<p class="as-p">Вставьте карту и введите PIN, чтобы купить.</p>') + '</div>';
         else h = '<div class="as-menu"><h3>ℹ ' + esc(A.name) + '</h3><p class="as-p">Владелец: <b>' + esc(A.ownerName || '—') + '</b><br>Комиссия за снятие: <b>' + A.fee + '%</b></p><div class="as-row">' + atmBtn('back', 'Назад') + '</div></div>';
@@ -1299,9 +1299,7 @@ function renderBiz() {
                 (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '<button class="bz-btn" data-save="' + s.k + '">Сохранить</button></div>';
         }).join('') +
             '<div class="bz-set"><label>Название бизнеса</label><div class="bz-row"><input class="bz-in" id="bzName" value="' + esc(d.name) + '" maxlength="32"><button class="bz-btn" data-ba="rename">Переименовать</button></div></div>' +
-            '<div class="bz-set danger"><label>Продать государству</label>' +
-            '<div class="bz-sell"><div><small>Гос. стоимость</small><b>' + money(d.sell.price) + '</b></div><div class="neg"><small>Налог в казну ' + d.sell.rate + '%</small><b>−' + money(d.sell.tax) + '</b></div><div><small>Касса</small><b>+' + money(d.balance) + '</b></div><div class="tot"><small>Вы получите</small><b>' + money(d.sell.get) + '</b></div></div>' +
-            '<small>Деньги придут на банковскую карту. Действие необратимо.</small><button class="bz-btn dan" data-ba="sell">Продать бизнес</button></div>';
+            '<div class="bz-set"><label>Продажа бизнеса</label><small>Продать бизнес можно только через агентство недвижимости — выставите его на аукцион там.</small></div>';
     } else if (BZ.tab === 'log') {
         body = '<div class="bz-list">' + (d.log && d.log.length ? d.log.map(function (x) {
             return '<div class="bz-li"><span>' + esc(x.text) + '</span><small>' + esc(x.d) + '</small>' + (x.a ? '<em class="' + (x.a > 0 ? 'o' : 'e') + '">' + (x.a > 0 ? '+' : '−') + money(Math.abs(x.a)) + '</em>' : '<em></em>') + '</div>';

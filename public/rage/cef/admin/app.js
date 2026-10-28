@@ -350,6 +350,10 @@ function renderServer() {
     $('weatherList').innerHTML = WEATHER.map(function (w) {
         return '<button class="chip' + (D.weather === w[0] ? ' active' : '') + '" data-weather="' + w[0] + '">' + w[1] + '</button>';
     }).join('');
+    var sn = D.snow || {};
+    $('snowList').innerHTML = [['ground', '❄ Снег на земле'], ['fall', '🌨 Снегопад']].map(function (x) {
+        return '<button class="chip' + (sn[x[0]] ? ' active' : '') + '" data-snow="' + x[0] + '">' + x[1] + (sn[x[0]] ? ' · вкл' : ' · выкл') + '</button>';
+    }).join('');
 }
 
 function spawnVeh(model, dlc) {
@@ -413,6 +417,7 @@ document.addEventListener('click', function (e) {
         return modal('Разбан', lg, '<p class="hint">Игрок снова сможет зайти на сервер.</p>', 'Разбанить', function () { act({ action: 'unban', login: lg }); });
     }
     if (t.dataset.weather) return act({ action: 'weather', weather: t.dataset.weather });
+    if (t.dataset.snow) { var on = !(D.snow && D.snow[t.dataset.snow]); D.snow = D.snow || {}; D.snow[t.dataset.snow] = on; renderServer(); return act({ action: 'snow', k: t.dataset.snow, on: on }); }
     if (t.dataset.act) return act({ action: t.dataset.act });
 });
 

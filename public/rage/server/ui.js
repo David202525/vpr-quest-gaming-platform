@@ -1555,7 +1555,8 @@ mp.events.add('srv:atm:biz', async function (p, act, val) {
         await q('UPDATE atms SET fee = ? WHERE id = ?', [f, a.id]);
         return sendAtm(p, a, { ok: 'Комиссия: ' + f + '%' });
     }
-    if (act === 'sell') {
+    if (act === 'sell') return sendAtm(p, a, { err: 'Продажа бизнеса — только через агентство недвижимости' });
+    if (act === 'sell_old') {
         if (global.Realty && global.Realty.locked('biz', 'atm:' + a.id)) return sendAtm(p, a, { err: 'Банкомат выставлен на аукцион' });
         const qt = sellQuote(a);
         a.owner = null; a.ownerName = null; a.balance = 0;
@@ -2473,7 +2474,8 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
         bizLog('fuel', b.id, 'Заказ топлива ' + l + ' л (' + from + ')', -cost);
         return reply({ ok: 'Заказ ' + l + ' л оформлен. Доставка до 6 минут' });
     }
-    if (act === 'sell') {
+    if (act === 'sell') return reply({ err: 'Продажа бизнеса — только через агентство недвижимости' });
+    if (act === 'sell_old') {
         if (global.Realty && global.Realty.locked('biz', kind + ':' + b.id)) return reply({ err: 'Бизнес выставлен на аукцион — продать государству нельзя' });
         const qt = sellQuote(b);
         b.owner = null; b.ownerName = null; b.balance = 0;

@@ -619,6 +619,7 @@ function panelData(p) {
         logs: can(p, 'logs') ? logs.slice(0, 400) : [],
         dlc: dlc,
         weather: mp.world.weather,
+        snow: SNOW,
         shops: global.ShopSystem ? global.ShopSystem.list().map(function (a) { return { id: a.id, kind: a.kind, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
         gov: global.GovSystem ? global.GovSystem.get() : null,
         stations: global.FuelSystem ? global.FuelSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
@@ -730,6 +731,11 @@ mp.events.add('srv:adm:act', function (p, json) {
         toast(p, 'Выдано $' + sum, true);
     }
     else if (a === 'sethp') { t.health = Math.max(0, Math.min(100, Number(d.hp) || 100)); log(p, 'sethp', login(t), String(d.hp)); toast(p, 'HP изменено', true); }
+    else if (a === 'snow') {
+        SNOW[d.k === 'fall' ? 'fall' : 'ground'] = !!d.on; snowSave(); snowAll();
+        log(p, 'snow', '-', (d.k === 'fall' ? 'снегопад ' : 'снег ') + (d.on ? 'вкл' : 'выкл'));
+        toast(p, (d.k === 'fall' ? 'Снегопад ' : 'Снег на земле ') + (d.on ? 'включён' : 'выключен'), true);
+    }
     else if (a === 'weather') { mp.world.weather = String(d.weather || 'CLEAR'); log(p, 'weather', '-', d.weather); toast(p, 'Погода: ' + d.weather, true); }
     else if (a === 'time') { const h = Number(d.hour) || 12; CLOCK.hold = Date.now() + 30 * 60000; mp.world.time.set(h, 0, 0); log(p, 'time', '-', h + ':00'); toast(p, 'Время: ' + h + ':00', true); }
     else if (a === 'announce') {
@@ -1102,6 +1108,20 @@ cmd('weather', 'weather', '/weather [CLEAR/RAIN/THUNDER/FOGGY/SNOW/EXTRASUNNY]',
     if (!a[0]) return msg(p, u);
     mp.world.weather = a[0].toUpperCase();
     staff(login(p) + ' сменил погоду: ' + a[0].toUpperCase());
+});
+
+/* ---- снег ---- */
+const SNOW_FILE = path.join(__dirname, 'snow.json');
+let SNOW = { ground: false, fall: false };
+try { SNOW = Object.assign(SNOW, JSON.parse(fs.readFileSync(SNOW_FILE, 'utf8'))); } catch (e) {}
+function snowSave() { try { fs.writeFileSync(SNOW_FILE, JSON.stringify(SNOW)); } catch (e) {} }
+function snowAll() { mp.players.forEach(function (x) { x.call('world:snow', [!!SNOW.ground, !!SNOW.fall]); }); }
+mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) p.call('world:snow', [!!SNOW.ground, !!SNOW.fall]); }, 2000); });
+cmd('snow', 'weather', '/snow [ground/fall] [on/off]', function (p, a, u) {
+    const k = String(a[0] || '').toLowerCase(), v = String(a[1] || '').toLowerCase();
+    if ((k !== 'ground' && k !== 'fall') || (v !== 'on' && v !== 'off')) return msg(p, u);
+    SNOW[k] = v === 'on'; snowSave(); snowAll();
+    staff(login(p) + (k === 'fall' ? ' снегопад: ' : ' снег на земле: ') + (SNOW[k] ? 'вкл' : 'выкл'));
 });
 
 /* ---- смена дня и ночи по реальному времени (МСК) ---- */

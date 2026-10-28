@@ -181,3 +181,26 @@ mp.events.add('render', function () {
     mp.game.streaming.setFocusArea(nx, ny, nz, 0, 0, 0);
     mp.game.graphics.drawText('ПОЛЁТ  x' + mFlySpeed.toFixed(1) + '   /fly или Backspace — выход и возврат на место', [0.5, 0.94], { font: 4, color: [217, 59, 200, 230], scale: [0.4, 0.4], outline: true });
 });
+
+var snowG = false, snowF = false, snowWas = false;
+function snowApply() {
+    var on = snowG || snowF;
+    try {
+        mp.game.invoke('0x4CC7F0FEA5283FE0', snowG);
+        mp.game.invoke('0xAEEDAD1420C65CC0', snowG);
+    } catch (e) {}
+    if (on) {
+        if (mediaRole && mediaWeather) return;
+        var w = snowG && snowF ? 'XMAS' : snowG ? 'XMAS' : 'SNOWLIGHT';
+        try {
+            mp.game.invoke('0xED712CA327900C8A', w);
+            if (snowG && snowF) mp.game.invoke('0x578C752848ECFA0C', mp.game.joaat('XMAS'), mp.game.joaat('BLIZZARD'), 0.45);
+        } catch (e) {}
+        snowWas = true;
+    } else if (snowWas) {
+        snowWas = false;
+        try { mp.game.invoke('0xCCC39339BEF76CF5'); } catch (e) {}
+    }
+}
+mp.events.add('world:snow', function (g, f) { snowG = !!g; snowF = !!f; snowApply(); });
+setInterval(snowApply, 1500);
