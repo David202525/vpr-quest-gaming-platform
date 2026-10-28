@@ -1,3 +1,6 @@
+const fs = require('fs');
+const COL_FILE = require('path').join(__dirname, 'jobs2_data.json');
+const X = (function () { try { return JSON.parse(fs.readFileSync(COL_FILE, 'utf8')) || {}; } catch (e) { return {}; } })();
 function J() { return global.JobSystem; }
 function notify(p, t, x) { if (typeof global.hudNotify === 'function') global.hudNotify(p, t, x); else p.outputChatBox(x); }
 function d2(a, x, y) { return Math.hypot(a.x - x, a.y - y); }
@@ -71,6 +74,25 @@ const BINS = [
     [-112.4, -1777.6, 29.8], [-205.9, -1686.6, 34.0], [-259.6, -1503.6, 31.6], [-198.4, -1384.2, 31.3], [-37.8, -1393.0, 29.3]
 ];
 const GARB_LOAD = 8;
+function bins() { return X.bins && X.bins.length >= GARB_LOAD ? X.bins : BINS; }
+mp.events.add('srv:job:binfix', function (p, x, y, z) {
+    const s = p.job;
+    if (!s || s.id !== 'garbage' || !s.pt || s.load >= GARB_LOAD) return;
+    x = Number(x); y = Number(y); z = Number(z);
+    if (!isFinite(x) || Math.hypot(s.pt[0] - x, s.pt[1] - y) > 50) return;
+    s.fix = [x, y, z];
+});
+mp.events.addCommand('garbbin', function (p, full) {
+    if (!global.AdminSystem || global.AdminSystem.realLvl(p) < 5) return;
+    const a = String(full || '').trim().toLowerCase();
+    if (!X.bins) X.bins = [];
+    if (a === 'add') X.bins.push([p.position.x, p.position.y, p.position.z]);
+    else if (a === 'del') { let bi = -1, bd = 5; X.bins.forEach(function (b, i) { const d = d2(p.position, b[0], b[1]); if (d < bd) { bd = d; bi = i; } }); if (bi < 0) return notify(p, 'warn', 'Рядом нет сохранённых баков'); X.bins.splice(bi, 1); }
+    else if (a === 'reset') X.bins = [];
+    else return p.outputChatBox('!{#ffcc66}/garbbin add — встаньте у мусорки · /garbbin del · /garbbin reset. Своих баков: ' + X.bins.length + ' (нужно от ' + GARB_LOAD + ', иначе стандартные)');
+    fs.writeFile(COL_FILE, JSON.stringify(X), function () {});
+    notify(p, 'ok', 'Баков в маршруте: ' + X.bins.length + (X.bins.length < GARB_LOAD ? ' — пока используются стандартные (нужно ' + GARB_LOAD + '+)' : ''));
+});
 function garbDef() {
     return {
         n: 'Мусоровоз', i: '🗑️', lvl: 0, lv: GARB_LV, minLvl: 4,
@@ -100,14 +122,15 @@ function garbDef() {
                 return garbNext(p, s);
             }
             if (p.vehicle) return notify(p, 'warn', 'Выйдите из машины и подойдите к баку');
-            if (!s.pt || d2(p.position, s.pt[0], s.pt[1]) > 3) return;
+            const bp = s.fix || s.pt;
+            if (!bp || d2(p.position, bp[0], bp[1]) > 3.5) return;
             if (!s.veh || !mp.vehicles.exists(s.veh) || d2(s.veh.position, p.position.x, p.position.y) > 25) return notify(p, 'warn', 'Мусоровоз слишком далеко');
             s.busy = true;
             p.call('job:anim', ['box', 0]);
             setTimeout(function () {
                 if (!mp.players.exists(p) || p.job !== s) return;
                 p.call('job:anim', ['put', 1200]);
-                s.busy = false; s.load++; s.sum += rnd(18, 26); s.done.push(s.pt);
+                s.busy = false; s.load++; s.sum += rnd(18, 26); s.done.push(s.pt); s.fix = null;
                 J().addXp(p, 'garbage', 1);
                 notify(p, 'ok', 'Мешок в кузове: ' + s.load + '/' + GARB_LOAD);
                 garbNext(p, s);
@@ -121,11 +144,12 @@ function garbNext(p, s) {
         p.call('job:point', [GARB_DUMP[0], GARB_DUMP[1], GARB_DUMP[2], 4, 'Свалка — выгрузить (E)', 'drop', 'fixed']);
         return J().quest(p, 'Мусоровоз', ['Кузов полон: ' + s.load + '/' + GARB_LOAD, 'Езжайте на свалку и нажмите E у метки']);
     }
-    const left = BINS.filter(function (b) { return s.done.indexOf(b) < 0; });
+    s.fix = null;
+    const left = bins().filter(function (b) { return s.done.indexOf(b) < 0; });
     const from = s.veh && mp.vehicles.exists(s.veh) ? s.veh.position : p.position;
     left.sort(function (a, b) { return d2(from, a[0], a[1]) - d2(from, b[0], b[1]); });
     s.pt = left[Math.min(left.length - 1, Math.floor(Math.random() * 3))];
-    p.call('job:point', [s.pt[0], s.pt[1], s.pt[2], 1.6, 'Мусорный бак (E)', 'pick', '']);
+    p.call('job:point', [s.pt[0], s.pt[1], s.pt[2], 2.2, 'Мусорный бак (E)', 'pick', 'bin']);
     J().quest(p, 'Мусоровоз', ['Кузов: ' + s.load + '/' + GARB_LOAD, 'Подъедьте к баку, выйдите и нажмите E']);
 }
 
@@ -139,9 +163,6 @@ const ATMS = [
     ['Blaine County Savings', -112.2, 6469.3, 31.6], ['Банкомат Del Perro', -1305.5, -706.4, 25.3], ['Банкомат Vinewood', 236.6, 219.0, 106.3],
     ['Банкомат Mirror Park', 1138.3, -468.9, 66.7], ['Банкомат Sandy', 1968.0, 3743.6, 32.3], ['Банкомат Chumash', -3240.5, 997.6, 12.6]
 ];
-const fs = require('fs');
-const COL_FILE = require('path').join(__dirname, 'jobs2_data.json');
-const X = (function () { try { return JSON.parse(fs.readFileSync(COL_FILE, 'utf8')) || {}; } catch (e) { return {}; } })();
 function colCar() { return X.colCar || COL_CAR; }
 mp.events.addCommand('setcolcar', function (p, full) {
     if (!global.AdminSystem || global.AdminSystem.realLvl(p) < 5) return;

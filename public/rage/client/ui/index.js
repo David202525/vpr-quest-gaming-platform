@@ -548,7 +548,8 @@ mp.events.add('job:point', function (x, y, z, r, label, kind, extra) {
     jobPt = { x: x, y: y, z: z, r: r, label: label, kind: kind, gz: 0 };
     if (kind === 'drop' && extra === 'snap') setTimeout(function () { jobSnapDrop(x, y, z); }, 50);
     jobPlantClear();
-    if (kind === 'pick' && extra) {
+    if (kind === 'pick' && extra === 'bin') { jobPt.bin = 1; jobPt.ox = x; jobPt.oy = y; }
+    if (kind === 'pick' && extra && extra !== 'bin') {
         try {
             var gz = mp.game.gameplay.getGroundZFor3dCoord(x, y, z + 2, 0, false);
             jobPlant = mp.objects.new(mp.game.joaat(extra), new mp.Vector3(x, y, (gz > 0 ? gz : z - 1)), { dimension: mp.players.local.dimension });
@@ -560,6 +561,28 @@ mp.events.add('job:point', function (x, y, z, r, label, kind, extra) {
     try { jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {}
 });
 
+var BIN_MODELS = ['prop_dumpster_01a', 'prop_dumpster_02a', 'prop_dumpster_02b', 'prop_dumpster_3a', 'prop_dumpster_4a', 'prop_dumpster_4b', 'prop_cs_dumpster_01a', 'p_dumpster_t', 'prop_snow_dumpster_01', 'prop_bin_14a', 'prop_bin_14b', 'prop_bin_07a', 'prop_bin_07b', 'prop_bin_08a'].map(function (n) { return mp.game.joaat(n); });
+setInterval(function () {
+    if (!jobPt || !jobPt.bin || jobPt.snapped) return;
+    var me = mp.players.local.position;
+    if (Math.hypot(me.x - jobPt.ox, me.y - jobPt.oy) > 140) return;
+    var best = null, bd = 1e9;
+    for (var i = 0; i < BIN_MODELS.length; i++) {
+        var h = 0;
+        try { h = mp.game.object.getClosestObjectOfType(jobPt.ox, jobPt.oy, jobPt.z, 45, BIN_MODELS[i], false, false, false); } catch (e) {}
+        if (!h) continue;
+        var c = null;
+        try { c = mp.game.entity.getCoords ? mp.game.entity.getCoords(h, true) : mp.game.invokeVector3('0x3FEF770D40960D5A', h, true); } catch (e) {}
+        if (!c) continue;
+        var d = Math.hypot(c.x - jobPt.ox, c.y - jobPt.oy);
+        if (d < bd) { bd = d; best = c; }
+    }
+    jobPt.snapped = 1;
+    if (!best) return;
+    jobPt.x = best.x; jobPt.y = best.y; jobPt.z = best.z + 1; jobPt.gz = 0;
+    if (jobBlip) { try { jobBlip.setCoords(new mp.Vector3(best.x, best.y, best.z)); jobBlip.setRoute(true); jobBlip.setRouteColour(5); } catch (e) {} }
+    mp.events.callRemote('srv:job:binfix', best.x, best.y, best.z + 1);
+}, 1000);
 mp.events.add('job:state', function (s) {
     if (s) return;
     jobPt = null;
