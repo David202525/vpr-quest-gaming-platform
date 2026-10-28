@@ -10,6 +10,8 @@ mp.events.add('cef:chat:state', function (on) {
     else mp.gui.cursor.show(false, false);
 });
 
+global.chatForceClose = function () { global.chatOpen = false; try { chatBrowser.execute('window.chatAPI && window.chatAPI.close && window.chatAPI.close();'); } catch (e) {} };
+
 global.chatReady = false;
 var chatLockState = null;
 mp.events.add('auth:hide', function () { setTimeout(function () { global.chatReady = true; }, 500); });

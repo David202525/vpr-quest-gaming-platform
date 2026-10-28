@@ -159,6 +159,7 @@ list.addEventListener('mouseup', function () {
 var chatAPI = {
     push: push,
     clear: function () { list.innerHTML = ''; },
+    close: function () { setActive(false); },
     lock: function (on) {
         locked = !!on;
         if (locked) setActive(false);

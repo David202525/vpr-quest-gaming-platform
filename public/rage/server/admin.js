@@ -52,7 +52,7 @@ const PERM = {
     getpos: 2, announce: 2, ochat: 2, gate: 2, tow: 2, hideprefix: 1, arespawn: 2,
     kick: 3, mute: 3, unmute: 3, warn: 3, demorgan: 3, unjail: 3, setname: 3, goto: 3, tp: 3, bring: 3, tpto: 3, freeze: 3, unfreeze: 3, slap: 3, flytp: 3,
     plate: 3, takelic: 3, fixveh: 3, fix: 3, setdim: 3, heal: 3, revive: 3, gm: 3, invis: 3, tpc: 3, dv: 3,
-    eject: 4, respawnpub: 4, ban: 4, offban: 4, jetpack: 4, mapping: 4, mp: 4, veh: 4, weather: 4, time: 4, dvall: 4,
+    eject: 4, respawnpub: 4, ban: 4, offban: 4, jetpack: 4, mapping: 4, mp: 4, veh: 4, weather: 4, snow: 4, time: 4, dvall: 4,
     respawngov: 5, fleet: 5, fweapons: 5, leader: 5, ochs: 5,
     sethp: 6, armour: 6, flylist: 6, flywatch: 6, screen: 6, tpcar: 6, givecar: 6, vehdlc: 6, adddlc: 6, deldlc: 6, giveweapon: 6, adminidle: 6, banlist: 6, hpmarker: 6, traffic: 6, gov: 6,
     unban: 7, console: 7, nickhistory: 7, bankcheck: 7, admtoggle: 7, permban: 7, skin: 7, greenzone: 7,

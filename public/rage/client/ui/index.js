@@ -108,6 +108,7 @@ mp.keys.bind(0x78, false, function () {
         freeCursor = false; uiTyping = false;
         mp.gui.cursor.show(false, false);
         mp.gui.chat.activate(true);
+        setTimeout(cursorUnstick, 150);
         return;
     }
     if (!uiReady) return;
@@ -120,7 +121,26 @@ mp.keys.bind(0x1B, false, function () {
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (jobMenuOpen) { jobMenuClose(); return; }
     if (mp.gui.cursor.visible) { freeCursor = false; uiTyping = false; mp.gui.cursor.show(false, false); mp.gui.chat.activate(true); }
+    setTimeout(cursorUnstick, 150);
 });
+function cursorUnstick() {
+    if (!mp.gui.cursor.visible || uiOpen || deadState || jobMenuOpen || freeCursor) return;
+    if (typeof admOpen !== 'undefined' && admOpen) return;
+    if (typeof banBrowser !== 'undefined' && banBrowser) return;
+    if (global.authOpen || global.creatorOpen || global.introOpen || global.gateEditOpen) return;
+    if (global.houseMenuOpen && global.houseMenuOpen()) return;
+    if (global.mediaOpen && global.mediaOpen()) return;
+    if (global.questDlgOpen && global.questDlgOpen()) return;
+    if (global.radioPanelOpen && global.radioPanelOpen()) return;
+    if (global.govMenuOpen && global.govMenuOpen()) return;
+    if (global.intOpen && global.intCloseG) { global.intCloseG(); }
+    global.intOpen = false;
+    if (global.chatOpen && global.chatForceClose) global.chatForceClose();
+    jobSorting = false;
+    mp.gui.cursor.show(false, false);
+    mp.gui.chat.activate(true);
+}
+global.cursorUnstickG = cursorUnstick;
 
 mp.events.add('render', function () {
     if (uiOpen || freeCursor) {

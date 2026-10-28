@@ -66,6 +66,7 @@ function nearest() {
     return best;
 }
 
+global.intCloseG = function () { intClose(); };
 function intClose() {
     if (!global.intOpen) return;
     global.intOpen = false;
