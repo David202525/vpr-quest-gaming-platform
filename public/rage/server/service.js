@@ -35,6 +35,7 @@ const REPAIR_K = 0.08, MIN_REPAIR = 150;
 const WEAR_K = { e: 0.05, s: 0.025, t: 0.015 };
 const WEAR_N = { e: 'Двигатель', s: 'Подвеска', t: 'Колёса и шины' };
 const IMP_BASE = 500;
+const EVAC_COST = 300;
 
 function notify(p, t, x) { if (typeof global.hudNotify === 'function') global.hudNotify(p, t, x); else p.outputChatBox(x); }
 function money(n) { return '$' + String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
@@ -162,12 +163,13 @@ mp.events.add('srv:imp:open', async function (p) {
     const U = VS(), id = sid(p);
     if (!U || !id) return;
     await U.cols();
-    const rows = await U.q('SELECT id, model, plate, impound_fee, impound_reason FROM vehicles WHERE owner_id = ? AND impound = 1 ORDER BY id LIMIT 11', [id]);
+    const rows = await U.q('SELECT id, model, plate, impound, impound_fee, impound_reason FROM vehicles WHERE owner_id = ? ORDER BY impound DESC, id LIMIT 11', [id]);
     if (!mp.players.exists(p)) return;
-    if (!rows.length) return notify(p, 'ok', 'На штрафстоянке нет вашего транспорта');
+    if (!rows.length) return notify(p, 'ok', 'У вас нет личного транспорта');
     const items = rows.map(function (r) {
-        const cost = IMP_BASE + (Number(r.impound_fee) || 0);
-        return { id: 'imp:' + r.id, t: String(r.model) + ' ' + r.plate + ' · ' + money(cost), ic: '🚘', d: (r.impound_reason || 'Эвакуирован') + '. Забрать за ' + money(cost) };
+        const imp = !!Number(r.impound);
+        const cost = imp ? IMP_BASE + (Number(r.impound_fee) || 0) : EVAC_COST;
+        return { id: 'imp:' + r.id, t: String(r.model) + ' ' + r.plate + ' · ' + money(cost), ic: imp ? '🚚' : '🚘', d: imp ? (r.impound_reason || 'Эвакуирован') + '. Забрать за ' + money(cost) : 'Не на штрафстоянке. Пригнать сюда за ' + money(cost) };
     });
     items.push({ id: 'imp:x', t: 'Отмена', ic: '✖️', d: 'Закрыть меню' });
     p.call('svc:menu', ['Штрафстоянка', JSON.stringify(items)]);
@@ -178,11 +180,26 @@ mp.events.add('srv:imp:take', async function (p, vid) {
     const U = VS(), id = sid(p);
     if (!U || !id) return;
     if (!U.hasHousing(p)) return notify(p, 'error', 'Без жилья забрать транспорт нельзя. Купите дом, квартиру или снимите номер в гостинице');
-    const r = (await U.q('SELECT * FROM vehicles WHERE id = ? AND owner_id = ? AND impound = 1 LIMIT 1', [Number(vid), id]))[0];
+    const r = (await U.q('SELECT * FROM vehicles WHERE id = ? AND owner_id = ? LIMIT 1', [Number(vid), id]))[0];
     if (!r || !mp.players.exists(p)) return;
-    const cost = IMP_BASE + (Number(r.impound_fee) || 0);
+    const imp = !!Number(r.impound);
+    let old = U.owned[r.id];
+    if (!old || !mp.vehicles.exists(old)) { old = null; mp.vehicles.forEach(function (x) { if (!old && String(x.numberPlate || '').trim() === String(r.plate).trim()) old = x; }); }
+    if (old && !old.dbId) old.dbId = r.id;
+    if (old && mp.vehicles.exists(old)) {
+        if (old.getOccupants && old.getOccupants().length) return notify(p, 'error', 'В этой машине кто-то сидит — пригнать её нельзя');
+        if (d2(old.position, impSpawn()) < 15) return notify(p, 'ok', 'Машина уже стоит на площадке штрафстоянки');
+    }
+    const cost = imp ? IMP_BASE + (Number(r.impound_fee) || 0) : EVAC_COST;
     if (!pay(p, cost, 'Штрафстоянка: ' + r.plate)) return;
-    await U.q('UPDATE vehicles SET impound = 0, impound_fee = 0, impound_reason = NULL WHERE id = ?', [r.id]);
+    if (old && mp.vehicles.exists(old)) {
+        U.save(old);
+        const f = (await U.q('SELECT fuel FROM vehicles WHERE id = ? LIMIT 1', [r.id]))[0];
+        if (f) r.fuel = f.fuel;
+        delete U.owned[r.id];
+        try { old.destroy(); } catch (e) {}
+    }
+    if (imp) await U.q('UPDATE vehicles SET impound = 0, impound_fee = 0, impound_reason = NULL WHERE id = ?', [r.id]);
     const sp = impSpawn();
     let busy = false;
     mp.vehicles.forEach(function (x) { if (d2(x.position, sp) < 3) busy = true; });
@@ -192,7 +209,7 @@ mp.events.add('srv:imp:take', async function (p, vid) {
     v.setVariable('fuel', Math.max(15, Number(r.fuel) || 0));
     U.save(v);
     p.call('svc:gps', [at.x, at.y, at.z]);
-    notify(p, 'ok', 'Транспорт ' + r.plate + ' выдан за ' + money(cost) + '. Он стоит на площадке рядом');
+    notify(p, 'ok', 'Транспорт ' + r.plate + (imp ? ' выдан' : ' пригнан') + ' за ' + money(cost) + '. Он стоит на площадке рядом');
 });
 
 mp.events.add('vehicleDeath', function (v) {

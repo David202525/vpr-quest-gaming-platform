@@ -39,7 +39,7 @@ mp.events.add('render', function () {
         var i = SV.imp, ix = p.x - i.x, iy = p.y - i.y;
         if (ix * ix + iy * iy < 900) {
             mp.game.graphics.drawMarker(1, i.x, i.y, i.z - 1, 0, 0, 0, 0, 0, 0, 1.4, 1.4, 0.4, 255, 90, 90, 120, false, false, 2, false, null, null, false);
-            if (ix * ix + iy * iy < 16) mp.game.graphics.drawText('Штрафстоянка · E — забрать транспорт', [i.x, i.y, i.z + 0.4], { font: 4, color: [255, 140, 140, 235], scale: [0.4, 0.4], outline: true, centre: true });
+            if (ix * ix + iy * iy < 16) mp.game.graphics.drawText('Штрафстоянка · E — забрать / пригнать транспорт', [i.x, i.y, i.z + 0.4], { font: 4, color: [255, 140, 140, 235], scale: [0.4, 0.4], outline: true, centre: true });
         }
     }
 });
@@ -50,7 +50,7 @@ setInterval(function () {
     if (v && v.getPedInSeat(-1) === me.handle) SV.sto.forEach(function (s) { if (mp.game.system.vdist(p.x, p.y, p.z, s.x, s.y, s.z) < 9) svNearSto = s; });
     svNearImp = !v && SV.imp && mp.game.system.vdist(p.x, p.y, p.z, SV.imp.x, SV.imp.y, SV.imp.z) < 3;
     var h = svNearSto ? 'sto' + svNearSto.id : svNearImp ? 'imp' : '';
-    if (h && h !== svHint) svNotify('ok', svNearSto ? 'СТО: нажмите E — диагностика и ремонт' : 'Штрафстоянка: нажмите E — забрать транспорт');
+    if (h && h !== svHint) svNotify('ok', svNearSto ? 'СТО: нажмите E — диагностика и ремонт' : 'Штрафстоянка: нажмите E — забрать или пригнать свой транспорт');
     svHint = h;
 }, 400);
 
