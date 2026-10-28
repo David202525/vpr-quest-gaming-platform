@@ -114,3 +114,56 @@ window.bench = function (j) {
     $('cl').onclick = function () { trig('cef:crime:close'); };
 };
 document.addEventListener('keydown', function (e) { if (e.keyCode === 27) trig('cef:crime:close'); });
+
+var CP = null, CPsel = -1, CPdef = '';
+function cpLeft(s) { return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+window.capt = function (j) {
+    CP = typeof j === 'string' ? JSON.parse(j) : j;
+    if (CPsel >= 0 && !CP.z[CPsel]) CPsel = -1;
+    cpRender();
+};
+window.captMsg = function (t, ok) {
+    var m = $('cpMsg'); if (!m) return;
+    m.textContent = t; m.className = 'cp-msg ' + (ok ? 'ok' : 'err');
+};
+function cpRender() {
+    var d = CP, b = base('capt', d.meC);
+    var cnt = {}; d.z.forEach(function (z) { if (z[2]) cnt[z[2]] = (cnt[z[2]] || 0) + 1; });
+    var cells = d.z.map(function (z) {
+        var o = z[2] ? d.orgs[z[2]] : null, w = z[5];
+        var cls = 'cp-c' + (z[2] === d.me ? ' mine' : '') + (z[3] ? ' base' : '') + (w ? ' war' : '') + (z[0] === CPsel ? ' sel' : '');
+        var bg = o ? 'background:' + o.c + (z[3] ? 'cc' : '73') : '';
+        return '<div class="' + cls + '" data-z="' + z[0] + '" style="' + bg + '"><span>' + z[1] + '</span>' + (z[3] ? '<i>★</i>' : w ? '<i>⚔</i>' : '') + '</div>';
+    }).join('');
+    var legend = Object.keys(d.orgs).map(function (k) { var o = d.orgs[k]; return '<div class="cp-lg"><s style="background:' + o.c + '"></s>' + esc(o.n) + ' <b>' + (cnt[k] || 0) + '</b></div>'; }).join('') + '<div class="cp-lg"><s style="background:rgba(255,255,255,.12)"></s>Ничьи <b>' + d.z.filter(function (z) { return !z[2]; }).length + '</b></div>';
+    b.innerHTML = '<div class="top"><i>⚔</i><div><b>Планшет каптов · ' + esc(d.meN) + '</b><small>Выберите квадрат, противника и начните захват · капт ' + d.min + ' мин · с ' + d.hours[0] + ':00 до ' + d.hours[1] + ':00 МСК</small></div><div class="x" id="cl">✕</div></div>' +
+        '<div class="cp-wrap"><div><div class="cp-grid" style="grid-template-columns:repeat(' + d.cols + ',1fr)">' + cells + '</div><div class="cp-legend">' + legend + '</div></div><div class="side" id="cpSide"></div></div>';
+    bind('[data-z]', function (el) { CPsel = Number(el.dataset.z); CPdef = ''; cpRender(); });
+    $('cl').onclick = function () { CPsel = -1; trig('cef:crime:close'); };
+    cpSide();
+}
+function cpSide() {
+    var d = CP, s = $('cpSide');
+    if (CPsel < 0) { s.innerHTML = '<div class="cp-empty">👆<br>Нажмите на квадрат на карте, чтобы выбрать цель для капта</div><div class="cp-msg" id="cpMsg"></div>'; return; }
+    var z = d.z[CPsel], own = z[2] ? d.orgs[z[2]] : null, w = z[5];
+    var h = '<h3>Квадрат ' + esc(z[1]) + '</h3><div class="cp-kv"><span>Владелец</span><b style="color:' + (own ? own.c : '#aaa') + '">' + (own ? esc(own.n) : 'ничей') + '</b></div>';
+    var block = '';
+    if (z[3]) block = 'Это база ' + (own ? own.n : '') + ' — захватить нельзя';
+    else if (z[2] === d.me) block = 'Это ваш квадрат';
+    else if (w) block = 'Идёт война: ' + d.orgs[w.a].n + ' против ' + (w.d ? d.orgs[w.d].n : 'нейтральных') + ' · осталось ' + cpLeft(w.left);
+    else if (z[4]) block = 'Квадрат недавно захватывали. Ещё ' + z[4] + ' мин';
+    if (block) { s.innerHTML = h + '<div class="cp-note">' + esc(block) + '</div><div class="cp-msg" id="cpMsg"></div>'; return; }
+    h += '<h4>С кем война</h4><div class="cp-foes">';
+    if (z[2]) { CPdef = z[2]; var o = d.orgs[z[2]]; h += '<div class="cp-foe on' + (o.busy ? ' busy' : '') + '"><s style="background:' + o.c + '"></s><b>' + esc(o.n) + '</b><small>' + (o.busy ? 'уже воюет' : 'владелец квадрата') + '</small></div>'; }
+    else {
+        h += '<div class="cp-foe' + (CPdef === '' ? ' on' : '') + '" data-f=""><s style="background:rgba(255,255,255,.3)"></s><b>Без противника</b><small>Занять ничейный квадрат</small></div>';
+        Object.keys(d.orgs).forEach(function (k) { if (k === d.me) return; var o = d.orgs[k]; h += '<div class="cp-foe' + (CPdef === k ? ' on' : '') + (o.busy ? ' busy' : '') + '" data-f="' + k + '"><s style="background:' + o.c + '"></s><b>' + esc(o.n) + '</b><small>' + (o.busy ? 'уже воюет' : 'вызвать на войну') + '</small></div>'; });
+    }
+    h += '</div>';
+    var why = !d.can ? 'Начать капт может ранг 4 и выше' : !d.hourOk ? 'Капты разрешены с ' + d.hours[0] + ':00 до ' + d.hours[1] + ':00 МСК' : '';
+    h += '<button id="cpGo"' + (why ? ' disabled' : '') + '>⚔ КАПТ</button>' + (why ? '<div class="cp-note">' + why + '</div>' : '') + '<div class="cp-msg" id="cpMsg"></div>';
+    s.innerHTML = h;
+    bind('[data-f]', function (el) { CPdef = el.dataset.f; cpSide(); });
+    var g = $('cpGo'); if (g) g.onclick = function () { g.disabled = true; trig('cef:crime:capt', CPsel, CPdef); };
+}
+setInterval(function () { if (!CP || $('box').className.indexOf('capt') < 0) return; CP.z.forEach(function (z) { if (z[5] && z[5].left > 0) z[5].left--; }); if (CPsel >= 0 && CP.z[CPsel][5]) cpSide(); }, 1000);

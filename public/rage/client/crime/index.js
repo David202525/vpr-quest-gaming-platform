@@ -42,7 +42,7 @@ mp.events.add('crime:zones', function (j) {
     cZones = d.z;
     var war = {}; (d.w || []).forEach(function (w) { war[w.z] = 1; });
     cZones.forEach(function (z) {
-        try { var bb = areaBlip(z[2], z[3], d.s - 3, z[4] || 4, z[4] ? (z[6] ? 170 : 120) : 45, !!war[z[0]]); if (bb) cBlips.push(bb); } catch (e) { mp.console.logError('[crime] zone blip: ' + e.message); }
+        try { var bb = areaBlip(z[2], z[3], d.s, z[4] || 4, z[4] ? (z[6] ? 170 : 120) : 45, !!war[z[0]]); if (bb) cBlips.push(bb); } catch (e) { mp.console.logError('[crime] zone blip: ' + e.message); }
     });
     cBases = d.b || [];
     cGarage = null;
@@ -310,3 +310,12 @@ mp.events.add('render', function () {
         mp.game.graphics.drawMarker(m[2], a[0], a[1], a[2] - (m[2] === 1 ? 1 : 0), 0, 0, 0, 0, 0, 0, m[2] === 1 ? 2.5 : 0.8, m[2] === 1 ? 2.5 : 0.8, m[2] === 1 ? 0.6 : 0.8, c[0], c[1], c[2], 170, m[2] !== 1, true, 2, false, null, null, false);
     });
 });
+
+var captOpenNow = false;
+mp.events.add('crime:capt', function (j) {
+    if (captOpenNow && cOpen && cBr) cBr.execute('window.capt && window.capt(' + JSON.stringify(j) + ');');
+    else { captOpenNow = true; cUI(true, 'window.capt && window.capt(' + JSON.stringify(j) + ');'); }
+});
+mp.events.add('crime:captMsg', function (t, ok) { if (cBr) cBr.execute('window.captMsg && window.captMsg(' + JSON.stringify(String(t)) + ',' + (ok ? 1 : 0) + ');'); });
+mp.events.add('cef:crime:capt', function (zi, def) { mp.events.callRemote('srv:crime:capt', Number(zi), String(def || '')); });
+mp.events.add('cef:crime:close', function () { captOpenNow = false; });

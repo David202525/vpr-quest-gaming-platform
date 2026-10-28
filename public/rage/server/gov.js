@@ -566,6 +566,7 @@ async function sendTablet(p) {
     if (p.web || mp.players.exists(p)) p.call('gov:tablet', [JSON.stringify(d)]);
 }
 mp.events.add('srv:tab:open', function (p) {
+    if (global.CrimeSystem && global.CrimeSystem.isGang && global.CrimeSystem.isGang(p)) return global.CrimeSystem.captOpen(p);
     if (fac(p) === 'medic' && global.EmsSystem) return global.EmsSystem.openTab(p);
     if (!isGovF(fac(p))) return notify(p, 'warn', 'Планшет доступен только сотрудникам гос. структур');
     if (fac(p) === 'lic' && !canManage(p)) return notify(p, 'warn', 'Планшет лицензионного центра есть только у директора и заместителей');
