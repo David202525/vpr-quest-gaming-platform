@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><InvariantGlobalization>true</InvariantGlobalization><Nullable>disable</Nullable></PropertyGroup><ItemGroup><None Include="setup2.xml;content.xml" CopyToOutputDirectory="Always" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="/tmp/cw/CodeWalker.Core/CodeWalker.Core.csproj" /></ItemGroup>
+</Project>
