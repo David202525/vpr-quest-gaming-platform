@@ -252,7 +252,7 @@ function farmPicked(p, s, ok) {
     s.units.push(c.pay[0] + Math.random() * (c.pay[1] - c.pay[0]));
     addXp(p, 'farm', 1);
     notify(p, 'ok', c.i + ' ' + c.n + ': ' + s.carry + '/' + c.cap);
-    if (Math.random() < 0.03 && global.UiSystem) {
+    if (Math.random() < 0.4 && global.UiSystem) {
         const left = global.UiSystem.addItem(p, 'ukrop_seed', 1);
         if (!left) { global.UiSystem.sendInv(p); notify(p, 'warn', '🌱 Среди урожая вы нашли странное семечко… (семена укропа)'); }
     }

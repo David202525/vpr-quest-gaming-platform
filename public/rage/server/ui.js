@@ -808,21 +808,22 @@ async function menuPayload(p) {
     const itemsCount = d.inv.reduce(function (s, x) { return s + (x ? 1 : 0); }, 0) + Object.keys(d.equip).length;
     const bpLvl = Math.min(BP_MAX, Math.floor((d.bpExp || 0) / BP_STEP));
     const female = p.model === mp.joaat('mp_f_freemode_01');
+    const mny = money + bank;
     const ach = [
-        { n: 'Первые шаги', d: 'Зайти на сервер', i: '👣', done: true },
-        { n: 'Новичок', d: 'Достичь 3 уровня', i: '🌱', done: d.lvl >= 3 },
-        { n: 'Опытный', d: 'Достичь 10 уровня', i: '⭐', done: d.lvl >= 10 },
-        { n: 'Ветеран', d: 'Достичь 25 уровня', i: '🏆', done: d.lvl >= 25 },
-        { n: 'Час в игре', d: 'Провести на сервере 60 минут', i: '⏱️', done: d.mins >= 60 },
-        { n: 'Сутки в игре', d: 'Провести на сервере 24 часа', i: '🌙', done: d.mins >= 1440 },
-        { n: 'Автовладелец', d: 'Получить личный транспорт', i: '🚗', done: vehicles.length > 0 },
-        { n: 'Богач', d: 'Накопить $100.000', i: '💰', done: money + bank >= 100000 },
-        { n: 'Миллионер', d: 'Накопить $1.000.000', i: '💎', done: money + bank >= 1000000 },
-        { n: 'Семьянин', d: 'Вступить в семью', i: '👨‍👩‍👦', done: !!family },
-        { n: 'Снайпер', d: 'Прокачать стрельбу до 5 уровня', i: '🎯', done: d.skills.shoot >= 500 },
-        { n: 'Гонщик', d: 'Прокачать вождение до 5 уровня', i: '🏁', done: d.skills.drive >= 500 },
-        { n: 'Коллекционер', d: 'Собрать 20 предметов', i: '🎒', done: itemsCount >= 20 }
-    ];
+        { n: 'Первые шаги', d: 'Зайти на сервер', i: '👣', r: 'common', c: 'Старт', v: 1, m: 1 },
+        { n: 'Новичок', d: 'Достичь 3 уровня', i: '🌱', r: 'common', c: 'Уровень', v: d.lvl, m: 3 },
+        { n: 'Опытный', d: 'Достичь 10 уровня', i: '⭐', r: 'rare', c: 'Уровень', v: d.lvl, m: 10 },
+        { n: 'Ветеран', d: 'Достичь 25 уровня', i: '🏆', r: 'legend', c: 'Уровень', v: d.lvl, m: 25 },
+        { n: 'Час в игре', d: 'Провести на сервере 60 минут', i: '⏱️', r: 'common', c: 'Время', v: d.mins, m: 60, u: 'мин' },
+        { n: 'Сутки в игре', d: 'Провести на сервере 24 часа', i: '🌙', r: 'rare', c: 'Время', v: Math.floor(d.mins / 60), m: 24, u: 'ч' },
+        { n: 'Автовладелец', d: 'Получить личный транспорт', i: '🚗', r: 'common', c: 'Имущество', v: vehicles.length, m: 1 },
+        { n: 'Богач', d: 'Накопить $100.000', i: '💰', r: 'rare', c: 'Деньги', v: mny, m: 100000, u: '$' },
+        { n: 'Миллионер', d: 'Накопить $1.000.000', i: '💎', r: 'legend', c: 'Деньги', v: mny, m: 1000000, u: '$' },
+        { n: 'Семьянин', d: 'Вступить в семью', i: '👨‍👩‍👦', r: 'rare', c: 'Общение', v: family ? 1 : 0, m: 1 },
+        { n: 'Снайпер', d: 'Прокачать стрельбу до 5 уровня', i: '🎯', r: 'epic', c: 'Навыки', v: Math.floor(d.skills.shoot / 100), m: 5, u: 'ур' },
+        { n: 'Гонщик', d: 'Прокачать вождение до 5 уровня', i: '🏁', r: 'epic', c: 'Навыки', v: Math.floor(d.skills.drive / 100), m: 5, u: 'ур' },
+        { n: 'Коллекционер', d: 'Собрать 20 предметов', i: '🎒', r: 'rare', c: 'Имущество', v: itemsCount, m: 20 }
+    ].map(function (a) { a.v = Math.max(0, Math.min(a.m, Number(a.v) || 0)); a.done = a.v >= a.m; return a; });
     const shop = Object.keys(ITEMS).filter(function (k) { return ITEMS[k].price && !ITEMS[k].wp && k.indexOf('ammo_') !== 0 && k !== 'armour'; }).map(function (k) {
         const it = ITEMS[k];
         const pack = it.pack || 1;

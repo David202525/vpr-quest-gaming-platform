@@ -738,11 +738,43 @@ function menuChar(d) {
         '</div></div>';
 }
 
+var achF = 'all';
+var ACH_R = { common: ['Обычное', '#9aa4b8'], rare: ['Редкое', '#4aa8ff'], epic: ['Эпическое', '#c45bff'], legend: ['Легендарное', '#ffb636'] };
+function achNum(a, v) { return a.u === '$' ? money(v) : (v + (a.u ? ' ' + a.u : '')); }
 function menuAch(d) {
-    var done = d.ach.filter(function (a) { return a.done; }).length;
-    return '<div class="ach-top"><b>Выполнено ' + done + ' из ' + d.ach.length + '</b><div class="bar"><i style="width:' + (done / d.ach.length * 100) + '%"></i></div></div><div class="ach-grid">' +
-        d.ach.map(function (a) { return '<div class="ach' + (a.done ? ' done' : '') + '"><div class="ai">' + a.i + '</div><div><b>' + esc(a.n) + '</b><small>' + esc(a.d) + (a.done ? ' ✓' : '') + '</small></div></div>'; }).join('') + '</div>';
+    window.__achD = d;
+    var list = d.ach, done = list.filter(function (a) { return a.done; }).length, pct = Math.round(done / list.length * 100);
+    var byR = {}; Object.keys(ACH_R).forEach(function (r) { byR[r] = [0, 0]; });
+    list.forEach(function (a) { var r = a.r || 'common'; if (!byR[r]) byR[r] = [0, 0]; byR[r][1]++; if (a.done) byR[r][0]++; });
+    var next = list.filter(function (a) { return !a.done; }).sort(function (x, y) { return y.v / y.m - x.v / x.m; })[0];
+    var shown = list.filter(function (a) { return achF === 'all' || (achF === 'done' ? a.done : !a.done); });
+    var R = 54, C = 2 * Math.PI * R;
+    var head = '<div class="ach-hero">' +
+        '<div class="ach-ring"><svg viewBox="0 0 132 132"><defs><linearGradient id="achg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4fd8"/><stop offset="1" stop-color="#8b5cff"/></linearGradient></defs><circle cx="66" cy="66" r="' + R + '" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10"/><circle cx="66" cy="66" r="' + R + '" fill="none" stroke="url(#achg)" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + (C * pct / 100) + ' ' + C + '" transform="rotate(-90 66 66)"/></svg><div><b>' + pct + '%</b><small>' + done + ' из ' + list.length + '</small></div></div>' +
+        '<div class="ach-hinfo"><h2>Достижения</h2><p>Выполняйте задания, развивайте персонажа и собирайте всю коллекцию наград AMRP</p>' +
+        '<div class="ach-rar">' + Object.keys(ACH_R).map(function (r) { return '<div style="--rc:' + ACH_R[r][1] + '"><s></s><span>' + ACH_R[r][0] + '</span><b>' + byR[r][0] + '/' + byR[r][1] + '</b></div>'; }).join('') + '</div></div>' +
+        (next ? '<div class="ach-next" style="--rc:' + ACH_R[next.r || 'common'][1] + '"><small>Ближайшая цель</small><div class="ach-nrow"><div class="ach-nic">' + next.i + '</div><div><b>' + esc(next.n) + '</b><span>' + esc(next.d) + '</span></div></div><div class="ach-bar"><i style="width:' + Math.round(next.v / next.m * 100) + '%"></i></div><em>' + achNum(next, next.v) + ' / ' + achNum(next, next.m) + '</em></div>' : '<div class="ach-next all"><small>Все достижения</small><b>🏆 Коллекция собрана!</b></div>') +
+        '</div>';
+    var tabs = '<div class="ach-tabs">' + [['all', 'Все', list.length], ['done', 'Получено', done], ['left', 'В процессе', list.length - done]].map(function (t) { return '<span data-achf="' + t[0] + '" class="' + (achF === t[0] ? 'on' : '') + '">' + t[1] + ' <i>' + t[2] + '</i></span>'; }).join('') + '</div>';
+    var cards = '<div class="ach-grid">' + shown.map(function (a) {
+        var r = ACH_R[a.r || 'common'], p = Math.round(a.v / a.m * 100);
+        return '<div class="ach' + (a.done ? ' done' : '') + '" style="--rc:' + r[1] + ';--rc3:' + r[1] + '4d;--rc6:' + r[1] + '99;--rc1:' + r[1] + '26">' +
+            '<div class="ach-shine"></div>' +
+            '<div class="ach-h"><span class="ach-cat">' + esc(a.c || '') + '</span><span class="ach-rr">' + r[0] + '</span></div>' +
+            '<div class="ai">' + a.i + (a.done ? '<em>✓</em>' : '<em class="lk">🔒</em>') + '</div>' +
+            '<b>' + esc(a.n) + '</b><small>' + esc(a.d) + '</small>' +
+            '<div class="ach-f">' + (a.done ? '<span class="ach-ok">Получено</span>' : '<div class="ach-bar"><i style="width:' + p + '%"></i></div><em>' + achNum(a, a.v) + ' / ' + achNum(a, a.m) + '</em>') + '</div>' +
+            '</div>';
+    }).join('') + '</div>';
+    return '<div class="ach-page">' + head + tabs + (shown.length ? cards : '<div class="ach-none">Здесь пока пусто</div>') + '</div>';
 }
+document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-achf]');
+    if (!t) return;
+    achF = t.dataset.achf;
+    var pg = document.querySelector('.ach-page');
+    if (pg && window.__achD) pg.outerHTML = menuAch(window.__achD);
+});
 
 var shopSec = 'vip', exN = 10;
 function menuShop(d) {
