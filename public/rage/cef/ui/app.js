@@ -407,7 +407,6 @@ $('phBack').onclick = function () {
 };
 $('phHome').onclick = phoneHome;
 
-window.openApp = function (id) { openApp(id); };
 function openApp(id) {
     if (id === 'taxi') DATA.taxi = null;
     if (id === 'camera') { trig('cef:phone:camera'); return; }
