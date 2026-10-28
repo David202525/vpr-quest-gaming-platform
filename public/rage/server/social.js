@@ -117,9 +117,29 @@ mp.events.add('srv:int:shake', function (p, rid) {
     if (!t) return;
     const cur = pending[t.id];
     if (cur && cur.until > Date.now()) return notify(p, 'warn', 'Игрок занят другим предложением');
-    pending[t.id] = { from: p.id, fromSid: sid(p), until: Date.now() + 15000 };
+    pending[t.id] = { kind: 'shake', from: p.id, fromSid: sid(p), until: Date.now() + 15000 };
     t.call('social:offer', [seen(t, p) + ' предлагает пожать руку', 15000]);
     notify(p, 'ok', 'Вы протянули руку. Ждём ответа…');
+});
+
+const PAIR = {
+    hug: { t: 'обняться', ask: 'хочет вас обнять', a: ['mp_ped_interaction', 'hugs_guy_a'], b: ['mp_ped_interaction', 'hugs_guy_b'], done: 'Вы обнялись' },
+    five: { t: 'дать пять', ask: 'предлагает дать пять', a: ['mp_ped_interaction', 'highfive_guy_a'], b: ['mp_ped_interaction', 'highfive_guy_b'], done: 'Дали пять!' },
+    kiss: { t: 'поцеловаться', ask: 'хочет вас поцеловать', a: ['mp_ped_interaction', 'kisses_guy_a'], b: ['mp_ped_interaction', 'kisses_guy_b'], done: 'Поцелуй' },
+    bro: { t: 'братское приветствие', ask: 'предлагает братское приветствие', a: ['mp_ped_interaction', 'hugs_guy_a'], b: ['mp_ped_interaction', 'hugs_guy_b'], done: 'Братское приветствие' }
+};
+function busy(p) { return !!p.getVariable('cuffed'); }
+mp.events.add('srv:int:pair', function (p, rid, kind) {
+    const k = PAIR[kind];
+    if (!k) return;
+    const t = target(p, rid);
+    if (!t) return;
+    if (busy(p) || busy(t)) return notify(p, 'warn', 'Сейчас нельзя');
+    const cur = pending[t.id];
+    if (cur && cur.until > Date.now()) return notify(p, 'warn', 'Игрок занят другим предложением');
+    pending[t.id] = { kind: kind, from: p.id, fromSid: sid(p), until: Date.now() + 15000 };
+    t.call('social:offer', [seen(t, p) + ' ' + k.ask, 15000]);
+    notify(p, 'ok', 'Предложение отправлено: ' + k.t);
 });
 
 mp.events.add('srv:int:answer', function (p, yes) {
@@ -128,13 +148,20 @@ mp.events.add('srv:int:answer', function (p, yes) {
     if (!o || o.until < Date.now()) return;
     const from = mp.players.at(o.from);
     if (!from || sid(from) !== o.fromSid) return;
+    const k = PAIR[o.kind];
     if (!yes) {
-        notify(from, 'warn', seen(from, p) + ' отказался пожать руку');
+        notify(from, 'warn', seen(from, p) + ' отказал' + (female(p) ? 'ась' : 'ся') + (k ? ': ' + k.t : ' пожать руку'));
         return;
     }
     if (!near(p, from, 3.5)) return notify(p, 'error', 'Слишком далеко');
     face(p, from);
     face(from, p);
+    if (k) {
+        try { from.stopAnimation(); p.stopAnimation(); from.playAnimation(k.a[0], k.a[1], 8, 0); p.playAnimation(k.b[0], k.b[1], 8, 0); } catch (e) {}
+        if (global.SLog) global.SLog.add('social', { actor: from, target: p, action: o.kind, details: k.t });
+        notify(p, 'ok', k.done); notify(from, 'ok', k.done);
+        return;
+    }
     try {
         from.playAnimation('mp_ped_interaction', 'handshake_guy_a', 8, 0);
         p.playAnimation('mp_ped_interaction', 'handshake_guy_b', 8, 0);
@@ -144,6 +171,58 @@ mp.events.add('srv:int:answer', function (p, yes) {
     if (global.SLog) global.SLog.add('social', { actor: from, target: p, action: 'handshake', details: 'познакомились' });
     notify(p, 'ok', 'Вы познакомились: ' + nick(from));
     notify(from, 'ok', 'Вы познакомились: ' + nick(p));
+});
+
+mp.events.add('srv:int:docs', function (p, rid) {
+    const U = global.UiSystem;
+    const list = U && U.docBrief ? U.docBrief(p) : [];
+    p.call('social:docs', [Number(rid), JSON.stringify(list)]);
+});
+mp.events.add('srv:int:showdoc', function (p, rid, idx) {
+    const t = target(p, rid);
+    if (!t) return;
+    const U = global.UiSystem;
+    if (!U || !U.showDocIdx) return;
+    const list = U.docBrief(p);
+    const d = list[Number(idx)];
+    if (!d) return notify(p, 'error', 'Документ не найден');
+    U.showDocIdx(p, t, d.i);
+    if (d.t === 'passport') learn(t, p);
+    docRp(p, t, d.t);
+    notify(p, 'ok', 'Вы показали: ' + d.title);
+    notify(t, 'warn', seen(t, p) + ' показывает вам: ' + d.title);
+});
+
+const EMOTES = {
+    wave: ['friends@frj@ig_1', 'wave_a', 48, 0],
+    handsup: ['missminuteman_1ig_2', 'handsup_base', 49, 1],
+    surrender: ['random@arrests@busted', 'idle_a', 1, 1],
+    salute: ['mp_player_int_uppersalute', 'mp_player_int_salute', 48, 0],
+    thumbs: ['anim@mp_player_intupperthumbs_up', 'idle_a', 48, 0],
+    peace: ['mp_player_int_upperpeace_sign', 'mp_player_int_peace_sign', 48, 0],
+    clap: ['anim@mp_player_intcelebrationmale@slow_clap', 'slow_clap', 48, 0],
+    facepalm: ['anim@mp_player_intupperface_palm', 'idle_a', 48, 0],
+    shrug: ['gestures@m@standing@casual', 'gesture_shrug_hard', 48, 0],
+    bow: ['anim@arena@celeb@podium@no_prop@', 'regal_c_1st', 0, 0],
+    arms: ['amb@world_human_hang_out_street@female_arms_crossed@base', 'base', 49, 1],
+    think: ['missheist_jewelleadinout', 'jh_int_outro_loop_a', 49, 1],
+    sit: ['anim@heists@fleeca_bank@ig_7_jetski_owner', 'owner_idle', 1, 1],
+    dance: ['misschinese2_crystalmazemcs1_cs', 'dance_loop_tao', 1, 1]
+};
+mp.events.add('srv:emote', function (p, id) {
+    if (id === 'stop') { try { p.stopAnimation(); } catch (e) {} p.call('social:emoteLoop', [false]); return; }
+    const e = EMOTES[id];
+    if (!e || !sid(p)) return;
+    if (p.vehicle) return notify(p, 'warn', 'Выйдите из транспорта');
+    if (p.getVariable('cuffed')) return notify(p, 'warn', 'Вы в наручниках');
+    if (p.health <= 0) return;
+    try { p.stopAnimation(); p.playAnimation(e[0], e[1], 8, e[2]); } catch (x) {}
+    p.call('social:emoteLoop', [!!e[3]]);
+});
+mp.events.addCommand('e', function (p, a) {
+    a = String(a || '').trim().toLowerCase();
+    if (!a) return p.outputChatBox('!{#ffc93c}/e [жест]: ' + Object.keys(EMOTES).join(', ') + ', stop. Или G → Жесты');
+    mp.events.call('srv:emote', p, a);
 });
 
 mp.events.add('srv:int:passport', function (p, rid) {

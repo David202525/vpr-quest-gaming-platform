@@ -56,6 +56,7 @@ function intClose() {
     if (!global.intOpen) return;
     global.intOpen = false;
     intTarget = null;
+    intSolo = false;
     intExec('window.intClose && window.intClose();');
     if (typeof cursorSync === 'function') cursorSync(); else mp.gui.cursor.show(false, false);
     mp.gui.chat.activate(true);
@@ -117,16 +118,51 @@ function enterAsPassenger() {
     return true;
 }
 
+var intSolo = false;
+var EMOTE_ITEMS = [
+    { id: 'em:handsup', t: 'Руки вверх', ic: '🙌', d: 'Поднять руки' },
+    { id: 'em:surrender', t: 'Сдаться', ic: '🏳️', d: 'На колени, руки за голову' },
+    { id: 'em:wave', t: 'Помахать', ic: '👋', d: 'Поприветствовать' },
+    { id: 'em:salute', t: 'Честь', ic: '🫡', d: 'Отдать честь' },
+    { id: 'em:thumbs', t: 'Класс', ic: '👍', d: 'Большой палец вверх' },
+    { id: 'em:peace', t: 'Мир', ic: '✌️', d: 'Знак мира' },
+    { id: 'em:clap', t: 'Хлопать', ic: '👏', d: 'Аплодисменты' },
+    { id: 'em:facepalm', t: 'Фейспалм', ic: '🤦', d: 'Рука-лицо' },
+    { id: 'em:shrug', t: 'Пожать плечами', ic: '🤷', d: 'Не знаю' },
+    { id: 'em:arms', t: 'Скрестить руки', ic: '🙅', d: 'Стоять со скрещёнными руками' },
+    { id: 'em:sit', t: 'Сесть', ic: '🪑', d: 'Сесть на землю' },
+    { id: 'em:dance', t: 'Танец', ic: '💃', d: 'Потанцевать' },
+    { id: 'em:stop', t: 'Отмена', ic: '✖️', d: 'Прекратить анимацию' }
+];
+var GREET_ITEMS = [
+    { id: 'shake', t: 'Пожать руку', ic: '🤝', d: 'Познакомиться — увидите ник друг друга' },
+    { id: 'pair:hug', t: 'Обнять', ic: '🫂', d: 'Предложить обняться' },
+    { id: 'pair:five', t: 'Дать пять', ic: '🖐️', d: 'Хлопнуть ладонями' },
+    { id: 'pair:bro', t: 'По-братски', ic: '💪', d: 'Братское приветствие' },
+    { id: 'pair:kiss', t: 'Поцеловать', ic: '💋', d: 'Предложить поцелуй' },
+    { id: 'back', t: 'Назад', ic: '↩️', d: 'Вернуться в меню' }
+];
+function intShow(who, items) {
+    global.intOpen = true;
+    intExec('window.intOpen && window.intOpen(' + JSON.stringify({ who: who, items: items }) + ');');
+    mp.gui.chat.activate(false);
+    mp.gui.cursor.show(true, true);
+}
+function whoOf(t) { return titleOf(t) + ' · #' + sidOf(t); }
+function intOpenEmotes() {
+    intSolo = !intTarget;
+    intShow('Жесты', EMOTE_ITEMS.concat(intTarget ? [{ id: 'back', t: 'Назад', ic: '↩️', d: 'Вернуться в меню' }] : []));
+}
 function intOpenMenu() {
     var t = nearest();
-    if (!t) { mp.events.call('hud:notify', 'warn', 'Рядом никого нет', 2500); return; }
+    if (!t) { intTarget = null; intOpenEmotes(); return; }
     intTarget = t;
-    global.intOpen = true;
+    intSolo = false;
     var items = [
-        { id: 'shake', t: 'Пожать руку', ic: '🤝', d: 'Познакомиться — увидите ник друг друга' },
-        { id: 'passport', t: 'Паспорт', ic: '🪪', d: 'Показать паспорт — человек узнает ваш ник' },
+        { id: 'greet', t: 'Приветствие', ic: '🤝', d: 'Пожать руку, обнять, дать пять…' },
+        { id: 'docs', t: 'Документы', ic: '🪪', d: 'Показать паспорт, права, удостоверение…' },
         { id: 'pay', t: 'Дать денег', ic: '💵', d: 'Передать наличные' },
-        { id: 'wave', t: 'Помахать', ic: '👋', d: 'Поприветствовать' }
+        { id: 'emotes', t: 'Жесты', ic: '🙌', d: 'Руки вверх, честь, танец…' }
     ];
     var myFac = mp.players.local.getVariable('fac');
     if (mp.players.local.getVariable('cop') || myFac === 'army') items.push({ id: 'search', t: 'Обыскать', ic: '🔍', d: 'Найти и изъять нелегальное' });
@@ -135,11 +171,31 @@ function intOpenMenu() {
         items.push({ id: 'revdrive', t: 'Изъять права', ic: '🚗', d: 'Забрать водительское удостоверение' });
         items.push({ id: 'revgun', t: 'Изъять лиц. оружия', ic: '🔫', d: 'Забрать лицензию на оружие' });
     }
-    var who = titleOf(t) + ' · #' + sidOf(t);
-    intExec('window.intOpen && window.intOpen(' + JSON.stringify({ who: who, items: items }) + ');');
-    mp.gui.chat.activate(false);
-    mp.gui.cursor.show(true, true);
+    intShow(whoOf(t), items);
 }
+var DOC_IC = { passport: '🪪', drive: '🚗', military: '🎖️', med: '🩺', psych: '🧠', gun: '🔫', faction: '👮' };
+mp.events.add('social:docs', function (rid, json) {
+    var t = mp.players.atRemoteId(Number(rid));
+    if (!t || !mp.players.exists(t)) return;
+    var list = [];
+    try { list = JSON.parse(json) || []; } catch (e) {}
+    if (!list.length) { mp.events.call('hud:notify', 'warn', 'У вас нет документов', 2500); return; }
+    intTarget = t;
+    intSolo = false;
+    var items = list.slice(0, 11).map(function (d, i) { return { id: 'doc:' + i, t: d.title, ic: DOC_IC[d.t] || '📄', d: 'Показать: ' + d.title }; });
+    items.push({ id: 'back', t: 'Назад', ic: '↩️', d: 'Вернуться в меню' });
+    intShow(whoOf(t), items);
+});
+var emoteLoop = false;
+mp.events.add('social:emoteLoop', function (on) { emoteLoop = !!on; });
+mp.events.add('render', function () {
+    if (!emoteLoop) return;
+    var c = mp.game.controls;
+    if (c.isControlJustPressed(0, 32) || c.isControlJustPressed(0, 33) || c.isControlJustPressed(0, 34) || c.isControlJustPressed(0, 35) || c.isControlJustPressed(0, 22)) {
+        emoteLoop = false;
+        mp.events.callRemote('srv:emote', 'stop');
+    }
+});
 
 mp.keys.bind(0x47, false, function () {
     if (global.authOpen || global.creatorOpen || global.gateEditOpen) return;
@@ -157,8 +213,16 @@ mp.keys.bind(0x47, false, function () {
 mp.events.add('cef:int:close', intClose);
 mp.events.add('cef:int:pick', function (id, arg) {
     var t = intTarget;
+    id = String(id);
+    if (id.indexOf('em:') === 0) { intClose(); mp.events.callRemote('srv:emote', id.slice(3)); return; }
+    if (id === 'back') { intClose(); if (t && mp.players.exists(t)) intOpenMenu(); return; }
+    if (id === 'emotes') { intOpenEmotes(); return; }
+    if (id === 'greet') { if (t && mp.players.exists(t)) intShow(whoOf(t), GREET_ITEMS); return; }
     intClose();
     if (!t || !mp.players.exists(t)) return;
+    if (id === 'docs') { mp.events.callRemote('srv:int:docs', t.remoteId); return; }
+    if (id.indexOf('doc:') === 0) { mp.events.callRemote('srv:int:showdoc', t.remoteId, Number(id.slice(4))); return; }
+    if (id.indexOf('pair:') === 0) { mp.events.callRemote('srv:int:pair', t.remoteId, id.slice(5)); return; }
     if (id === 'shake') mp.events.callRemote('srv:int:shake', t.remoteId);
     else if (id === 'passport') mp.events.callRemote('srv:int:passport', t.remoteId);
     else if (id === 'pay') mp.events.callRemote('srv:int:pay', t.remoteId, Number(arg) || 0);
@@ -185,9 +249,11 @@ mp.keys.bind(0x4E, false, function () { if (global.nDownAt && Date.now() - globa
 
 mp.events.add('render', function () {
     if (!global.intOpen) return;
-    if (!intTarget || !mp.players.exists(intTarget)) { intClose(); return; }
-    var me = mp.players.local, p = intTarget.position;
-    if (mp.game.system.vdist(me.position.x, me.position.y, me.position.z, p.x, p.y, p.z) > 4.5) { intClose(); return; }
+    if (!intSolo) {
+        if (!intTarget || !mp.players.exists(intTarget)) { intClose(); return; }
+        var me = mp.players.local, p = intTarget.position;
+        if (mp.game.system.vdist(me.position.x, me.position.y, me.position.z, p.x, p.y, p.z) > 4.5) { intClose(); return; }
+    }
     if (!mp.gui.cursor.visible) mp.gui.cursor.show(true, true);
     mp.game.controls.disableControlAction(0, 1, true);
     mp.game.controls.disableControlAction(0, 2, true);

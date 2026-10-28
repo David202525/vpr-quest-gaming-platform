@@ -32,6 +32,7 @@ function render() {
         var x = 50 + m[0] / 400 * 100, y = 50 + m[1] / 400 * 100;
         lab += '<div class="lab' + (it.off ? ' off' : '') + '" data-l="' + i + '" style="left:' + x + '%;top:' + (y + 7) + '%"><span class="num">' + (i + 1) + '</span><div class="ic">' + it.ic + '</div><div class="tx">' + it.t + '</div></div>';
     });
+    labels.classList.toggle('many', n > 8);
     svg.innerHTML = html;
     labels.innerHTML = lab;
     svg.querySelectorAll('.seg').forEach(function (s) {
