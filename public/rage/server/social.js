@@ -222,7 +222,7 @@ mp.events.add('srv:emote', function (p, id) {
 });
 mp.events.addCommand('e', function (p, a) {
     a = String(a || '').trim().toLowerCase();
-    if (!a) return p.outputChatBox('!{#ffc93c}/e [жест]: ' + Object.keys(EMOTES).join(', ') + ', stop. Или F2 → Жесты');
+    if (!a) return p.outputChatBox('!{#ffc93c}/e [жест]: ' + Object.keys(EMOTES).join(', ') + ', stop. Или F2 — меню анимаций');
     mp.events.call('srv:emote', p, a);
 });
 
@@ -341,5 +341,5 @@ function docRp(p, to, type) {
 }
 
 global.SocialSystem = { learn: learn, seen: seen, knows: knows, sid: sid, me: rpMe, do: rpDo, docRp: docRp };
-console.log('[social] ники, статики, меню (F2) и отыгровки /me /do /try /todo /b /s /w загружены');
+console.log('[social] ники, статики, меню (G), анимации (F2) и отыгровки /me /do /try /todo /b /s /w загружены');
 module.exports = global.SocialSystem;

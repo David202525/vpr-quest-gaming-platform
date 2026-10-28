@@ -151,7 +151,7 @@ function intShow(who, items) {
 function whoOf(t) { return titleOf(t) + ' · #' + sidOf(t); }
 function intOpenEmotes() {
     intSolo = !intTarget;
-    intShow('Жесты', EMOTE_ITEMS.concat(intTarget ? [{ id: 'back', t: 'Назад', ic: '↩️', d: 'Вернуться в меню' }] : []));
+    intShow('Анимации', EMOTE_ITEMS);
 }
 function intOpenMenu() {
     var t = nearest();
@@ -161,8 +161,7 @@ function intOpenMenu() {
     var items = [
         { id: 'greet', t: 'Приветствие', ic: '🤝', d: 'Пожать руку, обнять, дать пять…' },
         { id: 'docs', t: 'Документы', ic: '🪪', d: 'Показать паспорт, права, удостоверение…' },
-        { id: 'pay', t: 'Дать денег', ic: '💵', d: 'Передать наличные' },
-        { id: 'emotes', t: 'Жесты', ic: '🙌', d: 'Руки вверх, честь, танец…' }
+        { id: 'pay', t: 'Дать денег', ic: '💵', d: 'Передать наличные' }
     ];
     var myFac = mp.players.local.getVariable('fac');
     if (mp.players.local.getVariable('cop') || myFac === 'army') items.push({ id: 'search', t: 'Обыскать', ic: '🔍', d: 'Найти и изъять нелегальное' });
@@ -206,7 +205,9 @@ mp.keys.bind(0x47, false, function () {
     if (typeof global.uiBusy === 'function' && global.uiBusy()) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (mp.gui.cursor.visible) return;
-    enterAsPassenger();
+    if (enterAsPassenger()) return;
+    if (!nearest()) { mp.events.call('hud:notify', 'warn', 'Рядом никого нет', 2500); return; }
+    intOpenMenu();
 });
 mp.keys.bind(0x71, false, function () {
     if (global.authOpen || global.creatorOpen || global.gateEditOpen) return;
@@ -217,7 +218,8 @@ mp.keys.bind(0x71, false, function () {
     if (typeof global.uiBusy === 'function' && global.uiBusy()) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (mp.gui.cursor.visible) return;
-    intOpenMenu();
+    intTarget = null;
+    intOpenEmotes();
 });
 var pointAt = 0;
 mp.keys.bind(0x42, false, function () {
