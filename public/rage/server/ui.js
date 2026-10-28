@@ -1528,7 +1528,8 @@ mp.events.add('srv:atm:biz', async function (p, act, val) {
     const a = nearAtm(p, p.atmId);
     const id = accId(p);
     if (!a || !id) return;
-    if (act === 'buy') {
+    if (act === 'buy') return sendAtm(p, a, { err: 'Купить банкомат можно в агентстве недвижимости' });
+    if (act === 'buy_old') {
         if (a.owner) return sendAtm(p, a, { err: 'Банкомат уже принадлежит другому' });
         const b = getBank(p);
         if (b < a.price) return sendAtm(p, a, { err: 'Нужно $' + a.price + ' на карте' });
@@ -1555,8 +1556,7 @@ mp.events.add('srv:atm:biz', async function (p, act, val) {
         await q('UPDATE atms SET fee = ? WHERE id = ?', [f, a.id]);
         return sendAtm(p, a, { ok: 'Комиссия: ' + f + '%' });
     }
-    if (act === 'sell') return sendAtm(p, a, { err: 'Продажа бизнеса — только через агентство недвижимости' });
-    if (act === 'sell_old') {
+    if (act === 'sell') {
         if (global.Realty && global.Realty.locked('biz', 'atm:' + a.id)) return sendAtm(p, a, { err: 'Банкомат выставлен на аукцион' });
         const qt = sellQuote(a);
         a.owner = null; a.ownerName = null; a.balance = 0;
@@ -2184,7 +2184,7 @@ async function loadShops() {
     SHOPS.forEach(function (s) {
         const C = SHOP_CFG[s.kind];
         if (!C) return;
-        shopBlips[s.id] = mp.blips.new(C.blip, new mp.Vector3(s.x, s.y, s.z), { dimension: 4294967295, name: s.owner ? s.name : s.name + ' (продаётся)', color: s.stock <= 0 ? 40 : C.color, shortRange: true, scale: 0.75 });
+        shopBlips[s.id] = mp.blips.new(C.blip, new mp.Vector3(s.x, s.y, s.z), { dimension: 4294967295, name: s.name, color: s.stock <= 0 ? 40 : C.color, shortRange: true, scale: 0.75 });
     });
     mp.players.forEach(function (p) { sendShopList(p); sendBizPoints(p); });
 }
@@ -2399,7 +2399,8 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
         const map = { owner: 'owner_id', balance: 'balance', earned: 'earned', fee: 'fee', name: 'name' };
         await q('UPDATE atms SET ' + cols.map(function (c) { return map[c] + ' = ?'; }).join(', ') + ' WHERE id = ?', cols.map(function (c) { return b[c]; }).concat([b.id]));
     };
-    if (act === 'buy') {
+    if (act === 'buy') return reply({ err: 'Купить бизнес можно в агентстве недвижимости' });
+    if (act === 'buy_old') {
         if (b.owner) return reply({ err: 'У бизнеса уже есть владелец' });
         const bank = getBank(p);
         if (bank < b.price) return reply({ err: 'Нужно ' + b.price + '$ на банковской карте' });
@@ -2474,8 +2475,7 @@ mp.events.add('srv:biz:act', async function (p, act, val) {
         bizLog('fuel', b.id, 'Заказ топлива ' + l + ' л (' + from + ')', -cost);
         return reply({ ok: 'Заказ ' + l + ' л оформлен. Доставка до 6 минут' });
     }
-    if (act === 'sell') return reply({ err: 'Продажа бизнеса — только через агентство недвижимости' });
-    if (act === 'sell_old') {
+    if (act === 'sell') {
         if (global.Realty && global.Realty.locked('biz', kind + ':' + b.id)) return reply({ err: 'Бизнес выставлен на аукцион — продать государству нельзя' });
         const qt = sellQuote(b);
         b.owner = null; b.ownerName = null; b.balance = 0;
@@ -2767,6 +2767,36 @@ global.BizSystem = {
         const out = [];
         Object.keys(BIZ_KINDS).forEach(function (k) { BIZ_KINDS[k].list().forEach(function (b) { if (b.owner && b.owner === Number(aid)) out.push({ kind: k, id: b.id, name: b.name, n: BIZ_KINDS[k].n, price: b.price }); }); });
         return out;
+    },
+    free: function (pos) {
+        const out = [];
+        Object.keys(BIZ_KINDS).forEach(function (k) {
+            const K = BIZ_KINDS[k];
+            K.list().forEach(function (b) {
+                if (b.owner || b.nodb || b.disabled) return;
+                const pt = K.pt(b);
+                out.push({ kind: k, id: b.id, n: b.name, kn: K.n, i: K.i, price: b.price, d: pos ? Math.round(Math.hypot(pos.x - pt.x, pos.y - pt.y)) : 0, x: pt.x, y: pt.y });
+            });
+        });
+        return out;
+    },
+    buy: async function (p, k, id) {
+        const K = BIZ_KINDS[k], b = K && K.of(id), aid = accId(p);
+        if (!b || !aid) return 'Бизнес не найден';
+        if (b.owner) return 'У бизнеса уже есть владелец';
+        if (b.nodb || b.disabled) return 'Этот бизнес нельзя купить';
+        const bank = getBank(p);
+        if (bank < b.price) return 'Нужно ' + b.price + '$ на банковской карте';
+        setMB(p, getMoney(p), bank - b.price);
+        b.owner = aid; b.ownerName = holder(p); b.balance = 0;
+        if (k === 'fuel') await saveStation(b, ['owner', 'balance']);
+        else if (k === 'shop' || k === 'gun') await saveShop(b, ['owner', 'balance']);
+        else await q('UPDATE atms SET owner_id = ?, balance = 0 WHERE id = ?', [aid, b.id]);
+        tx(aid, 'biz', -b.price, 'Покупка: ' + b.name);
+        govAdd(b.price, 'Продажа бизнеса: ' + b.name + ' → ' + holder(p));
+        bizLog(k, b.id, 'Куплен в агентстве: ' + holder(p), -b.price);
+        K.reload();
+        return null;
     },
     transfer: function (k, id, toId, toName) {
         const K = BIZ_KINDS[k], b = K && K.of(id);

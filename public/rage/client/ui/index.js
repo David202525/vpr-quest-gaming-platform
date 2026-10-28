@@ -399,7 +399,7 @@ setInterval(function () {
     }
     bizNear = best;
     var k = best ? best[0] + best[1] : '';
-    if (best && bizHinted !== k && !uiOpen) { bizHinted = k; mp.events.call('hud:notify', 'ok', best[5] + (best[6] ? ': продаётся! Нажмите E' : ': нажмите E — управление бизнесом'), 3500); }
+    if (best && bizHinted !== k && !uiOpen) { bizHinted = k; mp.events.call('hud:notify', 'ok', best[5] + (best[6] ? ': свободен — купить можно в агентстве недвижимости' : ': нажмите E — управление бизнесом'), 3500); }
     if (!best) bizHinted = '';
 }, 400);
 mp.keys.bind(0x45, false, function () {
@@ -444,7 +444,7 @@ mp.events.add('render', function () {
     var pos = mp.players.local.position;
     for (var i = 0; i < BIZ_PTS.length; i++) {
         var b = BIZ_PTS[i];
-        if (!b[6]) continue;
+        continue;
         var dx = pos.x - b[2], dy = pos.y - b[3];
         var d2 = dx * dx + dy * dy;
         if (d2 > 400) continue;

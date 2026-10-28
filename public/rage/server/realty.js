@@ -58,6 +58,7 @@ async function state(p, extra) {
         money: M() ? M().get(p) : 0, bank: M() ? M().bank(p) : 0, fee: FEE, hours: HOURS, step: Math.round(MIN_STEP * 100),
         hasHome: !!(H() && H().mine && H().mine(p)),
         free: free,
+        biz: B() && B().free ? B().free(p.position).filter(function (x) { return !locked('biz', x.kind + ':' + x.id); }).map(function (x) { return { kind: x.kind, id: x.id, n: x.n, kn: x.kn, i: x.i, price: x.price, d: x.d }; }).sort(function (a, b) { return a.d - b.d; }) : [],
         lots: active().map(function (l) { return lotView(l, me); }).sort(function (a, b) { return a.left - b.left; }),
         mine: await myAssets(p),
         hist: S.hist.filter(function (x) { return x.s === me || x.w === me; }).slice(-10).reverse()
@@ -82,6 +83,22 @@ mp.events.add('srv:realty:act', async function (p, act, a1, a2, a3, a4) {
         slog(p, 'agency-buy', h.n + ' ' + h.price);
         notify(p, 'ok', 'Поздравляем! Вы купили: ' + h.n + ' за ' + money(h.price));
         return reply({ ok: 'Сделка оформлена: ' + h.n + '. Ключи у вас!' });
+    }
+    if (act === 'bizbuy') {
+        const k = String(a1), bid = Number(a2);
+        if (!B() || !B().buy) return;
+        if (locked('biz', k + ':' + bid)) return reply({ err: 'Бизнес на аукционе' });
+        const er = await B().buy(p, k, bid);
+        if (er) return reply({ err: er });
+        const b = B().get(k, bid);
+        slog(p, 'agency-biz', (b ? b.name : k + bid));
+        notify(p, 'ok', 'Поздравляем! Бизнес ' + (b ? b.name : '') + ' теперь ваш');
+        return reply({ ok: 'Сделка оформлена: ' + (b ? b.name : '') + '. Управление — у точки бизнеса (E)' });
+    }
+    if (act === 'bizgps') {
+        const f = B() && B().free ? B().free().find(function (x) { return x.kind === String(a1) && x.id === Number(a2); }) : null;
+        if (f) p.call('phone:gps', [f.x, f.y, f.n]);
+        return;
     }
     if (act === 'gps') {
         const h = H().byId(Number(a1));

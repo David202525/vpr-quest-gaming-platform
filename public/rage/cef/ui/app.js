@@ -1158,14 +1158,14 @@ function renderAtm() {
     else if (v === 'noacc') h = '<div class="as-c"><div class="as-ico">⚠</div><h3>Сервис недоступен</h3><p>Аккаунт не найден. Перезайдите на сервер.</p></div>';
     else if (v === 'nocard') h = '<div class="as-c"><div class="as-ico">💳</div><h3>Нет банковской карты</h3><p>Выпустите именную карту Fleeca Platinum прямо сейчас.</p>' + atmMsg() + '<div class="as-row">' + atmBtn('getcard', 'Выпустить карту · $' + d.cardFee, 'pri') + '</div></div>';
     else if (v === 'blocked') h = '<div class="as-c"><div class="as-ico">⛔</div><h3>Карта заблокирована</h3><p>Слишком много неверных попыток. Повторите через ' + d.card.blocked + ' мин.</p></div>';
-    else if (v === 'insert') h = '<div class="as-c"><div class="as-card">' + cardHtml(d.card) + '</div><h3>Добро пожаловать</h3><p>Вставьте карту, чтобы продолжить</p><div class="as-row">' + atmBtn('insert', 'Вставить карту', 'pri') + '</div>' + (d.atm.forSale ? '<p class="as-sale">Этот банкомат продаётся за ' + money(d.atm.price) + ' — ' + '<a data-a="bizinfo">подробнее</a></p>' : '') + '</div>';
+    else if (v === 'insert') h = '<div class="as-c"><div class="as-card">' + cardHtml(d.card) + '</div><h3>Добро пожаловать</h3><p>Вставьте карту, чтобы продолжить</p><div class="as-row">' + atmBtn('insert', 'Вставить карту', 'pri') + '</div>' + (d.atm.forSale ? '<p class="as-sale">Этот банкомат свободен — купить можно в агентстве недвижимости</p>' : '') + '</div>';
     else if (v === 'pin' || v === 'newpin' || v === 'pinchange1' || v === 'pinchange2') {
         pad = true;
         var t = { pin: 'Введите PIN-код', newpin: 'Придумайте PIN-код', pinchange1: 'Введите текущий PIN', pinchange2: 'Введите новый PIN' }[v];
         h = '<div class="as-c"><h3>' + t + '</h3><p>' + (v === 'newpin' ? 'Запомните его — он понадобится при каждой операции' : '4 цифры') + '</p>' + dots(ATM.input.length) + atmMsg() + '</div>';
     } else if (v === 'menu') {
         h = '<div class="as-menu"><div class="as-bal"><small>Доступно на карте</small><b>' + money(d.bank) + '</b><span>Наличные при себе: ' + money(d.money) + '</span></div>' + atmMsg() +
-            '<div class="as-grid">' + atmBtn('wd', '<i>⬆</i>Снять наличные') + atmBtn('dep', '<i>⬇</i>Внести наличные') + atmBtn('send', '<i>↗</i>Перевод') + atmBtn('hist', '<i>🧾</i>История') + atmBtn('pinc', '<i>🔑</i>Сменить PIN') + atmBtn(d.atm.own || d.atm.forSale ? 'biz' : 'info', d.atm.own ? '<i>🏧</i>Мой бизнес' : d.atm.forSale ? '<i>🏷</i>Купить банкомат' : '<i>ℹ</i>О банкомате') + '</div>' +
+            '<div class="as-grid">' + atmBtn('wd', '<i>⬆</i>Снять наличные') + atmBtn('dep', '<i>⬇</i>Внести наличные') + atmBtn('send', '<i>↗</i>Перевод') + atmBtn('hist', '<i>🧾</i>История') + atmBtn('pinc', '<i>🔑</i>Сменить PIN') + atmBtn(d.atm.own ? 'biz' : 'info', d.atm.own ? '<i>🏧</i>Мой бизнес' : '<i>ℹ</i>О банкомате') + '</div>' +
             (d.atm.fee && !d.atm.own && !d.atm.forSale ? '<p class="as-fee">Комиссия владельца за снятие: ' + d.atm.fee + '%</p>' : '') + '</div>';
     } else if (v === 'amount') {
         pad = true;
@@ -1183,7 +1183,7 @@ function renderAtm() {
     } else if (v === 'biz' || v === 'bizinfo' || v === 'info') {
         var A = d.atm;
         if (A.own) h = '<div class="as-menu"><h3>🏧 ' + esc(A.name) + '</h3><div class="biz-g"><div><small>Касса</small><b>' + money(A.balance) + '</b></div><div><small>Заработано всего</small><b>' + money(A.earned) + '</b></div><div><small>Комиссия</small><b>' + A.fee + '%</b></div></div>' + atmMsg() +
-            '<div class="as-row">' + atmBtn('fee-', '− 0.5%') + atmBtn('fee+', '+ 0.5%') + atmBtn('collect', 'Забрать доход', 'pri') + '</div><div class="as-row">' + atmBtn('back', 'Назад') + '</div></div>';
+            '<div class="as-row">' + atmBtn('fee-', '− 0.5%') + atmBtn('fee+', '+ 0.5%') + atmBtn('collect', 'Забрать доход', 'pri') + '</div><div class="as-row">' + atmBtn('back', 'Назад') + atmBtn('sell', 'Продать гос-ву (60%)', 'dan') + '</div></div>';
         else if (A.forSale) h = '<div class="as-menu"><h3>🏷 Банкомат продаётся</h3><p class="as-p">Владелец получает комиссию с каждого снятия наличных (0–5%, настраивается). Деньги копятся в кассе, их можно забрать на карту.</p><div class="biz-g"><div><small>Цена</small><b>' + money(A.price) + '</b></div><div><small>Ваша карта</small><b>' + money(d.bank) + '</b></div></div>' + atmMsg() +
             '<div class="as-row">' + atmBtn('back', 'Назад') + (d.auth ? atmBtn('buy', 'Купить', 'pri') : '') + '</div>' + (d.auth ? '' : '<p class="as-p">Вставьте карту и введите PIN, чтобы купить.</p>') + '</div>';
         else h = '<div class="as-menu"><h3>ℹ ' + esc(A.name) + '</h3><p class="as-p">Владелец: <b>' + esc(A.ownerName || '—') + '</b><br>Комиссия за снятие: <b>' + A.fee + '%</b></p><div class="as-row">' + atmBtn('back', 'Назад') + '</div></div>';
@@ -1273,9 +1273,7 @@ function renderBiz() {
         d.stats.forEach(function (s) { tiles.push(s); });
         body = '<div class="bz-tiles">' + tiles.map(function (x) { return '<div class="bz-tile ' + (x.big ? 'big' : '') + (x.warn ? ' warn' : '') + '"><small>' + esc(x.l) + '</small><b>' + esc(x.v) + '</b></div>'; }).join('') + '</div>';
         if (d.own) body += '<div class="bz-acts"><button class="bz-btn pri" data-ba="collect">💰 Забрать выручку на карту</button></div>';
-        else if (d.forSale) body += '<div class="bz-buy"><div><small>Цена бизнеса</small><b>' + money(d.price) + '</b><span>На вашей карте: ' + money(d.myBank) + '</span></div>' +
-            '<p>' + (d.kind === 'fuel' ? 'Вы получаете всю выручку с продажи топлива, сами ставите цены и заказываете поставки. Если топливо закончится — АЗС перестанет продавать.' : d.kind === 'atm' ? 'Вы получаете комиссию с каждого снятия наличных другими игроками. Размер комиссии ставите сами.' : 'Вся выручка магазина — ваша. Вы ставите наценку, выбираете ассортимент и заказываете поставки товара. Пустой склад — нет продаж.') + '</p>' +
-            '<button class="bz-btn pri" data-ba="buy"' + (d.myBank < d.price ? ' disabled' : '') + '>Купить за ' + money(d.price) + '</button></div>';
+        else if (d.forSale) body += '<div class="bz-buy"><div><small>Гос. цена</small><b>' + money(d.price) + '</b><span>Бизнес свободен</span></div><p>Купить этот бизнес можно в агентстве недвижимости (Телефон → Карты → Места → Агентство недвижимости).</p></div>';
         else body += '<p class="bz-p">Этот бизнес принадлежит игроку <b>' + esc(d.ownerName) + '</b>.</p>';
     } else if (BZ.tab === 'stock' && d.stock) {
         var S = d.stock, pc = Math.round(S.cur / S.max * 100);
@@ -1299,7 +1297,9 @@ function renderBiz() {
                 (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '<button class="bz-btn" data-save="' + s.k + '">Сохранить</button></div>';
         }).join('') +
             '<div class="bz-set"><label>Название бизнеса</label><div class="bz-row"><input class="bz-in" id="bzName" value="' + esc(d.name) + '" maxlength="32"><button class="bz-btn" data-ba="rename">Переименовать</button></div></div>' +
-            '<div class="bz-set"><label>Продажа бизнеса</label><small>Продать бизнес можно только через агентство недвижимости — выставите его на аукцион там.</small></div>';
+            '<div class="bz-set danger"><label>Продать государству</label>' +
+            '<div class="bz-sell"><div><small>Гос. стоимость</small><b>' + money(d.sell.price) + '</b></div><div class="neg"><small>Налог в казну ' + d.sell.rate + '%</small><b>−' + money(d.sell.tax) + '</b></div><div><small>Касса</small><b>+' + money(d.balance) + '</b></div><div class="tot"><small>Вы получите</small><b>' + money(d.sell.get) + '</b></div></div>' +
+            '<small>Деньги придут на банковскую карту. Действие необратимо.</small><button class="bz-btn dan" data-ba="sell">Продать бизнес</button></div>';
     } else if (BZ.tab === 'log') {
         body = '<div class="bz-list">' + (d.log && d.log.length ? d.log.map(function (x) {
             return '<div class="bz-li"><span>' + esc(x.text) + '</span><small>' + esc(x.d) + '</small>' + (x.a ? '<em class="' + (x.a > 0 ? 'o' : 'e') + '">' + (x.a > 0 ? '+' : '−') + money(Math.abs(x.a)) + '</em>' : '<em></em>') + '</div>';
@@ -1348,7 +1348,7 @@ function renderShop() {
     }).join('') + '</div>' +
         '<footer class="sh-foot"><div class="fu-pay sh-pay"><button class="fu-pm ' + (SH.pay === 'cash' ? 'active' : '') + '" data-spay="cash"><span>💵 Наличные</span><b>' + money(d.money) + '</b></button>' +
         '<button class="fu-pm ' + (SH.pay === 'card' ? 'active' : '') + '" data-spay="card"><span>💳 Карта</span><b>' + money(d.bank) + '</b></button></div>' +
-        ((d.own || d.forSale) ? '<button class="bz-btn ' + (d.forSale ? 'pri' : '') + '" id="shBiz">' + (d.own ? '⚙ Управление бизнесом' : '🏷 Купить этот бизнес') + '</button>' : '') + '</footer>';
+        (d.own ? '<button class="bz-btn" id="shBiz">⚙ Управление бизнесом</button>' : '') + '</footer>';
     $('shBox').innerHTML = h;
     $('shClose').onclick = closeAll;
     if ($('shBiz')) $('shBiz').onclick = function () { trig('cef:biz:open', d.kind, d.id); };
@@ -1535,7 +1535,7 @@ window.phoneBiz = function (json) {
 };
 
 /* ================= АГЕНТСТВО НЕДВИЖИМОСТИ ================= */
-var RL = { tab: 'buy', f: 'all', d: null };
+var RL = { tab: 'buy', f: 'all', bf: 'all', d: null };
 function rlLeft(ms) { var m = Math.ceil(ms / 60000); return m >= 60 ? Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : m + ' мин'; }
 window.realtyMenu = function (json) {
     var box = document.getElementById('realtyMenu');
@@ -1548,7 +1548,7 @@ window.realtyMenu = function (json) {
 function rlRender() {
     var box = document.getElementById('realtyMenu'), d = RL.d;
     if (!box || !d) return;
-    var T = [['buy', '🏠 Купить жильё'], ['auc', '🔨 Аукционы'], ['sell', '📤 Выставить']];
+    var T = [['buy', '🏠 Купить жильё'], ['biz', '💼 Бизнесы'], ['auc', '🔨 Аукционы'], ['sell', '📤 Выставить']];
     var html = '<div class="rl-h"><span class="hm-i">🔑</span><div><b>Агентство недвижимости</b><small>Наличные ' + money(d.money) + ' · Банк ' + money(d.bank) + '</small></div><button class="rl-x" data-rx="1">✕</button></div>' +
         '<div class="gps-tabs">' + T.map(function (t) { return '<button class="gps-tab' + (RL.tab === t[0] ? ' on' : '') + '" data-rt="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
         (d.err ? '<div class="rl-msg err">' + esc(d.err) + '</div>' : '') + (d.ok ? '<div class="rl-msg ok">' + esc(d.ok) + '</div>' : '');
@@ -1561,6 +1561,17 @@ function rlRender() {
                 return '<div class="rl-c"><div class="rl-ct"><b>' + (h.flat ? '🏢 ' : '🏠 ') + esc(h.n) + '</b><span class="rl-p">' + money(h.price) + '</span></div><small>' + esc(h.int) + ' · ' + (h.d > 1000 ? (h.d / 1000).toFixed(1) + ' км' : h.d + ' м') + ' от вас</small>' +
                     '<div class="rl-b"><button class="btn ghost" data-rg="' + h.id + '">📍 Показать</button><button class="btn" data-rb="' + h.id + '"' + (d.hasHome ? ' disabled' : '') + '>Купить</button></div></div>';
             }).join('') : '<div class="empty-t">Свободных объектов нет</div>') + '</div>';
+    } else if (RL.tab === 'biz') {
+        var BK = [['all', 'Все']], seen = {};
+        (d.biz || []).forEach(function (b) { if (!seen[b.kind]) { seen[b.kind] = 1; BK.push([b.kind, b.kn]); } });
+        if (!seen[RL.bf]) RL.bf = 'all';
+        var bl = (d.biz || []).filter(function (b) { return RL.bf === 'all' || b.kind === RL.bf; });
+        html += '<div class="rl-f">' + BK.map(function (f) { return '<button class="' + (RL.bf === f[0] ? 'on' : '') + '" data-rbf="' + f[0] + '">' + esc(f[1]) + '</button>'; }).join('') + '</div>' +
+            '<div class="rl-msg">Оплата с банковской карты (на карте ' + money(d.bank) + '). После покупки управляйте бизнесом у его точки — клавиша E.</div>' +
+            '<div class="rl-list">' + (bl.length ? bl.map(function (b) {
+                return '<div class="rl-c"><div class="rl-ct"><b>' + b.i + ' ' + esc(b.n) + '</b><span class="rl-p">' + money(b.price) + '</span></div><small>' + esc(b.kn) + ' · ' + (b.d > 1000 ? (b.d / 1000).toFixed(1) + ' км' : b.d + ' м') + ' от вас</small>' +
+                    '<div class="rl-b"><button class="btn ghost" data-rbg="' + b.kind + ':' + b.id + '">📍 Показать</button><button class="btn" data-rbb="' + b.kind + ':' + b.id + '"' + (d.bank < b.price ? ' disabled' : '') + '>Купить</button></div></div>';
+            }).join('') : '<div class="empty-t">Свободных бизнесов нет</div>') + '</div>';
     } else if (RL.tab === 'auc') {
         var el = Date.now() - d.at;
         html += '<div class="rl-msg">Ставка списывается с банковского счёта и замораживается. Если вас перебьют — деньги сразу вернутся. Шаг ставки от ' + d.step + '%. Ставка в последние 2 минуты продлевает торги.</div>' +
@@ -1586,6 +1597,9 @@ function rlRender() {
     box.querySelectorAll('[data-rf]').forEach(function (b) { b.onclick = function () { RL.f = b.dataset.rf; rlRender(); }; });
     box.querySelectorAll('[data-rg]').forEach(function (b) { b.onclick = function () { trig('cef:realty:act', 'gps', b.dataset.rg); }; });
     box.querySelectorAll('[data-rb]').forEach(function (b) { b.onclick = function () { if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Подтвердить'; return; } trig('cef:realty:act', 'buy', b.dataset.rb); }; });
+    box.querySelectorAll('[data-rbf]').forEach(function (b) { b.onclick = function () { RL.bf = b.dataset.rbf; rlRender(); }; });
+    box.querySelectorAll('[data-rbg]').forEach(function (b) { b.onclick = function () { var x = b.dataset.rbg.split(':'); trig('cef:realty:act', 'bizgps', x[0], x[1]); }; });
+    box.querySelectorAll('[data-rbb]').forEach(function (b) { b.onclick = function () { if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Подтвердить'; return; } var x = b.dataset.rbb.split(':'); trig('cef:realty:act', 'bizbuy', x[0], x[1]); }; });
     box.querySelectorAll('[data-rc]').forEach(function (b) { b.onclick = function () { trig('cef:realty:act', 'cancel', b.dataset.rc); }; });
     box.querySelectorAll('[data-rbid]').forEach(function (b) { b.onclick = function () { var v = Number(document.getElementById('rlb' + b.dataset.rbid).value); trig('cef:realty:act', 'bid', b.dataset.rbid, String(v)); }; });
     box.querySelectorAll('[data-rs]').forEach(function (b) {
