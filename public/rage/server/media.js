@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const FILE = path.join(__dirname, 'media_data.json');
-const S = Object.assign({ list: {}, codes: {}, used: {}, cfg: { bonusMoney: 5000, bonusCoins: 0, refCoins: 10, maxLvl: 3 } }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
+const S = Object.assign({ list: {}, codes: {}, used: {}, srv: {}, cfg: { bonusMoney: 5000, bonusCoins: 0, refCoins: 10, maxLvl: 3 } }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
 let dirty = false;
 setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FILE, JSON.stringify(S)); } catch (e) {} } }, 5000);
 
@@ -127,6 +127,7 @@ mp.events.add('playerQuit', carClear);
 mp.events.addCommand('promo', function (p, full) {
     const code = String(full || '').trim().toUpperCase();
     if (!code) return notify(p, 'warn', 'Введите: /promo [код]');
+    if (S.srv && S.srv[code]) return srvUse(p, code);
     const c = S.codes[code];
     if (!c) return notify(p, 'error', 'Промокод не найден');
     const id = sid(p);
@@ -143,6 +144,60 @@ mp.events.addCommand('promo', function (p, full) {
     const o = online(c.owner);
     if (o) notify(o, 'ok', nick(p) + ' активировал ваш промокод ' + code + (S.cfg.refCoins ? ' (+' + S.cfg.refCoins + ' RC)' : ''));
 });
+
+/* ---------- серверные промокоды (9) ---------- */
+if (!S.srv) S.srv = {};
+function srvUse(p, code) {
+    const c = S.srv[code];
+    const id = sid(p);
+    if (!id) return;
+    if (!c.on) return notify(p, 'error', 'Промокод отключён');
+    if (c.until && Date.now() > c.until) return notify(p, 'error', 'Срок действия промокода истёк');
+    if (c.max && c.uses >= c.max) return notify(p, 'error', 'Активации промокода закончились');
+    c.users = c.users || {};
+    if (c.users[id]) return notify(p, 'error', 'Вы уже активировали этот промокод');
+    c.users[id] = Date.now(); c.uses++; dirty = true;
+    const got = [];
+    if (c.money && M()) { M().addBank(p, c.money); got.push('+$' + c.money.toLocaleString('ru-RU') + ' на счёт'); }
+    if (c.coins) { coins(id, c.coins, 'промокод ' + code); got.push('+' + c.coins + ' RC'); }
+    notify(p, 'ok', 'Промокод ' + code + ' активирован! ' + got.join(' · '));
+    if (global.SLog) try { global.SLog.add('money', { tag: 'promo', actor: p, action: 'promo', amount: c.money || 0, details: code + (c.coins ? ' +' + c.coins + ' RC' : '') }); } catch (e) {}
+}
+function srvView() {
+    return Object.keys(S.srv).map(function (k) {
+        const c = S.srv[k];
+        return { code: k, money: c.money || 0, coins: c.coins || 0, max: c.max || 0, uses: c.uses || 0, on: !!c.on, until: c.until || 0, by: c.by || '', at: c.at || 0 };
+    }).sort(function (a, b) { return b.at - a.at; });
+}
+function num(v, max) { return Math.max(0, Math.min(max, Math.floor(Number(v) || 0))); }
+function srvAct(p, d) {
+    if (admLvl(p) < 9) return { err: 'Серверные промокоды доступны только с 9 уровня' };
+    const A = global.AdminSystem;
+    const log = function (t) { if (A && A.log) try { A.log(p, 'promo', t); } catch (e) {} };
+    const code = String(d.code || '').trim().toUpperCase();
+    if (d.op === 'create') {
+        if (!/^[A-Z0-9_\-]{3,20}$/.test(code)) return { err: 'Код: 3–20 символов, латиница, цифры, _ и -' };
+        if (S.srv[code] || S.codes[code]) return { err: 'Такой код уже существует' };
+        const money = num(d.money, 100000000), cn = num(d.coins, 1000000);
+        if (!money && !cn) return { err: 'Укажите награду: деньги и/или донат' };
+        const days = num(d.days, 3650);
+        S.srv[code] = { money: money, coins: cn, max: num(d.max, 1000000), uses: 0, on: true, until: days ? Date.now() + days * 86400000 : 0, by: nick(p), at: Date.now(), users: {} };
+        dirty = true; log('create ' + code + ' $' + money + ' ' + cn + 'RC x' + S.srv[code].max);
+        return { ok: 'Промокод ' + code + ' создан' };
+    }
+    const c = S.srv[code];
+    if (!c) return { err: 'Промокод не найден' };
+    if (d.op === 'edit') {
+        c.money = num(d.money, 100000000); c.coins = num(d.coins, 1000000); c.max = num(d.max, 1000000);
+        if (d.days !== undefined && d.days !== '') { const dd = num(d.days, 3650); c.until = dd ? Date.now() + dd * 86400000 : 0; }
+        dirty = true; log('edit ' + code + ' $' + c.money + ' ' + c.coins + 'RC x' + c.max);
+        return { ok: 'Промокод ' + code + ' обновлён' };
+    }
+    if (d.op === 'toggle') { c.on = !c.on; dirty = true; log((c.on ? 'on ' : 'off ') + code); return { ok: code + (c.on ? ' включён' : ' выключен') }; }
+    if (d.op === 'reset') { c.uses = 0; c.users = {}; dirty = true; log('reset ' + code); return { ok: 'Активации ' + code + ' обнулены' }; }
+    if (d.op === 'del') { delete S.srv[code]; dirty = true; log('del ' + code); return { ok: 'Промокод ' + code + ' удалён' }; }
+    return null;
+}
 
 /* ---------- F4: управление (7+) ---------- */
 function admView() {
@@ -288,5 +343,5 @@ setInterval(function () {
     });
 }, 1000);
 
-global.MediaSystem = { rec: rec, admView: admView, admAct: admAct, cfgAct: cfgAct, flyCmd: flyCmd, is: function (p) { return !!me(p); } };
+global.MediaSystem = { rec: rec, admView: admView, admAct: admAct, cfgAct: cfgAct, srvView: srvView, srvAct: srvAct, flyCmd: flyCmd, is: function (p) { return !!me(p); } };
 console.log('[media] медиа-партнёров: ' + Object.keys(S.list).length);

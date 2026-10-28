@@ -69,7 +69,7 @@ window.admData = function (json) {
     $('meRank').style.color = D.me.color;
     $('meAva').textContent = (D.me.name || '?').charAt(0).toUpperCase();
     $('meAva').style.borderColor = D.me.color;
-    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt, renderMedia].forEach(function (f) {
+    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt, renderMedia, renderPromos].forEach(function (f) {
         try { f(); } catch (e) { if (window.console) console.log('[admin] ' + (f.name || '') + ': ' + e.message); }
     });
 };
@@ -619,3 +619,37 @@ function renderMedia() {
 }
 $('mdAdd').onclick = function () { var w = $('mdWho').value.trim(); if (!w) return; act({ action: 'media', op: 'add', who: w, salary: Number($('mdSal').value) || 0 }); $('mdWho').value = ''; };
 $('mcSave').onclick = function () { act({ action: 'mediacfg', bonusMoney: $('mcMoney').value, bonusCoins: $('mcCoins').value, refCoins: $('mcRef').value, maxLvl: $('mcLvl').value }); };
+
+function renderPromos() {
+    var box = $('prList');
+    if (!box) return;
+    var L = D.promos;
+    if (!L) { box.innerHTML = '<p class="hint">Доступно только с 9 уровня</p>'; return; }
+    if (box.contains(document.activeElement)) return;
+    box.innerHTML = L.length ? L.map(function (c) {
+        var left = c.max ? Math.max(0, c.max - c.uses) : '∞';
+        var st = !c.on ? '<span style="color:#ff9aac">выключен</span>' : (c.until && Date.now() > c.until) ? '<span style="color:#ff9aac">истёк</span>' : (c.max && c.uses >= c.max) ? '<span style="color:#ffcc66">закончился</span>' : '<span style="color:#7fe0a0">активен</span>';
+        return '<div class="tr pr-tr" data-pr="' + esc(c.code) + '">' +
+            '<b>' + esc(c.code) + '<br><span class="mut">' + st + ' · ' + esc(c.by) + '</span></b>' +
+            '<label>$<input class="search" type="number" min="0" data-f="money" value="' + c.money + '"></label>' +
+            '<label>RC<input class="search" type="number" min="0" data-f="coins" value="' + c.coins + '"></label>' +
+            '<label>Лимит<input class="search" type="number" min="0" data-f="max" value="' + c.max + '"></label>' +
+            '<span>' + c.uses + ' / ' + (c.max || '∞') + '<br><span class="mut">осталось ' + left + (c.until ? ' · до ' + mdDate(c.until) : '') + '</span></span>' +
+            '<span class="md-b"><button class="btn ok" data-pa="edit">Сохранить</button><button class="btn" data-pa="toggle">' + (c.on ? '⏸' : '▶') + '</button><button class="btn" data-pa="reset" title="Обнулить активации">↺</button><button class="btn danger" data-pa="del">✕</button></span></div>';
+    }).join('') : '<p class="hint">Промокодов пока нет</p>';
+    box.querySelectorAll('[data-pa]').forEach(function (b) {
+        b.onclick = function () {
+            var row = b.closest('[data-pr]'), code = row.dataset.pr, op = b.dataset.pa;
+            if ((op === 'del' || op === 'reset') && !b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; }
+            var o = { action: 'promo', op: op, code: code };
+            if (op === 'edit') row.querySelectorAll('[data-f]').forEach(function (i) { o[i.dataset.f] = Number(i.value) || 0; });
+            act(o);
+        };
+    });
+}
+$('prAdd').onclick = function () {
+    var c = $('prCode').value.trim().toUpperCase();
+    if (!c) return;
+    act({ action: 'promo', op: 'create', code: c, money: Number($('prMoney').value) || 0, coins: Number($('prCoins').value) || 0, max: Number($('prMax').value) || 0, days: Number($('prDays').value) || 0 });
+    ['prCode', 'prMoney', 'prCoins', 'prMax', 'prDays'].forEach(function (k) { $(k).value = ''; });
+};

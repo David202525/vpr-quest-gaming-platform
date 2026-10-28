@@ -36,7 +36,7 @@ mp.events.add('render', function () {
         var z = (head ? head.z : pos.z + 0.7) + 0.38 + d * 0.012;
         var k = Math.max(0.24, 0.42 - d * 0.009);
         var known = !!names[s];
-        mp.game.graphics.drawText(titleOf(p), [pos.x, pos.y, z], { font: 4, color: known ? [255, 255, 255, 235] : [210, 210, 220, 225], scale: [k, k], outline: true, centre: true });
+        mp.game.graphics.drawText((known ? names[s] + ' ' : '') + '[' + p.remoteId + ']', [pos.x, pos.y, z], { font: 4, color: known ? [255, 255, 255, 235] : [210, 210, 220, 225], scale: [k, k], outline: true, centre: true });
         mp.game.graphics.drawText('#' + s, [pos.x, pos.y, z - 0.1 - d * 0.004], { font: 4, color: [193, 140, 255, 235], scale: [k * 0.85, k * 0.85], outline: true, centre: true });
     });
 });

@@ -809,3 +809,8 @@ label.check input {
 .side .menu::-webkit-scrollbar-thumb { background: rgba(193, 61, 255, .45); border-radius: 4px; }
 .side .m { flex: none; padding: 9px 12px; }
 .side .quick { flex: none; }
+
+.pr-form{display:grid;grid-template-columns:1.3fr 1fr 1fr 1.3fr 1.3fr auto;gap:8px;align-items:end}
+.pr-form label{font-size:11px;color:var(--mut);display:flex;flex-direction:column;gap:4px}.pr-form .search{max-width:none;margin:0}
+.tr.pr-tr{grid-template-columns:1.2fr 110px 100px 100px 1fr auto}
+.pr-tr label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut)}.pr-tr .search{max-width:none;margin:0;width:100%}
