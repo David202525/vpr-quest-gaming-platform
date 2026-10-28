@@ -126,7 +126,7 @@ function renderDetail() {
         btn('Выдать розыск', 'wantedset', 'danger') + btn('Снять розыск', 'wantedclear', 'ok') + btn(p.cuffed ? 'Раскафнуть' : 'Кафнуть', p.cuffed ? 'uncuff' : 'cuff') +
         (p.jail && p.jail.type === 'prison' && p.jail.officer ? btn('Выпустить из тюрьмы', 'prisonrelease', 'ok') : '') + '</div></div>' +
         '<div class="act-group"><div class="g">Наказания 2</div><div class="act-btns">' +
-        btn('Деморган', 'jail', 'danger') + btn('Отнять лиц.', 'takelic') + btn('Глоб. бан', 'permban', 'danger') + '</div></div>' +
+        (p.jail ? btn(p.jail.type === 'demorgan' ? 'Выпустить из деморгана' : p.jail.type === 'prison' ? 'Освободить (тюрьма)' : 'Выпустить из КПЗ', 'unjailp', 'ok') : btn('Деморган', 'jail', 'danger')) + btn('Отнять лиц.', 'takelic') + btn('Глоб. бан', 'permban', 'danger') + '</div></div>' +
         '<div class="act-group"><div class="g">Руководство</div><div class="act-btns">' +
         btn('HP', 'hpset') + btn('Броня', 'armourset') + btn('Оружие', 'weapon') + btn('Скин', 'skin') + btn('Банк', 'bankinfo') + btn('Ники', 'nickhist') + '</div></div>' +
         '<div class="act-group"><div class="g">Экономика</div><div class="act-btns" style="grid-template-columns:1fr 1fr">' +
@@ -191,6 +191,8 @@ function playerAction(a) {
             if (!m) return false;
             trig('cef:adm:veh', JSON.stringify({ model: m, c1: Number($('mC1').value), c2: Number($('mC2').value), dlc: true, target: p.id, own: true }));
         });
+    } else if (a === 'unjailp') {
+        act({ action: 'release', id: p.id });
     } else if (a === 'jail') {
         modal('Деморган', who, '<label>Минут</label>' + chipsHtml([[15, '15'], [30, '30'], [60, '60'], [120, '120'], [300, '300']], 'jt', 30) + reasonField, 'Отправить', function () {
             act({ action: 'jail', id: p.id, minutes: chipValue('jt'), reason: $('mReason').value.trim() || 'нарушение' });
@@ -236,7 +238,7 @@ function playerAction(a) {
         act({ action: a, id: p.id });
     }
 }
-var EXT_PERM = { wantedset: 3, wantedclear: 3, cuff: 3, uncuff: 3, prisonrelease: 3, spec: 1, screen: 6, eject: 4, fixp: 3, dim: 3, setname: 3, jail: 3, takelic: 3, permban: 7, hpset: 6, armourset: 6, weapon: 6, skin: 7, bankinfo: 7, nickhist: 7, money2: 9, coins: 8 };
+var EXT_PERM = { unjailp: 3, wantedset: 3, wantedclear: 3, cuff: 3, uncuff: 3, prisonrelease: 3, spec: 1, screen: 6, eject: 4, fixp: 3, dim: 3, setname: 3, jail: 3, takelic: 3, permban: 7, hpset: 6, armourset: 6, weapon: 6, skin: 7, bankinfo: 7, nickhist: 7, money2: 9, coins: 8 };
 
 function rowsHtml(list, fn, empty) { return list.length ? list.map(fn).join('') : '<div class="empty">' + (empty || 'Пусто') + '</div>'; }
 function ago(ms) { var s = Math.floor(ms / 1000); if (s < 60) return s + ' сек'; if (s < 3600) return Math.floor(s / 60) + ' мин'; return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' м'; }

@@ -1001,7 +1001,17 @@ function pact(p, d, t) {
     if (a === 'mp') { if (!chk('mp')) return true; const e = mpAction(p, d); return T(e || 'Готово', !e); }
     if (a === 'spec') { if (!chk('spec')) return true; if (!t) return T('Игрок не найден', false); if (isProt(t) && t !== p) { pAlert(p, 'следить за вами (панель)'); return T('За этим игроком нельзя следить', false); } p.call('adm:close'); startSpec(p, t); return true; }
     if (a === 'jail') { if (!chk('demorgan')) return true; if (!t || !canTouch(p, t)) return T('Нельзя', false); const e = jailPlayer(p, t, 'demorgan', Math.max(1, Math.min(720, Number(d.minutes) || 30)), String(d.reason || 'нарушение')); return T(e || 'Отправлен в деморган', !e); }
-    if (a === 'release') { if (!chk('unjail')) return true; const tt = t || online(d.s); if (!tt) return T('Игрок офлайн', false); const j = S.jail[sid(tt)]; if (j && j.type === 'demorgan' && !can(p, 'demorgan')) return T('Нет прав', false); release(tt, 'выпустил ' + login(p)); log(p, 'release', login(tt), ''); return T('Освобождён', true); }
+    if (a === 'release') {
+        if (!chk('unjail')) return true;
+        const tt = t || online(d.s);
+        const key = tt ? sid(tt) : Number(d.s);
+        const j = S.jail[key];
+        if (!j) return T('Игрок не в заключении', false);
+        if (j.type === 'demorgan' && !can(p, 'demorgan')) return T('Нет прав на деморган', false);
+        if (!tt) { delete S.jail[key]; save(); log(p, 'release', '#' + key, 'офлайн'); return T('Снято: выйдет на свободу при входе', true); }
+        release(tt, 'выпустил ' + login(p)); log(p, 'release', login(tt), j.type);
+        return T(j.type === 'demorgan' ? 'Выпущен из деморгана' : 'Освобождён', true);
+    }
     if (a === 'setname') { if (!chk('setname')) return true; A.runCmd(p, 'setname ' + d.id + ' ' + d.name); return T('Готово', true); }
     if (a === 'dim') { if (!chk('setdim')) return true; if (!t) return T('Игрок не найден', false); if (isProt(t) && t !== p) { pAlert(p, 'сменить вам измерение'); return T('Нельзя', false); } t.dimension = Math.max(0, Number(d.value) || 0); log(p, 'setdim', login(t), String(d.value)); return T('Измерение изменено', true); }
     if (a === 'eject') { if (!chk('eject')) return true; if (!t || !t.vehicle) return T('Игрок не в машине', false); t.removeFromVehicle(); log(p, 'eject', login(t), ''); return T('Высажен', true); }
