@@ -90,13 +90,16 @@ mp.events.add('srv:taxi:rent', function (p) {
     if (lvl(p) < CFG.driverLvl && admLvl(p) < 1) return notify(p, 'error', 'Аренда такси с ' + CFG.driverLvl + ' уровня');
     if (!hasB(p)) return notify(p, 'error', 'Нужны права категории B');
     const P = park();
-    if (Math.hypot(p.position.x - P.x, p.position.y - P.y) > 6) { p.call('phone:gps', [P.x, P.y, 'Таксопарк Downtown Cab Co.']); return notify(p, 'warn', 'Арендовать можно в таксопарке — метка на карте'); }
+    if (Math.hypot(p.position.x - P.x, p.position.y - P.y) > 8) { p.call('phone:gps', [P.x, P.y, 'Таксопарк Downtown Cab Co.']); return notify(p, 'warn', 'Арендовать можно в таксопарке — метка на карте'); }
     const k = sid(p);
     if (rents[k] && mp.vehicles.exists(rents[k].v)) return notify(p, 'warn', 'У вас уже есть арендованное такси');
     if (!M() || M().get(p) < CFG.rent) return notify(p, 'error', 'Аренда стоит ' + money(CFG.rent) + ' наличными');
-    M().add(p, -CFG.rent);
-    const sp = SPOTS.find(function (s) { return !mp.vehicles.toArray().some(function (v) { return Math.hypot(v.position.x - s[0], v.position.y - s[1]) < 2.5; }); }) || SPOTS[0];
+    const SP = S.spots && S.spots.length ? S.spots : SPOTS;
+    const sp = SP.find(function (s) { return !mp.vehicles.toArray().some(function (v) { return Math.hypot(v.position.x - s[0], v.position.y - s[1]) < 2.5; }); }) || SP[0];
     const v = mp.vehicles.new(mp.joaat('taxi'), new mp.Vector3(sp[0], sp[1], sp[2]), { heading: sp[3], numberPlate: 'TAXI' + String(p.id).padStart(3, '0'), dimension: 0, engine: false, locked: false });
+    if (!v || !mp.vehicles.exists(v)) return notify(p, 'error', 'Не удалось выдать машину — сообщите администрации');
+    M().add(p, -CFG.rent);
+    v.dimension = 0;
     v.setVariable('taxiRent', k);
     v.setVariable('pub', 1);
     try { v.setColor(88, 88); } catch (e) {}
@@ -257,6 +260,15 @@ mp.events.addCommand('taxipark', function (p) {
     S.park = { x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading }; dirty = true;
     mp.players.forEach(sendPark);
     notify(p, 'ok', 'Точка таксопарка сохранена');
+});
+mp.events.addCommand('taxispot', function (p, full) {
+    if (admLvl(p) < 5) return;
+    if (String(full || '').trim() === 'reset') { S.spots = []; dirty = true; return notify(p, 'ok', 'Места выдачи такси сброшены'); }
+    const e = p.vehicle || p;
+    if (!S.spots) S.spots = [];
+    S.spots.push([e.position.x, e.position.y, e.position.z + 0.3, e.heading !== undefined ? e.heading : p.heading]);
+    dirty = true;
+    notify(p, 'ok', 'Место выдачи такси добавлено (' + S.spots.length + '). Сброс: /taxispot reset');
 });
 mp.events.addCommand('taxi', function (p) { p.call('taxi:openApp', []); });
 

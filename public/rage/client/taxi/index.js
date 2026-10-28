@@ -11,7 +11,7 @@ mp.events.add('render', function () {
     var dx = p.x - tPark.x, dy = p.y - tPark.y;
     if (dx * dx + dy * dy > 900) return;
     mp.game.graphics.drawMarker(1, tPark.x, tPark.y, tPark.z - 1, 0, 0, 0, 0, 0, 0, 1.4, 1.4, 0.4, 255, 200, 40, 120, false, false, 2, false, null, null, false);
-    if (dx * dx + dy * dy < 9) mp.game.graphics.drawText('🚕 Аренда такси — телефон → «Такси»', [tPark.x, tPark.y, tPark.z + 0.4], { font: 4, color: [255, 210, 60, 230], scale: [0.4, 0.4], outline: true, centre: true });
+    if (dx * dx + dy * dy < 9) mp.game.graphics.drawText('🚕 E — арендовать такси', [tPark.x, tPark.y, tPark.z + 0.4], { font: 4, color: [255, 210, 60, 230], scale: [0.4, 0.4], outline: true, centre: true });
 });
 mp.events.add('taxi:gps', function (x, y, z, name) {
     if (tGps) { try { tGps.destroy(); } catch (e) {} tGps = null; }
@@ -35,4 +35,16 @@ mp.events.add('taxi:ping', function () { try { mp.game.audio.playSoundFrontend(-
 mp.events.add('taxi:openApp', function () { mp.events.call('cef:ui:open', 'phone'); setTimeout(function () { tx('window.openApp && window.openApp("taxi");'); }, 300); });
 ['app', 'duty', 'rent', 'rentEnd', 'call', 'accept', 'cancel', 'start', 'finish'].forEach(function (n) {
     mp.events.add('cef:taxi:' + n, function (a, b) { mp.events.callRemote('srv:taxi:' + n, a === undefined ? '' : a, b === undefined ? '' : b); });
+});
+var tParkHint = false;
+setInterval(function () {
+    if (!tPark) return;
+    var me = mp.players.local, p = me.position;
+    var near = !me.vehicle && mp.game.system.vdist(p.x, p.y, p.z, tPark.x, tPark.y, tPark.z) < 3;
+    if (near && !tParkHint) mp.events.call('hud:notify', 'ok', 'Таксопарк: нажмите E — арендовать такси', 3500);
+    tParkHint = near;
+}, 400);
+mp.keys.bind(0x45, false, function () {
+    if (!tParkHint || global.chatOpen || mp.players.local.isTypingInTextChat || mp.gui.cursor.visible) return;
+    mp.events.callRemote('srv:taxi:rent');
 });

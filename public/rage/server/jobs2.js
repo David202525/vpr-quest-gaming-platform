@@ -131,7 +131,7 @@ function garbNext(p, s) {
 
 /* ======================= ИНКАССАТОР (8+ ур.) ======================= */
 const COL_BASE = { x: 254.6, y: 225.6, z: 106.3 };
-const COL_CAR = { x: 232.0, y: 215.0, z: 105.6, h: 340 };
+const COL_CAR = { x: 220.2, y: 197.8, z: 105.3, h: 250 };
 const COL_LV = [0, 15, 45, 100, 200];
 const ATMS = [
     ['Fleeca Legion', 147.4, -1035.8, 29.3], ['Fleeca Burton', -351.5, -49.5, 49.0], ['Fleeca Rockford', -1212.9, -330.8, 37.8],
@@ -139,18 +139,30 @@ const ATMS = [
     ['Blaine County Savings', -112.2, 6469.3, 31.6], ['Банкомат Del Perro', -1305.5, -706.4, 25.3], ['Банкомат Vinewood', 236.6, 219.0, 106.3],
     ['Банкомат Mirror Park', 1138.3, -468.9, 66.7], ['Банкомат Sandy', 1968.0, 3743.6, 32.3], ['Банкомат Chumash', -3240.5, 997.6, 12.6]
 ];
+const fs = require('fs');
+const COL_FILE = require('path').join(__dirname, 'jobs2_data.json');
+const X = (function () { try { return JSON.parse(fs.readFileSync(COL_FILE, 'utf8')) || {}; } catch (e) { return {}; } })();
+function colCar() { return X.colCar || COL_CAR; }
+mp.events.addCommand('setcolcar', function (p, full) {
+    if (!global.AdminSystem || global.AdminSystem.realLvl(p) < 5) return;
+    if (String(full || '').trim() === 'reset') delete X.colCar;
+    else { const e = p.vehicle || p; X.colCar = { x: e.position.x, y: e.position.y, z: e.position.z + 0.3, h: e.heading !== undefined ? e.heading : p.heading }; }
+    fs.writeFile(COL_FILE, JSON.stringify(X), function () {});
+    notify(p, 'ok', X.colCar ? 'Точка выдачи фургона инкассатора сохранена' : 'Точка сброшена');
+});
 function colDef() {
     return {
         n: 'Инкассатор', i: '💰', lvl: 0, lv: COL_LV, minLvl: 8,
         pay: '250–600$ за точку · риск ограбления',
         d: 'Бронированный фургон банка Pacific Standard. Забирайте выручку из отделений Fleeca и банкоматов и сдавайте в хранилище. Чем дальше точка — тем выше оплата. Будьте начеку: банды могут напасть.',
-        base: COL_BASE, blip: 67, color: 2, car: 'stockade', carPos: COL_CAR, lic: 'drive',
+        base: COL_BASE, blip: 67, color: 2, lic: 'drive',
         opts: function (p, lv) { return [{ id: 'go', n: '💰 Выехать на маршрут', sub: '3 точки за рейс · ×' + lv.mult.toFixed(2) + ' к оплате', need: 1, locked: false }]; },
         start: function (p, s) {
             const U = global.UiSystem;
             if (U && U.driveCats && U.driveCats(p).indexOf('C') < 0) return 'Нужны права категории C';
             if (global.WantedSystem && global.WantedSystem.get && global.WantedSystem.get(p) > 0) return 'Банк не берёт на работу людей в розыске';
-            s.veh = J().jobVeh(p, { car: 'stockade', carPos: COL_CAR }, null);
+            s.veh = J().jobVeh(p, { car: 'stockade', carPos: colCar() }, null);
+            try { s.veh.dimension = 0; } catch (e) {}
             s.route = []; while (s.route.length < 3) { const a = pick(ATMS); if (s.route.indexOf(a) < 0) s.route.push(a); }
             s.bags = 0; s.sum = 0;
             colNext(p, s);
