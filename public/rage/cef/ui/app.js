@@ -347,6 +347,7 @@ var APPS = [
     { id: 'bank', n: 'Банк', i: '💳', bg: 'linear-gradient(135deg,#e3194f,#8f1fd1)' },
     { id: 'gps', n: 'Карты', i: '🗺️', bg: 'linear-gradient(135deg,#5ac8fa,#007aff)' },
     { id: 'players', n: 'Люди', i: '🌐', bg: 'linear-gradient(135deg,#ff9f0a,#ff6b00)' },
+    { id: 'taxi', n: 'Такси', i: '🚕', bg: 'linear-gradient(135deg,#ffd60a,#f5a300)' },
     { id: 'calc', n: 'Калькулятор', i: '🧮', bg: 'linear-gradient(135deg,#3a3a3c,#1c1c1e)' },
     { id: 'notes', n: 'Заметки', i: '📝', bg: 'linear-gradient(135deg,#ffd60a,#ff9f0a)' },
     { id: 'camera', n: 'Камера', i: '📷', bg: 'linear-gradient(135deg,#636366,#2c2c2e)' },
@@ -406,7 +407,9 @@ $('phBack').onclick = function () {
 };
 $('phHome').onclick = phoneHome;
 
+window.openApp = function (id) { openApp(id); };
 function openApp(id) {
+    if (id === 'taxi') DATA.taxi = null;
     if (id === 'camera') { trig('cef:phone:camera'); return; }
     if (id === 'menu') { trig('cef:ui:open', 'menu'); return; }
     phApp = id; phChat = null;
@@ -495,9 +498,9 @@ function _renderApp() {
             var J = DATA.jobs;
             if (!J) { body.innerHTML = tabs + '<div class="empty-t">Загрузка...</div>'; trig('cef:job:phone'); }
             else {
-                body.innerHTML = tabs + (J.working ? '<div class="job-now">Сейчас: <b>' + esc(J.working.n) + '</b><button class="btn ghost" data-jq="1" style="margin:8px 0 0">Закончить смену</button></div>' : '') +
+                body.innerHTML = tabs + '<div class="empty-t" style="text-align:left;margin:6px 0">Ваш уровень: <b>' + (J.lvl || 1) + '</b>. Новичкам 1–3 ур. — стройка и ферма, дальше открываются новые работы.</div>' + (J.working ? '<div class="job-now">Сейчас: <b>' + esc(J.working.n) + '</b><button class="btn ghost" data-jq="1" style="margin:8px 0 0">Закончить смену</button></div>' : '') +
                     J.list.map(function (j) {
-                        return '<div class="job-c' + (j.off ? ' off' : '') + '"><div class="job-h"><span class="job-i">' + j.i + '</span><div><b>' + esc(j.n) + '</b><small>' + esc(j.pay) + '</small></div></div>' +
+                        return '<div class="job-c' + (j.off || j.lock ? ' off' : '') + '"><div class="job-h"><span class="job-i">' + j.i + '</span><div><b>' + esc(j.n) + '</b><small>' + esc(j.pay) + '</small></div><span class="job-lv' + (j.lock ? ' lk' : '') + '">' + (j.lock ? '🔒 ' : '') + j.need + '+ ур.</span></div>' +
                             '<p>' + esc(j.d) + '</p>' +
                             (j.done ? '<div class="job-st">Выполнено: ' + j.done + ' · заработано ' + money(j.earned) + '</div>' : '') +
                             (j.off ? '<div class="job-st" style="color:#ff6b6b">Временно закрыто администрацией</div>' : '<button class="btn" data-jg="' + j.id + '">📍 Проложить маршрут</button>') + '</div>';
@@ -521,6 +524,8 @@ function _renderApp() {
         body.querySelectorAll('[data-hg]').forEach(function (el) { el.onclick = function () { trig('cef:house:gps', el.dataset.hg, Number(el.dataset.id)); }; });
         body.querySelectorAll('[data-jg]').forEach(function (el) { el.onclick = function () { trig('cef:job:gps', el.dataset.jg); }; });
         body.querySelectorAll('[data-jq]').forEach(function (el) { el.onclick = function () { trig('cef:job:quit'); setTimeout(function () { DATA.jobs = null; renderApp(); }, 400); }; });
+    } else if (phApp === 'taxi') {
+        taxiRender(body);
     } else if (phApp === 'players') {
         body.innerHTML = p.online.map(function (x) {
             return '<div class="li" data-n="' + esc(x.number) + '" data-nm="' + esc(x.name) + '"><div class="av">' + esc(x.name[0]) + '</div><div class="li-b"><b>' + esc(x.name) + '</b><span>ID ' + x.id + ' · ' + esc(x.number) + '</span></div><span class="li-r">💬</span></div>';
@@ -1340,7 +1345,7 @@ window.jobMenu = function (json) {
     else if (d.opts) start = '<div class="jm-sel">' + d.opts.map(function (r) { return '<button class="jm-opt' + (r.locked ? ' lk' : '') + '" ' + (r.locked ? 'disabled' : 'data-jm="start" data-r="' + r.id + '"') + '><b>' + esc(r.n) + '</b><small>' + (r.locked ? '🔒 Откроется на ' + r.need + ' уровне' : esc(r.sub)) + '</small></button>'; }).join('') + '</div>';
     else start = '<button class="btn" data-jm="start">Начать работу</button>';
     box.innerHTML = '<div class="jm-box"><div class="job-h"><span class="job-i">' + d.i + '</span><div><b>' + esc(d.n) + '</b><small>' + esc(d.pay) + '</small></div></div>' +
-        '<p>' + esc(d.d) + '</p>' + (d.lv ? '<div class="jm-lv"><div class="jm-lvh"><b>Мастерство: ' + d.lv.lvl + ' / ' + d.lv.max + '</b><span>оплата ×' + d.lv.mult.toFixed(2) + '</span></div><div class="jm-bar"><i style="width:' + (d.lv.next === null ? 100 : Math.round((d.lv.xp - d.lv.cur) / (d.lv.next - d.lv.cur) * 100)) + '%"></i></div><small>' + (d.lv.next === null ? 'Максимальный уровень' : 'До следующего уровня: ' + (d.lv.next - d.lv.xp) + (d.id === 'bus' ? ' ост.' : ' шт. урожая')) + '</small></div>' : '') + (d.done ? '<div class="job-st">Вы выполнили: ' + d.done + ' · заработали ' + money(d.earned) + '</div>' : '') +
+        '<p>' + esc(d.d) + '</p>' + (d.need && d.myLvl < d.need ? '<div class="job-st" style="color:#ff6b6b">🔒 Доступно с ' + d.need + ' уровня персонажа (у вас ' + d.myLvl + ')</div>' : '') + (d.lv ? '<div class="jm-lv"><div class="jm-lvh"><b>Мастерство: ' + d.lv.lvl + ' / ' + d.lv.max + '</b><span>оплата ×' + d.lv.mult.toFixed(2) + '</span></div><div class="jm-bar"><i style="width:' + (d.lv.next === null ? 100 : Math.round((d.lv.xp - d.lv.cur) / (d.lv.next - d.lv.cur) * 100)) + '%"></i></div><small>' + (d.lv.next === null ? 'Максимальный уровень' : 'До следующего уровня: ' + (d.lv.next - d.lv.xp) + (d.id === 'bus' ? ' ост.' : ' шт. урожая')) + '</small></div>' : '') + (d.done ? '<div class="job-st">Вы выполнили: ' + d.done + ' · заработали ' + money(d.earned) + '</div>' : '') +
         start + '<button class="btn ghost" data-jm="close">Закрыть</button></div>';
     box.querySelectorAll('[data-jm]').forEach(function (b) {
         b.onclick = function () {
@@ -1669,3 +1674,71 @@ document.addEventListener('click', function (e) {
     if (a === 'setInner') return trig('cef:radio:act', 'setInner', document.getElementById('rpInner').value);
     if (a) trig('cef:radio:act', a, '');
 });
+
+/* ================= ТАКСИ ================= */
+var TX_NOTE = '';
+window.taxiApp = function (json) {
+    DATA.taxi = typeof json === 'string' ? JSON.parse(json) : json;
+    if (current === 'phone' && phApp === 'taxi') renderApp();
+};
+function taxiRender(body) {
+    var T = DATA.taxi;
+    if (!T) { body.innerHTML = '<div class="empty-t">Загрузка...</div>'; trig('cef:taxi:app'); return; }
+    var t = T.tariff, o = T.order, h = '';
+    h += '<div class="tx-hero"><b>🚕 Downtown Cab Co.</b><small>Посадка ' + money(t.start) + ' · ' + money(t.km) + '/км · ' + money(t.min) + '/мин · на линии: ' + T.online + '</small></div>';
+    if (o) {
+        var stN = { wait: 'Ищем водителя…', go: o.me === 'cl' ? 'Водитель едет к вам' : 'Едьте к клиенту (метка на карте)', ride: 'Поездка идёт — работает таксометр' }[o.st];
+        h += '<div class="job-c"><div class="gps-sub" style="margin-top:0">Заказ №' + o.id + '</div><b style="font-size:15px">' + stN + '</b>' +
+            (o.me === 'cl' && o.drv ? '<div class="tx-row">Водитель: <b>' + esc(o.drv) + '</b>' + (o.car ? ' · ' + esc(o.car) : '') + (o.drvPhone ? ' · 📞 ' + esc(o.drvPhone) : '') + '</div>' : '') +
+            (o.me === 'dr' ? '<div class="tx-row">Клиент: <b>' + esc(o.cl) + '</b>' + (o.clPhone ? ' · 📞 ' + esc(o.clPhone) : '') + (o.note ? '<br>«' + esc(o.note) + '»' : '') + '</div>' : '') +
+            (o.free ? '<div class="tx-free">🎁 Поездка бесплатна для новичка — оплачивает мэрия</div>' : '') +
+            (o.me === 'dr' && o.st === 'go' ? '<button class="btn" data-tx="start">▶ Включить таксометр (клиент в машине)</button>' : '') +
+            (o.me === 'dr' && o.st === 'ride' ? '<button class="btn" data-tx="finish">🏁 Завершить поездку и получить оплату</button>' : '') +
+            (o.st !== 'ride' ? '<button class="btn ghost" data-tx="cancel">Отменить заказ</button>' : '') + '</div>';
+    } else if (T.driver) {
+        h += '<div class="job-now">Вы на линии' + (T.driver.own ? ' · личное авто' : ' · арендованное такси') + '<button class="btn ghost" data-tx="off" style="margin:8px 0 0">Уйти с линии</button></div>';
+        h += '<div class="gps-sub">Заказы (' + T.queue.length + ')</div>' + (T.queue.length ? T.queue.map(function (q) {
+            return '<div class="job-c"><div class="job-h"><span class="job-i">🙋</span><div><b>' + esc(q.cl) + '</b><small>' + (q.dist > 1000 ? (q.dist / 1000).toFixed(1) + ' км' : q.dist + ' м') + ' · ' + q.ago + ' с назад' + (q.free ? ' · 🎁 платит мэрия' : '') + '</small></div></div>' + (q.note ? '<p>«' + esc(q.note) + '»</p>' : '') + '<button class="btn" data-acc="' + q.id + '">Принять заказ</button></div>';
+        }).join('') : '<div class="empty-t">Пока заказов нет — ждите, придёт уведомление</div>');
+    } else {
+        h += '<div class="gps-sub">Вызвать такси</div>' + (T.free ? '<div class="tx-free">🎁 Вам ' + T.lvl + ' ур. — до ' + t.freeLvl + ' уровня поездки бесплатны, оплачивает мэрия</div>' : '') +
+            '<input class="tx-in" id="txNote" maxlength="60" placeholder="Куда едем? (необязательно)" value="' + esc(TX_NOTE) + '"><button class="btn" data-tx="call">🚕 Вызвать такси</button>';
+        h += '<div class="gps-sub">Работать водителем</div>';
+        if (!T.canDrive) h += '<div class="empty-t" style="text-align:left">Работа в такси откроется с ' + t.drvLvl + ' уровня (у вас ' + T.lvl + ').</div>';
+        else if (!T.hasB) h += '<div class="empty-t" style="text-align:left">Нужны права категории B.</div>';
+        else h += '<div class="job-c"><p style="margin-top:0">Сядьте за руль своей машины и выйдите на линию — или арендуйте жёлтое такси в таксопарке.</p>' +
+            '<button class="btn" data-tx="on">🟢 Выйти на линию</button>' +
+            (T.driver && T.driver.rent ? '' : '<button class="btn ghost" data-tx="rent">🔑 Арендовать такси · ' + money(t.rent) + ' / ' + t.rentMin + ' мин</button>') + '</div>';
+        if (T.stats.rides) h += '<div class="job-st">Ваши поездки: ' + T.stats.rides + ' · заработано ' + money(T.stats.earned) + ' · рейтинг ' + T.stats.rate + '★</div>';
+    }
+    body.innerHTML = h;
+    var n = $('txNote'); if (n) n.oninput = function () { TX_NOTE = n.value; };
+    body.querySelectorAll('[data-tx]').forEach(function (b) {
+        b.onclick = function () {
+            var a = b.dataset.tx;
+            if (a === 'call') trig('cef:taxi:call', TX_NOTE);
+            else if (a === 'on') trig('cef:taxi:duty', 1);
+            else if (a === 'off') trig('cef:taxi:duty', 0);
+            else trig('cef:taxi:' + a);
+        };
+    });
+    body.querySelectorAll('[data-acc]').forEach(function (b) { b.onclick = function () { trig('cef:taxi:accept', Number(b.dataset.acc)); }; });
+}
+window.taxiMeter = function (json) {
+    var el = document.getElementById('taxiMeter');
+    var m = json ? (typeof json === 'string' ? JSON.parse(json) : json) : null;
+    if (!m) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'taxiMeter'; document.body.appendChild(el); }
+    el.innerHTML = '<div class="tm-h">🚕 ТАКСОМЕТР<span>' + (m.who === 'dr' ? 'Клиент: ' + esc(m.cl) : 'Водитель: ' + esc(m.drv)) + '</span></div>' +
+        '<div class="tm-sum">' + money(m.sum) + '</div>' +
+        '<div class="tm-row"><span>' + m.km + ' км</span><span>' + pad(m.min) + ':' + pad(m.sec) + '</span></div>' +
+        (m.free ? '<div class="tm-free">🎁 Оплачивает мэрия</div>' : '<div class="tm-t">Посадка ' + money(m.tar.start) + ' · ' + money(m.tar.perKm) + '/км · ' + money(m.tar.perMin) + '/мин</div>');
+};
+window.taxiRate = function (json) {
+    var d = typeof json === 'string' ? JSON.parse(json) : json;
+    var el = document.createElement('div'); el.id = 'taxiRateBox';
+    el.innerHTML = '<b>Оцените водителя ' + esc(d.drv) + '</b><div>' + [1, 2, 3, 4, 5].map(function (i) { return '<button data-r="' + i + '">★</button>'; }).join('') + '</div>';
+    document.body.appendChild(el);
+    el.querySelectorAll('[data-r]').forEach(function (b) { b.onclick = function () { trig('cef:taxi:rateDrv', d.id, Number(b.dataset.r)); el.remove(); }; });
+    setTimeout(function () { if (el.parentNode) el.remove(); }, 20000);
+};

@@ -21,6 +21,10 @@ const JOBS = {
     }
 };
 
+const MINLVL = { farm: 1, build: 1, courier: 4, bus: 4, garbage: 4, power: 5, trucker: 6, collector: 8 };
+function charLvl(p) { return global.UiSystem && global.UiSystem.lvlOf ? global.UiSystem.lvlOf(p) : 1; }
+function admL(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0; }
+function needLvl(id) { return MINLVL[id] || (JOBS[id] && JOBS[id].minLvl) || 1; }
 const FARM_DROP = { x: 2029.8, y: 4980.6, z: 42.1 };
 
 const FARM_LV = [0, 40, 120, 280, 550];
@@ -150,6 +154,7 @@ function startJob(p, id, opt) {
     if (!j) return 'Нет такой работы';
     if (jobOff(id)) return 'Работа временно отключена администрацией';
     if (p.job) return 'Сначала закончите текущую смену (/quitjob)';
+    if (charLvl(p) < needLvl(id) && admL(p) < 1) return 'Работа «' + j.n + '» доступна с ' + needLvl(id) + ' уровня персонажа. Новичкам (1–3 ур.) — стройка и ферма';
     if (dist(p.position, j.base.x, j.base.y, j.base.z) > 12) return 'Устроиться можно только на месте работы — поставьте метку в телефоне (Карты → Работы)';
     if (j.lic && !hasLic(p, j.lic)) return 'Ваши права отобраны администрацией — работа водителем недоступна';
     if (id === 'bus' && !hasLic(p, 'bus')) return 'Лицензия на автобус отобрана администрацией';
@@ -540,7 +545,7 @@ mp.events.add('srv:job:base', function (p, id) {
 function menuData(p, id) {
     const j = JOBS[id], r = rec(p);
     return {
-        id: id, n: j.n, i: j.i, d: j.d, pay: j.pay, off: jobOff(id), working: p.job ? p.job.id : null,
+        id: id, n: j.n, i: j.i, d: j.d, pay: j.pay, off: jobOff(id), working: p.job ? p.job.id : null, need: needLvl(id), myLvl: charLvl(p),
         earned: r.earned[id] || 0, done: r.done[id] || 0, lv: lvlInfo(p, id),
         opts: optsFor(p, id)
     };
@@ -566,8 +571,9 @@ mp.events.add('srv:job:start', function (p, id, opt) {
 mp.events.add('srv:job:quit', function (p) { stopJob(p); });
 mp.events.addCommand('quitjob', function (p) { if (!p.job) return notify(p, 'warn', 'Вы не на смене'); stopJob(p); });
 mp.events.addCommand('jobs', function (p) {
-    p.outputChatBox('!{#8fd14f}Работы для новичков (метки в телефоне → Карты → Работы):');
-    Object.keys(JOBS).forEach(function (k) { const j = JOBS[k]; p.outputChatBox('!{#ffffff}' + j.i + ' ' + j.n + ' — ' + j.pay + (jobOff(k) ? ' !{#e05555}(закрыто)' : '')); });
+    p.outputChatBox('!{#8fd14f}Работы (метки в телефоне → Карты → Работы). Ваш уровень: ' + charLvl(p));
+    Object.keys(JOBS).sort(function (a, b) { return needLvl(a) - needLvl(b); }).forEach(function (k) { const j = JOBS[k]; const lk = charLvl(p) < needLvl(k); p.outputChatBox((lk ? '!{#888888}' : '!{#ffffff}') + '[' + needLvl(k) + '+ ур.] ' + j.i + ' ' + j.n + ' — ' + j.pay + (jobOff(k) ? ' !{#e05555}(закрыто)' : '')); });
+    p.outputChatBox('!{#ffd36b}🚕 Такси — водителем с 4 уровня через приложение «Такси» в телефоне');
 });
 
 /* ---------- для телефона ---------- */
@@ -575,7 +581,8 @@ function phoneJobs(p) {
     const r = rec(p);
     return {
         working: p.job ? { id: p.job.id, n: JOBS[p.job.id].n, since: p.job.since } : null,
-        list: Object.keys(JOBS).map(function (k) { const j = JOBS[k]; const L = lvlInfo(p, k); return { id: k, n: j.n + (L ? ' · ур. ' + L.lvl : ''), i: j.i, d: j.d, pay: j.pay, off: jobOff(k), earned: r.earned[k] || 0, done: r.done[k] || 0, x: j.base.x, y: j.base.y }; }),
+        lvl: charLvl(p),
+        list: Object.keys(JOBS).sort(function (a, b) { return needLvl(a) - needLvl(b); }).map(function (k) { const j = JOBS[k]; const L = lvlInfo(p, k); return { id: k, n: j.n + (L ? ' · мастерство ' + L.lvl : ''), i: j.i, d: j.d, pay: j.pay, off: jobOff(k), earned: r.earned[k] || 0, done: r.done[k] || 0, x: j.base.x, y: j.base.y, need: needLvl(k), lock: charLvl(p) < needLvl(k) }; }),
         total: Object.keys(r.earned).reduce(function (s, k) { return s + r.earned[k]; }, 0)
     };
 }
@@ -619,5 +626,5 @@ PR.provider(function () {
 });
 if (store._bases.farm) Object.assign(FARM_DROP, store._bases.farm);
 
-global.JobSystem = { pay: pay, addXp: addXp, jobVeh: jobVeh, quest: quest, notify: notify, sendBases: function () { mp.players.forEach(sendBases); }, level: lvlInfo, JOBS: JOBS, stop: stopJob, phone: phoneJobs, current: function (p) { return p.job ? p.job.id : null; } };
+global.JobSystem = { needLvl: needLvl, charLvl: charLvl, MINLVL: MINLVL, pay: pay, addXp: addXp, jobVeh: jobVeh, quest: quest, notify: notify, sendBases: function () { mp.players.forEach(sendBases); }, level: lvlInfo, JOBS: JOBS, stop: stopJob, phone: phoneJobs, current: function (p) { return p.job ? p.job.id : null; } };
 console.log('[jobs] работы загружены: ' + Object.keys(JOBS).join(', '));

@@ -25,3 +25,5 @@ require('./medic/index.js');
 require('./medic/ems.js');
 require('./points/index.js');
 require('./clothes/index.js');
+require('./doors/index.js');
+require('./taxi/index.js');

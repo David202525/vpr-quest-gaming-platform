@@ -2233,10 +2233,13 @@ textarea {
 .pc-ok{background:#34c759}.pc-no{background:#ff3b30;transform:rotate(135deg)}
 .pc-hint{margin-top:18px;font-size:12px;color:#9aa6b4}
 #govMenu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:9999;pointer-events:auto}
-.gv-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;max-height:52vh;overflow:auto}
+.gv-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;max-height:52vh;overflow-y:auto;overflow-x:hidden;padding-right:4px}
+.gv-list::-webkit-scrollbar{width:5px}.gv-list::-webkit-scrollbar-thumb{background:#3a3a46;border-radius:4px}
 .gv-it{display:flex;align-items:center;gap:10px;background:#1d1d24;border:1px solid #2a2a33;border-radius:12px;padding:8px 10px}
 .gv-it.lock{opacity:.5}
-.gv-i{width:36px;height:36px;border-radius:10px;background:#26262f;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.gv-i{width:44px;height:44px;border-radius:10px;background:#26262f;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;overflow:hidden;position:relative}
+.gv-i img,.gv-i .wimg,.gv-i .iimg{position:static!important;width:100%!important;height:100%!important;max-width:38px!important;max-height:38px!important;object-fit:contain!important;transform:none!important;margin:0!important;inset:auto!important}
+.gv-it{overflow:hidden;min-height:58px}
 .gv-b{flex:1;min-width:0}.gv-b b{display:block;font-size:13px}.gv-b small{font-size:11px;color:#9a9aa6}
 .gv-left{font-size:11px;color:#8fd14f;font-weight:700;white-space:nowrap}.gv-left.z{color:#ff6b6b}
 .gv-it .btn{margin:0;width:auto;padding:8px 14px}
@@ -2380,3 +2383,17 @@ body.streamer .tile.hello h2, body.streamer .t-kv b, body.streamer .t-big, body.
 .wt-ptt span{background:#111;border:1px solid #333;border-radius:5px;padding:3px 7px;font-weight:800;color:#fff;font-size:10px}.wt-ptt b{color:#fff}
 .wt-hint{font-size:11px;color:#fb3;margin:4px 0}
 .wt-msg{font-size:11px;padding:6px 9px;border-radius:6px;margin-bottom:7px}.wt-msg.err{background:#3a1d1d;color:#f99}.wt-msg.ok{background:#1b3320;color:#9e9}
+
+.job-lv{margin-left:auto;font-size:11px;font-weight:700;color:#8fd14f;background:#23301b;border-radius:8px;padding:3px 7px;white-space:nowrap}.job-lv.lk{color:#ff8a8a;background:#3a1f22}
+
+.tx-hero{background:linear-gradient(135deg,#ffd60a,#f5a300);color:#1a1300;border-radius:14px;padding:12px;margin-bottom:10px}.tx-hero b{display:block;font-size:15px}.tx-hero small{font-size:11px;opacity:.8}
+.tx-row{font-size:12px;color:#c9c9d2;margin:8px 0}
+.tx-free{background:rgba(143,209,79,.14);border:1px solid rgba(143,209,79,.45);color:#b8ef8a;border-radius:10px;padding:8px 10px;font-size:12px;margin:8px 0}
+.tx-in{width:100%;box-sizing:border-box;background:#1d1d24;border:1px solid #2a2a33;border-radius:10px;color:#fff;padding:10px;font-size:13px;margin-bottom:8px;outline:none}
+#taxiMeter{position:fixed;right:24px;bottom:220px;width:220px;background:rgba(14,14,18,.92);border:2px solid #ffd60a;border-radius:16px;padding:12px 14px;color:#fff;font-family:inherit;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);pointer-events:none}
+#taxiMeter .tm-h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#ffd60a;display:flex;flex-direction:column}#taxiMeter .tm-h span{font-weight:500;letter-spacing:0;color:#aaa;font-size:11px;margin-top:2px}
+#taxiMeter .tm-sum{font-size:34px;font-weight:800;margin:6px 0 2px;font-variant-numeric:tabular-nums;color:#ffe680}
+#taxiMeter .tm-row{display:flex;justify-content:space-between;font-size:13px;color:#ddd;font-variant-numeric:tabular-nums}
+#taxiMeter .tm-t{font-size:10px;color:#888;margin-top:6px}#taxiMeter .tm-free{font-size:11px;color:#8fd14f;margin-top:6px;font-weight:700}
+#taxiRateBox{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(14,14,18,.95);border:1px solid #ffd60a;border-radius:14px;padding:14px 18px;color:#fff;text-align:center;z-index:60}
+#taxiRateBox button{background:none;border:0;color:#ffd60a;font-size:28px;cursor:pointer;padding:2px 4px}#taxiRateBox button:hover{transform:scale(1.2)}
