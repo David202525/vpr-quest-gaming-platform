@@ -738,7 +738,8 @@ function pointsSend(p) {
     if (k) { const s = stashPos(k), bn = benchPos(k), gg = garage(k); d.stash = [s.x, s.y, s.z]; d.bench = [bn.x, bn.y, bn.z]; d.garage = [gg.x, gg.y, gg.z]; if (ORG_INT[k]) { d.door = doorPos(k); d.din = ORG_INT[k].in; d.idim = intDim(k); d.ipl = ORG_INT[k].ipl; } if (UG[k]) d.ug = { dim: garDim(k), walk: GAR_INT.walk, drive: GAR_INT.drive }; d.c = ORGS[k].c; if (ORGS[k].t === 'mafia') { const g = greenPos(k); d.green = [g.x, g.y, g.z]; } }
     p.call('crime:points', [JSON.stringify(d)]);
 }
-setInterval(function () { mp.players.forEach(function (p) { if (p.account && p.ptOrg !== org(p)) { p.ptOrg = org(p); pointsSend(p); } }); }, 3000);
+setInterval(function () { mp.players.forEach(function (p) { if (p.account && p.ptOrg !== org(p)) { p.ptOrg = org(p); pointsSend(p); sendZones(p); } }); }, 3000);
+mp.events.add('playerSpawn', function (p) { setTimeout(function () { if (mp.players.exists(p) && p.account) { p.ptOrg = org(p); pointsSend(p); sendZones(p); } }, 1500); });
 
 /* ======================= ОГРАБЛЕНИЕ АРМЕЙСКИХ ГРУЗОВИКОВ ======================= */
 const BASE_ZONE = { x: -2160.0, y: 3110.0, r: 520 };

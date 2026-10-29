@@ -28,6 +28,7 @@ function draw() {
             '<div class="kv"><span>Цена</span><b>' + money(c.price) + '</b><span>В наличии</span><b style="color:' + (c.stock > 0 ? 'var(--ok)' : 'var(--red)') + '">' + (c.stock > 0 ? c.stock + ' шт.' : 'нет') + '</b><span>Номера</span><b>выдаются сразу</b></div>' +
             (D.err ? '<div class="err">' + esc(D.err) + '</div>' : '') +
             (!D.home ? '<div class="warn">Для покупки личного транспорта нужно жильё: дом, квартира или гостиница</div>' : '') +
+            '<button class="btn td" id="td"' + (c.stock <= 0 || busy ? ' disabled' : '') + '>🏁 Тест-драйв ' + (D.td || 3) + ' мин<small>бесплатно, раз в 5 минут</small></button>' +
             '<div class="pay"><button class="btn" data-pay="cash"' + (c.stock <= 0 || D.money < c.price || !D.home || busy ? ' disabled' : '') + '>💵 Наличными<small>' + money(D.money) + '</small></button>' +
             '<button class="btn pri" data-pay="card"' + (c.stock <= 0 || D.bank < c.price || !D.home || busy ? ' disabled' : '') + '>💳 Картой<small>' + money(D.bank) + '</small></button></div></div>'
             : '<div class="card"><div class="empty">Выберите машину</div></div>') +
@@ -37,6 +38,7 @@ function draw() {
     inp.oninput = function () { flt = inp.value; draw(); };
     if (focus) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
     document.querySelectorAll('[data-i]').forEach(function (el) { el.onclick = function () { sel = Number(el.dataset.i); D.err = ''; draw(); }; });
+    var tdb = $('td'); if (tdb) tdb.onclick = function () { if (!tdb.disabled) trig('cef:dealer:test', D.id, sel); };
     document.querySelectorAll('[data-pay]').forEach(function (b) {
         b.onclick = function () {
             if (b.disabled || busy) return;

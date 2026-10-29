@@ -47,7 +47,7 @@ function view(p, s) {
     return {
         id: s.id, n: s.n,
         money: st ? st.money(p) : 0, bank: st ? st.bank(p) : 0,
-        home: st ? !!st.hasHousing(p) : true,
+        home: st ? !!st.hasHousing(p) : true, td: TD_MIN,
         cars: s.cars.map(function (c, i) { return { i: i, m: c.m, n: c.n || c.m, price: c.price, stock: c.stock }; })
     };
 }
@@ -100,6 +100,52 @@ mp.events.add('srv:dealer:buy', async function (p, id, idx, pay) {
     } finally { delete busy[aid]; }
 });
 
+const TD_MIN = 3, TD_CD = 5 * 60000, tdLast = {};
+function tdEnd(p, why) {
+    const t = p && p.testDrive;
+    if (!t) return;
+    p.testDrive = null;
+    clearTimeout(t.timer); clearInterval(t.tick);
+    try { if (mp.vehicles.exists(t.v)) t.v.destroy(); } catch (e) {}
+    if (!mp.players.exists(p)) return;
+    p.call('dealer:td', ['']);
+    const s = salon(t.sid);
+    if (s) { p.position = new mp.Vector3(s.x, s.y, s.z + 0.5); p.dimension = 0; }
+    if (why) notify(p, 'ok', why);
+}
+mp.events.add('srv:dealer:test', function (p, id, idx) {
+    const s = salon(id), st = VS();
+    if (!s || !s.on || !near(p, s) || p.testDrive) return;
+    const c = s.cars[Number(idx)];
+    if (!c) return;
+    if (c.stock <= 0) return notify(p, 'error', 'Нет в наличии — тест-драйв недоступен');
+    const aid = st ? st.accId(p) : 0;
+    const left = (tdLast[aid] || 0) + TD_CD - Date.now();
+    if (left > 0) return notify(p, 'error', 'Следующий тест-драйв через ' + Math.ceil(left / 60000) + ' мин');
+    tdLast[aid] = Date.now();
+    let v;
+    try {
+        v = mp.vehicles.new(mp.joaat(c.m), new mp.Vector3(s.sx, s.sy, s.sz + 0.3), { heading: s.sh || 0, numberPlate: 'TEST', dimension: 0, locked: false, engine: true });
+    } catch (e) { return notify(p, 'error', 'Не удалось подать машину'); }
+    v.setVariable('testDrive', true); v.setVariable('rent', true); v.setVariable('fuel', 100);
+    p.call('dealer:close');
+    const until = Date.now() + TD_MIN * 60000;
+    p.testDrive = { v: v, sid: s.id, out: 0 };
+    p.testDrive.timer = setTimeout(function () { tdEnd(p, 'Тест-драйв окончен. Понравилась машина? Купить можно в салоне'); }, TD_MIN * 60000);
+    p.testDrive.tick = setInterval(function () {
+        const t = p.testDrive;
+        if (!t || !mp.players.exists(p)) return;
+        if (!mp.vehicles.exists(t.v)) return tdEnd(p, 'Тест-драйв прерван');
+        if (p.vehicle !== t.v) { t.out += 1; if (t.out >= 5) tdEnd(p, 'Вы покинули машину — тест-драйв завершён'); } else t.out = 0;
+    }, 1000);
+    setTimeout(function () { try { if (mp.players.exists(p) && mp.vehicles.exists(v)) p.putIntoVehicle(v, 0); } catch (e) {} }, 300);
+    p.call('dealer:td', [JSON.stringify({ n: c.n || c.m, until: until })]);
+    notify(p, 'ok', 'Тест-драйв ' + (c.n || c.m) + ': ' + TD_MIN + ' мин. Выйдете из машины — тест закончится');
+});
+mp.events.add('srv:dealer:tdstop', function (p) { tdEnd(p, 'Тест-драйв завершён'); });
+mp.events.add('playerQuit', function (p) { if (p.testDrive) tdEnd(p); });
+mp.events.add('playerDeath', function (p) { if (p.testDrive) tdEnd(p); });
+
 function admView() {
     return S.salons.map(function (s) {
         return { id: s.id, n: s.n, on: s.on, pos: [s.x, s.y, s.z].map(function (x) { return Math.round(x * 10) / 10; }), spawn: [s.sx, s.sy, s.sz].map(function (x) { return Math.round(x * 10) / 10; }), cars: s.cars };
@@ -150,6 +196,8 @@ function admAct(p, d) {
     }
     return { err: 'Неизвестное действие' };
 }
+
+mp.events.addCommand('endtest', function (p) { if (p.testDrive) tdEnd(p, 'Тест-драйв завершён'); else p.outputChatBox('!{#ffcc66}Вы не на тест-драйве'); });
 
 global.DealerSystem = { admView: admView, admAct: admAct, list: function () { return S.salons; }, MIN_LVL: MIN_LVL };
 console.log('[dealer] Автосалонов: ' + S.salons.length);

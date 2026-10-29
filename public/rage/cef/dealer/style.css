@@ -35,3 +35,5 @@ body { display: flex; align-items: center; justify-content: center; background: 
 .err { padding: 10px 12px; border-radius: 10px; background: rgba(255,90,110,.12); border: 1px solid rgba(255,90,110,.45); font-size: 12.5px; margin-bottom: 10px; }
 .warn { padding: 10px 12px; border-radius: 10px; background: rgba(255,204,102,.1); border: 1px solid rgba(255,204,102,.4); font-size: 12.5px; margin-bottom: 10px; }
 .empty { color: var(--mut); text-align: center; padding: 40px 10px; font-size: 13px; }
+.btn.td { margin-top: auto; margin-bottom: 8px; border-color: rgba(127,180,255,.35); }
+.td + .pay { margin-top: 0; }

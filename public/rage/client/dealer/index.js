@@ -50,4 +50,13 @@ mp.events.add('dealer:open', function (j) {
 });
 mp.events.add('dealer:close', function () { dlUI(false); });
 mp.events.add('cef:dealer:close', function () { dlUI(false); });
+mp.events.add('cef:dealer:test', function (id, i) { mp.events.callRemote('srv:dealer:test', Number(id), Number(i)); });
+var dlTD = null;
+mp.events.add('dealer:td', function (j) { dlTD = null; if (j) try { dlTD = JSON.parse(j); } catch (e) {} });
+mp.events.add('render', function () {
+    if (!dlTD) return;
+    var left = Math.max(0, Math.floor((dlTD.until - Date.now()) / 1000));
+    mp.game.graphics.drawText('ТЕСТ-ДРАЙВ · ' + dlTD.n + '   ' + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2), [0.5, 0.88], { font: 4, color: [127, 180, 255, 240], scale: [0.45, 0.45], outline: true, centre: true });
+    mp.game.graphics.drawText('Завершить досрочно — /endtest', [0.5, 0.915], { font: 4, color: [210, 210, 210, 200], scale: [0.32, 0.32], outline: true, centre: true });
+});
 mp.events.add('cef:dealer:buy', function (id, i, pay) { mp.events.callRemote('srv:dealer:buy', Number(id), Number(i), String(pay)); });
