@@ -3,8 +3,8 @@ function $(id) { return document.getElementById(id); }
 var WEATHER = {
     EXTRASUNNY: ['☀️', 4], CLEAR: ['🌤️', 2], NEUTRAL: ['🌤️', 1], SMOG: ['🌫️', 1], FOGGY: ['🌫️', -2],
     OVERCAST: ['☁️', -2], CLOUDS: ['⛅', 0], CLEARING: ['🌦️', -3], RAIN: ['🌧️', -5],
-    THUNDER: ['⛈️', -6], SNOW: ['🌨️', -18], BLIZZARD: ['❄️', -22], SNOWLIGHT: ['🌨️', -14],
-    XMAS: ['❄️', -12], HALLOWEEN: ['🌫️', -4]
+    THUNDER: ['⛈️', -6], SNOW: ['🌨️', -9], BLIZZARD: ['❄️', -15], SNOWLIGHT: ['🌨️', -4],
+    XMAS: ['❄️', -7], HALLOWEEN: ['🌫️', -4]
 };
 
 function fmtMoney(n) {
@@ -31,7 +31,8 @@ window.hudUpdate = function (d) {
         var w = WEATHER[String(d.weather).toUpperCase()] || WEATHER.CLEAR;
         var hour = d.hour !== undefined ? d.hour : 12;
         var base = hour >= 6 && hour < 20 ? 17 : 11;
-        var t = base + w[1];
+        var snowy = /SNOW|BLIZZARD|XMAS/.test(String(d.weather).toUpperCase());
+        var t = snowy ? w[1] + (hour >= 6 && hour < 20 ? 0 : -4) : base + w[1];
         if (hour >= 20 || hour < 6) {
             if (w[0] === '☀️' || w[0] === '🌤️') w = ['🌙', w[1]];
         }

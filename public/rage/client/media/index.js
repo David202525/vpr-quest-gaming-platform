@@ -182,20 +182,34 @@ mp.events.add('render', function () {
     mp.game.graphics.drawText('ПОЛЁТ  x' + mFlySpeed.toFixed(1) + '   /fly или Backspace — выход и возврат на место', [0.5, 0.94], { font: 4, color: [217, 59, 200, 230], scale: [0.4, 0.4], outline: true });
 });
 
-var snowG = false, snowF = false, snowWas = false;
+var snowG = false, snowF = false, snowWas = false, snowAssets = false;
 function snowApply() {
     if (mediaRole && mediaWeather) return;
     try {
         mp.game.invoke('0x4CC7F0FEA5283FE0', snowG);
         mp.game.invoke('0xAEEDAD1420C65CC0', snowG);
+        mp.game.invoke('0x6E9EF3A33C8899F8', snowG);
     } catch (e) {}
+    if (snowG && !snowAssets) {
+        snowAssets = true;
+        try {
+            mp.game.audio.requestScriptAudioBank('ICE_FOOTSTEPS', false);
+            mp.game.audio.requestScriptAudioBank('SNOW_FOOTSTEPS', false);
+            mp.game.streaming.requestNamedPtfxAsset('core_snow');
+        } catch (e) {}
+    }
+    if (snowG) {
+        try { mp.game.graphics.setPtfxAssetNextCall('core_snow'); } catch (e) {}
+        try { mp.game.invoke('0x29B487C359E19889', 'XMAS'); mp.game.invoke('0xED712CA327900C8A', 'XMAS'); } catch (e) {}
+        snowWas = true;
+    }
     if (snowF && !snowG) {
         try { mp.game.invoke('0x29B487C359E19889', 'SNOWLIGHT'); mp.game.invoke('0xED712CA327900C8A', 'SNOWLIGHT'); } catch (e) {}
         snowWas = true;
     } else if (snowF && snowG) {
         try { mp.game.invoke('0x578C752848ECFA0C', mp.game.joaat('XMAS'), mp.game.joaat('BLIZZARD'), 0.35); } catch (e) {}
         snowWas = true;
-    } else if (snowWas) {
+    } else if (!snowG && snowWas) {
         snowWas = false;
         try { mp.game.invoke('0xCCC39339BEF76CF5'); } catch (e) {}
     }
