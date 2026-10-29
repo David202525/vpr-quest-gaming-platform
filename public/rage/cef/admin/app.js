@@ -69,7 +69,7 @@ window.admData = function (json) {
     $('meRank').style.color = D.me.color;
     $('meAva').textContent = (D.me.name || '?').charAt(0).toUpperCase();
     $('meAva').style.borderColor = D.me.color;
-    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt, renderMedia, renderPromos].forEach(function (f) {
+    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt, renderMedia, renderPromos, renderDealers].forEach(function (f) {
         try { f(); } catch (e) { if (window.console) console.log('[admin] ' + (f.name || '') + ': ' + e.message); }
     });
 };
@@ -658,3 +658,61 @@ $('prAdd').onclick = function () {
     act({ action: 'promo', op: 'create', code: c, money: Number($('prMoney').value) || 0, coins: Number($('prCoins').value) || 0, max: Number($('prMax').value) || 0, days: Number($('prDays').value) || 0 });
     ['prCode', 'prMoney', 'prCoins', 'prMax', 'prDays'].forEach(function (k) { $(k).value = ''; });
 };
+
+var DLSEL = null;
+function renderDealers() {
+    var body = $('dlBody'), sel = $('dlSel');
+    if (!body) return;
+    var L = D.dealers;
+    if (!L) { body.innerHTML = '<p class="hint">Доступно с 8 уровня (ГА)</p>'; sel.innerHTML = ''; return; }
+    if (body.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+    if (!L.some(function (s) { return s.id === DLSEL; })) DLSEL = L.length ? L[0].id : null;
+    sel.innerHTML = L.map(function (s) { var n = s.cars.reduce(function (a, c) { return a + c.stock; }, 0); return '<option value="' + s.id + '"' + (s.id === DLSEL ? ' selected' : '') + '>' + esc(s.n) + (s.on ? '' : ' (закрыт)') + ' · ' + s.cars.length + ' мод. / ' + n + ' шт.</option>'; }).join('');
+    var s = L.find(function (x) { return x.id === DLSEL; });
+    if (!s) { body.innerHTML = '<p class="hint">Салонов пока нет — создайте первый</p>'; return; }
+    body.innerHTML =
+        '<div class="card"><h3>' + esc(s.n) + ' <span class="mut" style="font-weight:400">' + (s.on ? '<span style="color:#7fe0a0">открыт</span>' : '<span style="color:#ff9aac">закрыт</span>') + ' · вход ' + s.pos.join(', ') + ' · выдача ' + s.spawn.join(', ') + '</span></h3>' +
+        '<div class="dl-form2"><input class="search" id="dlName" value="' + esc(s.n) + '" maxlength="40"><button class="btn" data-dl="rename">Переименовать</button></div>' +
+        '<div class="dl-acts"><button class="btn" data-dl="tp">📍 Телепорт</button><button class="btn" data-dl="here">🚪 Вход сюда</button><button class="btn" data-dl="spawn">🅿 Место выдачи сюда</button><button class="btn" data-dl="toggle">' + (s.on ? '⏸ Закрыть салон' : '▶ Открыть салон') + '</button><button class="btn danger" data-dl="del">✕ Удалить салон</button></div>' +
+        '<p class="hint">Место выдачи: встаньте или сядьте в машину там, где должны появляться купленные авто, и нажмите кнопку — сохранится и направление.</p></div>' +
+        '<div class="card"><h3>Добавить машину</h3><div class="dl-form">' +
+        '<label>Модель<input class="search" id="dlM" placeholder="sultan"></label>' +
+        '<label>Название в салоне<input class="search" id="dlN" placeholder="Karin Sultan"></label>' +
+        '<label>Цена, $<input class="search" id="dlP" type="number" min="1" placeholder="45000"></label>' +
+        '<label>Наличие, шт.<input class="search" id="dlS" type="number" min="0" placeholder="5"></label>' +
+        '<button class="btn ok" id="dlAdd">Добавить</button></div>' +
+        '<p class="hint">Модель — игровое имя машины, как в /veh. Подходят и DLC-машины.</p></div>' +
+        '<div class="card"><h3>Машины в салоне (' + s.cars.length + ')</h3><div class="table">' +
+        (s.cars.length ? s.cars.map(function (c, i) {
+            return '<div class="tr dl-tr' + (c.stock <= 0 ? ' dl-zero' : '') + '" data-ci="' + i + '"><b>' + esc(c.m) + '<br><span class="mut">' + (c.stock > 0 ? 'в наличии' : '<span style="color:#ff9aac">нет в наличии</span>') + '</span></b>' +
+                '<input class="search" data-f="n" value="' + esc(c.n) + '" maxlength="40">' +
+                '<input class="search" data-f="price" type="number" min="1" value="' + c.price + '">' +
+                '<span class="dl-st"><button class="btn" data-ca="dec">−</button><input class="search" data-f="stock" type="number" min="0" value="' + c.stock + '"><button class="btn" data-ca="inc">+</button><button class="btn" data-ca="inc5" title="Поставка +5">+5</button></span>' +
+                '<span class="dl-b"><button class="btn ok" data-ca="save">Сохранить</button><button class="btn" data-ca="up">↑</button><button class="btn" data-ca="down">↓</button><button class="btn danger" data-ca="del">✕</button></span></div>';
+        }).join('') : '<div class="empty">Пока пусто — добавьте машины выше</div>') + '</div></div>';
+    body.querySelectorAll('[data-dl]').forEach(function (b) {
+        b.onclick = function () {
+            var op = b.dataset.dl;
+            if (op === 'del' && !b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно удалить?'; return; }
+            var o = { action: 'dealer', op: op, sid: s.id };
+            if (op === 'rename') o.n = $('dlName').value;
+            act(o);
+        };
+    });
+    $('dlAdd').onclick = function () {
+        var m = $('dlM').value.trim();
+        if (!m) return;
+        act({ action: 'dealer', op: 'caradd', sid: s.id, m: m, n: $('dlN').value.trim(), price: Number($('dlP').value) || 1, stock: Number($('dlS').value) || 0 });
+    };
+    body.querySelectorAll('[data-ca]').forEach(function (b) {
+        b.onclick = function () {
+            var row = b.closest('[data-ci]'), i = Number(row.dataset.ci), op = b.dataset.ca;
+            if (op === 'del' && !b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; }
+            if (op === 'dec' || op === 'inc' || op === 'inc5') return act({ action: 'dealer', op: 'stock', sid: s.id, i: i, v: op === 'dec' ? -1 : op === 'inc' ? 1 : 5 });
+            if (op === 'save') return act({ action: 'dealer', op: 'caredit', sid: s.id, i: i, n: row.querySelector('[data-f=n]').value, price: Number(row.querySelector('[data-f=price]').value) || 1, stock: Number(row.querySelector('[data-f=stock]').value) || 0 });
+            act({ action: 'dealer', op: op === 'del' ? 'cardel' : op, sid: s.id, i: i });
+        };
+    });
+}
+$('dlSel').onchange = function () { DLSEL = Number(this.value); renderDealers(); };
+$('dlCreate').onclick = function () { var n = $('dlNewName').value.trim(); if (!n) return; act({ action: 'dealer', op: 'create', n: n }); $('dlNewName').value = ''; };

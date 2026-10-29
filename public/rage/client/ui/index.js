@@ -33,7 +33,7 @@ var jobMenuOpen = false;
 function cursorSync() {
     if (global.introOpen) { mp.gui.cursor.show(false, false); return; }
     if (global.authOpen || global.creatorOpen || global.intOpen || global.chatOpen) { mp.gui.cursor.show(true, true); return; }
-    var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (global.houseMenuOpen && global.houseMenuOpen()) || (global.mediaOpen && global.mediaOpen()) || (global.questDlgOpen && global.questDlgOpen()) || (global.radioPanelOpen && global.radioPanelOpen()) || (global.govMenuOpen && global.govMenuOpen()) || (typeof admOpen !== 'undefined' && admOpen);
+    var need = !!uiOpen || freeCursor || !!deadState || jobMenuOpen || (global.houseMenuOpen && global.houseMenuOpen()) || (global.mediaOpen && global.mediaOpen()) || (global.questDlgOpen && global.questDlgOpen()) || (global.radioPanelOpen && global.radioPanelOpen()) || (global.govMenuOpen && global.govMenuOpen()) || (typeof admOpen !== 'undefined' && admOpen) || !!global.dealerOpen || !!global.licUiOpen;
     mp.gui.cursor.show(need, need);
 }
 
@@ -117,6 +117,7 @@ mp.keys.bind(0x78, false, function () {
 });
 mp.keys.bind(0x1B, false, function () {
     if (global.authOpen || global.creatorOpen || global.gateEditOpen) return;
+    if (global.dealerOpen) { mp.events.call('dealer:close'); return; }
     if (uiOpen || deadState || mp.players.local.isTypingInTextChat) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (jobMenuOpen) { jobMenuClose(); return; }
@@ -127,7 +128,7 @@ function cursorUnstick() {
     if (!mp.gui.cursor.visible || uiOpen || deadState || jobMenuOpen || freeCursor) return;
     if (typeof admOpen !== 'undefined' && admOpen) return;
     if (typeof banBrowser !== 'undefined' && banBrowser) return;
-    if (global.authOpen || global.creatorOpen || global.introOpen || global.gateEditOpen) return;
+    if (global.authOpen || global.creatorOpen || global.introOpen || global.gateEditOpen || global.dealerOpen || global.licUiOpen) return;
     if (global.houseMenuOpen && global.houseMenuOpen()) return;
     if (global.mediaOpen && global.mediaOpen()) return;
     if (global.questDlgOpen && global.questDlgOpen()) return;

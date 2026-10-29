@@ -1,0 +1,37 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: "Segoe UI", Roboto, Arial, sans-serif; color: #fff; user-select: none; }
+body { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(0,0,0,.25), rgba(0,0,0,.7)); }
+:root { --acc: #3d8bff; --acc2: #7fb4ff; --red: #ff5a6e; --ok: #4fd18b; --line: rgba(255,255,255,.09); --mut: rgba(255,255,255,.55); }
+.box { width: 900px; height: 580px; display: flex; flex-direction: column; background: rgba(12, 16, 24, .97); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+.hd { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.hd i { font-style: normal; font-size: 24px; width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--acc), #1d4f9f); }
+.hd b { display: block; font-size: 18px; }
+.hd small { color: var(--mut); font-size: 12px; }
+.hd .x { margin-left: auto; width: 34px; height: 34px; border-radius: 10px; border: 0; background: rgba(255,255,255,.07); color: #fff; font-size: 16px; cursor: pointer; }
+.hd .x:hover { background: rgba(255,90,110,.25); }
+.wrap { flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 14px; min-height: 0; }
+.list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.list::-webkit-scrollbar { width: 4px; } .list::-webkit-scrollbar-thumb { background: rgba(61,139,255,.5); border-radius: 4px; }
+.search { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: #fff; font-size: 13px; outline: none; margin-bottom: 8px; }
+.search:focus { border-color: var(--acc2); }
+.it { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.035); cursor: pointer; transition: .12s; }
+.it:hover { border-color: rgba(127,180,255,.5); }
+.it.sel { border-color: var(--acc2); background: rgba(61,139,255,.14); }
+.it.out { opacity: .5; }
+.it b { font-size: 14px; } .it em { font-style: normal; font-weight: 700; color: var(--acc2); text-align: right; }
+.it small { color: var(--mut); font-size: 11.5px; } .it .st { text-align: right; }
+.st.ok { color: var(--ok); } .st.no { color: var(--red); }
+.card { display: flex; flex-direction: column; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.03); padding: 18px; }
+.pic { height: 120px; border-radius: 12px; background: linear-gradient(135deg, rgba(61,139,255,.25), rgba(61,139,255,.03)); display: flex; align-items: center; justify-content: center; font-size: 58px; margin-bottom: 14px; }
+.card h2 { font-size: 20px; margin-bottom: 2px; } .card .m { color: var(--mut); font-size: 12px; margin-bottom: 14px; }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 7px 10px; font-size: 13px; margin-bottom: 14px; }
+.kv span { color: var(--mut); } .kv b { text-align: right; }
+.pay { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+.btn { padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: #fff; font-size: 13px; cursor: pointer; text-align: center; }
+.btn small { display: block; color: var(--mut); font-size: 11px; margin-top: 2px; }
+.btn.pri { background: linear-gradient(135deg, var(--acc), #2a63c4); border-color: transparent; }
+.btn:hover { filter: brightness(1.15); }
+.btn[disabled] { opacity: .4; cursor: default; filter: none; }
+.err { padding: 10px 12px; border-radius: 10px; background: rgba(255,90,110,.12); border: 1px solid rgba(255,90,110,.45); font-size: 12.5px; margin-bottom: 10px; }
+.warn { padding: 10px 12px; border-radius: 10px; background: rgba(255,204,102,.1); border: 1px solid rgba(255,204,102,.4); font-size: 12.5px; margin-bottom: 10px; }
+.empty { color: var(--mut); text-align: center; padding: 40px 10px; font-size: 13px; }

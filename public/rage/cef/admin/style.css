@@ -814,3 +814,13 @@ label.check input {
 .pr-form label{font-size:11px;color:var(--mut);display:flex;flex-direction:column;gap:4px}.pr-form .search{max-width:none;margin:0}
 .tr.pr-tr{grid-template-columns:1.2fr 110px 100px 100px 1fr auto}
 .pr-tr label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut)}.pr-tr .search{max-width:none;margin:0;width:100%}
+
+.dl-form2{display:grid;grid-template-columns:1fr auto;gap:8px}.dl-form2 .search{max-width:none;margin:0;width:100%}
+.dl-form{display:grid;grid-template-columns:1.1fr 1.4fr 1fr .8fr auto;gap:8px;align-items:end}
+.dl-form label{font-size:11px;color:var(--mut);display:flex;flex-direction:column;gap:4px;margin:0}.dl-form .search{max-width:none;margin:0;width:100%}
+.dl-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.dl-acts .btn{width:auto}
+.tr.dl-tr{grid-template-columns:110px 1.4fr 120px 150px auto}
+.dl-tr .search{max-width:none;margin:0;width:100%}
+.dl-st{display:flex;align-items:center;gap:4px}.dl-st .search{width:60px;text-align:center}.dl-st .btn{width:auto;padding:6px 9px}
+.dl-b{display:flex;gap:4px}.dl-b .btn{width:auto;padding:6px 9px}
+.dl-zero{border-color:rgba(255,90,110,.45)!important}

@@ -29,3 +29,4 @@ require('./doors/index.js');
 require('./taxi/index.js');
 require('./service/index.js');
 require('./plates/index.js');
+require('./dealer/index.js');

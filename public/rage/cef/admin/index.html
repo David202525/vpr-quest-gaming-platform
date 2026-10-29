@@ -33,6 +33,7 @@
                 <button class="m" data-tab="manage" data-min="8"><i>🛡</i>Руководство</button>
                 <button class="m" data-tab="cmds"><i>⌨</i>Команды</button>
                 <button class="m" data-tab="biz"><i>🏧</i>Бизнесы</button>
+                <button class="m" data-tab="dealers" data-min="8"><i>🚘</i>Автосалоны</button>
                 <button class="m" data-tab="bans"><i>⛔</i>Баны</button>
                 <button class="m" data-tab="server"><i>🌐</i>Сервер</button>
                 <button class="m" data-tab="staff"><i>⭐</i>Администрация</button>
@@ -301,6 +302,19 @@
                     </div>
                 </div>
                 <div class="table" id="zList"></div>
+            </section>
+
+            <section class="tab" data-tab="dealers">
+                <header class="head"><h2>Автосалоны <span class="lvl">8</span></h2><select class="search" id="dlSel" style="width:280px"></select></header>
+                <div class="card">
+                    <h3>Новый салон</h3>
+                    <div class="dl-form2">
+                        <input class="search" id="dlNewName" placeholder="Название, например «Эконом-класс» или «Мотосалон»">
+                        <button class="btn ok" id="dlCreate">Создать на моей позиции</button>
+                    </div>
+                    <p class="hint">Точка входа ставится там, где вы стоите. Игрок подходит к ней и нажимает E. Купленная машина появляется в месте выдачи.</p>
+                </div>
+                <div id="dlBody"></div>
             </section>
 
             <section class="tab" data-tab="bans">

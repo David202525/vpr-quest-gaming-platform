@@ -620,6 +620,7 @@ function panelData(p) {
         dlc: dlc,
         weather: mp.world.weather,
         snow: SNOW,
+        dealers: lvl(p) >= 8 && global.DealerSystem ? global.DealerSystem.admView() : null,
         shops: global.ShopSystem ? global.ShopSystem.list().map(function (a) { return { id: a.id, kind: a.kind, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
         gov: global.GovSystem ? global.GovSystem.get() : null,
         stations: global.FuelSystem ? global.FuelSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
@@ -667,6 +668,12 @@ mp.events.add('srv:adm:act', function (p, json) {
     const reason = String(d.reason || 'нарушение правил').slice(0, 100);
     const needT = ['tp', 'bring', 'heal', 'kick', 'slap', 'freeze', 'unfreeze', 'mute', 'unmute', 'warn', 'ban', 'goto', 'revive', 'givemoney', 'sethp'];
     if (global.AdminCore && global.AdminCore.panelAct && global.AdminCore.panelAct(p, d, t)) return;
+    if (a === 'dealer') {
+        if (!global.DealerSystem) return toast(p, 'Модуль автосалонов не загружен', false);
+        const r = global.DealerSystem.admAct(p, d);
+        if (r && r.err) toast(p, r.err, false); else if (r && r.ok) { toast(p, r.ok, true); log(p, 'dealer', '-', String(d.op) + ' ' + String(d.m || d.n || d.sid || '')); }
+        return sendPanel(p);
+    }
     if (a === 'promo') {
         if (!global.MediaSystem || !global.MediaSystem.srvAct) return toast(p, 'Модуль промокодов не загружен', false);
         const r = global.MediaSystem.srvAct(p, d);
