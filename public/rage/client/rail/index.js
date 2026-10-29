@@ -42,6 +42,48 @@ function rlDoors(h, open) {
 function kmh(ms) { return Math.round(ms * 3.6); }
 function hint(t, ty) { mp.events.call('hud:notify', ty || 'ok', t, 4000); }
 
+/* ======================= ОПРЕДЕЛЕНИЕ СОСТАВОВ ======================= */
+var RL_CAT = null, RL_PROBING = false, RL_MAXVAR = 26;
+function rlModel(h) { try { return mp.game.invoke('0x9F47B058362C84B5', h) >>> 0; } catch (e) { return 0; } }
+function rlProbe(x, y, z, dir, done) {
+    if (RL_CAT) return done();
+    if (RL_PROBING) return setTimeout(function () { rlProbe(x, y, z, dir, done); }, 300);
+    RL_PROBING = true;
+    var metro = mp.game.joaat('metrotrain') >>> 0, fr = mp.game.joaat('freight') >>> 0, out = [];
+    var v = 0;
+    var step = function () {
+        if (v > RL_MAXVAR) {
+            RL_PROBING = false;
+            var m = out.filter(function (o) { return o.m === metro; }).sort(function (a, b) { return a.n - b.n; });
+            var f = out.filter(function (o) { return o.m === fr; }).sort(function (a, b) { return a.n - b.n; });
+            var cat = { metro_s: [], metro_l: [], short: [], mid: [], long: [] };
+            if (m.length) { var mn = m[0].n, mx = m[m.length - 1].n; m.forEach(function (o) { if (o.n === mn) cat.metro_s.push(o.v); if (o.n === mx) cat.metro_l.push(o.v); }); }
+            if (f.length) {
+                var ns = f.map(function (o) { return o.n; }), lo = ns[0], hi = ns[ns.length - 1], span = Math.max(1, hi - lo);
+                f.forEach(function (o) { var r = (o.n - lo) / span; (r < 0.34 ? cat.short : r < 0.67 ? cat.mid : cat.long).push(o.v); });
+                if (!cat.mid.length) cat.mid = f.filter(function (o) { return o.n === ns[Math.floor(ns.length / 2)]; }).map(function (o) { return o.v; });
+            }
+            RL_CAT = cat;
+            mp.console.logInfo('[rail] составы: ' + JSON.stringify(out.map(function (o) { return o.v + ':' + (o.m === metro ? 'M' : o.m === fr ? 'F' : '?') + o.n; })));
+            return done();
+        }
+        var h = rlCreate(v, x, y, z, dir);
+        if (!h) { v++; return setTimeout(step, 30); }
+        setTimeout(function () {
+            if (rlExists(h)) out.push({ v: v, m: rlModel(h), n: rlCarriages(h).length + 1 });
+            rlDelete(h);
+            v++;
+            setTimeout(step, 60);
+        }, 120);
+    };
+    step();
+}
+function rlPick(size, fallback) {
+    var list = RL_CAT && RL_CAT[size];
+    if (list && list.length) return list[Math.floor(Math.random() * list.length)];
+    return fallback;
+}
+
 /* ======================= МАШИНИСТ ======================= */
 mp.events.add('rail:start', function (j) {
     rlStop();
@@ -55,6 +97,8 @@ function rlSpawnTry() {
     if (!RL || RL.h) return;
     if (!rlReady() && RL.tries++ < 40) return setTimeout(rlSpawnTry, 250);
     var r = RL.c.rail;
+    if (!RL_CAT) { hint('Проверяем составы в депо…'); return rlProbe(r[0], r[1], r[2], RL.c.dir, function () { if (RL && !RL.h) rlSpawnTry(); }); }
+    RL.c.var = rlPick(RL.c.size, RL.c.var);
     RL.h = rlCreate(RL.c.var, r[0], r[1], r[2], RL.c.dir);
     if (!RL.h) { if (RL.tries++ < 60) return setTimeout(rlSpawnTry, 500); hint('Не удалось подать состав — попробуйте ещё раз', 'error'); return; }
     rlSetSpeed(RL.h, 0); rlCruise(RL.h, 0);
@@ -63,7 +107,7 @@ function rlSpawnTry() {
         if (!RL || !rlExists(RL.h)) return;
         try { mp.players.local.taskWarpIntoVehicle(RL.h, -1); } catch (e) { try { mp.game.invoke('0x9A7D091411C5F684', mp.players.local.handle, RL.h, -1); } catch (e2) {} }
         RL.wagons = rlCarriages(RL.h).length;
-        mp.events.callRemote('srv:rail:wagons', RL.wagons + 1);
+        mp.events.callRemote('srv:rail:wagons', RL.wagons + 1, RL.c.var);
         RL.mass = RL.c.kind === 'freight' ? 1 + RL.wagons * 0.12 : 1 + RL.wagons * 0.05;
         hint('W — тяга, S — тормоз, ПРОБЕЛ — экстренный тормоз' + (RL.c.kind === 'metro' ? ', E — двери' : '') + '. Состав: ' + (RL.wagons + 1) + ' ваг.', 'ok');
         rlPoint();
@@ -118,7 +162,7 @@ mp.events.add('render', function () {
     G.drawText(s ? (d > 1000 ? (d / 1000).toFixed(1) + ' км' : Math.round(d) + ' м') + '  ·  тяга ' + Math.round(RL.target / maxMs * 100) + '%  ·  вагонов ' + (RL.wagons + 1) + (RL.c.kind === 'metro' ? '  ·  двери ' + (RL.doors ? 'ОТКР' : 'закр') : '') : '', [0.55, 0.9], { font: 4, color: [220, 220, 220, 230], scale: [0.32, 0.32], outline: true, centre: true });
     if (RL.stopAt && s) {
         var left = Math.max(0, Math.ceil((RL.stopAt - Date.now()) / 1000));
-        G.drawText(s.k === 'load' ? 'Погрузка… ' + left + ' с' : s.k === 'unload' ? 'Выгрузка… ' + left + ' с' : 'Посадка пассажиров… ' + left + ' с', [0.5, 0.8], { font: 4, color: [127, 255, 170, 255], scale: [0.5, 0.5], outline: true, centre: true });
+        G.drawText(s.k === 'load' ? 'Погрузка… ' + left + ' с' : s.k === 'unload' ? 'Выгрузка… ' + left + ' с' : RL.c.kind === 'metro' ? 'Посадка пассажиров… ' + left + ' с' : 'Стоянка… ' + left + ' с', [0.5, 0.8], { font: 4, color: [127, 255, 170, 255], scale: [0.5, 0.5], outline: true, centre: true });
     } else if (s && s.k !== 'pass' && d < 70) {
         G.drawText(sp > 0.5 ? 'Остановите состав у платформы' : RL.c.kind === 'metro' && !RL.doors ? 'Нажмите E — открыть двери' : '', [0.5, 0.8], { font: 4, color: [255, 220, 120, 255], scale: [0.45, 0.45], outline: true, centre: true });
     }
@@ -192,7 +236,7 @@ mp.events.add('rail:sync', function (j) {
         var sp = Math.abs(t[6]);
         rlCruise(R.h, sp + (lag > 4 && sp > 1 ? Math.min(4, lag * 0.3) : 0));
         if (sp < 0.05) rlSetSpeed(R.h, 0);
-        R.sp = sp; R.at = Date.now();
+        R.sp = sp; R.at = Date.now(); R.pax = t[7] === 1;
     });
     Object.keys(RLremote).forEach(function (id) {
         if (seen[id]) return;
@@ -228,7 +272,7 @@ mp.keys.bind(0x4A, false, function () {
     var best = null, bd = 9;
     Object.keys(RLremote).forEach(function (id) {
         var R = RLremote[id];
-        if ((R.sp || 0) > 0.6) return;
+        if (!R.pax || (R.sp || 0) > 0.6) return;
         [R.h].concat(rlCarriages(R.h)).forEach(function (c, ci) {
             var p = rlPos(c); if (!p) return;
             var d = Math.hypot(p.x - me.position.x, p.y - me.position.y);
@@ -250,7 +294,7 @@ setInterval(function () {
         var pos = me.position;
         Object.keys(RLremote).some(function (id) {
             var R = RLremote[id], p = rlPos(R.h);
-            if (p && (R.sp || 0) < 0.6 && Math.hypot(p.x - pos.x, p.y - pos.y) < 30 && !me.vehicle && (!R.hinted || Date.now() - R.hinted > 20000)) { R.hinted = Date.now(); hint('Поезд стоит у платформы: подойдите к вагону и нажмите J, чтобы сесть'); return true; }
+            if (p && R.pax && (R.sp || 0) < 0.6 && Math.hypot(p.x - pos.x, p.y - pos.y) < 30 && !me.vehicle && (!R.hinted || Date.now() - R.hinted > 20000)) { R.hinted = Date.now(); hint('Поезд стоит у платформы: подойдите к вагону и нажмите J, чтобы сесть'); return true; }
             return false;
         });
         return;

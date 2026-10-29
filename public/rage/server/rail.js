@@ -24,8 +24,8 @@ const KINDS = {
         pay: 'от 70$ за станцию + бонус за круг и пассажиров',
         d: 'Водите метро по городской линии: остановка у каждой платформы, открыть и закрыть двери, соблюдать скорость. Игроки могут ездить пассажирами — за каждого бонус.',
         tiers: [
-            { id: 'm4', lvl: 1, n: '🚇 Состав из 2 вагонов', vars: [25], max: 80, stopPay: 70, bonus: 600 },
-            { id: 'm6', lvl: 3, n: '🚇 Сдвоенный состав', vars: [24], max: 90, stopPay: 95, bonus: 900 }
+            { id: 'm4', lvl: 1, n: '🚇 Короткий состав', size: 'metro_s', vars: [25], max: 80, stopPay: 70, bonus: 600 },
+            { id: 'm6', lvl: 3, n: '🚇 Длинный состав', size: 'metro_l', vars: [24], max: 90, stopPay: 95, bonus: 900 }
         ],
         stations: METRO_ST, wait: 8
     },
@@ -35,9 +35,9 @@ const KINDS = {
         pay: 'от 2 500$ за рейс, растёт с числом вагонов',
         d: 'Ведите грузовой состав по всему штату: погрузка на карьере, выгрузка в Paleto Bay и Mirror Park. Чем длиннее состав, тем тяжелее разгон и торможение, но выше оплата.',
         tiers: [
-            { id: 'f1', lvl: 1, n: '🚂 Короткий состав', vars: [2, 5, 6], max: 110, wagonPay: 55, bonus: 1200 },
-            { id: 'f2', lvl: 2, n: '🚂 Средний состав', vars: [9, 10, 11, 12], max: 120, wagonPay: 70, bonus: 1800 },
-            { id: 'f3', lvl: 4, n: '🚂 Тяжёлый длинный состав', vars: [19, 20, 24], max: 130, wagonPay: 90, bonus: 2800 }
+            { id: 'f1', lvl: 1, n: '🚂 Короткий состав', size: 'short', vars: [2, 5, 6], max: 110, wagonPay: 55, bonus: 1200 },
+            { id: 'f2', lvl: 2, n: '🚂 Средний состав', size: 'mid', vars: [9, 10, 11, 12], max: 120, wagonPay: 70, bonus: 1800 },
+            { id: 'f3', lvl: 4, n: '🚂 Тяжёлый длинный состав', size: 'long', vars: [19, 20, 24], max: 130, wagonPay: 90, bonus: 2800 }
         ],
         stations: FREIGHT_ST, wait: 15
     }
@@ -52,7 +52,7 @@ function startRail(kind, p, s, opt) {
     if (t.lvl > lv.lvl && admLvl(p) < 1) return 'Этот состав откроется на ' + t.lvl + ' уровне мастерства';
     s.rail = { kind: kind, t: t, i: 0, earned: 0, fines: 0, wagons: 0, pax: {}, paxPaid: 0, lastAt: Date.now(), mult: lv.mult, var: t.vars[Math.floor(Math.random() * t.vars.length)] };
     const cfg = {
-        kind: kind, n: t.n, var: s.rail.var, dir: K.dir, max: t.max, wait: K.wait,
+        kind: kind, n: t.n, var: s.rail.var, size: t.size, dir: K.dir, max: t.max, wait: K.wait,
         rail: [K.rail.x, K.rail.y, K.rail.z],
         st: K.stations.map(function (x) { return { n: x[0], x: x[1], y: x[2], z: x[3], lim: x[4] || 0, k: x[5] || 'stop' }; })
     };
@@ -68,9 +68,10 @@ function quest(p, s) {
     J().quest(p, K.i + ' ' + K.n + ' · ' + r.t.n, tasks);
 }
 
-mp.events.add('srv:rail:wagons', function (p, n) {
+mp.events.add('srv:rail:wagons', function (p, n, v) {
     const s = p.job; if (!s || !s.rail) return;
     s.rail.wagons = Math.max(1, Math.min(40, Number(n) || 1));
+    if (v !== undefined && Number(v) >= 0 && Number(v) <= 40) s.rail.var = Number(v);
 });
 mp.events.add('srv:rail:pos', function (p, x, y, z, sp) {
     const s = p.job; if (!s || !s.rail) return;
@@ -130,7 +131,7 @@ mp.events.add('srv:rail:skip', function (p, idx) {
 });
 mp.events.add('srv:rail:board', function (p, driverId) {
     const d = mp.players.at(Number(driverId));
-    if (!d || !mp.players.exists(d) || !d.job || !d.job.rail) { p.railRide = null; return; }
+    if (!d || !mp.players.exists(d) || !d.job || !d.job.rail || d.job.rail.kind !== 'metro') { p.railRide = null; return; }
     if (d === p) return;
     p.railRide = d.id;
     d.job.rail.pax[p.id] = 1;
@@ -142,7 +143,7 @@ setInterval(function () {
     const trains = [];
     mp.players.forEach(function (p) {
         const r = p.job && p.job.rail;
-        if (r && r.pos && Date.now() - r.pos.at < 4000) trains.push({ p: p, d: [p.id, r.var, KINDS[r.kind].dir, Math.round(r.pos.x * 10) / 10, Math.round(r.pos.y * 10) / 10, Math.round(r.pos.z * 10) / 10, Math.round(r.pos.sp * 100) / 100] });
+        if (r && r.pos && Date.now() - r.pos.at < 4000) trains.push({ p: p, d: [p.id, r.var, KINDS[r.kind].dir, Math.round(r.pos.x * 10) / 10, Math.round(r.pos.y * 10) / 10, Math.round(r.pos.z * 10) / 10, Math.round(r.pos.sp * 100) / 100, r.kind === 'metro' ? 1 : 0] });
     });
     mp.players.forEach(function (p) {
         if (!p.railSeen && !trains.length) return;
