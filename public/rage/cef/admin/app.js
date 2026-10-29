@@ -69,7 +69,7 @@ window.admData = function (json) {
     $('meRank').style.color = D.me.color;
     $('meAva').textContent = (D.me.name || '?').charAt(0).toUpperCase();
     $('meAva').style.borderColor = D.me.color;
-    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt, renderMedia, renderPromos, renderDealers].forEach(function (f) {
+    [renderRanks, renderPlayers, renderBans, renderLogs, renderDlc, renderServer, renderBiz, renderExt, renderMedia, renderPromos, renderDealers, renderTerr].forEach(function (f) {
         try { f(); } catch (e) { if (window.console) console.log('[admin] ' + (f.name || '') + ': ' + e.message); }
     });
 };
@@ -716,3 +716,73 @@ function renderDealers() {
 }
 $('dlSel').onchange = function () { DLSEL = Number(this.value); renderDealers(); };
 $('dlCreate').onclick = function () { var n = $('dlNewName').value.trim(); if (!n) return; act({ action: 'dealer', op: 'create', n: n }); $('dlNewName').value = ''; };
+
+var TRS = 'g', TRsel = {}, TRm = {}, TRmq = '';
+document.querySelectorAll('[data-ts]').forEach(function (b) { b.onclick = function () { TRS = b.dataset.ts; document.querySelectorAll('[data-ts]').forEach(function (x) { x.classList.toggle('active', x === b); }); renderTerr(); }; });
+function trT(s) { return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+function trA(o) { o.action = 'terr'; act(o); }
+function renderTerr() {
+    var box = $('trBody'); if (!box) return;
+    var T = D.terr;
+    if (!T) { box.innerHTML = '<p class="hint">Доступно следящим — с 5 уровня</p>'; return; }
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+    if (TRS === 'g') trGangs(box, T.g); else trMafia(box, T.m);
+}
+function trGangs(box, G) {
+    var cnt = {}; G.z.forEach(function (z) { if (z[2]) cnt[z[2]] = (cnt[z[2]] || 0) + 1; });
+    var sel = Object.keys(TRsel).map(Number).filter(function (i) { return G.z[i]; });
+    var cells = G.z.map(function (z) {
+        var o = z[2] ? G.gangs[z[2]] : null;
+        return '<div class="tr-c' + (z[4] ? ' nt' : '') + (z[3] ? ' base' : '') + (z[6] ? ' war' : '') + (TRsel[z[0]] ? ' sel' : '') + '" data-tz="' + z[0] + '" style="' + (o ? 'background:' + o.c + (z[3] ? 'cc' : '80') : '') + '" title="' + z[1] + '">' + z[1] + '</div>';
+    }).join('');
+    var lg = Object.keys(G.gangs).map(function (k) { var o = G.gangs[k]; return '<span><s style="background:' + o.c + '"></s>' + esc(o.n) + ' <b>' + (cnt[k] || 0) + '</b></span>'; }).join('') +
+        '<span><s style="background:repeating-linear-gradient(45deg,#aaa 0 2px,#444 2px 4px)"></s>Нейтральные <b>' + G.z.filter(function (z) { return z[4]; }).length + '</b></span><span><s style="background:rgba(255,255,255,.1)"></s>Ничьи <b>' + G.z.filter(function (z) { return !z[2] && !z[4]; }).length + '</b></span>';
+    var gOpts = '<option value="">— ничьи —</option>' + Object.keys(G.gangs).map(function (k) { return '<option value="' + k + '">' + esc(G.gangs[k].n) + '</option>'; }).join('');
+    var one = sel.length === 1 ? G.z[sel[0]] : null;
+    var info = one ? '<p class="hint" style="margin:0 0 8px">Квадрат <b>' + one[1] + '</b>: ' + (one[3] ? 'база ' : '') + (one[4] ? 'нейтральный' : one[2] ? esc(G.gangs[one[2]].n) : 'ничей') + (one[5] ? ' · откат ' + one[5] + ' мин' : '') + (one[6] ? ' · идёт капт ' + trT(one[6].left) : '') + '</p>' : '';
+    box.innerHTML = '<div class="tr-wrap"><div class="card"><h3>Карта квадратов <span class="mut" style="font-weight:400;font-size:12px">клик — выбрать, Shift/Ctrl + клик — несколько</span></h3><div class="tr-grid" style="grid-template-columns:repeat(' + G.cols + ',1fr)">' + cells + '</div><div class="tr-lg">' + lg + '</div></div>' +
+        '<div class="tr-side"><div class="card"><h3>Выбрано: ' + sel.length + (sel.length ? ' <button class="btn" id="trClr" style="width:auto;padding:4px 8px;margin-left:auto">Сбросить</button>' : '') + '</h3>' + info +
+        (sel.length ? '<div class="tr-btns" style="margin-bottom:8px"><button class="btn primary" data-tg="nt1">🛡 Сделать нейтральными</button><button class="btn" data-tg="nt0">Снять нейтральность</button><button class="btn" data-tg="cd">Сбросить откат</button></div>' +
+            '<p class="hint" style="margin:0 0 6px">Передать банде:</p><div class="tr-own">' + Object.keys(G.gangs).map(function (k) { return '<button class="btn" data-to="' + k + '"><s style="background:' + G.gangs[k].c + '"></s>' + esc(G.gangs[k].n) + '</button>'; }).join('') + '<button class="btn" data-to=""><s style="background:#555"></s>Ничьи</button></div>' : '<p class="hint" style="margin:0">Выберите квадраты на карте. Нейтральные нельзя каптить, на карте игроков они серые.</p>') + '</div>' +
+        '<div class="card"><h3>Все квадраты банды → другой</h3><div class="tr-sel"><select class="search" id="trFrom">' + gOpts.replace('<option value="">— ничьи —</option>', '') + '</select><select class="search" id="trTo">' + gOpts + '</select><button class="btn danger" id="trSwap">Передать</button></div><p class="hint" style="margin:6px 0 0">Базы не передаются. Капты с участием банды отменяются.</p></div>' +
+        '<div class="card"><h3>Идут капты (' + G.wars.length + ')' + (G.wars.length > 1 ? ' <button class="btn danger" id="trCanAll" style="width:auto;padding:4px 8px;margin-left:auto">Отменить все</button>' : '') + '</h3>' +
+        (G.wars.length ? G.wars.map(function (w) { var a = G.gangs[w.a], d = w.d ? G.gangs[w.d] : null; return '<div class="tr-war"><b>' + w.n + ' · <span style="color:' + a.c + '">' + esc(a.n) + '</span> vs <span style="color:' + (d ? d.c : '#999') + '">' + (d ? esc(d.n) : 'нейтр.') + '</span><br><span class="mut">' + w.ka + ' : ' + w.kd + ' · осталось ' + trT(w.left) + '</span></b><button class="btn danger" data-tc="' + w.z + '">Отменить</button></div>'; }).join('') : '<p class="hint" style="margin:0">Сейчас каптов нет</p>') + '</div></div></div>';
+    box.querySelectorAll('[data-tz]').forEach(function (el) {
+        el.onclick = function (e) { var i = Number(el.dataset.tz); if (e.shiftKey || e.ctrlKey) { if (TRsel[i]) delete TRsel[i]; else TRsel[i] = 1; } else { var only = TRsel[i] && Object.keys(TRsel).length === 1; TRsel = {}; if (!only) TRsel[i] = 1; } renderTerr(); };
+    });
+    var c = $('trClr'); if (c) c.onclick = function () { TRsel = {}; renderTerr(); };
+    box.querySelectorAll('[data-tg]').forEach(function (b) { b.onclick = function () { var t = b.dataset.tg; trA({ sys: 'gang', op: t === 'cd' ? 'cd' : 'neutral', on: t === 'nt1', zs: sel }); }; });
+    box.querySelectorAll('[data-to]').forEach(function (b) { b.onclick = function () { trA({ sys: 'gang', op: 'owner', k: b.dataset.to, zs: sel }); }; });
+    box.querySelectorAll('[data-tc]').forEach(function (b) { b.onclick = function () { if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; } trA({ sys: 'gang', op: 'cancel', z: Number(b.dataset.tc) }); }; });
+    var ca = $('trCanAll'); if (ca) ca.onclick = function () { if (!ca.dataset.ok) { ca.dataset.ok = 1; ca.textContent = 'Точно?'; return; } trA({ sys: 'gang', op: 'cancelall' }); };
+    $('trSwap').onclick = function () { var b = $('trSwap'); if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; } trA({ sys: 'gang', op: 'swap', from: $('trFrom').value, to: $('trTo').value }); };
+}
+function trMafia(box, M) {
+    if (!M) { box.innerHTML = '<p class="hint">Модуль мафий не загружен</p>'; return; }
+    var cnt = {}; M.list.forEach(function (b) { if (b.m) cnt[b.m] = (cnt[b.m] || 0) + 1; });
+    var sel = Object.keys(TRm).filter(function (k) { return M.list.some(function (b) { return b.k === k; }); });
+    var q = TRmq.toLowerCase();
+    var mOpts = Object.keys(M.orgs).map(function (k) { return '<option value="' + k + '">' + esc(M.orgs[k].n) + '</option>'; }).join('');
+    box.innerHTML = '<div class="tr-wrap"><div class="card"><h3>Бизнесы штата <span class="mut" style="font-weight:400;font-size:12px">Shift/Ctrl + клик — несколько</span></h3>' +
+        '<input class="search" id="trMq" placeholder="Поиск" value="' + esc(TRmq) + '" style="max-width:none;width:100%;margin-bottom:8px">' +
+        '<div class="tr-lg" style="margin:0 0 8px">' + Object.keys(M.orgs).map(function (k) { var o = M.orgs[k]; return '<span><s style="background:' + o.c + '"></s>' + esc(o.n) + ' <b>' + (cnt[k] || 0) + '</b> · ' + o.on + ' в сети</span>'; }).join('') + '</div><div class="tr-mlist">' +
+        M.list.filter(function (b) { return !q || b.n.toLowerCase().indexOf(q) >= 0 || b.kn.toLowerCase().indexOf(q) >= 0; }).map(function (b) {
+            var o = b.m ? M.orgs[b.m] : null;
+            return '<div class="tr-mrow' + (TRm[b.k] ? ' sel' : '') + '" data-tm="' + esc(b.k) + '" style="--oc:' + (o ? o.c : 'rgba(255,255,255,.15)') + '"><span>' + b.i + '</span><span><b>' + esc(b.n) + '</b><br><span class="mut">' + esc(b.kn) + '</span></span><span>' + (o ? '<b style="color:' + o.c + '">' + esc(o.n) + '</b>' : '<span class="mut">без крыши</span>') + '</span><span class="mut">' + (b.w ? '<span style="color:#ff8080">⚔ война</span>' : b.cd ? 'откат ' + b.cd + 'м' : '') + '</span></div>';
+        }).join('') + '</div></div>' +
+        '<div class="tr-side"><div class="card"><h3>Выбрано: ' + sel.length + (sel.length ? ' <button class="btn" id="trMClr" style="width:auto;padding:4px 8px;margin-left:auto">Сбросить</button>' : '') + '</h3>' +
+        (sel.length ? '<p class="hint" style="margin:0 0 6px">Передать крышу:</p><div class="tr-own">' + Object.keys(M.orgs).map(function (k) { return '<button class="btn" data-mm="' + k + '"><s style="background:' + M.orgs[k].c + '"></s>' + esc(M.orgs[k].n) + '</button>'; }).join('') + '<button class="btn" data-mm=""><s style="background:#555"></s>Без крыши</button></div><div class="tr-btns" style="margin-top:8px"><button class="btn" id="trMcd">Сбросить откат</button></div>' : '<p class="hint" style="margin:0">Выберите бизнесы в списке, чтобы передать крышу или сбросить откат.</p>') + '</div>' +
+        '<div class="card"><h3>Все крыши мафии → другой</h3><div class="tr-sel"><select class="search" id="trMFrom">' + mOpts + '</select><select class="search" id="trMTo"><option value="">— без крыши —</option>' + mOpts + '</select><button class="btn danger" id="trMSwap">Передать</button></div></div>' +
+        '<div class="card"><h3>Войны за бизнес (' + M.wars.length + ')' + (M.wars.length > 1 ? ' <button class="btn danger" id="trMCanAll" style="width:auto;padding:4px 8px;margin-left:auto">Отменить все</button>' : '') + '</h3>' +
+        (M.wars.length ? M.wars.map(function (w) { var a = M.orgs[w.a], d = w.d ? M.orgs[w.d] : null; return '<div class="tr-war"><b>' + esc(w.n) + ' · <span style="color:' + a.c + '">' + esc(a.n) + '</span> vs <span style="color:' + (d ? d.c : '#999') + '">' + (d ? esc(d.n) : 'свободный') + '</span><br><span class="mut">' + (w.live ? 'война' : 'сбор') + ' · очки ' + w.sa + ' : ' + w.sd + ' · ' + trT(w.left) + ' · ' + esc(w.by) + '</span></b><button class="btn danger" data-mc="' + esc(w.b) + '">Отменить</button></div>'; }).join('') : '<p class="hint" style="margin:0">Сейчас войн нет</p>') + '</div></div></div>';
+    var mq = $('trMq'); mq.oninput = function () { TRmq = mq.value; var pos = mq.selectionStart; renderTerr(); var n = $('trMq'); n.focus(); n.setSelectionRange(pos, pos); };
+    box.querySelectorAll('[data-tm]').forEach(function (el) {
+        el.onclick = function (e) { var k = el.dataset.tm; if (e.shiftKey || e.ctrlKey) { if (TRm[k]) delete TRm[k]; else TRm[k] = 1; } else { var only = TRm[k] && Object.keys(TRm).length === 1; TRm = {}; if (!only) TRm[k] = 1; } renderTerr(); };
+    });
+    var c = $('trMClr'); if (c) c.onclick = function () { TRm = {}; renderTerr(); };
+    box.querySelectorAll('[data-mm]').forEach(function (b) { b.onclick = function () { trA({ sys: 'mafia', op: 'setm', m: b.dataset.mm, ks: sel }); }; });
+    var cd = $('trMcd'); if (cd) cd.onclick = function () { sel.forEach(function (k) { trA({ sys: 'mafia', op: 'cd', k: k }); }); };
+    box.querySelectorAll('[data-mc]').forEach(function (b) { b.onclick = function () { if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; } trA({ sys: 'mafia', op: 'cancel', b: b.dataset.mc }); }; });
+    var ca = $('trMCanAll'); if (ca) ca.onclick = function () { if (!ca.dataset.ok) { ca.dataset.ok = 1; ca.textContent = 'Точно?'; return; } trA({ sys: 'mafia', op: 'cancelall' }); };
+    $('trMSwap').onclick = function () { var b = $('trMSwap'); if (!b.dataset.ok) { b.dataset.ok = 1; b.textContent = 'Точно?'; return; } trA({ sys: 'mafia', op: 'swap', from: $('trMFrom').value, to: $('trMTo').value }); };
+}

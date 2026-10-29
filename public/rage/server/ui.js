@@ -1143,6 +1143,7 @@ setTimeout(function () {
     try { require('./medic.js'); } catch (e) { console.log('[ui] medic.js: ' + e.message); }
     try { require('./ems.js'); } catch (e) { console.log('[ui] ems.js: ' + e.message); }
     try { require('./service.js'); } catch (e) { console.log('[ui] service.js: ' + e.message); }
+    try { require('./mafia.js'); } catch (e) { console.log('[ui] mafia.js: ' + e.message); }
     try { require('./rail.js'); } catch (e) { console.log('[ui] rail.js: ' + e.message); }
     try { require('./dealer.js'); } catch (e) { console.log('[ui] dealer.js: ' + e.message); }
 }, 1500);
@@ -2761,6 +2762,14 @@ global.MoneySystem.addBankId = function (id, n) {
 global.MoneySystem.tx = tx;
 global.MoneySystem.gov = govAdd;
 global.BizSystem = {
+    all: function () {
+        const out = [];
+        Object.keys(BIZ_KINDS).forEach(function (k) {
+            const K = BIZ_KINDS[k];
+            K.list().forEach(function (b) { if (b.disabled) return; const pt = K.pt(b); if (!pt || !isFinite(pt.x)) return; out.push({ kind: k, id: b.id, name: b.name, kn: K.n, i: K.i, x: pt.x, y: pt.y, z: pt.z, ownerName: b.ownerName || '' }); });
+        });
+        return out;
+    },
     kinds: function () { return Object.keys(BIZ_KINDS); },
     label: function (k) { return BIZ_KINDS[k] ? BIZ_KINDS[k].n : k; },
     icon: function (k) { return BIZ_KINDS[k] ? BIZ_KINDS[k].i : '🏢'; },

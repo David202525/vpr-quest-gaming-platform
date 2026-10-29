@@ -146,3 +146,55 @@ button:disabled { opacity: .35; cursor: default; }
 .cp-hk small { display: block; font-size: 10.5px; color: rgba(255,255,255,.45); }
 .cp-res { text-align: center; font-size: 11px; font-weight: 800; padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.07); color: rgba(255,255,255,.7); }
 .cp-res.win { background: rgba(111,211,106,.18); color: #8fe68a; } .cp-res.lose { background: rgba(255,90,110,.15); color: #ff8a96; }
+/* ===== Мафия: войны за бизнес ===== */
+.box.mafia { width: 1180px; padding: 0; overflow: hidden; background: radial-gradient(120% 90% at 0% 0%, var(--ga), transparent 55%), radial-gradient(80% 60% at 100% 100%, rgba(0,0,0,.6), transparent), linear-gradient(160deg, #17140f, #0b0a08); font-family: Georgia, "Times New Roman", serif; }
+.mafia .top, .mafia .mf-stats, .mafia .cp-tabs, .mafia .mf-wrap, .mafia .side, .mafia .mf-pad, .mafia .cp-hist { font-family: "Segoe UI", Roboto, Arial, sans-serif; }
+.mafia .top { display: flex; align-items: center; gap: 14px; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+.mafia .top i { font-style: normal; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #120e08; background: radial-gradient(circle at 35% 30%, #fff3c4, var(--g) 55%, var(--g2)); box-shadow: 0 0 0 2px rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.5); }
+.mafia .top b { font-size: 19px; display: block; font-family: Georgia, serif; letter-spacing: .3px; } .mafia .top small { color: rgba(255,255,255,.5); font-size: 12.5px; }
+.mafia .x { margin-left: auto; width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.06); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; color: rgba(255,255,255,.7); }
+.mf-stats { display: flex; gap: 10px; padding: 14px 24px 2px; align-items: stretch; }
+.mf-stats > div:not(.mf-rivals) { padding: 10px 16px; border-radius: 12px; background: rgba(255,255,255,.035); border: 1px solid var(--line); min-width: 140px; }
+.mf-stats small { display: block; font-size: 11px; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 2px; }
+.mf-stats b { font-size: 19px; } .mf-stats b em { font-style: normal; font-size: 12px; color: rgba(255,255,255,.5); font-weight: 400; }
+.mf-stats b.g { color: #8fe68a; } .mf-stats b.r { color: #ffb36b; }
+.mf-rivals { margin-left: auto; display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 12px; color: rgba(255,255,255,.7); }
+.mf-rivals span { display: flex; align-items: center; gap: 7px; } .mf-rivals s { width: 10px; height: 10px; border-radius: 50%; } .mf-rivals b { color: #fff; } .mf-rivals i { font-style: normal; color: rgba(255,255,255,.4); font-size: 11px; }
+.mf-wrap { display: grid; grid-template-columns: 1fr 330px; min-height: 470px; }
+.mf-left { padding: 14px 20px 18px; display: flex; flex-direction: column; min-height: 0; }
+.mf-bar { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+.mf-bar input { flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: #fff; font-size: 13px; outline: none; }
+.mf-bar input:focus { border-color: var(--g); }
+.mf-bar .cp-sw { margin-left: 0; }
+.mf-list { display: flex; flex-direction: column; gap: 5px; max-height: 410px; overflow-y: auto; padding-right: 4px; }
+.mf-list::-webkit-scrollbar { width: 4px; } .mf-list::-webkit-scrollbar-thumb { background: var(--g); border-radius: 4px; }
+.mf-row { display: grid; grid-template-columns: 34px 1fr 150px 80px 64px auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.03); border: 1px solid transparent; border-left: 3px solid var(--oc); cursor: pointer; font-size: 13px; transition: background .12s; }
+.mf-row:hover { background: rgba(255,255,255,.06); } .mf-row.sel { border-color: var(--g); background: var(--ga); }
+.mf-ic { font-size: 20px; text-align: center; }
+.mf-n b { display: block; font-size: 13.5px; } .mf-n small { font-size: 11px; color: rgba(255,255,255,.45); }
+.mf-own { display: flex; align-items: center; gap: 7px; font-size: 12.5px; } .mf-own s { width: 10px; height: 10px; border-radius: 50%; flex: none; } .mf-own i { color: rgba(255,255,255,.4); }
+.mf-inc { font-weight: 700; color: #8fe68a; } .mf-inc small { font-weight: 400; color: rgba(255,255,255,.4); font-size: 10.5px; }
+.mf-d { color: rgba(255,255,255,.5); font-size: 12px; }
+.mf-tag { font-size: 10.5px; font-weight: 800; padding: 4px 8px; border-radius: 6px; letter-spacing: .5px; white-space: nowrap; }
+.mf-tag.war { background: rgba(255,60,60,.18); color: #ff8080; animation: mfp 1.2s ease-in-out infinite; } .mf-tag.cd { background: rgba(255,204,102,.12); color: #ffcc66; } .mf-tag.mine { background: var(--ga); color: #fff; }
+@keyframes mfp { 50% { box-shadow: 0 0 10px rgba(255,60,60,.5); } }
+.mafia .side { border-left: 1px solid var(--line); padding: 20px; display: flex; flex-direction: column; gap: 9px; background: rgba(0,0,0,.25); }
+.mf-hd { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; } .mf-hd > span { font-size: 30px; width: 52px; height: 52px; border-radius: 14px; background: rgba(255,255,255,.05); display: flex; align-items: center; justify-content: center; }
+.mf-hd h3 { font-size: 17px; font-family: Georgia, serif; } .mf-hd small { color: rgba(255,255,255,.5); font-size: 12px; }
+.mf-rules { display: flex; flex-direction: column; gap: 4px; padding: 11px 13px; border-radius: 10px; background: rgba(255,255,255,.03); border: 1px dashed rgba(255,255,255,.12); font-size: 11.8px; color: rgba(255,255,255,.65); line-height: 1.35; }
+.mf-rules b { color: #fff; font-size: 12px; margin-bottom: 2px; }
+#mfGo { margin-top: auto; padding: 14px; font-size: 15px; letter-spacing: 1.2px; border: 0; border-radius: 11px; color: #fff; cursor: pointer; font-weight: 800; background: linear-gradient(135deg, #c9302c, #6e0f12); box-shadow: 0 8px 24px rgba(200,40,40,.35); font-family: Georgia, serif; }
+#mfGo:disabled { opacity: .4; cursor: default; box-shadow: none; }
+.mf-gps { padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: #fff; cursor: pointer; font-size: 13px; }
+.mf-gps:hover { border-color: var(--g); }
+.mf-msg { font-size: 12.5px; min-height: 16px; } .mf-msg.ok { color: #8fe68a; } .mf-msg.err { color: #ff8a96; }
+.mf-pad { padding: 16px 20px 22px; min-height: 420px; }
+.mf-wars { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
+.mf-war { padding: 16px; border-radius: 14px; background: rgba(255,255,255,.035); border: 1px solid var(--line); }
+.mf-war.live { border-color: rgba(255,60,60,.45); box-shadow: 0 0 24px rgba(255,40,40,.12) inset; }
+.mf-wt { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; } .mf-wt b { font-size: 15px; font-family: Georgia, serif; }
+.mf-vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; text-align: center; font-size: 13px; font-weight: 700; }
+.mf-vs b { display: block; font-size: 34px; color: #fff; line-height: 1.1; margin-top: 4px; } .mf-vs small { display: block; font-size: 11px; color: rgba(255,255,255,.45); font-weight: 400; }
+.mf-vs i { font-style: normal; font-size: 13px; color: rgba(255,255,255,.35); letter-spacing: 2px; font-family: Georgia, serif; }
+.mf-prog { display: flex; height: 6px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,.06); margin: 12px 0 8px; } .mf-prog u { display: block; height: 100%; transition: width .3s; }
+.mf-by { font-size: 11px; color: rgba(255,255,255,.4); }

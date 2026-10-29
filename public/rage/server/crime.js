@@ -224,15 +224,15 @@ function zoneList() {
             s = S.zones[i] = { o: own, cd: 0 };
             mark();
         }
-        if (base) s.o = base;
-        return { i: i, n: z[0], x: z[1], y: z[2], o: s.o, cd: s.cd || 0, base: base };
+        if (base) { s.o = base; s.nt = false; }
+        return { i: i, n: z[0], x: z[1], y: z[2], o: s.nt ? null : s.o, cd: s.cd || 0, base: base, nt: !!s.nt };
     });
 }
 function zoneAt(pos) { return zoneList().find(function (z) { return inSq(pos, z.x, z.y, ZONE_R); }) || null; }
 function sendZones(p) {
     const w = S.wars.map(function (x) { return { z: x.z, a: x.a, d: x.d, end: x.end }; });
     const bases = Object.keys(ORGS).map(function (k) { const h = home(k), g = garMenu(k); return [k, ORGS[k].n, h.x, h.y, ORGS[k].bc, ORGS[k].c, g.x, g.y, g.z, g.d]; });
-    p.call('crime:zones', [JSON.stringify({ s: GRID.size, bs: BASE_SIZE, z: zoneList().map(function (z) { return [z.i, z.n, z.x, z.y, z.o ? ORGS[z.o].bc : 0, z.o ? ORGS[z.o].n : 'ничья', z.base ? 1 : 0]; }), w: w, b: bases, me: org(p) })]);
+    p.call('crime:zones', [JSON.stringify({ s: GRID.size, bs: BASE_SIZE, z: zoneList().map(function (z) { return [z.i, z.n, z.x, z.y, z.o ? ORGS[z.o].bc : 0, z.o ? ORGS[z.o].n : (z.nt ? 'нейтральная' : 'ничья'), z.base ? 1 : 0, z.nt ? 1 : 0]; }), w: w, b: bases, me: org(p) })]);
 }
 function zonesAll() { mp.players.forEach(sendZones); }
 function capHour() { const h = new Date(Date.now() + 3 * 3600000).getUTCHours(); return h >= CAP_HOURS[0] && h < CAP_HOURS[1]; }
@@ -242,6 +242,7 @@ function captCheck(p, z, def) {
     if (rank(p) < 4 && !mgr(p)) return 'Начать захват может «' + rankName(k, 4) + '» и выше';
     if (!capHour() && admLvl(p) < 6) return 'Захваты разрешены с ' + CAP_HOURS[0] + ':00 до ' + CAP_HOURS[1] + ':00 по МСК';
     if (!z) return 'Квадрат не найден';
+    if (z.nt) return 'Нейтральный квадрат — захват запрещён администрацией';
     if (z.o === k) return 'Это уже ваш квадрат';
     if (z.base) return 'Это база ' + ORGS[z.base].n + ' — её захватить нельзя';
     if (def === k) return 'Нельзя воевать с собой';
@@ -293,7 +294,7 @@ function captData(p) {
         orgs: orgs, myPos: (function () { const zz = zoneAt(p.position); return zz ? zz.i : -1; })(),
         hist: (S.capHist || []).filter(function (h) { return h.a === k || h.d === k; }).slice(0, 25).concat([]).map(function (h) { return h; }),
         all: (S.capHist || []).slice(0, 25),
-        z: zoneList().map(function (z) { return [z.i, z.n.replace('Квадрат ', ''), z.o || '', z.base ? 1 : 0, z.cd > Date.now() ? Math.ceil((z.cd - Date.now()) / 60000) : 0, war[z.i] || null]; })
+        z: zoneList().map(function (z) { return [z.i, z.n.replace('Квадрат ', ''), z.o || '', z.base ? 1 : 0, z.cd > Date.now() ? Math.ceil((z.cd - Date.now()) / 60000) : 0, war[z.i] || null, z.nt ? 1 : 0]; })
     };
 }
 function captOpen(p) {
@@ -332,7 +333,7 @@ setInterval(function () {
         if (now < w.end) return true;
         const sa = (w.kills[w.a] || 0) * 2 + inA, sd = w.d ? (w.kills[w.d] || 0) * 2 + inD : 0;
         const win = sa > sd ? w.a : (w.d || w.a);
-        S.zones[w.z] = { o: win, cd: now + CAP_COOLDOWN };
+        S.zones[w.z] = { o: win, cd: now + CAP_COOLDOWN, nt: false };
         mp.players.forEach(function (x) {
             const o = org(x);
             if (o === w.a || o === w.d) { x.outputChatBox('!{#ffd24d}[ВОЙНА] !{#ffffff}Район ' + z[0] + ' остаётся за ' + ORGS[win].n + ' (' + sa + ' : ' + sd + ')'); x.call('crime:war', ['']); }
@@ -1091,7 +1092,75 @@ mp.events.addCommand('zoneset', function (p, full) {
     p.outputChatBox('!{#8fd14f}' + z.n + ' → ' + (k === 'none' ? 'никто' : ORGS[k].n));
 });
 
-global.CrimeSystem = { captOpen: captOpen, isGang: function (p) { const k = org(p); return !!k && ORGS[k].t === 'gang'; }, inNeutral: inNeutral, home: orgHome, ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName };
+/* ======================= СЛЕДЯЩИЕ: ТЕРРИТОРИИ ======================= */
+function zoneAdmView() {
+    const war = {};
+    S.wars.forEach(function (w) { war[w.z] = { a: w.a, d: w.d || '', left: Math.max(0, Math.ceil((w.end - Date.now()) / 1000)), ka: w.kills[w.a] || 0, kd: w.d ? w.kills[w.d] || 0 : 0 }; });
+    const gangs = {};
+    Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).forEach(function (k) { gangs[k] = { n: ORGS[k].n, c: ORGS[k].c }; });
+    return {
+        cols: GRID.cols, rows: GRID.rows, gangs: gangs,
+        z: zoneList().map(function (z) { return [z.i, z.n.replace('Квадрат ', ''), z.o || '', z.base ? 1 : 0, z.nt ? 1 : 0, z.cd > Date.now() ? Math.ceil((z.cd - Date.now()) / 60000) : 0, war[z.i] || null]; }),
+        wars: S.wars.map(function (w) { return { z: w.z, n: ZONES_DEF[w.z][0].replace('Квадрат ', ''), a: w.a, d: w.d || '', ka: w.kills[w.a] || 0, kd: w.d ? w.kills[w.d] || 0 : 0, left: Math.max(0, Math.ceil((w.end - Date.now()) / 1000)) }; })
+    };
+}
+function warCancel(w, by) {
+    const z = ZONES_DEF[w.z];
+    S.wars = S.wars.filter(function (x) { return x !== w; });
+    mp.players.forEach(function (x) {
+        const o = org(x);
+        if (o === w.a || o === w.d) { x.outputChatBox('!{#ff9f43}[КАПТ] !{#ffffff}Капт ' + z[0] + ' отменён администрацией (' + by + '). Владелец квадрата не меняется'); x.call('crime:war', ['']); }
+    });
+    olog(w.a, 'Капт ' + z[0] + ' отменён администрацией'); if (w.d) olog(w.d, 'Капт ' + z[0] + ' отменён администрацией');
+    mark();
+}
+function zoneAdm(by, d) {
+    const op = String(d.op || '');
+    const L = zoneList();
+    if (op === 'cancel') {
+        const w = S.wars.find(function (x) { return x.z === Number(d.z); });
+        if (!w) return { err: 'Этот капт уже закончился' };
+        warCancel(w, by); zonesAll();
+        return { ok: 'Капт ' + ZONES_DEF[w.z][0] + ' отменён' };
+    }
+    if (op === 'cancelall') {
+        const n = S.wars.length;
+        S.wars.slice().forEach(function (w) { warCancel(w, by); });
+        zonesAll();
+        return { ok: 'Отменено каптов: ' + n };
+    }
+    if (op === 'swap') {
+        const from = String(d.from || ''), to = String(d.to || '');
+        if (!ORGS[from] || from === to || (to && !ORGS[to])) return { err: 'Выберите две разные банды' };
+        let n = 0;
+        L.forEach(function (z) { if (z.o === from && !z.base) { S.zones[z.i] = { o: to || null, cd: 0, nt: false }; n++; } });
+        S.wars.slice().forEach(function (w) { if (w.a === from || w.d === from) warCancel(w, by); });
+        mark(); zonesAll();
+        olog(from, 'Администрация передала ' + n + ' кв. → ' + (to ? ORGS[to].n : 'ничьи'));
+        if (to) olog(to, 'Администрация передала ' + n + ' кв. от ' + ORGS[from].n);
+        return { ok: ORGS[from].n + ': ' + n + ' кв. → ' + (to ? ORGS[to].n : 'ничьи') };
+    }
+    const ids = (Array.isArray(d.zs) ? d.zs : [d.z]).map(Number).filter(function (i) { return L[i]; });
+    if (!ids.length) return { err: 'Выберите квадрат' };
+    let skip = 0;
+    ids.forEach(function (i) {
+        const z = L[i];
+        if (z.base) { skip++; return; }
+        const cur = S.zones[i] || (S.zones[i] = { o: null, cd: 0 });
+        const w = S.wars.find(function (x) { return x.z === i; });
+        if (op === 'owner') { const k = String(d.k || ''); if (k && !ORGS[k]) return; if (w) warCancel(w, by); cur.o = k || null; cur.nt = false; cur.cd = 0; }
+        else if (op === 'neutral') { if (w) warCancel(w, by); cur.nt = !!d.on; if (cur.nt) cur.o = null; cur.cd = 0; }
+        else if (op === 'cd') cur.cd = 0;
+    });
+    mark(); zonesAll();
+    const nm = ids.length === 1 ? ZONES_DEF[ids[0]][0] : ids.length + ' кв.';
+    if (op === 'owner') return { ok: nm + ' → ' + (d.k ? ORGS[d.k].n : 'ничей') + (skip ? ' (базы пропущены: ' + skip + ')' : '') };
+    if (op === 'neutral') return { ok: nm + (d.on ? ' — нейтральная территория' : ' — снова можно захватывать') + (skip ? ' (базы пропущены: ' + skip + ')' : '') };
+    if (op === 'cd') return { ok: nm + ': откат захвата сброшен' };
+    return { err: 'Неизвестное действие' };
+}
+
+global.CrimeSystem = { captOpen: captOpen, isGang: function (p) { const k = org(p); return !!k && ORGS[k].t === 'gang'; }, inNeutral: inNeutral, home: orgHome, ORGS: ORGS, org: org, useDrug: useDrug, isOrg: function (k) { return !!ORGS[k]; }, O: O, rankName: rankName, rank: rank, mgr: mgr, olog: olog, toOrg: toOrg, mark: mark, money: money, admLvl: admLvl, zoneAdmView: zoneAdmView, zoneAdm: zoneAdm, store: S };
 console.log('[crime] банды: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'gang'; }).length + ', мафии: ' + Object.keys(ORGS).filter(function (k) { return ORGS[k].t === 'mafia'; }).length + ', районов: ' + ZONES_DEF.length);
 
 /* ---------- метки в редакторе /points ---------- */

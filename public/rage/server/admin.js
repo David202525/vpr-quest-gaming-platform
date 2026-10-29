@@ -620,6 +620,7 @@ function panelData(p) {
         dlc: dlc,
         weather: mp.world.weather,
         snow: SNOW,
+        terr: lvl(p) >= 5 && global.CrimeSystem && global.CrimeSystem.zoneAdmView ? { g: global.CrimeSystem.zoneAdmView(), m: global.MafiaSystem ? global.MafiaSystem.admView() : null } : null,
         dealers: lvl(p) >= 8 && global.DealerSystem ? global.DealerSystem.admView() : null,
         shops: global.ShopSystem ? global.ShopSystem.list().map(function (a) { return { id: a.id, kind: a.kind, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
         gov: global.GovSystem ? global.GovSystem.get() : null,
@@ -668,6 +669,14 @@ mp.events.add('srv:adm:act', function (p, json) {
     const reason = String(d.reason || 'нарушение правил').slice(0, 100);
     const needT = ['tp', 'bring', 'heal', 'kick', 'slap', 'freeze', 'unfreeze', 'mute', 'unmute', 'warn', 'ban', 'goto', 'revive', 'givemoney', 'sethp'];
     if (global.AdminCore && global.AdminCore.panelAct && global.AdminCore.panelAct(p, d, t)) return;
+    if (a === 'terr') {
+        if (lvl(p) < 5) return toast(p, 'Территориями управляют следящие — с уровня ' + rankName(5), false);
+        const sys = d.sys === 'mafia' ? global.MafiaSystem : global.CrimeSystem;
+        if (!sys) return toast(p, 'Модуль не загружен', false);
+        const r = d.sys === 'mafia' ? sys.admAct(login(p), d) : sys.zoneAdm(login(p), d);
+        if (r && r.err) toast(p, r.err, false); else if (r && r.ok) { toast(p, r.ok, true); log(p, d.sys === 'mafia' ? 'bizwar' : 'zones', '-', String(d.op) + ': ' + r.ok); }
+        return sendPanel(p);
+    }
     if (a === 'dealer') {
         if (!global.DealerSystem) return toast(p, 'Модуль автосалонов не загружен', false);
         const r = global.DealerSystem.admAct(p, d);

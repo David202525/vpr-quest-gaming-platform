@@ -43,7 +43,7 @@ mp.events.add('crime:zones', function (j) {
     cZones = d.z;
     var war = {}; (d.w || []).forEach(function (w) { war[w.z] = 1; });
     cZones.forEach(function (z) {
-        try { var bb = areaBlip(z[2], z[3], d.s, z[4] || 4, z[4] ? (z[6] ? 170 : 120) : 45, !!war[z[0]]); if (bb) cBlips.push(bb); } catch (e) { mp.console.logError('[crime] zone blip: ' + e.message); }
+        try { var bb = areaBlip(z[2], z[3], d.s, z[7] ? 0 : (z[4] || 4), z[7] ? 150 : z[4] ? (z[6] ? 170 : 120) : 45, !!war[z[0]]); if (bb) cBlips.push(bb); } catch (e) { mp.console.logError('[crime] zone blip: ' + e.message); }
     });
     cBases = d.b || [];
     cGarage = null;
@@ -315,3 +315,38 @@ mp.events.add('crime:capt', function (j) {
 mp.events.add('crime:captMsg', function (t, ok) { if (cBr) cBr.execute('window.captMsg && window.captMsg(' + JSON.stringify(String(t)) + ',' + (ok ? 1 : 0) + ');'); });
 mp.events.add('cef:crime:capt', function (zi, def) { mp.events.callRemote('srv:crime:capt', Number(zi), String(def || '')); });
 mp.events.add('cef:crime:close', function () { captOpenNow = false; });
+
+/* ======================= МАФИИ: ВОЙНЫ ЗА БИЗНЕС ======================= */
+var mfOpenNow = false, mfZones = [], mfBlips = [];
+mp.events.add('mafia:tab', function (j) {
+    if (mfOpenNow && cOpen && cBr) cBr.execute('window.mafia && window.mafia(' + JSON.stringify(j) + ');');
+    else { mfOpenNow = true; cUI(true, 'window.mafia && window.mafia(' + JSON.stringify(j) + ');'); }
+});
+mp.events.add('mafia:msg', function (t, ok) { if (cBr) cBr.execute('window.mafiaMsg && window.mafiaMsg(' + JSON.stringify(String(t)) + ',' + (ok ? 1 : 0) + ');'); });
+mp.events.add('cef:mafia:act', function (j) { mp.events.callRemote('srv:mafia:act', String(j)); });
+mp.events.add('cef:crime:close', function () { mfOpenNow = false; });
+mp.events.add('mafia:zones', function (j) {
+    mfBlips.forEach(function (b) { try { mp.game.ui.removeBlip(b); } catch (e) {} });
+    mfBlips = [];
+    try { mfZones = JSON.parse(j) || []; } catch (e) { mfZones = []; }
+    mfZones.forEach(function (z) {
+        try {
+            var r = mp.game.invoke('0x46818D79B1F7499A', fl(z[0]), fl(z[1]), fl(z[2]), fl(z[3]));
+            mp.game.invoke('0x03D7FB09E75D6B7E', r, z[4] ? 1 : 5);
+            mp.game.invoke('0x45FF974EEE1C8734', r, z[4] ? 140 : 90);
+            if (z[4]) mp.game.invoke('0xB14552383D39CE3E', r, true);
+            mfBlips.push(r);
+            mfBlips.push(ptBlip(z[0], z[1], z[2], 310, z[4] ? 1 : 5, (z[4] ? 'Бизвар: ' : 'Стрела: ') + z[6], false));
+        } catch (e) {}
+    });
+});
+mp.events.add('render', function () {
+    if (!mfZones.length) return;
+    var me = mp.players.local.position;
+    mfZones.forEach(function (z) {
+        var d = Math.hypot(me.x - z[0], me.y - z[1]);
+        if (d > z[3] + 120) return;
+        var c = z[4] ? [255, 60, 60] : [255, 200, 80];
+        mp.game.graphics.drawMarker(1, z[0], z[1], z[2] - 30, 0, 0, 0, 0, 0, 0, z[3] * 2, z[3] * 2, 90, c[0], c[1], c[2], d < z[3] ? 22 : 45, false, false, 2, false, null, null, false);
+    });
+});

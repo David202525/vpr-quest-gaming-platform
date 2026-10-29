@@ -114,7 +114,7 @@ mp.events.add('render', function () {
     G.drawRect(0.5, 0.905, 0.36, 0.085, 10, 14, 22, 190);
     G.drawText(kmh(sp) + ' км/ч', [0.41, 0.868], { font: 7, color: col, scale: [0.75, 0.75], outline: true, centre: true });
     G.drawText('лимит ' + RL.lim + (RL.brake ? '  ·  ЭКСТР. ТОРМОЗ' : ''), [0.41, 0.912], { font: 4, color: RL.brake ? [255, 90, 90, 255] : [200, 200, 200, 220], scale: [0.32, 0.32], outline: true, centre: true });
-    G.drawText(s ? (s.k === 'pass' ? '↠ ' : s.k === 'load' ? '⬇ Погрузка: ' : s.k === 'unload' ? '⬆ Выгрузка: ' : '■ ') + s.n : '—', [0.55, 0.868], { font: 4, color: [127, 200, 255, 255], scale: [0.4, 0.4], outline: true, centre: true });
+    G.drawText(s ? (s.k === 'pass' ? 'Проследовать: ' : s.k === 'load' ? 'Погрузка: ' : s.k === 'unload' ? 'Выгрузка: ' : 'Станция: ') + s.n : '—', [0.55, 0.868], { font: 4, color: [127, 200, 255, 255], scale: [0.4, 0.4], outline: true, centre: true });
     G.drawText(s ? (d > 1000 ? (d / 1000).toFixed(1) + ' км' : Math.round(d) + ' м') + '  ·  тяга ' + Math.round(RL.target / maxMs * 100) + '%  ·  вагонов ' + (RL.wagons + 1) + (RL.c.kind === 'metro' ? '  ·  двери ' + (RL.doors ? 'ОТКР' : 'закр') : '') : '', [0.55, 0.9], { font: 4, color: [220, 220, 220, 230], scale: [0.32, 0.32], outline: true, centre: true });
     if (RL.stopAt && s) {
         var left = Math.max(0, Math.ceil((RL.stopAt - Date.now()) / 1000));
