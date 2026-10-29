@@ -621,7 +621,7 @@ function panelData(p) {
         dlc: dlc,
         weather: mp.world.weather,
         snow: SNOW,
-        terr: lvl(p) >= 5 ? safeExt('terr', function () { return { g: global.CrimeSystem && global.CrimeSystem.zoneAdmView ? global.CrimeSystem.zoneAdmView() : null, m: global.MafiaSystem ? global.MafiaSystem.admView() : null }; }) : null,
+        terr: lvl(p) >= 5 ? 1 : null,
         dealers: lvl(p) >= 8 ? safeExt('dealers', function () { return global.DealerSystem ? global.DealerSystem.admView() : null; }) : null,
         shops: global.ShopSystem ? global.ShopSystem.list().map(function (a) { return { id: a.id, kind: a.kind, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
         gov: global.GovSystem ? global.GovSystem.get() : null,
@@ -643,7 +643,10 @@ function setAdminRule(p, cur, n, target) {
 function sendPanel(p) {
     let s;
     try { s = JSON.stringify(panelData(p)); } catch (e) { console.log('[admin] panelData: ' + e.message); return toast(p, 'Ошибка сборки данных панели: ' + e.message, false); }
-    p.call('adm:data', [s.replace(/[\u{10000}-\u{10FFFF}]/gu, '')]);
+    s = s.replace(/[\u{10000}-\u{10FFFF}]/gu, '');
+    const CH = 12000, n = Math.ceil(s.length / CH), id = Date.now() % 100000;
+    if (n <= 1) return p.call('adm:data', [s]);
+    for (let i = 0; i < n; i++) p.call('adm:dataPart', [id, i, n, s.slice(i * CH, (i + 1) * CH)]);
 }
 
 mp.events.add('srv:adm:open', function (p) {
@@ -676,9 +679,14 @@ mp.events.add('srv:adm:act', function (p, json) {
         if (lvl(p) < 5) return toast(p, 'Территориями управляют следящие — с уровня ' + rankName(5), false);
         const sys = d.sys === 'mafia' ? global.MafiaSystem : global.CrimeSystem;
         if (!sys) return toast(p, 'Модуль не загружен', false);
-        const r = d.sys === 'mafia' ? sys.admAct(login(p), d) : sys.zoneAdm(login(p), d);
-        if (r && r.err) toast(p, r.err, false); else if (r && r.ok) { toast(p, r.ok, true); log(p, d.sys === 'mafia' ? 'bizwar' : 'zones', '-', String(d.op) + ': ' + r.ok); }
-        return sendPanel(p);
+        if (d.op !== 'get') {
+            const r = d.sys === 'mafia' ? sys.admAct(login(p), d) : sys.zoneAdm(login(p), d);
+            if (r && r.err) toast(p, r.err, false); else if (r && r.ok) { toast(p, r.ok, true); log(p, d.sys === 'mafia' ? 'bizwar' : 'zones', '-', String(d.op) + ': ' + r.ok); }
+        }
+        const t = safeExt('terr', function () { return { g: global.CrimeSystem && global.CrimeSystem.zoneAdmView ? global.CrimeSystem.zoneAdmView() : null, m: global.MafiaSystem ? global.MafiaSystem.admView() : null }; });
+        const ts = JSON.stringify(t || {}).replace(/[\u{10000}-\u{10FFFF}]/gu, ''), TC = 12000, tn = Math.ceil(ts.length / TC), tid = Date.now() % 100000;
+        for (let i = 0; i < tn; i++) p.call('adm:terrPart', [tid, i, tn, ts.slice(i * TC, (i + 1) * TC)]);
+        return;
     }
     if (a === 'dealer') {
         if (!global.DealerSystem) return toast(p, 'Модуль автосалонов не загружен', false);

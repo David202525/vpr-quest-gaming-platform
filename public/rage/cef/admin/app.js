@@ -717,14 +717,19 @@ function renderDealers() {
 $('dlSel').onchange = function () { DLSEL = Number(this.value); renderDealers(); };
 $('dlCreate').onclick = function () { var n = $('dlNewName').value.trim(); if (!n) return; act({ action: 'dealer', op: 'create', n: n }); $('dlNewName').value = ''; };
 
-var TRS = 'g', TRsel = {}, TRm = {}, TRmq = '';
+var TRS = 'g', TRsel = {}, TRm = {}, TRmq = '', TERR = null, TERRat = 0;
+window.admTerr = function (j) { try { TERR = typeof j === 'string' ? JSON.parse(j) : j; } catch (e) { TERR = null; } TERRat = Date.now(); renderTerr(true); };
+function terrLoad() { act({ action: 'terr', op: 'get' }); }
+setInterval(function () { var t = document.querySelector('.tab[data-tab="terr"]'); if (t && t.classList.contains('active') && Date.now() - TERRat > 5000) terrLoad(); }, 5000);
+var trTabBtn = document.querySelector('[data-tab="terr"].m'); if (trTabBtn) trTabBtn.addEventListener('click', function () { setTimeout(terrLoad, 50); });
 document.querySelectorAll('[data-ts]').forEach(function (b) { b.onclick = function () { TRS = b.dataset.ts; document.querySelectorAll('[data-ts]').forEach(function (x) { x.classList.toggle('active', x === b); }); renderTerr(); }; });
 function trT(s) { return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
 function trA(o) { o.action = 'terr'; act(o); }
-function renderTerr() {
-    var box = $('trBody'); if (!box) return;
-    var T = D.terr;
-    if (!T) { box.innerHTML = '<p class="hint">Доступно следящим — с 5 уровня</p>'; return; }
+function renderTerr(fresh) {
+    var box = $('trBody'); if (!box || !D) return;
+    if (!D.terr) { box.innerHTML = '<p class="hint">Доступно следящим — с 5 уровня</p>'; return; }
+    var T = TERR;
+    if (!T) { box.innerHTML = '<p class="hint">Загрузка…</p>'; if (!fresh) terrLoad(); return; }
     if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
     try { if (TRS === 'g') { if (!T.g) { box.innerHTML = '<p class="hint">Модуль банд не загружен</p>'; return; } trGangs(box, T.g); } else trMafia(box, T.m); }
     catch (e) { box.innerHTML = '<p class="hint" style="color:#ff9aac">Ошибка отображения: ' + esc(e.message) + '</p>'; }

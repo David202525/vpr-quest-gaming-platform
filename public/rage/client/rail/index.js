@@ -21,12 +21,23 @@ function rlCreate(v, x, y, z, dir) {
     if (!h) try { h = mp.game.invoke('0x63C6CCA8E68AE8C8', v, x + 0.0001, y + 0.0001, z + 0.0001, !!dir); } catch (e) {}
     return h;
 }
+function rlFreeze(h) {
+    [h].concat(rlCarriages(h)).forEach(function (c) {
+        try { mp.game.invoke('0x428CA6DBD1094446', c, true); } catch (e) {}
+        try { mp.game.invoke('0xEA1C610A04DB6BBB', c, false, false); } catch (e) {}
+    });
+    rlCruise(h, 0); rlSetSpeed(h, 0);
+}
 function rlDelete(h) {
     if (!rlExists(h)) return;
     var all = [h].concat(rlCarriages(h));
+    rlFreeze(h);
+    try { mp.game.invoke('0xAD738C3085FE7E11', h, true, true); } catch (e) {}
     try { mp.game.vehicle.deleteMissionTrain(h); } catch (e) {}
+    try { mp.game.vehicle.setMissionTrainAsNoLongerNeeded(h, false); } catch (e) {}
     all.forEach(function (c) {
         if (!rlExists(c)) return;
+        try { mp.game.invoke('0x239A3351AC1DA385', c, 0.0001, 0.0001, -300.0001, false, false, false); } catch (e) {}
         try { mp.game.invoke('0xAD738C3085FE7E11', c, true, true); } catch (e) {}
         try { mp.game.vehicle.deleteVehicle(c); } catch (e) {}
         try { mp.game.entity.deleteEntity(c); } catch (e) {}
@@ -43,7 +54,11 @@ function kmh(ms) { return Math.round(ms * 3.6); }
 function hint(t, ty) { mp.events.call('hud:notify', ty || 'ok', t, 4000); }
 
 /* ======================= ОПРЕДЕЛЕНИЕ СОСТАВОВ ======================= */
+function rlNoAmbient() { try { mp.game.invoke('0x80D9F74197EA47D9', false); } catch (e) {} }
+rlNoAmbient();
+setInterval(rlNoAmbient, 10000);
 var RL_CAT = null, RL_PROBING = false, RL_MAXVAR = 26;
+try { var _rc = mp.storage.data.railCat; if (_rc && _rc.v === 2 && _rc.cat && (_rc.cat.metro_s.length || _rc.cat.short.length)) RL_CAT = _rc.cat; } catch (e) {}
 function rlModel(h) { try { return mp.game.invoke('0x9F47B058362C84B5', h) >>> 0; } catch (e) { return 0; } }
 function rlProbe(x, y, z, dir, done) {
     if (RL_CAT) return done();
@@ -64,11 +79,13 @@ function rlProbe(x, y, z, dir, done) {
                 if (!cat.mid.length) cat.mid = f.filter(function (o) { return o.n === ns[Math.floor(ns.length / 2)]; }).map(function (o) { return o.v; });
             }
             RL_CAT = cat;
+            try { mp.storage.data.railCat = { v: 2, cat: cat }; mp.storage.flush(); } catch (e) {}
             mp.console.logInfo('[rail] составы: ' + JSON.stringify(out.map(function (o) { return o.v + ':' + (o.m === metro ? 'M' : o.m === fr ? 'F' : '?') + o.n; })));
             return done();
         }
         var h = rlCreate(v, x, y, z, dir);
         if (!h) { v++; return setTimeout(step, 30); }
+        rlFreeze(h);
         setTimeout(function () {
             if (rlExists(h)) out.push({ v: v, m: rlModel(h), n: rlCarriages(h).length + 1 });
             rlDelete(h);
@@ -98,6 +115,8 @@ function rlSpawnTry() {
     if (!rlReady() && RL.tries++ < 40) return setTimeout(rlSpawnTry, 250);
     var r = RL.c.rail;
     if (!RL_CAT) { hint('Проверяем составы в депо…'); return rlProbe(r[0], r[1], r[2], RL.c.dir, function () { if (RL && !RL.h) rlSpawnTry(); }); }
+    if (RL.c.kind === 'metro' && RL_CAT && !RL_CAT.metro_s.length) { hint('В игре не найден состав метро — сообщите администрации', 'error'); return; }
+    if (RL.c.kind === 'freight' && RL_CAT && !RL_CAT.short.length && !RL_CAT.mid.length && !RL_CAT.long.length) { hint('В игре не найден грузовой состав — сообщите администрации', 'error'); return; }
     RL.c.var = rlPick(RL.c.size, RL.c.var);
     RL.h = rlCreate(RL.c.var, r[0], r[1], r[2], RL.c.dir);
     if (!RL.h) { if (RL.tries++ < 60) return setTimeout(rlSpawnTry, 500); hint('Не удалось подать состав — попробуйте ещё раз', 'error'); return; }
@@ -147,6 +166,8 @@ mp.events.add('render', function () {
         if (C.isDisabledControlPressed(0, 72) || C.isControlPressed(0, 33)) RL.target = Math.max(0, RL.target - (3.5 / m) * dt);
     }
     if (RL.brake) RL.target = Math.max(0, RL.target - 9 * dt);
+    else if (!(C.isDisabledControlPressed(0, 71) || C.isControlPressed(0, 32))) RL.target = Math.max(0, RL.target - (0.12 + RL.target * 0.004) * dt);
+    if (RL.target < 0.05) { RL.target = 0; rlSetSpeed(RL.h, 0); }
     RL.speed = RL.target;
     rlCruise(RL.h, RL.speed);
     if (RL.speed < 0.3 && RL.speed > 0) { /* дотягивание */ }

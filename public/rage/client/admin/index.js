@@ -39,11 +39,24 @@ mp.keys.bind(0x73, false, function () {
 
 mp.events.add('adm:close', function () { if (admOpen) admShow(false); });
 
+var admParts = null;
+mp.events.add('adm:dataPart', function (id, i, n, part) {
+    if (!admParts || admParts.id !== id) admParts = { id: id, n: n, got: 0, p: [] };
+    if (admParts.p[i] === undefined) { admParts.p[i] = part; admParts.got++; }
+    if (admParts.got >= admParts.n) { var all = admParts.p.join(''); admParts = null; mp.events.call('adm:data', all); }
+});
 mp.events.add('adm:data', function (json) {
     admEnsure();
     admBrowser.execute('window.admData && window.admData(' + JSON.stringify(json) + ');');
 });
 
+var terrParts = null;
+mp.events.add('adm:terrPart', function (id, i, n, part) {
+    if (!terrParts || terrParts.id !== id) terrParts = { id: id, n: n, got: 0, p: [] };
+    if (terrParts.p[i] === undefined) { terrParts.p[i] = part; terrParts.got++; }
+    if (terrParts.got >= terrParts.n) { var all = terrParts.p.join(''); terrParts = null; mp.events.call('adm:terr', all); }
+});
+mp.events.add('adm:terr', function (json) { if (admBrowser) admBrowser.execute('window.admTerr && window.admTerr(' + JSON.stringify(json) + ');'); });
 mp.events.add('adm:toast', function (text, ok) {
     if (admBrowser) admBrowser.execute('window.admToast && window.admToast(' + JSON.stringify(text) + ',' + (ok ? 'true' : 'false') + ');');
     else mp.gui.chat.push(text);
