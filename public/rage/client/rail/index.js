@@ -52,9 +52,8 @@ function hint(t, ty) { mp.events.call('hud:notify', ty || 'ok', t, 4000); }
 function rlNoAmbient() { try { mp.game.invoke('0x80D9F74197EA47D9', false); } catch (e) {} }
 rlNoAmbient();
 setInterval(rlNoAmbient, 10000);
-var RL_METRO_TRY = [24, 25, 26, 27, 28, 29, 30, 31, 32, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+var RL_MAXVAR = 28;
 var RL_SETS = { short: [19, 20], mid: [2, 5, 6], long: [9, 10, 11, 12] };
-var RL_METRO = null;
 function rlModel(h) { try { return mp.game.invoke('0x9F47B058362C84B5', h) >>> 0; } catch (e) { return 0; } }
 function rlPick(size) { var l = RL_SETS[size] || RL_SETS.short; return l[Math.floor(Math.random() * l.length)]; }
 /* ======================= МАШИНИСТ ======================= */
@@ -74,15 +73,9 @@ function rlSpawnTry() {
         return;
     }
     var r = RL.c.rail, metro = RL.c.kind === 'metro';
-    if (metro) {
-        if (typeof RL.c.metro === 'number') RL_METRO = RL.c.metro;
-        if (RL_METRO === null) {
-            if (!RL.cand) RL.cand = RL_METRO_TRY.filter(function (v) { return (RL.c.bad || []).indexOf(v) < 0; });
-            if (!RL.cand.length) { hint('Состав метро не найден автоматически. Администрация может задать его: /railtest и /railmetro', 'error'); return; }
-            RL.c.var = RL.cand[0];
-            hint('Подбираем состав метро… (вариант ' + RL.c.var + ')');
-        } else RL.c.var = RL_METRO;
-    } else RL.c.var = rlPick(RL.c.size);
+    if (metro) RL.c.var = typeof RL.c.metro === 'number' && RL.c.metro >= 0 && RL.c.metro <= RL_MAXVAR ? RL.c.metro : 28;
+    else RL.c.var = rlPick(RL.c.size);
+    if (RL.c.var < 0 || RL.c.var > RL_MAXVAR) RL.c.var = metro ? 28 : 2;
     RL.busy = true;
     var h = rlCreate(RL.c.var, r[0], r[1], r[2], RL.c.dir);
     if (!h) { RL.busy = false; if (RL.tries++ < 40) return setTimeout(rlSpawnTry, 800); hint('Не удалось подать состав — попробуйте ещё раз', 'error'); return; }
@@ -91,15 +84,10 @@ function rlSpawnTry() {
         if (!RL) { rlDelete(h); return; }
         RL.busy = false;
         if (!rlExists(h)) { RL.tries++; return setTimeout(rlSpawnTry, 800); }
-        if (metro) {
-            var isMetro = rlModel(h) === RL_HASH.metrotrain;
-            if (!isMetro) {
-                rlDelete(h);
-                if (RL_METRO === null) { mp.events.callRemote('srv:rail:metroBad', RL.c.var); RL.cand.shift(); return setTimeout(rlSpawnTry, 2500); }
-                hint('Сохранённый состав метро оказался не тем. Администрации: /railmetro reset', 'error');
-                return;
-            }
-            if (RL_METRO === null) { RL_METRO = RL.c.var; mp.events.callRemote('srv:rail:metroFound', RL.c.var); }
+        if (metro && rlModel(h) !== RL_HASH.metrotrain) {
+            rlDelete(h);
+            hint('Состав метро №' + RL.c.var + ' оказался не метро. Администрации: /railtest и /railmetro', 'error');
+            return;
         }
         RL.h = h;
         try { mp.game.invoke('0xAD738C3085FE7E11', h, true, true); } catch (e) {}
@@ -226,6 +214,7 @@ mp.events.add('rail:sync', function (j) {
             rlLoad();
             if (!rlReady() || (RLspawnAt && Date.now() - RLspawnAt < 2000)) return;
             RLspawnAt = Date.now();
+            if (!(t[1] >= 0 && t[1] <= RL_MAXVAR)) return;
             var h = rlCreate(t[1], t[3], t[4], t[5], t[2]);
             if (!h) return;
             R = RLremote[id] = { h: h, v: t[1] };
@@ -316,6 +305,7 @@ mp.events.add('rail:test', function (v, x, y, z) {
     rlLoad();
     var go = function (n) {
         if (!rlReady() && n < 40) return setTimeout(function () { go(n + 1); }, 250);
+        if (Number(v) < 0 || Number(v) > RL_MAXVAR) return mp.gui.chat.push('!{#ff6b6b}[railtest] номер должен быть от 0 до ' + RL_MAXVAR);
         var h = rlCreate(Number(v), x, y, z, 1);
         if (!h) return mp.gui.chat.push('!{#ff6b6b}[railtest] вариант ' + v + ': поезд не создан');
         rlSetSpeed(h, 0); rlCruise(h, 0); rlTestH = h;
