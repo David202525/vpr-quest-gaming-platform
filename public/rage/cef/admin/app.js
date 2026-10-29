@@ -63,7 +63,7 @@ window.admToast = function (text, ok) {
 };
 
 window.admData = function (json) {
-    D = typeof json === 'string' ? JSON.parse(json) : json;
+    try { D = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) { if (window.admToast) admToast('Не удалось прочитать данные панели: ' + e.message, false); return; }
     $('meName').textContent = D.me.name;
     $('meRank').textContent = D.me.rank + ' · ур. ' + D.me.level;
     $('meRank').style.color = D.me.color;
@@ -726,7 +726,8 @@ function renderTerr() {
     var T = D.terr;
     if (!T) { box.innerHTML = '<p class="hint">Доступно следящим — с 5 уровня</p>'; return; }
     if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
-    if (TRS === 'g') trGangs(box, T.g); else trMafia(box, T.m);
+    try { if (TRS === 'g') { if (!T.g) { box.innerHTML = '<p class="hint">Модуль банд не загружен</p>'; return; } trGangs(box, T.g); } else trMafia(box, T.m); }
+    catch (e) { box.innerHTML = '<p class="hint" style="color:#ff9aac">Ошибка отображения: ' + esc(e.message) + '</p>'; }
 }
 function trGangs(box, G) {
     var cnt = {}; G.z.forEach(function (z) { if (z[2]) cnt[z[2]] = (cnt[z[2]] || 0) + 1; });
@@ -768,7 +769,7 @@ function trMafia(box, M) {
         '<div class="tr-lg" style="margin:0 0 8px">' + Object.keys(M.orgs).map(function (k) { var o = M.orgs[k]; return '<span><s style="background:' + o.c + '"></s>' + esc(o.n) + ' <b>' + (cnt[k] || 0) + '</b> · ' + o.on + ' в сети</span>'; }).join('') + '</div><div class="tr-mlist">' +
         M.list.filter(function (b) { return !q || b.n.toLowerCase().indexOf(q) >= 0 || b.kn.toLowerCase().indexOf(q) >= 0; }).map(function (b) {
             var o = b.m ? M.orgs[b.m] : null;
-            return '<div class="tr-mrow' + (TRm[b.k] ? ' sel' : '') + '" data-tm="' + esc(b.k) + '" style="--oc:' + (o ? o.c : 'rgba(255,255,255,.15)') + '"><span>' + b.i + '</span><span><b>' + esc(b.n) + '</b><br><span class="mut">' + esc(b.kn) + '</span></span><span>' + (o ? '<b style="color:' + o.c + '">' + esc(o.n) + '</b>' : '<span class="mut">без крыши</span>') + '</span><span class="mut">' + (b.w ? '<span style="color:#ff8080">⚔ война</span>' : b.cd ? 'откат ' + b.cd + 'м' : '') + '</span></div>';
+            return '<div class="tr-mrow' + (TRm[b.k] ? ' sel' : '') + '" data-tm="' + esc(b.k) + '" style="--oc:' + (o ? o.c : 'rgba(255,255,255,.15)') + '"><span>' + ({ fuel: '⛽', shop: '🛒', gun: '🔫', atm: '🏧' }[b.kind] || '🏢') + '</span><span><b>' + esc(b.n) + '</b><br><span class="mut">' + esc(b.kn) + '</span></span><span>' + (o ? '<b style="color:' + o.c + '">' + esc(o.n) + '</b>' : '<span class="mut">без крыши</span>') + '</span><span class="mut">' + (b.w ? '<span style="color:#ff8080">⚔ война</span>' : b.cd ? 'откат ' + b.cd + 'м' : '') + '</span></div>';
         }).join('') + '</div></div>' +
         '<div class="tr-side"><div class="card"><h3>Выбрано: ' + sel.length + (sel.length ? ' <button class="btn" id="trMClr" style="width:auto;padding:4px 8px;margin-left:auto">Сбросить</button>' : '') + '</h3>' +
         (sel.length ? '<p class="hint" style="margin:0 0 6px">Передать крышу:</p><div class="tr-own">' + Object.keys(M.orgs).map(function (k) { return '<button class="btn" data-mm="' + k + '"><s style="background:' + M.orgs[k].c + '"></s>' + esc(M.orgs[k].n) + '</button>'; }).join('') + '<button class="btn" data-mm=""><s style="background:#555"></s>Без крыши</button></div><div class="tr-btns" style="margin-top:8px"><button class="btn" id="trMcd">Сбросить откат</button></div>' : '<p class="hint" style="margin:0">Выберите бизнесы в списке, чтобы передать крышу или сбросить откат.</p>') + '</div>' +

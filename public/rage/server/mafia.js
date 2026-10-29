@@ -225,7 +225,7 @@ function admView() {
     mafias().forEach(function (m) { orgs[m] = { n: ORGS()[m].n, c: ORGS()[m].c, on: members(m).length }; });
     return {
         orgs: orgs,
-        list: bizList().map(function (b) { return { k: b.k, n: b.n, kn: b.kn, i: b.i, m: b.m, cd: b.cd > now ? Math.ceil((b.cd - now) / 60000) : 0, w: !!warOf(b.k) }; }),
+        list: bizList().map(function (b) { return { k: b.k, n: b.n, kn: b.kn, kind: b.kind, m: b.m, cd: b.cd > now ? Math.ceil((b.cd - now) / 60000) : 0, w: !!warOf(b.k) }; }),
         wars: S.wars.map(function (w) { return { b: w.b, n: w.n, a: w.a, d: w.d, sa: w.sa, sd: w.sd, ka: w.ka, kd: w.kd, live: now >= w.start, left: Math.max(0, Math.ceil(((now >= w.start ? w.end : w.start) - now) / 1000)), by: w.by }; }),
         hist: S.hist.slice(0, 20)
     };

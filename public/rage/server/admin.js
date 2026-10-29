@@ -603,6 +603,7 @@ function playersData() {
     return out;
 }
 
+function safeExt(n, fn) { try { return fn(); } catch (e) { console.log('[admin] ' + n + ': ' + e.message); return null; } }
 function panelData(p) {
     return {
         me: { name: login(p), level: lvl(p), real: realLvl(p), off: !!p.admOff, gm: !!p.adminGm, rank: rankName(lvl(p)), color: rankColor(lvl(p)) },
@@ -620,8 +621,8 @@ function panelData(p) {
         dlc: dlc,
         weather: mp.world.weather,
         snow: SNOW,
-        terr: lvl(p) >= 5 && global.CrimeSystem && global.CrimeSystem.zoneAdmView ? { g: global.CrimeSystem.zoneAdmView(), m: global.MafiaSystem ? global.MafiaSystem.admView() : null } : null,
-        dealers: lvl(p) >= 8 && global.DealerSystem ? global.DealerSystem.admView() : null,
+        terr: lvl(p) >= 5 ? safeExt('terr', function () { return { g: global.CrimeSystem && global.CrimeSystem.zoneAdmView ? global.CrimeSystem.zoneAdmView() : null, m: global.MafiaSystem ? global.MafiaSystem.admView() : null }; }) : null,
+        dealers: lvl(p) >= 8 ? safeExt('dealers', function () { return global.DealerSystem ? global.DealerSystem.admView() : null; }) : null,
         shops: global.ShopSystem ? global.ShopSystem.list().map(function (a) { return { id: a.id, kind: a.kind, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
         gov: global.GovSystem ? global.GovSystem.get() : null,
         stations: global.FuelSystem ? global.FuelSystem.list().map(function (a) { return { id: a.id, name: a.name, ownerName: a.ownerName, price: a.price, markup: a.markup, stock: a.stock, max: a.max, balance: a.balance, earned: a.earned }; }) : [],
@@ -640,7 +641,9 @@ function setAdminRule(p, cur, n, target) {
 }
 
 function sendPanel(p) {
-    p.call('adm:data', [JSON.stringify(panelData(p))]);
+    let s;
+    try { s = JSON.stringify(panelData(p)); } catch (e) { console.log('[admin] panelData: ' + e.message); return toast(p, 'Ошибка сборки данных панели: ' + e.message, false); }
+    p.call('adm:data', [s.replace(/[\u{10000}-\u{10FFFF}]/gu, '')]);
 }
 
 mp.events.add('srv:adm:open', function (p) {
