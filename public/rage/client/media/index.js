@@ -184,18 +184,16 @@ mp.events.add('render', function () {
 
 var snowG = false, snowF = false, snowWas = false;
 function snowApply() {
-    var on = snowG || snowF;
+    if (mediaRole && mediaWeather) return;
     try {
         mp.game.invoke('0x4CC7F0FEA5283FE0', snowG);
         mp.game.invoke('0xAEEDAD1420C65CC0', snowG);
     } catch (e) {}
-    if (on) {
-        if (mediaRole && mediaWeather) return;
-        var w = snowG && snowF ? 'XMAS' : snowG ? 'XMAS' : 'SNOWLIGHT';
-        try {
-            mp.game.invoke('0xED712CA327900C8A', w);
-            if (snowG && snowF) mp.game.invoke('0x578C752848ECFA0C', mp.game.joaat('XMAS'), mp.game.joaat('BLIZZARD'), 0.45);
-        } catch (e) {}
+    if (snowF && !snowG) {
+        try { mp.game.invoke('0x29B487C359E19889', 'SNOWLIGHT'); mp.game.invoke('0xED712CA327900C8A', 'SNOWLIGHT'); } catch (e) {}
+        snowWas = true;
+    } else if (snowF && snowG) {
+        try { mp.game.invoke('0x578C752848ECFA0C', mp.game.joaat('XMAS'), mp.game.joaat('BLIZZARD'), 0.35); } catch (e) {}
         snowWas = true;
     } else if (snowWas) {
         snowWas = false;
@@ -203,4 +201,4 @@ function snowApply() {
     }
 }
 mp.events.add('world:snow', function (g, f) { snowG = !!g; snowF = !!f; snowApply(); });
-setInterval(snowApply, 1500);
+setInterval(snowApply, 2000);

@@ -736,7 +736,7 @@ mp.events.add('srv:adm:act', function (p, json) {
         log(p, 'snow', '-', (d.k === 'fall' ? 'снегопад ' : 'снег ') + (d.on ? 'вкл' : 'выкл'));
         toast(p, (d.k === 'fall' ? 'Снегопад ' : 'Снег на земле ') + (d.on ? 'включён' : 'выключен'), true);
     }
-    else if (a === 'weather') { mp.world.weather = String(d.weather || 'CLEAR'); log(p, 'weather', '-', d.weather); toast(p, 'Погода: ' + d.weather, true); }
+    else if (a === 'weather') { if (SNOW.ground) { SNOW.ground = false; delete SNOW.prev; snowSave(); mp.players.forEach(function (x) { x.call('world:snow', [false, !!SNOW.fall]); }); } mp.world.weather = String(d.weather || 'CLEAR'); log(p, 'weather', '-', d.weather); toast(p, 'Погода: ' + d.weather, true); }
     else if (a === 'time') { const h = Number(d.hour) || 12; CLOCK.hold = Date.now() + 30 * 60000; mp.world.time.set(h, 0, 0); log(p, 'time', '-', h + ':00'); toast(p, 'Время: ' + h + ':00', true); }
     else if (a === 'announce') {
         const text = String(d.text || '').slice(0, 200);
@@ -1106,6 +1106,7 @@ cmd('dvall', 'dvall', '/dvall', function (p) {
 
 cmd('weather', 'weather', '/weather [CLEAR/RAIN/THUNDER/FOGGY/SNOW/EXTRASUNNY]', function (p, a, u) {
     if (!a[0]) return msg(p, u);
+    if (SNOW.ground) { SNOW.ground = false; delete SNOW.prev; snowSave(); mp.players.forEach(function (x) { x.call('world:snow', [false, !!SNOW.fall]); }); }
     mp.world.weather = a[0].toUpperCase();
     staff(login(p) + ' сменил погоду: ' + a[0].toUpperCase());
 });
@@ -1115,7 +1116,13 @@ const SNOW_FILE = path.join(__dirname, 'snow.json');
 let SNOW = { ground: false, fall: false };
 try { SNOW = Object.assign(SNOW, JSON.parse(fs.readFileSync(SNOW_FILE, 'utf8'))); } catch (e) {}
 function snowSave() { try { fs.writeFileSync(SNOW_FILE, JSON.stringify(SNOW)); } catch (e) {} }
-function snowAll() { mp.players.forEach(function (x) { x.call('world:snow', [!!SNOW.ground, !!SNOW.fall]); }); }
+function snowAll() {
+    if (SNOW.ground) { if (mp.world.weather !== 'XMAS') { SNOW.prev = mp.world.weather; mp.world.weather = 'XMAS'; snowSave(); } }
+    else if (mp.world.weather === 'XMAS' && SNOW.prev !== undefined) { mp.world.weather = SNOW.prev && SNOW.prev !== 'XMAS' ? SNOW.prev : 'CLEAR'; delete SNOW.prev; snowSave(); }
+    mp.players.forEach(function (x) { x.call('world:snow', [!!SNOW.ground, !!SNOW.fall]); });
+}
+setTimeout(snowAll, 3000);
+setInterval(function () { if (SNOW.ground && mp.world.weather !== 'XMAS') mp.world.weather = 'XMAS'; }, 10000);
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) p.call('world:snow', [!!SNOW.ground, !!SNOW.fall]); }, 2000); });
 cmd('snow', 'weather', '/snow [ground/fall] [on/off]', function (p, a, u) {
     const k = String(a[0] || '').toLowerCase(), v = String(a[1] || '').toLowerCase();
