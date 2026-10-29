@@ -1,5 +1,5 @@
-var RL = null, RLremote = {}, RLride = null, RLmodels = false;
-var RL_MODELS = ['freight', 'freightcar', 'freightcar2', 'freightcont1', 'freightcont2', 'freightgrain', 'tankercar', 'metrotrain'];
+var RL = null, RLremote = {}, RLride = null, RLmodels = false, RLspawnAt = 0;
+var RL_MODELS = ['freight', 'freightcar', 'freightcar2', 'freightcont1', 'freightcont2', 'freightgrain', 'freighttrailer', 'tankercar', 'metrotrain'];
 
 function rlLoad() {
     if (RLmodels) return;
@@ -13,7 +13,7 @@ function rlSpeed(h) { try { return mp.game.invokeFloat('0xD5037BA82E12416F', h);
 function rlCruise(h, v) { try { mp.game.invoke('0x16469284DB8C62B5', h, v + 0.0001); } catch (e) {} }
 function rlSetSpeed(h, v) { try { mp.game.invoke('0xAA0BC91BE0B796E3', h, v + 0.0001); } catch (e) {} }
 function rlCarriage(h, i) { try { return mp.game.invoke('0x08AAFD0814722BC3', h, i); } catch (e) { return 0; } }
-function rlCarriages(h) { var out = []; for (var i = 1; i < 40; i++) { var c = rlCarriage(h, i); if (!c || !rlExists(c)) break; out.push(c); } return out; }
+function rlCarriages(h) { var out = []; for (var i = 1; i < 30; i++) { var c = rlCarriage(h, i); if (!c || !rlExists(c)) break; out.push(c); } return out; }
 function rlCreate(v, x, y, z, dir) {
     rlLoad();
     var h = 0;
@@ -29,19 +29,11 @@ function rlFreeze(h) {
     rlCruise(h, 0); rlSetSpeed(h, 0);
 }
 function rlDelete(h) {
-    if (!rlExists(h)) return;
-    var all = [h].concat(rlCarriages(h));
-    rlFreeze(h);
+    if (!h || !rlExists(h)) return;
+    rlCruise(h, 0); rlSetSpeed(h, 0);
     try { mp.game.invoke('0xAD738C3085FE7E11', h, true, true); } catch (e) {}
     try { mp.game.vehicle.deleteMissionTrain(h); } catch (e) {}
-    try { mp.game.vehicle.setMissionTrainAsNoLongerNeeded(h, false); } catch (e) {}
-    all.forEach(function (c) {
-        if (!rlExists(c)) return;
-        try { mp.game.invoke('0x239A3351AC1DA385', c, 0.0001, 0.0001, -300.0001, false, false, false); } catch (e) {}
-        try { mp.game.invoke('0xAD738C3085FE7E11', c, true, true); } catch (e) {}
-        try { mp.game.vehicle.deleteVehicle(c); } catch (e) {}
-        try { mp.game.entity.deleteEntity(c); } catch (e) {}
-    });
+    if (rlExists(h)) { try { mp.game.vehicle.setMissionTrainAsNoLongerNeeded(h, false); } catch (e) {} }
 }
 function rlDoors(h, open) {
     [h].concat(rlCarriages(h)).forEach(function (c) {
@@ -53,54 +45,15 @@ function rlDoors(h, open) {
 function kmh(ms) { return Math.round(ms * 3.6); }
 function hint(t, ty) { mp.events.call('hud:notify', ty || 'ok', t, 4000); }
 
-/* ======================= ОПРЕДЕЛЕНИЕ СОСТАВОВ ======================= */
+/* ======================= ВЫБОР СОСТАВА ======================= */
 function rlNoAmbient() { try { mp.game.invoke('0x80D9F74197EA47D9', false); } catch (e) {} }
 rlNoAmbient();
 setInterval(rlNoAmbient, 10000);
-var RL_CAT = null, RL_PROBING = false, RL_MAXVAR = 26;
-try { var _rc = mp.storage.data.railCat; if (_rc && _rc.v === 2 && _rc.cat && (_rc.cat.metro_s.length || _rc.cat.short.length)) RL_CAT = _rc.cat; } catch (e) {}
+var RL_SETS = { metro_s: [24, 25, 26, 23], metro_l: [24, 25, 26, 23], short: [19, 20], mid: [2, 5, 6], long: [9, 10, 11, 12] };
+var RL_METRO = null;
+try { var _rm = mp.storage.data.railMetro; if (typeof _rm === 'number') RL_METRO = _rm; } catch (e) {}
 function rlModel(h) { try { return mp.game.invoke('0x9F47B058362C84B5', h) >>> 0; } catch (e) { return 0; } }
-function rlProbe(x, y, z, dir, done) {
-    if (RL_CAT) return done();
-    if (RL_PROBING) return setTimeout(function () { rlProbe(x, y, z, dir, done); }, 300);
-    RL_PROBING = true;
-    var metro = mp.game.joaat('metrotrain') >>> 0, fr = mp.game.joaat('freight') >>> 0, out = [];
-    var v = 0;
-    var step = function () {
-        if (v > RL_MAXVAR) {
-            RL_PROBING = false;
-            var m = out.filter(function (o) { return o.m === metro; }).sort(function (a, b) { return a.n - b.n; });
-            var f = out.filter(function (o) { return o.m === fr; }).sort(function (a, b) { return a.n - b.n; });
-            var cat = { metro_s: [], metro_l: [], short: [], mid: [], long: [] };
-            if (m.length) { var mn = m[0].n, mx = m[m.length - 1].n; m.forEach(function (o) { if (o.n === mn) cat.metro_s.push(o.v); if (o.n === mx) cat.metro_l.push(o.v); }); }
-            if (f.length) {
-                var ns = f.map(function (o) { return o.n; }), lo = ns[0], hi = ns[ns.length - 1], span = Math.max(1, hi - lo);
-                f.forEach(function (o) { var r = (o.n - lo) / span; (r < 0.34 ? cat.short : r < 0.67 ? cat.mid : cat.long).push(o.v); });
-                if (!cat.mid.length) cat.mid = f.filter(function (o) { return o.n === ns[Math.floor(ns.length / 2)]; }).map(function (o) { return o.v; });
-            }
-            RL_CAT = cat;
-            try { mp.storage.data.railCat = { v: 2, cat: cat }; mp.storage.flush(); } catch (e) {}
-            mp.console.logInfo('[rail] составы: ' + JSON.stringify(out.map(function (o) { return o.v + ':' + (o.m === metro ? 'M' : o.m === fr ? 'F' : '?') + o.n; })));
-            return done();
-        }
-        var h = rlCreate(v, x, y, z, dir);
-        if (!h) { v++; return setTimeout(step, 30); }
-        rlFreeze(h);
-        setTimeout(function () {
-            if (rlExists(h)) out.push({ v: v, m: rlModel(h), n: rlCarriages(h).length + 1 });
-            rlDelete(h);
-            v++;
-            setTimeout(step, 60);
-        }, 120);
-    };
-    step();
-}
-function rlPick(size, fallback) {
-    var list = RL_CAT && RL_CAT[size];
-    if (list && list.length) return list[Math.floor(Math.random() * list.length)];
-    return fallback;
-}
-
+function rlPick(size) { var l = RL_SETS[size] || RL_SETS.short; return l[Math.floor(Math.random() * l.length)]; }
 /* ======================= МАШИНИСТ ======================= */
 mp.events.add('rail:start', function (j) {
     rlStop();
@@ -111,26 +64,44 @@ mp.events.add('rail:start', function (j) {
     rlSpawnTry();
 });
 function rlSpawnTry() {
-    if (!RL || RL.h) return;
-    if (!rlReady() && RL.tries++ < 40) return setTimeout(rlSpawnTry, 250);
-    var r = RL.c.rail;
-    if (!RL_CAT) { hint('Проверяем составы в депо…'); return rlProbe(r[0], r[1], r[2], RL.c.dir, function () { if (RL && !RL.h) rlSpawnTry(); }); }
-    if (RL.c.kind === 'metro' && RL_CAT && !RL_CAT.metro_s.length) { hint('В игре не найден состав метро — сообщите администрации', 'error'); return; }
-    if (RL.c.kind === 'freight' && RL_CAT && !RL_CAT.short.length && !RL_CAT.mid.length && !RL_CAT.long.length) { hint('В игре не найден грузовой состав — сообщите администрации', 'error'); return; }
-    RL.c.var = rlPick(RL.c.size, RL.c.var);
-    RL.h = rlCreate(RL.c.var, r[0], r[1], r[2], RL.c.dir);
-    if (!RL.h) { if (RL.tries++ < 60) return setTimeout(rlSpawnTry, 500); hint('Не удалось подать состав — попробуйте ещё раз', 'error'); return; }
-    rlSetSpeed(RL.h, 0); rlCruise(RL.h, 0);
-    try { mp.game.invoke('0xAD738C3085FE7E11', RL.h, true, true); } catch (e) {}
+    if (!RL || RL.h || RL.busy) return;
+    if (!rlReady()) {
+        if (RL.tries++ < 80) return setTimeout(rlSpawnTry, 250);
+        hint('Модели поезда не загрузились — попробуйте взять смену ещё раз', 'error');
+        return;
+    }
+    var r = RL.c.rail, metro = RL.c.kind === 'metro';
+    if (metro) {
+        if (RL_METRO === null) { if (RL.mi === undefined) RL.mi = 0; RL.c.var = RL_SETS.metro_s[RL.mi]; }
+        else RL.c.var = RL_METRO;
+    } else RL.c.var = rlPick(RL.c.size);
+    RL.busy = true;
+    var h = rlCreate(RL.c.var, r[0], r[1], r[2], RL.c.dir);
+    if (!h) { RL.busy = false; if (RL.tries++ < 40) return setTimeout(rlSpawnTry, 800); hint('Не удалось подать состав — попробуйте ещё раз', 'error'); return; }
+    rlSetSpeed(h, 0); rlCruise(h, 0);
     setTimeout(function () {
-        if (!RL || !rlExists(RL.h)) return;
-        try { mp.players.local.taskWarpIntoVehicle(RL.h, -1); } catch (e) { try { mp.game.invoke('0x9A7D091411C5F684', mp.players.local.handle, RL.h, -1); } catch (e2) {} }
-        RL.wagons = rlCarriages(RL.h).length;
+        if (!RL) { rlDelete(h); return; }
+        RL.busy = false;
+        if (!rlExists(h)) { RL.tries++; return setTimeout(rlSpawnTry, 800); }
+        if (metro && RL_METRO === null) {
+            if (rlModel(h) !== (mp.game.joaat('metrotrain') >>> 0)) {
+                rlDelete(h);
+                RL.mi++;
+                if (RL.mi >= RL_SETS.metro_s.length) { hint('В игре не найден состав метро — сообщите администрации', 'error'); return; }
+                return setTimeout(rlSpawnTry, 1500);
+            }
+            RL_METRO = RL.c.var;
+            try { mp.storage.data.railMetro = RL_METRO; mp.storage.flush(); } catch (e) {}
+        }
+        RL.h = h;
+        try { mp.game.invoke('0xAD738C3085FE7E11', h, true, true); } catch (e) {}
+        try { mp.players.local.taskWarpIntoVehicle(h, -1); } catch (e) { try { mp.game.invoke('0x9A7D091411C5F684', mp.players.local.handle, h, -1); } catch (e2) {} }
+        RL.wagons = rlCarriages(h).length;
         mp.events.callRemote('srv:rail:wagons', RL.wagons + 1, RL.c.var);
-        RL.mass = RL.c.kind === 'freight' ? 1 + RL.wagons * 0.12 : 1 + RL.wagons * 0.05;
-        hint('W — тяга, S — тормоз, ПРОБЕЛ — экстренный тормоз' + (RL.c.kind === 'metro' ? ', E — двери' : '') + '. Состав: ' + (RL.wagons + 1) + ' ваг.', 'ok');
+        RL.mass = metro ? 1 + RL.wagons * 0.05 : 1 + RL.wagons * 0.12;
+        hint('W — тяга, S — тормоз, ПРОБЕЛ — экстренный тормоз' + (metro ? ', E — двери' : '') + '. Состав: ' + (RL.wagons + 1) + ' ваг.', 'ok');
         rlPoint();
-    }, 600);
+    }, 900);
 }
 function rlStop() {
     if (!RL) return;
@@ -245,7 +216,8 @@ mp.events.add('rail:sync', function (j) {
         if (R && (R.v !== t[1] || !rlExists(R.h))) { rlDelete(R.h); R = null; delete RLremote[id]; }
         if (!R) {
             rlLoad();
-            if (!rlReady()) return;
+            if (!rlReady() || (RLspawnAt && Date.now() - RLspawnAt < 2000)) return;
+            RLspawnAt = Date.now();
             var h = rlCreate(t[1], t[3], t[4], t[5], t[2]);
             if (!h) return;
             R = RLremote[id] = { h: h, v: t[1] };
