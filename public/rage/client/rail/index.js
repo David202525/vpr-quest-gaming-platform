@@ -1,12 +1,15 @@
 var RL = null, RLremote = {}, RLride = null, RLmodels = false, RLspawnAt = 0;
-var RL_MODELS = ['freight', 'freightcar', 'freightcar2', 'freightcont1', 'freightcont2', 'freightgrain', 'freighttrailer', 'tankercar', 'metrotrain'];
+var RL_MODELS = ['metrotrain', 'freight', 'freight2', 'freightcar', 'freightcar2', 'freightcar3', 'freightcont1', 'freightcont2', 'freightgrain', 'tankercar'];
+var RL_HASH = { metrotrain: 0x33C9E158, freight: 0x3D6AAA9B, freight2: 0xE5A41E08 };
 
+function rlInGame(m) { try { return !!mp.game.invoke('0x35B9E0803292B641', mp.game.joaat(m)); } catch (e) { return true; } }
+var RL_HAVE = null;
 function rlLoad() {
-    if (RLmodels) return;
-    RL_MODELS.forEach(function (m) { try { mp.game.streaming.requestModel(mp.game.joaat(m)); } catch (e) {} });
+    if (!RL_HAVE) RL_HAVE = RL_MODELS.filter(rlInGame);
+    RL_HAVE.forEach(function (m) { try { mp.game.streaming.requestModel(mp.game.joaat(m)); } catch (e) {} });
     RLmodels = true;
 }
-function rlReady() { return RL_MODELS.every(function (m) { try { return mp.game.streaming.hasModelLoaded(mp.game.joaat(m)); } catch (e) { return true; } }); }
+function rlReady() { if (!RL_HAVE) rlLoad(); return RL_HAVE.every(function (m) { try { return mp.game.streaming.hasModelLoaded(mp.game.joaat(m)); } catch (e) { return true; } }); }
 function rlExists(h) { try { return !!h && !!mp.game.invoke('0x7239B21A38F536BA', h); } catch (e) { return false; } }
 function rlPos(h) { try { return mp.game.invokeVector3('0x3FEF770D40960D5A', h, true); } catch (e) { return null; } }
 function rlSpeed(h) { try { return mp.game.invokeFloat('0xD5037BA82E12416F', h); } catch (e) { return 0; } }
@@ -49,7 +52,7 @@ function hint(t, ty) { mp.events.call('hud:notify', ty || 'ok', t, 4000); }
 function rlNoAmbient() { try { mp.game.invoke('0x80D9F74197EA47D9', false); } catch (e) {} }
 rlNoAmbient();
 setInterval(rlNoAmbient, 10000);
-var RL_METRO_TRY = [24, 25, 26, 27, 23, 28, 22];
+var RL_METRO_TRY = [24, 25, 26, 27, 28, 29, 30, 31, 32, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 var RL_SETS = { short: [19, 20], mid: [2, 5, 6], long: [9, 10, 11, 12] };
 var RL_METRO = null;
 function rlModel(h) { try { return mp.game.invoke('0x9F47B058362C84B5', h) >>> 0; } catch (e) { return 0; } }
@@ -89,7 +92,7 @@ function rlSpawnTry() {
         RL.busy = false;
         if (!rlExists(h)) { RL.tries++; return setTimeout(rlSpawnTry, 800); }
         if (metro) {
-            var isMetro = rlModel(h) === (mp.game.joaat('metrotrain') >>> 0);
+            var isMetro = rlModel(h) === RL_HASH.metrotrain;
             if (!isMetro) {
                 rlDelete(h);
                 if (RL_METRO === null) { mp.events.callRemote('srv:rail:metroBad', RL.c.var); RL.cand.shift(); return setTimeout(rlSpawnTry, 2500); }
@@ -318,7 +321,7 @@ mp.events.add('rail:test', function (v, x, y, z) {
         rlSetSpeed(h, 0); rlCruise(h, 0); rlTestH = h;
         setTimeout(function () {
             if (!rlExists(h)) return mp.gui.chat.push('!{#ff6b6b}[railtest] вариант ' + v + ': поезд исчез');
-            var m = rlModel(h), name = m === (mp.game.joaat('metrotrain') >>> 0) ? 'МЕТРО (metrotrain)' : m === (mp.game.joaat('freight') >>> 0) ? 'грузовой локомотив' : 'модель ' + m;
+            var m = rlModel(h), name = m === RL_HASH.metrotrain ? 'МЕТРО (metrotrain)' : m === RL_HASH.freight ? 'грузовой локомотив (freight)' : m === RL_HASH.freight2 ? 'грузовой локомотив (freight2)' : 'модель 0x' + m.toString(16).toUpperCase();
             mp.gui.chat.push('!{#7fb4ff}[railtest] вариант ' + v + ': ' + name + ', вагонов всего ' + (rlCarriages(h).length + 1) + '. Удалится через 15 с');
             setTimeout(function () { if (rlTestH === h) { rlDelete(h); rlTestH = 0; } }, 15000);
         }, 900);
