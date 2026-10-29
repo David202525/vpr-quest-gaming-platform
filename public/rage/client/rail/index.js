@@ -49,9 +49,9 @@ function hint(t, ty) { mp.events.call('hud:notify', ty || 'ok', t, 4000); }
 function rlNoAmbient() { try { mp.game.invoke('0x80D9F74197EA47D9', false); } catch (e) {} }
 rlNoAmbient();
 setInterval(rlNoAmbient, 10000);
-var RL_SETS = { metro_s: [24, 25, 26, 23], metro_l: [24, 25, 26, 23], short: [19, 20], mid: [2, 5, 6], long: [9, 10, 11, 12] };
+var RL_METRO_TRY = [24, 25, 26, 27, 23, 28, 22];
+var RL_SETS = { short: [19, 20], mid: [2, 5, 6], long: [9, 10, 11, 12] };
 var RL_METRO = null;
-try { var _rm = mp.storage.data.railMetro; if (typeof _rm === 'number') RL_METRO = _rm; } catch (e) {}
 function rlModel(h) { try { return mp.game.invoke('0x9F47B058362C84B5', h) >>> 0; } catch (e) { return 0; } }
 function rlPick(size) { var l = RL_SETS[size] || RL_SETS.short; return l[Math.floor(Math.random() * l.length)]; }
 /* ======================= МАШИНИСТ ======================= */
@@ -72,8 +72,13 @@ function rlSpawnTry() {
     }
     var r = RL.c.rail, metro = RL.c.kind === 'metro';
     if (metro) {
-        if (RL_METRO === null) { if (RL.mi === undefined) RL.mi = 0; RL.c.var = RL_SETS.metro_s[RL.mi]; }
-        else RL.c.var = RL_METRO;
+        if (typeof RL.c.metro === 'number') RL_METRO = RL.c.metro;
+        if (RL_METRO === null) {
+            if (!RL.cand) RL.cand = RL_METRO_TRY.filter(function (v) { return (RL.c.bad || []).indexOf(v) < 0; });
+            if (!RL.cand.length) { hint('Состав метро не найден автоматически. Администрация может задать его: /railtest и /railmetro', 'error'); return; }
+            RL.c.var = RL.cand[0];
+            hint('Подбираем состав метро… (вариант ' + RL.c.var + ')');
+        } else RL.c.var = RL_METRO;
     } else RL.c.var = rlPick(RL.c.size);
     RL.busy = true;
     var h = rlCreate(RL.c.var, r[0], r[1], r[2], RL.c.dir);
@@ -83,15 +88,15 @@ function rlSpawnTry() {
         if (!RL) { rlDelete(h); return; }
         RL.busy = false;
         if (!rlExists(h)) { RL.tries++; return setTimeout(rlSpawnTry, 800); }
-        if (metro && RL_METRO === null) {
-            if (rlModel(h) !== (mp.game.joaat('metrotrain') >>> 0)) {
+        if (metro) {
+            var isMetro = rlModel(h) === (mp.game.joaat('metrotrain') >>> 0);
+            if (!isMetro) {
                 rlDelete(h);
-                RL.mi++;
-                if (RL.mi >= RL_SETS.metro_s.length) { hint('В игре не найден состав метро — сообщите администрации', 'error'); return; }
-                return setTimeout(rlSpawnTry, 1500);
+                if (RL_METRO === null) { mp.events.callRemote('srv:rail:metroBad', RL.c.var); RL.cand.shift(); return setTimeout(rlSpawnTry, 2500); }
+                hint('Сохранённый состав метро оказался не тем. Администрации: /railmetro reset', 'error');
+                return;
             }
-            RL_METRO = RL.c.var;
-            try { mp.storage.data.railMetro = RL_METRO; mp.storage.flush(); } catch (e) {}
+            if (RL_METRO === null) { RL_METRO = RL.c.var; mp.events.callRemote('srv:rail:metroFound', RL.c.var); }
         }
         RL.h = h;
         try { mp.game.invoke('0xAD738C3085FE7E11', h, true, true); } catch (e) {}
@@ -299,4 +304,24 @@ mp.events.add('render', function () {
     mp.game.controls.disableControlAction(0, 75, true);
     mp.game.controls.disableControlAction(27, 75, true);
     mp.game.graphics.drawText('Вы пассажир поезда · J — выйти на остановке', [0.5, 0.94], { font: 4, color: [127, 200, 255, 230], scale: [0.35, 0.35], outline: true, centre: true });
+});
+
+/* ======================= ПРОВЕРКА СОСТАВА (АДМИН) ======================= */
+var rlTestH = 0;
+mp.events.add('rail:test', function (v, x, y, z) {
+    if (rlTestH) { rlDelete(rlTestH); rlTestH = 0; }
+    rlLoad();
+    var go = function (n) {
+        if (!rlReady() && n < 40) return setTimeout(function () { go(n + 1); }, 250);
+        var h = rlCreate(Number(v), x, y, z, 1);
+        if (!h) return mp.gui.chat.push('!{#ff6b6b}[railtest] вариант ' + v + ': поезд не создан');
+        rlSetSpeed(h, 0); rlCruise(h, 0); rlTestH = h;
+        setTimeout(function () {
+            if (!rlExists(h)) return mp.gui.chat.push('!{#ff6b6b}[railtest] вариант ' + v + ': поезд исчез');
+            var m = rlModel(h), name = m === (mp.game.joaat('metrotrain') >>> 0) ? 'МЕТРО (metrotrain)' : m === (mp.game.joaat('freight') >>> 0) ? 'грузовой локомотив' : 'модель ' + m;
+            mp.gui.chat.push('!{#7fb4ff}[railtest] вариант ' + v + ': ' + name + ', вагонов всего ' + (rlCarriages(h).length + 1) + '. Удалится через 15 с');
+            setTimeout(function () { if (rlTestH === h) { rlDelete(h); rlTestH = 0; } }, 15000);
+        }, 900);
+    };
+    go(0);
 });

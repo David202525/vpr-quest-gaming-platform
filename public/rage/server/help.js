@@ -405,6 +405,8 @@ const ADMIN = [
         ['/setleader [id|#static] [фракция]', 'назначить лидера (в т.ч. lic — Лицензионный центр)'],
         ['/setorg [id] [банда|мафия|none] [leader]', 'ballas/families/vagos/marabunta/bloods/lcn/russian/yakuza'],
         ['/zoneset [банда|none]', 'отдать район, где стоите (6)'],
+        ['/railtest [номер]', 'показать, какой поезд под этим номером (6)'],
+        ['/railmetro [номер|reset]', 'задать состав метро для машинистов (6)'],
         ['/dealerpos', 'перенести поставщика укропа (7)'],
         ['/orgpoint [орг] home|garage|car|clearcars|stash|green|bench|door', 'спавн, гараж (ворота), парковка (в подземном — встаньте внутри), общак, теплица, верстак, дверь особняка (7)'],
         ['/buyerpos', 'перенести скупщика и нейтральную зону (7)'],

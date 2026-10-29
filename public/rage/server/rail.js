@@ -1,3 +1,8 @@
+const fs = require('fs');
+const path = require('path');
+const CFG_FILE = path.join(__dirname, 'rail_cfg.json');
+const RC = Object.assign({ metro: null, bad: [] }, (function () { try { return JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
+function rcSave() { try { fs.writeFileSync(CFG_FILE, JSON.stringify(RC)); } catch (e) {} }
 function J() { return global.JobSystem; }
 function notify(p, t, x) { if (typeof global.hudNotify === 'function') global.hudNotify(p, t, x); else p.outputChatBox(x); }
 function admLvl(p) { return global.AdminSystem && global.AdminSystem.realLvl ? global.AdminSystem.realLvl(p) : 0; }
@@ -52,7 +57,7 @@ function startRail(kind, p, s, opt) {
     if (t.lvl > lv.lvl && admLvl(p) < 1) return 'Этот состав откроется на ' + t.lvl + ' уровне мастерства';
     s.rail = { kind: kind, t: t, i: 0, earned: 0, fines: 0, wagons: 0, pax: {}, paxPaid: 0, lastAt: Date.now(), mult: lv.mult, var: t.vars[Math.floor(Math.random() * t.vars.length)] };
     const cfg = {
-        kind: kind, n: t.n, var: s.rail.var, size: t.size, dir: K.dir, max: t.max, wait: K.wait,
+        kind: kind, n: t.n, var: s.rail.var, size: t.size, metro: RC.metro, bad: RC.bad, dir: K.dir, max: t.max, wait: K.wait,
         rail: [K.rail.x, K.rail.y, K.rail.z],
         st: K.stations.map(function (x) { return { n: x[0], x: x[1], y: x[2], z: x[3], lim: x[4] || 0, k: x[5] || 'stop' }; })
     };
@@ -153,6 +158,34 @@ setInterval(function () {
         p.call('rail:sync', [JSON.stringify(list)]);
     });
 }, 500);
+
+mp.events.add('srv:rail:metroFound', function (p, v) {
+    v = Number(v);
+    if (!isFinite(v) || v < 0 || v > 40 || RC.metro === v) return;
+    RC.metro = v; rcSave();
+    console.log('[rail] состав метро определён: вариант ' + v + ' (игрок ' + p.name + ')');
+});
+mp.events.add('srv:rail:metroBad', function (p, v) {
+    v = Number(v);
+    if (!isFinite(v) || RC.metro !== null || RC.bad.indexOf(v) >= 0) return;
+    RC.bad.push(v); rcSave();
+});
+mp.events.addCommand('railtest', function (p, full) {
+    if (admLvl(p) < 6) return;
+    const v = Number(String(full || '').trim());
+    if (!isFinite(v) || v < 0 || v > 40) return p.outputChatBox('!{#ffcc66}/railtest [0-40] — подать пробный состав на путях метро-депо и показать, что это за поезд');
+    p.call('rail:test', [v, KINDS.metro.rail.x, KINDS.metro.rail.y, KINDS.metro.rail.z]);
+    p.position = new mp.Vector3(KINDS.metro.base.x, KINDS.metro.base.y, KINDS.metro.base.z + 0.5); p.dimension = 0;
+});
+mp.events.addCommand('railmetro', function (p, full) {
+    if (admLvl(p) < 6) return;
+    const a = String(full || '').trim();
+    if (a === 'reset') { RC.metro = null; RC.bad = []; rcSave(); return p.outputChatBox('!{#8fd14f}Состав метро будет определён заново при следующей смене'); }
+    const v = Number(a);
+    if (!a || !isFinite(v) || v < 0 || v > 40) return p.outputChatBox('!{#ffcc66}/railmetro [номер] — задать состав метро вручную · /railmetro reset — определить заново · сейчас: ' + (RC.metro === null ? 'не определён' : RC.metro));
+    RC.metro = v; rcSave();
+    p.outputChatBox('!{#8fd14f}Состав метро: вариант ' + v);
+});
 
 function jobDef(kind) {
     const K = KINDS[kind];
