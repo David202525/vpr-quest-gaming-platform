@@ -39,7 +39,7 @@ function readRpf(fd, base, prefix, out, depth) {
             const size = ent.readUIntLE(o + 2, 3);
             const offRaw = ent.readUIntLE(o + 5, 3);
             const res = (ident & 0x80000000) !== 0 && (offRaw & 0x800000) !== 0;
-            E.push({ dir: false, name: nameAt(nameOff), size: size, off: offRaw & 0x7FFFFF, usize: ent.readUInt32LE(o + 8), res: res });
+            E.push({ dir: false, name: nameAt(nameOff), size: size, off: offRaw & 0x7FFFFF, usize: ent.readUInt32LE(o + 8), res: res, sf: ent.readUInt32LE(o + 8), gf: ent.readUInt32LE(o + 12) });
         }
     }
     function walk(di, p) {
@@ -51,6 +51,7 @@ function readRpf(fd, base, prefix, out, depth) {
             if (e.dir) { walk(i, full); continue; }
             const low = e.name.toLowerCase();
             out.files.push((prefix ? prefix + '/' : '') + full.toLowerCase());
+            if (out.chk && !(e.name.toLowerCase().endsWith('.rpf') && !e.res)) out.chk.push({ f: (prefix ? prefix + '/' : '') + full, pos: base + e.off * 512, size: e.size, usize: e.usize, res: e.res, sf: e.sf, gf: e.gf });
             const ext = low.slice(low.lastIndexOf('.') + 1);
             const bn = low.slice(0, low.lastIndexOf('.'));
             if (ext === 'ymap') out.ymaps.push(bn);
@@ -68,6 +69,68 @@ function readRpf(fd, base, prefix, out, depth) {
         }
     }
     if (E[0] && E[0].dir) walk(0, '');
+}
+
+function rscSize(v) {
+    const s = ((v >> 27) & 1) + (((v >> 26) & 1) << 1) + (((v >> 25) & 1) << 2) + (((v >> 24) & 1) << 3) + (((v >> 17) & 0x7F) << 4) + (((v >> 11) & 0x3F) << 5) + (((v >> 7) & 0xF) << 6) + (((v >> 5) & 3) << 7) + (((v >> 4) & 1) << 8);
+    return (0x200 << (v & 0xF)) * s;
+}
+function checkEntry(fd, fileSize, c) {
+    if (c.res) {
+        const h = rd(fd, c.pos, 16);
+        let size = c.size;
+        if (size === 0xFFFFFF) size = h[7] | (h[14] << 8) | (h[5] << 16) | (h[2] << 24);
+        if (!size) return '';
+        if (c.pos + size > fileSize) return 'обрезан (файл кончается раньше, чем должен)';
+        if (h.readUInt32LE(0) !== 0x37435352) return 'испорчен заголовок ресурса';
+        const need = rscSize(c.sf >>> 0) + rscSize(c.gf >>> 0);
+        let out;
+        try { out = zlib.inflateRawSync(rd(fd, c.pos + 16, size - 16)); } catch (e) { return 'сжатые данные повреждены (' + e.message + ')'; }
+        if (need && out.length !== need) return 'размер после распаковки ' + out.length + ' вместо ' + need;
+        return '';
+    }
+    if (!c.size) return c.pos + c.usize > fileSize ? 'обрезан' : '';
+    if (c.pos + c.size > fileSize) return 'обрезан (файл кончается раньше, чем должен)';
+    try { zlib.inflateRawSync(rd(fd, c.pos, c.size)); } catch (e) { return 'сжатые данные повреждены (' + e.message + ')'; }
+    return '';
+}
+let deepBusy = false;
+function deepCheck(to, done) {
+    if (deepBusy) return to('проверка уже идёт, подождите');
+    deepBusy = true;
+    const root = findRoot();
+    const names = fs.existsSync(root) ? fs.readdirSync(root).filter(function (n) { return fs.existsSync(path.join(root, n, 'dlc.rpf')); }) : [];
+    const bad = [];
+    let i = 0;
+    to('глубокая проверка ' + names.length + ' паков началась…');
+    function next() {
+        if (i >= names.length) {
+            deepBusy = false;
+            if (!bad.length) to('✔ повреждённых файлов не найдено во всех ' + names.length + ' паках');
+            else to('✖ повреждённые паки: ' + bad.join(', ') + ' — удалите или пересоберите их, затем игроки должны удалить RAGEMP/client_resources');
+            if (done) done(bad);
+            return;
+        }
+        const n = names[i++];
+        const f = path.join(root, n, 'dlc.rpf');
+        const out = { files: [], ymaps: [], models: [], ytyps: [], errors: [], encrypted: [], xml: {}, chk: [] };
+        let fd, errs = [];
+        try {
+            fd = fs.openSync(f, 'r');
+            const fileSize = fs.fstatSync(fd).size;
+            readRpf(fd, 0, '', out, 0);
+            out.chk.forEach(function (c) { let e; try { e = checkEntry(fd, fileSize, c); } catch (x) { e = 'не читается (' + x.message + ')'; } if (e) errs.push(c.f + ': ' + e); });
+        } catch (e) { errs.push('архив не читается: ' + e.message); }
+        if (fd) fs.closeSync(fd);
+        if (out.encrypted.length) to(n + ': зашифрован, проверить нельзя — если ошибка ZLIB не уходит, уберите этот пак на пробу');
+        if (errs.length) {
+            bad.push(n);
+            to('✖ ' + n + ': битых файлов ' + errs.length);
+            errs.slice(0, 5).forEach(function (e) { to('     ' + e); });
+        } else if (!out.encrypted.length) to('✔ ' + n + ' (' + out.chk.length + ' файлов)');
+        setImmediate(next);
+    }
+    setImmediate(next);
 }
 
 function tag(x, t) { const m = x.match(new RegExp('<' + t + '>\\s*([^<]+?)\\s*</' + t + '>', 'i')); return m ? m[1] : ''; }
@@ -262,6 +325,9 @@ mp.events.add('dlc:result', function (p, json) {
 
 mp.events.addCommand('dlc', function (p, full) {
     if (!isDev(p)) return;
+    if (String(full || '').trim() === 'check') {
+        return deepCheck(function (l) { console.log('[dlc] ' + l); if (mp.players.exists(p)) p.outputChatBox('!{#ffcc66}[DLC] ' + l); });
+    }
     if (String(full || '').trim() === 'rescan') {
         R = scan();
         mp.players.forEach(function (x) { x.call('dlc:load', [payload(), isDev(x)]); });
@@ -271,5 +337,7 @@ mp.events.addCommand('dlc', function (p, full) {
     p.call('dlc:load', [payload(), true]);
 });
 
-global.DlcSystem = { scan: scan, get: function () { return R; } };
+setTimeout(function () { deepCheck(function (l) { console.log('[dlc] ' + l); }); }, 8000);
+
+global.DlcSystem = { deepCheck: deepCheck, scan: scan, get: function () { return R; } };
 module.exports = global.DlcSystem;
