@@ -673,5 +673,5 @@ try {
     });
 } catch (e) {}
 
-global.FamilySystem = { of: famOf, ofP: famP, TYPES: TYPES, addRep: function (fid, n, why) { const f = famById(fid); if (f) addRep(f, n, why); } };
+global.FamilySystem = { of: famOf, ofP: famP, TYPES: TYPES, houseP: function (p) { const f = p && p.account ? famP(p) : null; const h = f ? houseOf(f) : null; return h ? { n: h.n, open: !!h.open, fam: f.n } : null; }, addRep: function (fid, n, why) { const f = famById(fid); if (f) addRep(f, n, why); } };
 console.log('[family] семей: ' + D.fams.length + ', особняков: ' + D.houses.length);

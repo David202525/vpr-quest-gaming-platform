@@ -838,7 +838,16 @@ async function menuPayload(p) {
         lvl: d.lvl, exp: d.exp, need: needExp(d.lvl), hours: Math.floor((d.mins || 0) / 60),
         money: money, bank: bank,
         salary: global.Treasury ? global.Treasury.info(p) : null,
-        home: (function () { const H = global.HouseSystem; const h = H && H.mine ? H.mine(p) : null; return h ? { n: h.n, flat: !!h.flat, locked: !!h.locked } : null; })(),
+        home: (function () {
+            const H = global.HouseSystem; const h = H && H.mine ? H.mine(p) : null;
+            if (h) return { n: h.n, flat: !!h.flat, locked: !!h.locked, k: h.flat ? 'Ваша квартира' : 'Ваш дом' };
+            const F = global.FamilySystem; const fh = F && F.houseP ? F.houseP(p) : null;
+            if (fh) return { n: fh.n, k: 'Особняк семьи «' + fh.fam + '»', fam: true, locked: !fh.open };
+            const S = global.SpawnSystem; const hl = S && S.hotelLeft ? S.hotelLeft(p) : 0;
+            if (hl > 0) return { n: (S.hotelPos ? S.hotelPos().n : 'Гостиница'), k: 'Номер в гостинице · ещё ' + Math.ceil(hl / 86400000) + ' дн.', hotel: true };
+            return null;
+        })(),
+        sid: accId(p) || 0,
         vehicles: vehicles.map(function (v) { return { model: v.model, plate: v.plate }; }),
         skills: SKILLS.map(function (s) { const v = d.skills[s.k] || 0; return { n: s.n, lvl: Math.floor(v / 100), pct: v >= 500 ? 100 : v % 100 }; }),
         ach: ach,
@@ -1160,6 +1169,7 @@ if (!global.DeathSystem) {
 function hasHousing(p) {
     try { if (global.HouseSystem && global.HouseSystem.mine && global.HouseSystem.mine(p)) return true; } catch (e) {}
     try { if (global.SpawnSystem && global.SpawnSystem.hotelLeft && global.SpawnSystem.hotelLeft(p) > 0) return true; } catch (e) {}
+    try { if (global.FamilySystem && global.FamilySystem.houseP && global.FamilySystem.houseP(p)) return true; } catch (e) {}
     try { if (typeof global.isProtectedPlayer === 'function' && global.isProtectedPlayer(p)) return true; } catch (e) {}
     return false;
 }
