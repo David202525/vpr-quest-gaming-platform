@@ -46,6 +46,11 @@ const GI_L = {
         [986.0, -2992.0, -39.6, 90], [986.0, -2996.2, -39.6, 90], [986.0, -3000.4, -39.6, 90], [986.0, -3004.6, -39.6, 90], [986.0, -3008.8, -39.6, 90]]
 };
 function GIof(h) { return GI_S; }
+function garOut(g) {
+    if (g.ex) return [g.ex[0], g.ex[1], g.ex[2] + 0.6, g.ex[3]];
+    const a = (g.h || 0) * Math.PI / 180;
+    return [g.x + Math.sin(a) * 5, g.y - Math.cos(a) * 5, g.z + 0.6, ((g.h || 0) + 180) % 360];
+}
 setInterval(function () {
     D.houses.forEach(function (h) {
         if (!h.gar || !h.owner) return;
@@ -325,6 +330,7 @@ function giveBack(f, c, why) {
 function gDim(h) { return DIM_FG + h.id; }
 function hasUG(f) { const h = houseOf(f); return h && h.gar ? h : null; }
 function moveVeh(v, pos, dim) {
+    try { v.velocity = new mp.Vector3(0, 0, 0); } catch (e) {}
     const occ = mp.players.toArray().filter(function (o) { return o.vehicle === v; }).map(function (o) { return [o, o.seat]; });
     v.dimension = dim;
     v.position = V(pos[0], pos[1], pos[2] + 0.4);
@@ -471,7 +477,7 @@ mp.events.add('srv:fam:garage', function (p, hid) {
     const f = famP(p), h = D.houses.find(function (x) { return x.id === Number(hid); });
     if (!f || !h || !h.gar || h.owner !== f.id) return;
     if (p.dimension === gDim(h)) {
-        const v = p.vehicle, g = h.gar, a = (g.h || 0) * Math.PI / 180, out = [g.x - Math.sin(a) * 2, g.y + Math.cos(a) * 2, g.z, g.h || 0];
+        const v = p.vehicle, g = h.gar, out = garOut(g);
         if (v) { if (Math.hypot(p.position.x - GIof(h).drive[0], p.position.y - GIof(h).drive[1]) > 6) return; moveVeh(v, out, 0); v.lastUse = Date.now(); if (v.getVariable('famCar')) { v.famOwner = sid(p); v.famBy = nick(p); const c = f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); }); if (c) flog(f, 'car', nick(p) + ' выехал на ' + c.n); refresh(f); } }
         else { if (Math.hypot(p.position.x - GIof(h).walk[0], p.position.y - GIof(h).walk[1]) > 3.5) return; p.dimension = 0; p.position = V(g.x, g.y, g.z); }
         return p.call('house:inside', ['']);
@@ -888,6 +894,9 @@ try {
             if (h.gar) out.push({ id: 'fhouse.' + h.id + '.gar', g: 'Семейные особняки', n: '#' + h.id + ' ' + h.n + ' — гараж на ' + h.gar.cap + ' мест',
                 get: function () { return [h.gar.x, h.gar.y, h.gar.z, h.gar.h]; }, set: function (v) { h.gar.x = v.x; h.gar.y = v.y; h.gar.z = v.z; h.gar.h = v.h; mark(); sendHousesAll(); },
                 del: function () { h.gar = null; mark(); sendHousesAll(); } });
+            if (h.gar) out.push({ id: 'fhouse.' + h.id + '.gex', g: 'Семейные особняки', n: '#' + h.id + ' ' + h.n + ' — выезд из гаража (куда ставится машина)',
+                get: function () { const o = garOut(h.gar); return [o[0], o[1], o[2] - 0.6, o[3]]; }, set: function (v) { h.gar.ex = [v.x, v.y, v.z, v.h]; mark(); },
+                reset: function () { delete h.gar.ex; mark(); } });
         });
         return out;
     });

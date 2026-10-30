@@ -346,6 +346,7 @@ function hgFree(h, except) {
     return hgI(h).spots.slice(0, hgCap(h)).find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v !== except && v.dimension === d && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 2.4; }); }) || null;
 }
 function hgMove(v, pos, dim) {
+    try { v.velocity = new mp.Vector3(0, 0, 0); } catch (e) {}
     const occ = mp.players.toArray().filter(function (o) { return o.vehicle === v; }).map(function (o) { return [o, o.seat]; });
     v.dimension = dim;
     v.position = V(pos[0], pos[1], pos[2] + 0.4);
@@ -354,7 +355,7 @@ function hgMove(v, pos, dim) {
     const U = VSt();
     if (v.dbId && U && U.q) { U.q('UPDATE vehicles SET dimension = ?, pos_x = ?, pos_y = ?, pos_z = ?, heading = ? WHERE id = ?', [dim, pos[0], pos[1], pos[2], pos[3] || 0, v.dbId]); }
 }
-function hgOut(h) { const g = h.gar, a = (g.h || 0) * Math.PI / 180; return [g.x - Math.sin(a) * 2, g.y + Math.cos(a) * 2, g.z, g.h || 0]; }
+function hgOut(h) { const g = h.gar; if (g.ex) return [g.ex[0], g.ex[1], g.ex[2] + 0.6, g.ex[3]]; const a = (g.h || 0) * Math.PI / 180; return [g.x + Math.sin(a) * 5, g.y - Math.cos(a) * 5, g.z + 0.6, ((g.h || 0) + 180) % 360]; }
 function hgEvict(h) {
     if (!h.gar) return;
     const out = hgOut(h);
@@ -458,6 +459,9 @@ PR.provider(function () {
             get: function () { return [h.gar.x, h.gar.y, h.gar.z, h.gar.h]; },
             set: function (v) { h.gar.x = v.x; h.gar.y = v.y; h.gar.z = v.z; h.gar.h = v.h; dirty = true; mp.players.forEach(function (x) { x._hg = null; }); },
             del: function () { hgEvict(h); h.gar = null; dirty = true; mp.players.forEach(function (x) { x._hg = null; }); } });
+        if (h.gar) out.push({ id: 'house.' + h.id + '.gex', g: 'Гаражи домов', n: '#' + h.id + ' ' + h.n + ' — выезд из гаража (куда ставится машина)',
+            get: function () { const o = hgOut(h); return [o[0], o[1], o[2] - 0.6, o[3]]; }, set: function (v) { h.gar.ex = [v.x, v.y, v.z, v.h]; dirty = true; },
+            reset: function () { delete h.gar.ex; dirty = true; } });
     });
     return out;
 });
