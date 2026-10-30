@@ -52,7 +52,7 @@ function lotView(l, me) {
 async function state(p, extra) {
     const me = sid(p);
     const free = H() && H().free ? H().free().filter(function (h) { return !locked(h.flat ? 'flat' : 'house', h.id); }).map(function (h) {
-        return { id: h.id, n: h.n, int: H().intName(h.int), price: h.price, flat: !!h.flat, d: Math.round(Math.hypot(p.position.x - h.x, p.position.y - h.y)) };
+        return { id: h.id, n: h.n, int: H().intName(h.int), k: H().classOf ? H().classOf(h.int) : h.int, price: h.price, flat: !!h.flat, d: Math.round(Math.hypot(p.position.x - h.x, p.position.y - h.y)) };
     }).sort(function (a, b) { return a.price - b.price; }) : [];
     return Object.assign({
         money: M() ? M().get(p) : 0, bank: M() ? M().bank(p) : 0, fee: FEE, hours: HOURS, step: Math.round(MIN_STEP * 100),

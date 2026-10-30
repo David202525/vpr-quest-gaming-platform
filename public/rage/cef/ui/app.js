@@ -1550,6 +1550,7 @@ window.phoneBiz = function (json) {
 /* ================= АГЕНТСТВО НЕДВИЖИМОСТИ ================= */
 var RL = { tab: 'buy', f: 'all', bf: 'all', d: null };
 function rlLeft(ms) { var m = Math.ceil(ms / 60000); return m >= 60 ? Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : m + ' мин'; }
+var RL_CLS = { trailer: ['Трейлер', 'trailer', '#a08060'], low: ['Эконом', 'low', '#8a8f99'], med: ['Стандарт', 'med', '#3fa9ff'], apt: ['Апартаменты', 'apt', '#b36bff'], hill: ['Премиум', 'villa', '#ffc400'] };
 window.realtyMenu = function (json) {
     var box = document.getElementById('realtyMenu');
     if (!json) { if (box) box.remove(); RL.d = null; return; }
@@ -1571,8 +1572,10 @@ function rlRender() {
         html += '<div class="rl-f">' + F.map(function (f) { return '<button class="' + (RL.f === f[0] ? 'on' : '') + '" data-rf="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
             (d.hasHome ? '<div class="rl-msg">У вас уже есть жильё — купить второе нельзя. Продайте текущее или выставьте его на аукцион.</div>' : '') +
             '<div class="rl-list">' + (list.length ? list.map(function (h) {
-                return '<div class="rl-c"><div class="rl-ct"><b>' + (h.flat ? '🏢 ' : '🏠 ') + esc(h.n) + '</b><span class="rl-p">' + money(h.price) + '</span></div><small>' + esc(h.int) + ' · ' + (h.d > 1000 ? (h.d / 1000).toFixed(1) + ' км' : h.d + ' м') + ' от вас</small>' +
-                    '<div class="rl-b"><button class="btn ghost" data-rg="' + h.id + '">📍 Показать</button><button class="btn" data-rb="' + h.id + '"' + (d.hasHome ? ' disabled' : '') + '>Купить</button></div></div>';
+                var C = RL_CLS[h.k] || RL_CLS.low;
+                return '<div class="rl-hc"><div class="rl-img" style="background-image:url(img/h_' + C[1] + '.jpg)"><span class="rl-cls" style="--cc:' + C[2] + '">' + C[0] + '</span><span class="rl-pr">' + money(h.price) + '</span></div>' +
+                    '<div class="rl-hb"><b>' + esc(h.n) + '</b><small>' + (h.flat ? 'Квартира' : 'Дом') + ' · ' + esc(h.int) + ' · ' + (h.d > 1000 ? (h.d / 1000).toFixed(1) + ' км' : h.d + ' м') + ' от вас</small>' +
+                    '<div class="rl-b"><button class="btn ghost" data-rg="' + h.id + '">📍 Показать</button><button class="btn" data-rb="' + h.id + '"' + (d.hasHome ? ' disabled' : '') + '>Купить</button></div></div></div>';
             }).join('') : '<div class="empty-t">Свободных объектов нет</div>') + '</div>';
     } else if (RL.tab === 'biz') {
         var BK = [['all', 'Все']], seen = {};

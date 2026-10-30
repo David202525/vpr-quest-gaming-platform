@@ -57,6 +57,14 @@ if (!D || !Array.isArray(D.houses)) {
     DEF.forEach(function (h) { D.houses.push({ id: D.seq++, n: h[0], x: h[1], y: h[2], z: h[3], h: 0, int: h[4], price: h[5], owner: 0, on: '', locked: true }); });
     FLATS.forEach(function (b) { for (let i = 1; i <= b[6]; i++) D.houses.push({ id: D.seq++, n: b[0] + ', кв. ' + i, x: b[1], y: b[2], z: b[3], h: 0, int: b[4], price: b[5] + i * 10000, owner: 0, on: '', locked: true, flat: 1 }); });
 }
+const CLASS_PRICE = { trailer: [25000, 30000], low: [40000, 55000], med: [90000, 140000], apt: [180000, 260000], hill: [320000, 450000] };
+function classOf(k) { return /^hill/.test(k) ? 'hill' : (CLASS_PRICE[k] ? k : 'low'); }
+function classPrice(h) {
+    const r = CLASS_PRICE[classOf(h.int)];
+    let x = 0; String(h.n).split('').forEach(function (c) { x = (x * 31 + c.charCodeAt(0)) >>> 0; });
+    return Math.round((r[0] + (r[1] - r[0]) * ((x % 1000) / 999)) / 5000) * 5000;
+}
+D.houses.forEach(function (h) { if (!h.owner && !h.customPrice) h.price = classPrice(h); });
 if (!D.fac) D.fac = {};
 Object.keys(D.fac).forEach(function (k) { if (/^\d+$/.test(k)) delete D.fac[k]; });
 if (!D.ints) D.ints = {};
@@ -312,6 +320,7 @@ global.HouseSystem = {
     refresh: sendList,
     byId: byId,
     intName: function (k) { return intOf(k).n; },
+    classOf: classOf,
     free: function () { return D.houses.filter(function (h) { return !h.owner; }); },
     buyState: function (p, id) {
         const h = byId(id);

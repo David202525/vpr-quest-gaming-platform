@@ -2459,3 +2459,13 @@ body.streamer .tile.hello h2, body.streamer .t-kv b, body.streamer .t-big, body.
 .fz-pay .fu-pm i svg { width: 22px; height: 22px; fill: none; stroke: #ffc23d; stroke-width: 1.8; stroke-linecap: round; }
 .rh-num { padding-bottom: 26px; }
 .rh-limb { bottom: 0; }
+
+.rl-hc{background:#1d1d24;border:1px solid #2a2a33;border-radius:14px;overflow:hidden;transition:border-color .15s}
+.rl-hc:hover{border-color:#3a3a46}
+.rl-img{position:relative;height:150px;background:#111 center/cover no-repeat}
+.rl-img::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.75))}
+.rl-cls{position:absolute;left:10px;top:10px;z-index:1;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.5px;color:#111;background:var(--cc)}
+.rl-pr{position:absolute;right:12px;bottom:10px;z-index:1;font-size:20px;font-weight:800;color:#ffc400;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.rl-hb{padding:12px}
+.rl-hb b{font-size:15px}
+.rl-hb small{display:block;font-size:11px;color:#9a9aa6;margin:3px 0 10px}
