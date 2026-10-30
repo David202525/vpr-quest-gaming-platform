@@ -803,6 +803,7 @@ async function menuPayload(p) {
         const b = global.BaseSystem.ownedBy(p) || global.BaseSystem.memberOf(p);
         if (b) family = b.name;
     }
+    if (!family && global.FamilySystem) { const ff = global.FamilySystem.ofP(p); if (ff) family = '[' + ff.tag + '] ' + ff.n; }
     const money = getMoney(p);
     const bank = getBank(p);
     const itemsCount = d.inv.reduce(function (s, x) { return s + (x ? 1 : 0); }, 0) + Object.keys(d.equip).length;
@@ -1146,6 +1147,7 @@ setTimeout(function () {
     try { require('./mafia.js'); } catch (e) { console.log('[ui] mafia.js: ' + e.message); }
     try { require('./rail.js'); } catch (e) { console.log('[ui] rail.js: ' + e.message); }
     try { require('./dealer.js'); } catch (e) { console.log('[ui] dealer.js: ' + e.message); }
+    try { require('./families.js'); } catch (e) { console.log('[ui] families.js: ' + e.message); }
 }, 1500);
 if (!global.SocialSystem) {
     try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }
