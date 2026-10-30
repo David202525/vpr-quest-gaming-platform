@@ -282,6 +282,47 @@ mp.events.add('playerQuit', function (p) {
     });
 });
 
+function worldVeh(r) {
+    const U = VS();
+    let w = U && U.owned ? U.owned[r.id] : null;
+    if (!w || !mp.vehicles.exists(w)) { w = null; mp.vehicles.forEach(function (x) { if (!w && String(x.numberPlate || '').trim() === String(r.plate).trim() && !x.getVariable('famCar')) w = x; }); }
+    return w;
+}
+function addCar(p, f, vid, sitting, cb) {
+    const me = sid(p);
+    if (f.cars.length >= garCap(f)) return cb('Гараж заполнен: ' + garCap(f) + ' мест' + (houseOf(f) ? '' : '. Купите особняк — у него гараж больше'));
+    const sql = vid ? 'SELECT * FROM vehicles WHERE id = ? AND owner_id = ? LIMIT 1' : 'SELECT * FROM vehicles WHERE plate = ? AND owner_id = ? LIMIT 1';
+    dbq(sql, [vid || String(sitting.numberPlate || '').trim(), me]).then(function (rows) {
+        const r = rows && rows[0];
+        if (!mp.players.exists(p) || famP(p) !== f) return;
+        if (!r) return cb('Это не ваша личная машина');
+        if (Number(r.fam_id)) return cb('Машина уже в гараже семьи');
+        if (Number(r.impound)) return cb('Машина на штрафстоянке — сначала заберите её');
+        if (f.cars.length >= garCap(f)) return cb('Гараж заполнен');
+        const w = sitting || worldVeh(r), U = VS();
+        if (w && mp.vehicles.exists(w)) {
+            const occ = (w.getOccupants && w.getOccupants()) || [];
+            if (occ.some(function (x) { return x !== p; })) return cb('В машине кто-то сидит');
+            if (U && U.save && w.dbId) U.save(w);
+            if (U && U.owned) delete U.owned[r.id];
+        }
+        dbq('UPDATE vehicles SET fam_id = ? WHERE id = ?', [f.id, r.id]);
+        const nm = String(r.model);
+        const c = { id: f.cseq++, vid: r.id, m: nm, n: nm.charAt(0).toUpperCase() + nm.slice(1), plate: r.plate, minR: 1, own: me, ownN: nick(p) };
+        f.cars.push(c);
+        if (w && mp.vehicles.exists(w)) {
+            w.dbId = 0; w.despawnAt = 0;
+            try { w.setVariable('ownerId', null); } catch (e) {}
+            w.setVariable('famCar', f.id); w.setVariable('famCarId', c.id);
+            w.adminSpawned = false; w.famOwner = me; w.famBy = nick(p);
+            live[carKey(f, c)] = w;
+        }
+        flog(f, 'car', nick(p) + ' добавил в гараж ' + nm + ' (' + r.plate + ')');
+        famChat(f, nick(p) + ' добавил в гараж семьи ' + nm);
+        mark(); refresh(f);
+        cb(null, c);
+    });
+}
 mp.events.add('srv:fam:garage', function (p, hid) {
     const f = famP(p), h = D.houses.find(function (x) { return x.id === Number(hid); });
     if (!f || !h || !h.gar || h.owner !== f.id) return;
@@ -294,7 +335,28 @@ mp.events.add('srv:fam:garage', function (p, hid) {
         setTimeout(function () { despawn(f, c); flog(f, 'car', nick(p) + ' поставил ' + c.n + ' в гараж'); mark(); refresh(f); }, 1500);
         return notify(p, 'ok', c.n + ' поставлена в гараж');
     }
-    if (v) return notify(p, 'warn', 'В гараж ставятся только машины семьи');
+    if (v) {
+        const pl = String(v.numberPlate || '').trim();
+        const known = f.cars.find(function (x) { return String(x.plate).trim() === pl; });
+        if (known) {
+            const lv = live[carKey(f, known)];
+            if (lv && lv !== v && mp.vehicles.exists(lv)) { try { lv.destroy(); } catch (e) {} }
+            try { p.removeFromVehicle(); } catch (e) {}
+            live[carKey(f, known)] = v;
+            const U = VS(); if (U && U.owned && known.vid) delete U.owned[known.vid];
+            v.dbId = 0;
+            setTimeout(function () { despawn(f, known); flog(f, 'car', nick(p) + ' поставил ' + known.n + ' в гараж'); mark(); refresh(f); }, 1500);
+            return notify(p, 'ok', known.n + ' поставлена в гараж');
+        }
+        if (v.adminSpawned) return notify(p, 'warn', 'Админ-машину нельзя поставить в гараж семьи');
+        if (!can(f, sid(p), 'cars')) return notify(p, 'warn', 'В гараж ставятся только машины семьи. Добавлять свои машины может ранг «' + rankN(f, f.perms.cars) + '»');
+        return addCar(p, f, 0, v, function (e, c) {
+            if (e) return notify(p, 'warn', e === 'Это не ваша личная машина' ? 'В гараж ставятся машины семьи или ваши личные машины' : e);
+            try { p.removeFromVehicle(); } catch (er) {}
+            setTimeout(function () { despawn(f, c); mark(); refresh(f); }, 1500);
+            notify(p, 'ok', c.n + ' добавлена в гараж семьи и поставлена на место');
+        });
+    }
     p.famTab = true; p.call('fam:tabgo', ['cars']); openTab(p);
 });
 
@@ -431,31 +493,7 @@ mp.events.add('srv:fam:act', function (p, act, json) {
     const c = a.cid !== undefined ? f.cars.find(function (x) { return x.id === Number(a.cid); }) : null;
     if (act === 'caradd') {
         if (!A(p, f, 'cars')) return;
-        if (f.cars.length >= garCap(f)) return msg(p, 'Гараж заполнен: ' + garCap(f) + ' мест' + (houseOf(f) ? '' : '. Купите особняк — у него гараж больше'));
-        const vid = Math.floor(Number(a.vid));
-        dbq('SELECT * FROM vehicles WHERE id = ? AND owner_id = ? LIMIT 1', [vid, me]).then(function (rows) {
-            const r = rows && rows[0];
-            if (!mp.players.exists(p) || famP(p) !== f) return;
-            if (!r) return msg(p, 'Это не ваша машина');
-            if (Number(r.fam_id)) return msg(p, 'Машина уже в гараже семьи');
-            if (Number(r.impound)) return msg(p, 'Машина на штрафстоянке — сначала заберите её');
-            if (f.cars.length >= garCap(f)) return msg(p, 'Гараж заполнен');
-            const U = VS(), w = U && U.owned ? U.owned[r.id] : null;
-            if (w && mp.vehicles.exists(w)) {
-                if (w.getOccupants && w.getOccupants().length) return msg(p, 'В машине кто-то сидит');
-                if (U.save) U.save(w);
-                try { w.destroy(); } catch (e) {}
-                delete U.owned[r.id];
-            }
-            dbq('UPDATE vehicles SET fam_id = ? WHERE id = ?', [f.id, r.id]);
-            const nm = String(r.model);
-            f.cars.push({ id: f.cseq++, vid: r.id, m: nm, n: nm.charAt(0).toUpperCase() + nm.slice(1), plate: r.plate, minR: 1, own: me, ownN: nick(p) });
-            flog(f, 'car', nick(p) + ' добавил в гараж ' + nm + ' (' + r.plate + ')');
-            famChat(f, nick(p) + ' добавил в гараж семьи ' + nm);
-            done('Машина добавлена в гараж семьи');
-            mp.events.call('srv:fam:act', p, 'mycars', '{}');
-        });
-        return;
+        return addCar(p, f, Math.floor(Number(a.vid)), null, function (e, c) { if (e) return msg(p, e); done('Машина добавлена в гараж семьи'); mp.events.call('srv:fam:act', p, 'mycars', '{}'); });
     }
     if (act === 'carremove') {
         if (!c) return;
