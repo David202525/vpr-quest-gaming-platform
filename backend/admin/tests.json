@@ -26,26 +26,6 @@
         "right": 0
       },
       "expectedStatus": 403
-    },
-    {
-      "name": "Пропуск: настройки",
-      "method": "GET",
-      "path": "/?bp=1",
-      "expectedStatus": 200,
-      "expectedBody": {
-        "config": {}
-      },
-      "bodyMatcher": "partial"
-    },
-    {
-      "name": "Пропуск: неверный пароль",
-      "method": "POST",
-      "path": "/?bp=1",
-      "body": {
-        "action": "login",
-        "password": "wrong-xyz"
-      },
-      "expectedStatus": 403
     }
   ]
 }

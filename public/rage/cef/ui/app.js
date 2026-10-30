@@ -839,7 +839,7 @@ function bpCell(r, n, t) {
     if (!r) return '<div class="wp-c empty"></div>';
     var st = r.claimed ? 'got' : r.open ? 'open' : 'lock';
     var act = r.claimed ? '<span class="wp-st">✓ Получено</span>' : r.open ? '<button class="wp-take" data-claim="' + n + '" data-track="' + t + '">Забрать</button>' : '<span class="wp-st">' + (t === 'p' && !DATA.menu.bp.prem ? '🔒 Премиум' : '🔒 Ур. ' + n) + '</span>';
-    return '<div class="wp-c ' + st + (r.rare ? ' r-' + r.rare : '') + '"><i class="wp-rar"></i><div class="wp-im"><img src="' + esc(bpSrc(r.img)) + '" onerror="this.style.opacity=0"></div><b>' + esc(r.text) + '</b>' + act + '</div>';
+    return '<div class="wp-c ' + st + (r.rare ? ' r-' + r.rare : '') + (r.car ? ' car' : '') + '"><i class="wp-rar"></i><div class="wp-im"><img src="' + esc(bpSrc(r.img)) + '" onerror="this.style.opacity=0"></div><b>' + esc(r.text) + '</b>' + act + '</div>';
 }
 function menuBp(d) {
     var bp = d.bp, pct = bp.lvl >= bp.max ? 100 : bp.exp / bp.need * 100;

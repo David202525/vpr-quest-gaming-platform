@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMRP — Редактор пропуска</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Montserrat,Segoe UI,Arial,sans-serif;background:#06101e;color:#e9f8ff;font-size:13px}
+input,select,textarea{background:#0b1726;border:1px solid rgba(159,227,255,.2);color:#fff;border-radius:7px;padding:9px 11px;font:inherit;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#9fe3ff}
+textarea{resize:vertical;min-height:90px}
+button{background:#9fe3ff;color:#062033;border:0;border-radius:7px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer}
+button.s{background:#1a2a3e;color:#e9f8ff}button.g{background:transparent;color:#9fb8cc}
+button:disabled{opacity:.4;cursor:default}
+label{display:block;font-size:11px;color:rgba(233,248,255,.6);margin-bottom:5px}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(rgba(6,16,30,.75),rgba(6,16,30,.92)),url(img/bp_winter.jpg) center/cover}
+.login .box{width:360px;background:rgba(11,23,38,.92);border:1px solid rgba(159,227,255,.2);border-radius:16px;padding:30px;text-align:center}
+.login h1{font-size:19px;margin:8px 0 4px}.login p{color:rgba(255,255,255,.55);font-size:12px;margin-bottom:18px;line-height:1.5}
+.login input{margin-bottom:10px}.login button{width:100%}
+.flake{font-size:36px;color:#9fe3ff}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 24px;background:rgba(6,16,30,.95);border-bottom:1px solid rgba(159,227,255,.1)}
+header b{font-size:15px}.dirty{background:rgba(255,182,72,.18);color:#ffc46b;padding:3px 8px;border-radius:5px;font-size:11px;margin-left:8px}
+header .r{display:flex;gap:8px;align-items:center}
+.wrap{max-width:1320px;margin:0 auto;padding:22px;display:grid;grid-template-columns:1fr 330px;gap:22px}
+.card{background:#0b1726;border:1px solid rgba(159,227,255,.1);border-radius:12px;padding:18px;margin-bottom:20px}
+.card h2{font-size:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.g2{display:grid;grid-template-columns:1fr 220px;gap:14px;margin-top:14px}
+.sw{display:flex;align-items:center;gap:8px;height:38px;cursor:pointer}
+.sw i{width:38px;height:20px;border-radius:10px;background:#26384d;position:relative;transition:.2s}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on i{background:#3fb4ff}.sw.on i::after{left:20px}
+.pv{position:relative;height:300px;border-radius:12px;overflow:hidden;background-size:cover;background-position:center;border:1px solid rgba(159,227,255,.3);margin-bottom:20px}
+.pv::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(6,16,30,.9))}
+.pv .t1,.pv .t2{position:absolute;font-family:Unbounded,sans-serif;font-weight:900;font-style:italic;text-transform:uppercase;transform:skewX(-10deg);white-space:nowrap;line-height:.9}
+.pv .t1{top:18px;left:28px;font-size:50px;color:#fff;filter:drop-shadow(0 4px 20px rgba(63,180,255,.7))}
+.pv .t2{top:76px;left:110px;font-size:56px;color:transparent;-webkit-text-stroke:2px #fff}
+.pv .ed{position:absolute;right:20px;top:150px;padding:9px 24px;font-family:Unbounded,sans-serif;font-weight:700;font-size:22px;letter-spacing:5px;background:linear-gradient(90deg,rgba(10,40,80,.9),rgba(63,180,255,.35));clip-path:polygon(6% 0,100% 0,94% 100%,0 100%)}
+.pv .bt{position:absolute;left:22px;right:22px;bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.pv .bt p{max-width:380px;font-size:11px;color:rgba(255,255,255,.8);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.pv .pr{display:flex;align-items:center;gap:8px;font-family:Unbounded,sans-serif;font-size:24px}
+.pv .pr i{color:#9fe3ff}.pv .pr span{font-family:Montserrat;font-size:11px;font-weight:800;padding:9px 14px;border-radius:4px;background:#e4f7ff;color:#062033}
+.track{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px}
+.labs{display:flex;flex-direction:column;gap:8px;padding-top:24px;flex:none}
+.labs div{width:30px;height:118px;border-radius:5px;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;background:rgba(255,255,255,.08)}
+.labs div.p{background:rgba(63,180,255,.4)}
+.col{flex:0 0 124px;display:flex;flex-direction:column;gap:8px}
+.col .n{text-align:center;font-size:11px;font-weight:700;color:#9fe3ff;height:16px}
+.cell{height:118px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,#1a283a,#0e1622);display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;cursor:pointer;transition:.15s;position:relative;overflow:hidden}
+.cell:hover{transform:translateY(-2px)}.cell.act{outline:2px solid #9fe3ff}
+.cell .im{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;border-radius:5px;background-size:cover;background-position:center}
+.cell .im img{max-width:100%;max-height:70px;object-fit:contain}
+.cell span{font-size:10.5px;line-height:1.2;text-align:center;max-height:26px;overflow:hidden}
+.cell.r-rare{border-color:rgba(63,180,255,.6)}.cell.r-epic{border-color:rgba(177,140,255,.6)}.cell.r-legend{border-color:rgba(255,182,72,.7)}
+.cell .em{color:rgba(255,255,255,.2);font-size:26px}
+aside .card{position:sticky;top:76px}
+.ed-img{height:130px;border-radius:8px;background:linear-gradient(180deg,#1a283a,#0e1622);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px;background-size:cover;background-position:center}
+.ed-img img{max-width:100%;max-height:100%;object-fit:contain}
+.f{margin-bottom:10px}.row{display:flex;gap:8px}.row>*{flex:1}.row .sm{flex:0 0 80px}
+.hint{color:rgba(255,255,255,.45);text-align:center;padding:40px 10px;line-height:1.6}
+.toast{position:fixed;right:20px;bottom:20px;padding:12px 18px;border-radius:8px;background:#1f8a4c;color:#fff;font-weight:600;display:none;z-index:99;max-width:380px}
+.toast.err{background:#a8263c}
+@media(max-width:1000px){.wrap{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+var TK = sessionStorage.getItem('bptk') || '', C = null, SAVED = '', ITEMS = [], CARS = [], VIPS = [], SEL = null, HOST = '';
+var BIG = ['armour', 'backpack', 'medkit', 'rifle', 'repair'];
+var TYPES = [['', 'Нет награды'], ['money', 'Деньги $'], ['coins', 'Коины RC'], ['item', 'Предмет'], ['vehicle', 'Машина'], ['vip', 'VIP']];
+var RARE = [['', 'Обычная'], ['rare', 'Редкая'], ['epic', 'Эпическая'], ['legend', 'Легендарная']];
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function toast(t, err) { var e = $('toast'); e.textContent = t; e.className = 'toast' + (err ? ' err' : ''); e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(function () { e.style.display = 'none'; }, 3500); }
+function api(o) { o.token = TK; return fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o) }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.err || 'Ошибка'); return d; }); }); }
+function itemName(k) { for (var i = 0; i < ITEMS.length; i++) if (ITEMS[i][0] === k) return ITEMS[i][1]; return k; }
+function vipName(k) { for (var i = 0; i < VIPS.length; i++) if (VIPS[i][0] === k) return VIPS[i][1]; return 'VIP'; }
+function rText(r) {
+    if (!r || !r.type) return 'Пусто';
+    if (r.title) return r.title + (r.type === 'item' && r.count > 1 ? ' x' + r.count : '');
+    if (r.type === 'money') return '$' + Number(r.amount || 0).toLocaleString('en-US');
+    if (r.type === 'coins') return (r.amount || 0) + ' RC';
+    if (r.type === 'vip') return vipName(r.vip) + ' на ' + (r.days || 7) + ' дн.';
+    if (r.type === 'vehicle') return 'Авто ' + (r.model || '');
+    if (r.type === 'item') return itemName(r.item) + (r.count > 1 ? ' x' + r.count : '');
+    return '';
+}
+function rImg(r) {
+    if (!r || !r.type) return '';
+    if (r.image) return r.image;
+    if (r.type === 'money') return 'img/bp_money.jpg';
+    if (r.type === 'coins') return 'img/bp_coins.jpg';
+    if (r.type === 'vip') return 'img/bp_crown.jpg';
+    if (r.type === 'vehicle') return 'img/v/' + String(r.model || '').toLowerCase() + '.webp';
+    if (r.type === 'item') return BIG.indexOf(r.item) >= 0 ? 'img/bp_' + r.item + '.jpg' : 'img/i/' + r.item + '.webp';
+    return '';
+}
+function src(u) { return /^https?:/.test(u) ? u : '/' + u; }
+function imHtml(r, cls) {
+    var u = rImg(r), car = r && r.type === 'vehicle' && !r.image;
+    if (!u) return '<div class="' + cls + '"><span class="em">+</span></div>';
+    return '<div class="' + cls + '"' + (car ? ' style="background-image:url(/img/bp_carbg.jpg)"' : '') + '><img src="' + esc(src(u)) + '" onerror="this.style.opacity=.15"></div>';
+}
+
+function login() {
+    $('app').innerHTML = '<div class="login"><div class="box"><div class="flake">❄</div><h1>Редактор зимнего пропуска</h1><p>Ключ — тот же, что для админ-консоли.<br>Получить: в игре админ-панель → «Ключ консоли» (уровень 7+)</p>' +
+        '<input id="tk" type="password" placeholder="Ключ консоли" value="' + esc(TK) + '"><button id="go">Войти</button></div></div>';
+    $('go').onclick = function () { TK = $('tk').value.trim(); load(); };
+    $('tk').onkeydown = function (e) { if (e.key === 'Enter') $('go').click(); };
+}
+function load() {
+    api({ op: 'get' }).then(function (d) {
+        sessionStorage.setItem('bptk', TK);
+        C = d.config; SAVED = JSON.stringify(C); ITEMS = d.items; CARS = d.cars; VIPS = d.vips; HOST = d.host;
+        render();
+    }).catch(function (e) { sessionStorage.removeItem('bptk'); login(); if (TK) toast(e.message, true); });
+}
+function dirty() { return JSON.stringify(C) !== SAVED; }
+
+function render() {
+    var c = C;
+    var h = '<header><div><b>❄ Редактор пропуска</b>' + (dirty() ? '<span class="dirty">Есть несохранённые изменения</span>' : '') + '</div><div class="r">' +
+        '<button class="g" id="reset">↺ По умолчанию</button><button class="g" id="out">Выйти</button><button id="save"' + (dirty() ? '' : ' disabled') + '>💾 Сохранить</button></div></header>';
+    h += '<div class="wrap"><div>';
+    h += '<div class="pv" style="background-image:url(' + esc(src(c.background || 'img/bp_winter.jpg')) + ')"><div class="t1">' + esc(c.title1) + '</div><div class="t2">' + esc(c.title2) + '</div><div class="ed">' + esc(c.edition) + '</div>' +
+        '<div class="bt"><p>' + esc(c.description) + '</p><div class="pr"><i>A</i>' + Number(c.price || 0).toLocaleString('ru-RU') + '<span>ОФОРМИТЬ</span>' + (c.giftEnabled ? '<span>ПОДАРИТЬ</span>' : '') + '</div></div></div>';
+    h += '<div class="card"><h2>Оформление и цены</h2><div class="grid">' +
+        fld('Заголовок, строка 1', 'title1') + fld('Заголовок, строка 2', 'title2') + fld('Плашка издания', 'edition') +
+        fld('Цена премиум-пропуска, RC', 'price', 'number') + fld('Цена 1 уровня, RC (0 — выкл.)', 'levelPrice', 'number') + fld('Минут игры на 1 уровень', 'minutesPerLevel', 'number') +
+        fld('Сезон заканчивается', 'endsAt', 'date') + fld('Код сезона (смена = сброс прогресса у всех)', 'seasonId') +
+        '<div><label>Подарок другу</label><div class="sw' + (c.giftEnabled ? ' on' : '') + '" id="gift"><i></i>' + (c.giftEnabled ? 'Включён' : 'Выключен') + '</div></div>' +
+        '</div><div class="g2"><div><label>Описание</label><textarea data-k="description">' + esc(c.description) + '</textarea></div>' +
+        '<div><label>Фон</label><input type="file" id="bgf" accept="image/*" hidden><button class="s" style="width:100%;margin-bottom:8px" id="bgup">🖼 Загрузить фон</button><button class="g" style="width:100%" id="bgdef">Зимний по умолчанию</button></div></div></div>';
+    h += '<div class="card"><h2>Уровни и награды (' + c.levels.length + ')<span class="row" style="flex:0"><button class="s" id="lvlm">− Уровень</button><button class="s" id="lvlp">+ Уровень</button></span></h2>' +
+        '<div class="track"><div class="labs"><div>Обычный</div><div class="p">Премиум</div></div>' +
+        c.levels.map(function (L, i) {
+            return '<div class="col"><div class="n">' + (i < 9 ? '0' : '') + (i + 1) + '</div>' + cell(L.free, i, 'free') + cell(L.premium, i, 'premium') + '</div>';
+        }).join('') + '</div></div>';
+    h += '</div><aside><div class="card" id="side">' + side() + '</div></aside></div>';
+    var sx = document.querySelector('.track') ? document.querySelector('.track').scrollLeft : 0;
+    $('app').innerHTML = h;
+    var tr = document.querySelector('.track'); if (tr) tr.scrollLeft = sx;
+    bind();
+}
+function fld(n, k, t) { return '<div><label>' + n + '</label><input data-k="' + k + '" type="' + (t || 'text') + '" value="' + esc(C[k]) + '"></div>'; }
+function cell(r, i, t) {
+    var act = SEL && SEL.i === i && SEL.t === t;
+    return '<div class="cell' + (act ? ' act' : '') + (r && r.rare ? ' r-' + r.rare : '') + '" data-c="' + i + '|' + t + '">' + imHtml(r, 'im') + '<span>' + esc(rText(r)) + '</span></div>';
+}
+function opts(list, v) { return list.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === v ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); }
+function side() {
+    if (!SEL) return '<div class="hint">👆<br>Нажмите на любую награду,<br>чтобы изменить её</div>';
+    var r = C.levels[SEL.i][SEL.t] || { type: '' };
+    var h = '<h2>Уровень ' + (SEL.i + 1) + ' · ' + (SEL.t === 'free' ? 'обычный' : 'премиум') + '</h2>' + imHtml(r.type ? r : null, 'ed-img');
+    h += '<div class="f"><label>Тип награды</label><select data-r="type">' + opts(TYPES, r.type) + '</select></div>';
+    if (r.type === 'money' || r.type === 'coins') h += '<div class="f"><label>' + (r.type === 'money' ? 'Сумма, $' : 'Количество RC') + '</label><input type="number" data-r="amount" value="' + (r.amount || 0) + '"></div>';
+    if (r.type === 'item') h += '<div class="f"><label>Предмет и количество</label><div class="row"><select data-r="item">' + opts(ITEMS, r.item) + '</select><input class="sm" type="number" min="1" data-r="count" value="' + (r.count || 1) + '"></div></div>';
+    if (r.type === 'vehicle') h += '<div class="f"><label>Модель машины (из игры, любая)</label><input list="cars" data-r="model" value="' + esc(r.model || '') + '" placeholder="например sultan"><datalist id="cars">' + CARS.map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist></div>';
+    if (r.type === 'vip') h += '<div class="f"><label>VIP и срок, дней</label><div class="row"><select data-r="vip">' + opts(VIPS, r.vip) + '</select><input class="sm" type="number" min="1" data-r="days" value="' + (r.days || 7) + '"></div></div>';
+    if (r.type) {
+        h += '<div class="f"><label>Своё название (необязательно)</label><input data-r="title" value="' + esc(r.title || '') + '" placeholder="' + esc(rText(Object.assign({}, r, { title: '' }))) + '"></div>';
+        h += '<div class="f"><label>Редкость (цвет рамки)</label><select data-r="rare">' + opts(RARE, r.rare || '') + '</select></div>';
+        h += '<div class="f"><label>Картинка</label><input type="file" id="rf" accept="image/*" hidden><div class="row"><button class="s" id="rup">🖼 ' + (r.image ? 'Сменить фото' : 'Своё фото') + '</button>' + (r.image ? '<button class="g" id="rdel" style="flex:0 0 auto">✕ Убрать</button>' : '') + '</div></div>';
+        if (r.type === 'vehicle' && !r.image) h += '<div class="hint" style="padding:6px 0;text-align:left;font-size:11px">Если для модели нет картинки — загрузите своё фото машины.</div>';
+    }
+    return h;
+}
+function setR(p) {
+    var r = Object.assign({}, C.levels[SEL.i][SEL.t] || { type: '' }, p);
+    C.levels[SEL.i][SEL.t] = r.type ? r : null;
+}
+function changeType(t) {
+    if (!t) { C.levels[SEL.i][SEL.t] = null; return; }
+    var old = C.levels[SEL.i][SEL.t] || {};
+    var b = { type: t, rare: old.rare || '' };
+    if (t === 'money') b.amount = 10000;
+    if (t === 'coins') b.amount = 100;
+    if (t === 'item') { b.item = 'medkit'; b.count = 1; }
+    if (t === 'vehicle') { b.model = 'sultan'; b.rare = 'legend'; }
+    if (t === 'vip') { b.vip = VIPS[0] ? VIPS[0][0] : 'silver'; b.days = 7; }
+    C.levels[SEL.i][SEL.t] = b;
+}
+function upload(file, cb) {
+    if (!file) return;
+    if (file.size > 4500000) return toast('Файл больше 4,5 МБ', true);
+    var fr = new FileReader();
+    fr.onload = function () { api({ op: 'upload', data: fr.result }).then(function (d) { cb(d.path); render(); toast('Картинка загружена'); }).catch(function (e) { toast(e.message, true); }); };
+    fr.readAsDataURL(file);
+}
+function bind() {
+    document.querySelectorAll('[data-k]').forEach(function (e) {
+        e.oninput = function () { var k = e.dataset.k; C[k] = e.type === 'number' ? Number(e.value) : e.value; };
+        e.onchange = render;
+    });
+    document.querySelectorAll('[data-c]').forEach(function (e) { e.onclick = function () { var p = e.dataset.c.split('|'); SEL = { i: Number(p[0]), t: p[1] }; render(); }; });
+    document.querySelectorAll('[data-r]').forEach(function (e) {
+        var k = e.dataset.r;
+        e.onchange = function () {
+            if (k === 'type') changeType(e.value);
+            else { var o = {}; o[k] = e.type === 'number' ? Number(e.value) : e.value.trim ? (k === 'title' ? e.value : e.value.trim()) : e.value; setR(o); }
+            render();
+        };
+    });
+    $('gift').onclick = function () { C.giftEnabled = !C.giftEnabled; render(); };
+    $('bgup').onclick = function () { $('bgf').click(); };
+    $('bgf').onchange = function () { upload(this.files[0], function (p) { C.background = p; }); };
+    $('bgdef').onclick = function () { C.background = 'img/bp_winter.jpg'; render(); };
+    $('lvlp').onclick = function () { if (C.levels.length >= 100) return; C.levels.push({ free: null, premium: null }); render(); };
+    $('lvlm').onclick = function () { if (C.levels.length <= 1) return; C.levels.pop(); if (SEL && SEL.i >= C.levels.length) SEL = null; render(); };
+    if ($('rup')) { $('rup').onclick = function () { $('rf').click(); }; $('rf').onchange = function () { upload(this.files[0], function (p) { setR({ image: p }); }); }; }
+    if ($('rdel')) $('rdel').onclick = function () { setR({ image: '' }); render(); };
+    $('out').onclick = function () { sessionStorage.removeItem('bptk'); TK = ''; login(); };
+    $('reset').onclick = function () { if (!confirm('Вернуть все настройки пропуска по умолчанию? Изменения сразу попадут в игру.')) return; api({ op: 'reset' }).then(function (d) { C = d.config; SAVED = JSON.stringify(C); SEL = null; render(); toast('Сброшено'); }).catch(function (e) { toast(e.message, true); }); };
+    $('save').onclick = function () {
+        var season = JSON.parse(SAVED).seasonId !== C.seasonId;
+        if (season && !confirm('Код сезона изменён — у ВСЕХ игроков обнулится прогресс и премиум. Продолжить?')) return;
+        api({ op: 'save', config: C }).then(function () { SAVED = JSON.stringify(C); render(); toast('Сохранено — уже в игре'); }).catch(function (e) { toast(e.message, true); });
+    };
+}
+window.onbeforeunload = function () { if (C && dirty()) return 'Есть несохранённые изменения'; };
+if (TK) load(); else login();
+</script>
+</body>
+</html>

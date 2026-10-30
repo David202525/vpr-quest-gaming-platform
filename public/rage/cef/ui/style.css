@@ -2555,3 +2555,7 @@ body.streamer .tile.hello h2, body.streamer .t-kv b, body.streamer .t-big, body.
 .wp-nav{position:absolute;top:0;bottom:34px;width:34px;border:0;z-index:3;font-size:30px;color:#fff;background:linear-gradient(90deg,rgba(6,16,30,.9),transparent);cursor:pointer}
 .wp-nav.l{left:54px}
 .wp-nav.r{right:0;background:linear-gradient(270deg,rgba(6,16,30,.9),transparent)}
+
+.wp-c.car .wp-im{background:url(img/bp_carbg.jpg) center/cover;margin:-12px -10px 0;width:calc(100% + 20px);padding:6px 8px 0}
+.wp-c.car .wp-im img{max-height:88%;margin-top:auto}
+.wp-im img[src*="img/bp_"]{border-radius:6px}

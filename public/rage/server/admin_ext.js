@@ -1114,6 +1114,7 @@ async function tokenUser(tk) {
     if (lv < 7 || A.locks.console && lv < MAX) return null;
     return { s: rec.s, login: 'WEB:' + rec.login, lvl: lv };
 }
+A.tokenUser = tokenUser;
 const hits = {};
 if (CONSOLE_CFG.enabled) {
     try {

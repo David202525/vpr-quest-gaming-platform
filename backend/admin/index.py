@@ -51,11 +51,8 @@ def resolve_admin(conn, token: str):
 
 
 def handler(event: dict, context) -> dict:
-    """Админка банка заданий и настройки зимнего пропуска (?bp=1)."""
+    """Админка банка заданий: просмотр тем и вопросов, добавление, правка, включение и отключение."""
     method = event.get('httpMethod', 'GET')
-    if (event.get('queryStringParameters') or {}).get('bp'):
-        from bp import bp_handler
-        return bp_handler(event)
     if method == 'OPTIONS':
         return {'statusCode': 200, 'headers': {**CORS, 'Access-Control-Max-Age': '86400'}, 'body': ''}
 

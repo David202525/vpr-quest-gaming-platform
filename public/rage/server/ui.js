@@ -88,40 +88,24 @@ const SKILLS = [
     { k: 'survive', n: 'Выживание' }
 ];
 
-const BP_URL = 'https://functions.poehali.dev/2f8ea274-a678-4f83-a4f3-9935b119e601?bp=1';
 const BP_FILE = path.join(__dirname, 'bp_config.json');
+const BP_UP = path.join(__dirname, 'bp_uploads');
+const BP_ED = Object.assign({ enabled: true, port: 22012 }, rj(path.join(__dirname, 'bp_editor.json'), {}));
+if (!BP_ED.host) BP_ED.host = (rj(path.join(__dirname, 'admin_console.json'), {}).host || '');
 function bpDefault() {
     const lv = [];
     for (let l = 1; l <= 30; l++) {
         let f, pr;
-        if (l % 10 === 0) { f = { type: 'item', item: 'backpack', count: 1 }; pr = { type: 'vehicle', model: l === 30 ? 'jester' : 'sultan', title: l === 30 ? 'Jester' : 'Sultan' }; }
-        else if (l % 5 === 0) { f = { type: 'item', item: 'armour', count: 1 }; pr = { type: 'coins', amount: 100 }; }
-        else if (l % 3 === 0) { f = { type: 'item', item: 'medkit', count: 2 }; pr = { type: 'money', amount: 5000 * l }; }
+        if (l % 10 === 0) { f = { type: 'item', item: 'backpack', count: 1 }; pr = { type: 'vehicle', model: l === 30 ? 'jester' : 'sultan', title: l === 30 ? 'Jester' : 'Sultan', rare: 'legend' }; }
+        else if (l % 5 === 0) { f = { type: 'item', item: 'armour', count: 1 }; pr = { type: 'coins', amount: 100, rare: 'epic' }; }
+        else if (l % 3 === 0) { f = { type: 'item', item: 'medkit', count: 2 }; pr = { type: 'money', amount: 5000 * l, rare: 'rare' }; }
         else { f = { type: 'money', amount: 1000 * l }; pr = { type: 'item', item: 'repair', count: 2 }; }
         lv.push({ free: f, premium: pr });
     }
-    return { seasonId: 'winter-2026', title1: 'А-РКТИЧЕСКИЙ', title2: 'ПРОПУСК', edition: 'ЗИМНЕЕ ИЗДАНИЕ', description: 'Пропуск — это уникальная система призов. Приобретя его, вы получите доступ к эксклюзивным предметам: уникальные машины, деньги, коины и многое другое.', background: 'img/bp_winter.jpg', price: 3000, levelPrice: 150, giftEnabled: true, minutesPerLevel: 30, endsAt: '2027-02-28', levels: lv };
+    return { seasonId: 'winter-2026', title1: 'А-РКТИЧЕСКИЙ', title2: 'ПРОПУСК', edition: 'ЗИМНЕЕ ИЗДАНИЕ', description: 'Пропуск — это уникальная система призов. Приобретя его, вы получите доступ к эксклюзивным предметам: уникальные машины, деньги, коины и многое другое. С каждым новым уровнем вы становитесь ближе к супер-призу. Пройдите всю цепочку раньше всех и возглавьте рейтинг лидеров!', background: 'img/bp_winter.jpg', price: 3000, levelPrice: 150, giftEnabled: true, minutesPerLevel: 30, endsAt: '2027-02-28', levels: lv };
 }
-let BPC = (function () { try { const c = JSON.parse(fs.readFileSync(BP_FILE, 'utf8')); if (c && c.levels) return c; } catch (e) {} return bpDefault(); })();
-function bpFetch() {
-    try {
-        require('https').get(BP_URL, function (res) {
-            let body = '';
-            res.on('data', function (c) { body += c; });
-            res.on('end', function () {
-                try {
-                    const c = JSON.parse(body).config;
-                    if (!c || !Array.isArray(c.levels) || !c.levels.length) return;
-                    const changed = JSON.stringify(c) !== JSON.stringify(BPC);
-                    BPC = c;
-                    if (changed) { fs.writeFile(BP_FILE, JSON.stringify(c), function () {}); console.log('[bp] настройки пропуска обновлены: ' + c.seasonId + ', уровней ' + c.levels.length); }
-                } catch (e) { console.log('[bp] ошибка настроек: ' + e.message); }
-            });
-        }).on('error', function (e) { console.log('[bp] сайт недоступен: ' + e.message); });
-    } catch (e) {}
-}
-setTimeout(bpFetch, 3000);
-setInterval(bpFetch, 120000);
+let BPC = (function () { try { const c = JSON.parse(fs.readFileSync(BP_FILE, 'utf8')); if (c && Array.isArray(c.levels) && c.levels.length) return c; } catch (e) {} return bpDefault(); })();
+function bpSave() { fs.writeFile(BP_FILE, JSON.stringify(BPC, null, 1), function () {}); }
 function bpMax() { return BPC.levels.length; }
 function bpStep() { return Math.max(1, Number(BPC.minutesPerLevel) || 30); }
 function bpSync(d) {
@@ -834,18 +818,19 @@ function bpImg(r) {
     if (r.type === 'coins') return 'img/bp_coins.jpg';
     if (r.type === 'vip') return 'img/bp_crown.jpg';
     if (r.type === 'vehicle') return 'img/v/' + String(r.model || '').toLowerCase() + '.webp';
-    if (r.type === 'item') { if (['armour', 'backpack', 'medkit', 'rifle'].indexOf(r.item) >= 0) return 'img/bp_' + r.item + '.jpg'; return 'img/i/' + r.item + '.webp'; }
+    if (r.type === 'item') { if (['armour', 'backpack', 'medkit', 'rifle', 'repair'].indexOf(r.item) >= 0) return 'img/bp_' + r.item + '.jpg'; return 'img/i/' + r.item + '.webp'; }
     return 'img/bp_money.jpg';
 }
+function bpUrl(u) { u = String(u || ''); if (u.indexOf('u/') === 0) return 'http://' + (BP_ED.host || '127.0.0.1') + ':' + BP_ED.port + '/' + u; return u; }
 function bpPayload(d, lvl) {
     const ends = BPC.endsAt ? Math.max(0, Math.ceil((new Date(BPC.endsAt + 'T23:59:59').getTime() - Date.now()) / 86400000)) : 0;
     return {
-        title1: BPC.title1, title2: BPC.title2, edition: BPC.edition, desc: BPC.description, bg: BPC.background || 'img/bp_winter.jpg',
+        title1: BPC.title1, title2: BPC.title2, edition: BPC.edition, desc: BPC.description, bg: bpUrl(BPC.background || 'img/bp_winter.jpg'),
         price: Number(BPC.price) || 0, lvlPrice: Number(BPC.levelPrice) || 0, gift: BPC.giftEnabled !== false, ends: ends,
         lvl: lvl, max: bpMax(), exp: (d.bpExp || 0) % bpStep(), need: bpStep(), prem: !!d.bpPrem, coins: d.coins || 0,
         levels: BPC.levels.map(function (L, i) {
             const n = i + 1;
-            const one = function (r, cl, locked) { return r && r.type ? { text: bpText(r), img: bpImg(r), rare: r.rare || (r.type === 'vehicle' ? 'legend' : r.type === 'vip' || r.type === 'coins' ? 'epic' : ''), claimed: cl.indexOf(n) >= 0, open: n <= lvl && !locked } : null; };
+            const one = function (r, cl, locked) { return r && r.type ? { text: bpText(r), img: bpUrl(bpImg(r)), car: r.type === 'vehicle' && !r.image, rare: r.rare || (r.type === 'vehicle' ? 'legend' : r.type === 'vip' || r.type === 'coins' ? 'epic' : ''), claimed: cl.indexOf(n) >= 0, open: n <= lvl && !locked } : null; };
             return { lvl: n, free: one(L.free, d.bpClaimed, false), premium: one(L.premium, d.bpPC, !d.bpPrem) };
         })
     };
@@ -1080,6 +1065,74 @@ mp.events.addCommand('givevip', function (p, full, id, k, days) {
     notify(t, 'ok', 'Вам выдан ' + VIPS[k].n + ' на ' + days + ' дн.');
 });
 
+if (BP_ED.enabled) {
+    try {
+        const http = require('http');
+        const ROOTS = [path.join(__dirname, '..', '..', '..', 'client_packages', 'cef', 'ui'), path.join(process.cwd(), 'client_packages', 'cef', 'ui')];
+        const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
+        const hits = {};
+        const fileOf = function (rel) {
+            rel = decodeURIComponent(rel).replace(/\\/g, '/');
+            if (rel.indexOf('..') >= 0) return null;
+            if (rel.indexOf('u/') === 0) { const f = path.join(BP_UP, rel.slice(2)); return fs.existsSync(f) ? f : null; }
+            for (let i = 0; i < ROOTS.length; i++) { const f = path.join(ROOTS[i], rel); if (fs.existsSync(f)) return f; }
+            return null;
+        };
+        const carList = function () { for (let i = 0; i < ROOTS.length; i++) { try { return fs.readdirSync(path.join(ROOTS[i], 'img', 'v')).filter(function (f) { return /\.webp$/.test(f); }).map(function (f) { return f.replace('.webp', ''); }); } catch (e) {} } return []; };
+        http.createServer(function (req, res) {
+            const ip = req.socket.remoteAddress;
+            hits[ip] = (hits[ip] || []).filter(function (t) { return Date.now() - t < 10000; });
+            hits[ip].push(Date.now());
+            if (hits[ip].length > 150) { res.writeHead(429); return res.end('slow down'); }
+            const send = function (code, o) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(o)); };
+            const url = req.url.split('?')[0];
+            if (req.method === 'GET' && url === '/') {
+                const f = path.join(__dirname, 'bp_editor.html');
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                return res.end(fs.existsSync(f) ? fs.readFileSync(f) : '<h1>bp_editor.html не найден</h1>');
+            }
+            if (req.method === 'GET' && (url.indexOf('/img/') === 0 || url.indexOf('/u/') === 0)) {
+                const f = fileOf(url.slice(1));
+                if (!f) { res.writeHead(404); return res.end(); }
+                res.writeHead(200, { 'Content-Type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'max-age=3600', 'Access-Control-Allow-Origin': '*' });
+                return fs.createReadStream(f).pipe(res);
+            }
+            if (req.method !== 'POST' || url !== '/api') { res.writeHead(404); return res.end(); }
+            let body = '';
+            req.on('data', function (c) { body += c; if (body.length > 6000000) req.destroy(); });
+            req.on('end', async function () {
+                let d; try { d = JSON.parse(body); } catch (e) { return send(400, { err: 'bad json' }); }
+                const u = global.AdminCore && global.AdminCore.tokenUser ? await global.AdminCore.tokenUser(d.token) : null;
+                if (!u) return send(403, { err: 'Неверный ключ или нет прав (нужен уровень 7+)' });
+                if (d.op === 'get') {
+                    const items = Object.keys(ITEMS).filter(function (k) { return !ITEMS[k].wp || k === 'pistol' || k === 'smg' || k === 'rifle'; }).filter(function (k) { return ['docs', 'card'].indexOf(k) < 0 && k.indexOf('g_') !== 0 && k.indexOf('i_') !== 0 && k.indexOf('c_') !== 0; }).map(function (k) { return [k, ITEMS[k].n]; });
+                    return send(200, { config: BPC, items: items, cars: carList(), vips: Object.keys(VIPS).map(function (k) { return [k, VIPS[k].n]; }), user: u.login, host: BP_ED.host || '' });
+                }
+                if (d.op === 'save') {
+                    const c = d.config;
+                    if (!c || !Array.isArray(c.levels) || !c.levels.length || c.levels.length > 100) return send(400, { err: 'Неверные данные' });
+                    const season = BPC.seasonId !== c.seasonId;
+                    BPC = c; bpSave();
+                    if (global.SLog) { try { global.SLog.add('admin', { actor: u.login, action: 'bp_edit', details: 'Пропуск: ' + c.seasonId + ', уровней ' + c.levels.length + ', цена ' + c.price + (season ? ' (НОВЫЙ СЕЗОН)' : '') }); } catch (e) {} }
+                    console.log('[bp] ' + u.login + ' сохранил настройки пропуска');
+                    mp.players.forEach(function (x) { if (accId(x)) sendMenu(x).catch(function () {}); });
+                    return send(200, { ok: 1 });
+                }
+                if (d.op === 'reset') { BPC = bpDefault(); bpSave(); return send(200, { config: BPC }); }
+                if (d.op === 'upload') {
+                    const m = /^data:(image\/(png|jpeg|webp|gif));base64,(.+)$/.exec(String(d.data || ''));
+                    if (!m) return send(400, { err: 'Нужна картинка PNG, JPG, WEBP или GIF' });
+                    try { fs.mkdirSync(BP_UP, { recursive: true }); } catch (e) {}
+                    const name = Date.now().toString(36) + require('crypto').randomBytes(4).toString('hex') + '.' + (m[2] === 'jpeg' ? 'jpg' : m[2]);
+                    fs.writeFileSync(path.join(BP_UP, name), Buffer.from(m[3], 'base64'));
+                    return send(200, { path: 'u/' + name });
+                }
+                send(400, { err: 'Неизвестная команда' });
+            });
+        }).listen(BP_ED.port, function () { console.log('[bp] редактор пропуска: порт ' + BP_ED.port); }).on('error', function (e) { console.log('[bp] редактор не запущен: ' + e.message); });
+    } catch (e) { console.log('[bp] редактор: ' + e.message); }
+}
+
 const bpBusy = {};
 mp.events.add('srv:menu:claim', async function (p, lvl, track) {
     lvl = Number(lvl);
@@ -1135,7 +1188,6 @@ mp.events.add('srv:bp:gift', function (p, sid) {
     notify(t, 'ok', p.name.replace(/_/g, ' ') + ' подарил вам премиум-пропуск!');
     sendMenu(p); sendMenu(t);
 });
-mp.events.addCommand('bpreload', function (p) { if (adminLvl(p) < 7) return; bpFetch(); p.outputChatBox('Настройки пропуска загружаются с сайта...'); });
 
 mp.events.add('srv:menu:report', function (p, text) {
     text = String(text || '').trim().slice(0, 300);
