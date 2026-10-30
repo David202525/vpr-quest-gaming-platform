@@ -88,17 +88,50 @@ const SKILLS = [
     { k: 'survive', n: 'Выживание' }
 ];
 
-const BP_MAX = 30;
-const BP_STEP = 30;
-const BP = [];
-for (let l = 1; l <= BP_MAX; l++) {
-    if (l % 10 === 0) BP.push({ lvl: l, item: l === 30 ? 'rifle' : 'backpack', c: 1 });
-    else if (l % 5 === 0) BP.push({ lvl: l, item: 'armour', c: 1 });
-    else if (l % 3 === 0) BP.push({ lvl: l, item: 'medkit', c: 2 });
-    else BP.push({ lvl: l, money: 1000 * l });
+const BP_URL = 'https://functions.poehali.dev/2f8ea274-a678-4f83-a4f3-9935b119e601?bp=1';
+const BP_FILE = path.join(__dirname, 'bp_config.json');
+function bpDefault() {
+    const lv = [];
+    for (let l = 1; l <= 30; l++) {
+        let f, pr;
+        if (l % 10 === 0) { f = { type: 'item', item: 'backpack', count: 1 }; pr = { type: 'vehicle', model: l === 30 ? 'jester' : 'sultan', title: l === 30 ? 'Jester' : 'Sultan' }; }
+        else if (l % 5 === 0) { f = { type: 'item', item: 'armour', count: 1 }; pr = { type: 'coins', amount: 100 }; }
+        else if (l % 3 === 0) { f = { type: 'item', item: 'medkit', count: 2 }; pr = { type: 'money', amount: 5000 * l }; }
+        else { f = { type: 'money', amount: 1000 * l }; pr = { type: 'item', item: 'repair', count: 2 }; }
+        lv.push({ free: f, premium: pr });
+    }
+    return { seasonId: 'winter-2026', title1: 'А-РКТИЧЕСКИЙ', title2: 'ПРОПУСК', edition: 'ЗИМНЕЕ ИЗДАНИЕ', description: 'Пропуск — это уникальная система призов. Приобретя его, вы получите доступ к эксклюзивным предметам: уникальные машины, деньги, коины и многое другое.', background: 'img/bp_winter.jpg', price: 3000, levelPrice: 150, giftEnabled: true, minutesPerLevel: 30, endsAt: '2027-02-28', levels: lv };
 }
+let BPC = (function () { try { const c = JSON.parse(fs.readFileSync(BP_FILE, 'utf8')); if (c && c.levels) return c; } catch (e) {} return bpDefault(); })();
+function bpFetch() {
+    try {
+        require('https').get(BP_URL, function (res) {
+            let body = '';
+            res.on('data', function (c) { body += c; });
+            res.on('end', function () {
+                try {
+                    const c = JSON.parse(body).config;
+                    if (!c || !Array.isArray(c.levels) || !c.levels.length) return;
+                    const changed = JSON.stringify(c) !== JSON.stringify(BPC);
+                    BPC = c;
+                    if (changed) { fs.writeFile(BP_FILE, JSON.stringify(c), function () {}); console.log('[bp] настройки пропуска обновлены: ' + c.seasonId + ', уровней ' + c.levels.length); }
+                } catch (e) { console.log('[bp] ошибка настроек: ' + e.message); }
+            });
+        }).on('error', function (e) { console.log('[bp] сайт недоступен: ' + e.message); });
+    } catch (e) {}
+}
+setTimeout(bpFetch, 3000);
+setInterval(bpFetch, 120000);
+function bpMax() { return BPC.levels.length; }
+function bpStep() { return Math.max(1, Number(BPC.minutesPerLevel) || 30); }
+function bpSync(d) {
+    if (d.bpSeason !== BPC.seasonId) { d.bpSeason = BPC.seasonId; d.bpExp = 0; d.bpClaimed = []; d.bpPC = []; d.bpPrem = false; }
+    if (!d.bpClaimed) d.bpClaimed = [];
+    if (!d.bpPC) d.bpPC = [];
+    return d;
+}
+function bpLvlOf(d) { return Math.min(bpMax(), Math.floor((d.bpExp || 0) / bpStep())); }
 
-const BP_IMG = { money: 'money', medkit: 'medkit', armour: 'armour', backpack: 'backpack', rifle: 'rifle' };
 const COIN_RATE = 100;
 const VIPS = {
     silver: { n: 'Silver VIP', price: 300, days: 30, mult: 1.5, color: '#c9d3e0', img: 'coins', perks: ['Опыт и Battle Pass x1.5', 'Бонус $5.000 при покупке', 'Серебряный тег в меню'], bonus: 5000 },
@@ -750,7 +783,8 @@ setInterval(function () {
         const d = data(p);
         d.mins = (d.mins || 0) + 1;
         const vm = vipMult(d);
-        const bpBefore = Math.floor((d.bpExp || 0) / BP_STEP);
+        bpSync(d);
+        const bpBefore = Math.floor((d.bpExp || 0) / bpStep());
         d.exp += vm;
         d.bpExp = (d.bpExp || 0) + vm;
         if (d.mins % 10 === 0) d.skills.survive = Math.min(500, (d.skills.survive || 0) + 5);
@@ -759,8 +793,8 @@ setInterval(function () {
             d.lvl += 1;
             notify(p, 'ok', 'Новый уровень: ' + d.lvl);
         }
-        const bpNow = Math.floor(d.bpExp / BP_STEP);
-        if (bpNow > bpBefore && bpNow <= BP_MAX) notify(p, 'ok', 'Battle Pass: доступна награда ' + bpNow + ' уровня');
+        const bpNow = Math.floor(d.bpExp / bpStep());
+        if (bpNow > bpBefore && bpNow <= bpMax()) notify(p, 'ok', (BPC.title1 || 'Пропуск') + ': доступна награда ' + bpNow + ' уровня');
     });
     mark();
 }, 60000);
@@ -781,6 +815,61 @@ mp.events.add('srv:skills:tick', function (p, json) {
     up('stamina', (Number(s.run) || 0) / 150);
     mark();
 });
+
+function bpText(r) {
+    if (!r) return '';
+    if (r.title) return r.title + (r.type === 'item' && r.count > 1 ? ' x' + r.count : '');
+    if (r.type === 'money') return '$' + Number(r.amount || 0).toLocaleString('en-US');
+    if (r.type === 'coins') return (r.amount || 0) + ' RC';
+    if (r.type === 'vip') return (VIPS[r.vip] ? VIPS[r.vip].n : 'VIP') + ' на ' + (r.days || 7) + ' дн.';
+    if (r.type === 'vehicle') return 'Авто ' + (r.model || '');
+    if (r.type === 'item') return (ITEMS[r.item] ? ITEMS[r.item].n : r.item) + (r.count > 1 ? ' x' + r.count : '');
+    return '';
+}
+const BP_IIMG = ['medkit', 'armour', 'backpack', 'repair', 'canister', 'lockpick', 'cash', 'bandage', 'pills', 'phone', 'knife', 'bat', 'mask', 'glasses', 'watch', 'chain', 'hoodie', 'cap', 'hat'];
+function bpImg(r) {
+    if (!r) return '';
+    if (r.image) return r.image;
+    if (r.type === 'money') return 'img/bp_money.jpg';
+    if (r.type === 'coins') return 'img/bp_coins.jpg';
+    if (r.type === 'vip') return 'img/bp_crown.jpg';
+    if (r.type === 'vehicle') return 'img/v/' + String(r.model || '').toLowerCase() + '.webp';
+    if (r.type === 'item') { if (['armour', 'backpack', 'medkit', 'rifle'].indexOf(r.item) >= 0) return 'img/bp_' + r.item + '.jpg'; return 'img/i/' + r.item + '.webp'; }
+    return 'img/bp_money.jpg';
+}
+function bpPayload(d, lvl) {
+    const ends = BPC.endsAt ? Math.max(0, Math.ceil((new Date(BPC.endsAt + 'T23:59:59').getTime() - Date.now()) / 86400000)) : 0;
+    return {
+        title1: BPC.title1, title2: BPC.title2, edition: BPC.edition, desc: BPC.description, bg: BPC.background || 'img/bp_winter.jpg',
+        price: Number(BPC.price) || 0, lvlPrice: Number(BPC.levelPrice) || 0, gift: BPC.giftEnabled !== false, ends: ends,
+        lvl: lvl, max: bpMax(), exp: (d.bpExp || 0) % bpStep(), need: bpStep(), prem: !!d.bpPrem, coins: d.coins || 0,
+        levels: BPC.levels.map(function (L, i) {
+            const n = i + 1;
+            const one = function (r, cl, locked) { return r && r.type ? { text: bpText(r), img: bpImg(r), rare: r.rare || (r.type === 'vehicle' ? 'legend' : r.type === 'vip' || r.type === 'coins' ? 'epic' : ''), claimed: cl.indexOf(n) >= 0, open: n <= lvl && !locked } : null; };
+            return { lvl: n, free: one(L.free, d.bpClaimed, false), premium: one(L.premium, d.bpPC, !d.bpPrem) };
+        })
+    };
+}
+async function bpGive(p, r) {
+    const d = data(p);
+    if (r.type === 'money') addMoney(p, Number(r.amount) || 0);
+    else if (r.type === 'coins') d.coins = (d.coins || 0) + (Number(r.amount) || 0);
+    else if (r.type === 'item') { const left = addItem(p, r.item, Number(r.count) || 1); if (left > 0) notify(p, 'warn', 'Не всё поместилось в инвентарь'); }
+    else if (r.type === 'vip' && VIPS[r.vip]) { const cur = vipOf(d); const base = cur && cur.t === r.vip ? cur.until : Date.now(); if (!cur || cur.t === r.vip || VIPS[cur.t].price <= VIPS[r.vip].price) d.vip = { t: r.vip, until: base + (Number(r.days) || 7) * 86400000 }; else d.coins = (d.coins || 0) + Math.round(VIPS[r.vip].price * (Number(r.days) || 7) / 30); }
+    else if (r.type === 'vehicle') {
+        const st = global.VehStore, aid = accId(p);
+        if (!st || !aid) throw new Error('Не удалось выдать машину');
+        await st.cols();
+        const plate = ('AW' + Math.floor(100000 + Math.random() * 899999)).slice(0, 8);
+        const pos = p.position, h = p.heading || 0, a = h * Math.PI / 180;
+        const x = pos.x - Math.sin(a) * 4, y = pos.y + Math.cos(a) * 4;
+        const res = await st.q('INSERT INTO vehicles (owner_id, model, plate, color1, color2, pos_x, pos_y, pos_z, heading) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [aid, String(r.model || 'sultan'), plate, 111, 111, x, y, pos.z, h]);
+        const vid = (res && res.insertId) || (res && res[0] && res[0].insertId) || 0;
+        if (vid && p.dimension === 0) { const row = (await st.q('SELECT * FROM vehicles WHERE id = ? LIMIT 1', [vid]))[0]; if (row && mp.players.exists(p)) st.spawn(row, aid, { x: x, y: y, z: pos.z, h: h, dim: 0 }); }
+        notify(p, 'ok', 'Машина ' + (r.title || r.model) + ' (номер ' + plate + ') добавлена в ваш транспорт');
+    }
+    mark();
+}
 
 function rewardText(r) {
     if (r.money) return '$' + r.money.toLocaleString('ru-RU');
@@ -807,7 +896,8 @@ async function menuPayload(p) {
     const money = getMoney(p);
     const bank = getBank(p);
     const itemsCount = d.inv.reduce(function (s, x) { return s + (x ? 1 : 0); }, 0) + Object.keys(d.equip).length;
-    const bpLvl = Math.min(BP_MAX, Math.floor((d.bpExp || 0) / BP_STEP));
+    bpSync(d);
+    const bpLvl = bpLvlOf(d);
     const female = p.model === mp.joaat('mp_f_freemode_01');
     const mny = money + bank;
     const ach = [
@@ -851,10 +941,7 @@ async function menuPayload(p) {
         vehicles: vehicles.map(function (v) { return { model: v.model, plate: v.plate }; }),
         skills: SKILLS.map(function (s) { const v = d.skills[s.k] || 0; return { n: s.n, lvl: Math.floor(v / 100), pct: v >= 500 ? 100 : v % 100 }; }),
         ach: ach,
-        bp: {
-            lvl: bpLvl, exp: (d.bpExp || 0) % BP_STEP, need: BP_STEP,
-            rewards: BP.map(function (r) { return { lvl: r.lvl, text: r.money ? '$' + r.money.toLocaleString('en-US') : ITEMS[r.item].n + (r.c > 1 ? ' x' + r.c : ''), img: r.money ? 'money' : (BP_IMG[r.item] || 'money'), big: r.lvl % 5 === 0, claimed: d.bpClaimed.indexOf(r.lvl) >= 0, open: r.lvl <= bpLvl }; })
-        },
+        bp: bpPayload(d, bpLvl),
         shop: shop,
         lics: DON_LICS.map(function (l) { return { k: l.k, n: l.n, d: l.d, price: l.price, img: l.img, own: hasDoc(d, l.k) }; }),
         sims: global.PhoneSystem ? global.PhoneSystem.SIMS : [], topup: global.PhoneSystem ? global.PhoneSystem.TOPUP : [],
@@ -993,19 +1080,62 @@ mp.events.addCommand('givevip', function (p, full, id, k, days) {
     notify(t, 'ok', 'Вам выдан ' + VIPS[k].n + ' на ' + days + ' дн.');
 });
 
-mp.events.add('srv:menu:claim', function (p, lvl) {
+const bpBusy = {};
+mp.events.add('srv:menu:claim', async function (p, lvl, track) {
     lvl = Number(lvl);
-    const d = data(p);
-    const r = BP.find(function (x) { return x.lvl === lvl; });
-    if (!r || d.bpClaimed.indexOf(lvl) >= 0) return;
-    if (Math.floor((d.bpExp || 0) / BP_STEP) < lvl) return notify(p, 'error', 'Уровень ещё не открыт');
-    d.bpClaimed.push(lvl);
-    if (r.money) addMoney(p, r.money);
-    else addItem(p, r.item, r.c);
-    mark();
-    notify(p, 'ok', 'Награда получена: ' + rewardText(r));
+    const prem = track === 'p' || track === 'premium';
+    const d = bpSync(data(p));
+    const L = BPC.levels[lvl - 1];
+    const r = L && (prem ? L.premium : L.free);
+    const list = prem ? d.bpPC : d.bpClaimed;
+    if (!r || !r.type || list.indexOf(lvl) >= 0 || bpBusy[p.id]) return;
+    if (prem && !d.bpPrem) return notify(p, 'error', 'Награда доступна с премиум-пропуском');
+    if (bpLvlOf(d) < lvl) return notify(p, 'error', 'Уровень ещё не открыт');
+    bpBusy[p.id] = true;
+    try {
+        list.push(lvl); mark();
+        await bpGive(p, r);
+        notify(p, 'ok', 'Награда получена: ' + bpText(r));
+        if (global.SLog) { try { global.SLog.add('donate', { actor: p, action: 'bp_claim', details: BPC.seasonId + ' ур.' + lvl + (prem ? ' премиум' : '') + ': ' + bpText(r) }); } catch (e) {} }
+    } catch (e) { const i = list.indexOf(lvl); if (i >= 0) list.splice(i, 1); notify(p, 'error', e.message); }
+    finally { delete bpBusy[p.id]; }
     sendMenu(p);
 });
+mp.events.add('srv:bp:buy', function (p) {
+    const d = bpSync(data(p)), price = Number(BPC.price) || 0;
+    if (d.bpPrem) return notify(p, 'warn', 'Премиум-пропуск уже активен');
+    if ((d.coins || 0) < price) return notify(p, 'error', 'Недостаточно коинов: нужно ' + price + ' RC');
+    d.coins -= price; d.bpPrem = true; mark();
+    notify(p, 'ok', 'Премиум-пропуск активирован! Заберите все открытые награды');
+    sendMenu(p);
+});
+mp.events.add('srv:bp:level', function (p) {
+    const d = bpSync(data(p)), price = Number(BPC.levelPrice) || 0;
+    if (!price) return;
+    if (bpLvlOf(d) >= bpMax()) return notify(p, 'warn', 'Пропуск уже пройден до конца');
+    if ((d.coins || 0) < price) return notify(p, 'error', 'Недостаточно коинов: нужно ' + price + ' RC');
+    d.coins -= price;
+    d.bpExp = (bpLvlOf(d) + 1) * bpStep();
+    mark();
+    notify(p, 'ok', 'Уровень пропуска повышен до ' + bpLvlOf(d));
+    sendMenu(p);
+});
+mp.events.add('srv:bp:gift', function (p, sid) {
+    if (BPC.giftEnabled === false) return;
+    const d = bpSync(data(p)), price = Number(BPC.price) || 0;
+    sid = Number(sid);
+    const t = mp.players.toArray().find(function (x) { return accId(x) === sid || (!accId(x) && x.id === sid); }) || mp.players.at(sid);
+    if (!t || !accId(t)) return notify(p, 'error', 'Игрок с таким ID не в сети');
+    if (t === p) return notify(p, 'error', 'Себе можно просто купить пропуск');
+    const td = bpSync(data(t));
+    if (td.bpPrem) return notify(p, 'warn', 'У игрока уже есть премиум-пропуск');
+    if ((d.coins || 0) < price) return notify(p, 'error', 'Недостаточно коинов: нужно ' + price + ' RC');
+    d.coins -= price; td.bpPrem = true; mark();
+    notify(p, 'ok', 'Вы подарили премиум-пропуск игроку ' + t.name.replace(/_/g, ' '));
+    notify(t, 'ok', p.name.replace(/_/g, ' ') + ' подарил вам премиум-пропуск!');
+    sendMenu(p); sendMenu(t);
+});
+mp.events.addCommand('bpreload', function (p) { if (adminLvl(p) < 7) return; bpFetch(); p.outputChatBox('Настройки пропуска загружаются с сайта...'); });
 
 mp.events.add('srv:menu:report', function (p, text) {
     text = String(text || '').trim().slice(0, 300);

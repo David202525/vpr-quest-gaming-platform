@@ -252,7 +252,10 @@ mp.events.add('cef:menu:vip', function (k) { mp.events.callRemote('srv:menu:vip'
 mp.events.add('cef:menu:exchange', function (n) { mp.events.callRemote('srv:menu:exchange', n); });
 mp.events.add('cef:menu:pack', function () { mp.events.callRemote('srv:menu:pack'); });
 mp.events.add('cef:menu:homegps', function () { mp.events.callRemote('srv:menu:homegps'); });
-mp.events.add('cef:menu:claim', function (l) { mp.events.callRemote('srv:menu:claim', l); });
+mp.events.add('cef:menu:claim', function (l, t) { mp.events.callRemote('srv:menu:claim', l, t || 'f'); });
+mp.events.add('cef:bp:buy', function () { mp.events.callRemote('srv:bp:buy'); });
+mp.events.add('cef:bp:level', function () { mp.events.callRemote('srv:bp:level'); });
+mp.events.add('cef:bp:gift', function (id) { mp.events.callRemote('srv:bp:gift', Number(id)); });
 mp.events.add('cef:menu:report', function (t) { mp.events.callRemote('srv:menu:report', t); });
 mp.events.add('cef:phone:sms', function (to, t) { mp.events.callRemote('srv:phone:sms', to, t); });
 mp.events.add('cef:phone:contact', function (json) { mp.events.callRemote('srv:phone:contact', json); });

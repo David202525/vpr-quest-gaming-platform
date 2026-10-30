@@ -24,7 +24,7 @@ function emptyMenu() {
         name: 'Игрок', id: 0, number: '—', gender: '—', created: '—', faction: 'Нет', family: 'Нет',
         lvl: 1, exp: 0, need: 75, hours: 0, money: 0, bank: 0, vehicles: [],
         skills: [{ n: 'Стрельба', lvl: 0, pct: 0 }, { n: 'Вождение', lvl: 0, pct: 0 }, { n: 'Выносливость', lvl: 0, pct: 0 }, { n: 'Выживание', lvl: 0, pct: 0 }],
-        ach: [], bp: { lvl: 0, exp: 0, need: 30, rewards: [] }, shop: [], offline: true
+        ach: [], bp: { lvl: 0, max: 30, exp: 0, need: 30, levels: [], price: 0, prem: false }, shop: [], offline: true
     };
 }
 var MEM = {};
@@ -81,7 +81,7 @@ function fill(d, def) {
 }
 window.uiData = function (kind, d) {
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
-    if (kind === 'menu') { d = fill(d, emptyMenu()); d.offline = false; d.name = String(d.name); d.bp = fill(d.bp, { lvl: 0, exp: 0, need: 30, rewards: [] }); }
+    if (kind === 'menu') { d = fill(d, emptyMenu()); d.offline = false; d.name = String(d.name); d.bp = fill(d.bp, { lvl: 0, max: 30, exp: 0, need: 30, levels: [], price: 0, prem: false }); }
     if (kind === 'inv') { d = fill(d, emptyInv()); d.offline = false; d.side = fill(d.side, emptyInv().side); }
     if (kind === 'phone') { d = fill(d, { number: '—', name: '—', money: 0, bank: 0, contacts: [], sms: [], online: [], gps: [], pbal: 0 }); if (d.call) setTimeout(function () { window.phoneCall(d.call); }, 0); }
     DATA[kind] = d;
@@ -833,19 +833,49 @@ window.simCheck = function (n, ok) {
     el.className = 'sim-ok ' + (ok ? 'y' : 'n');
 };
 
+var bpGiftOpen = false, bpScroll = 0;
+function bpSrc(u) { u = String(u || ''); return /^https?:/.test(u) ? u : u; }
+function bpCell(r, n, t) {
+    if (!r) return '<div class="wp-c empty"></div>';
+    var st = r.claimed ? 'got' : r.open ? 'open' : 'lock';
+    var act = r.claimed ? '<span class="wp-st">✓ Получено</span>' : r.open ? '<button class="wp-take" data-claim="' + n + '" data-track="' + t + '">Забрать</button>' : '<span class="wp-st">' + (t === 'p' && !DATA.menu.bp.prem ? '🔒 Премиум' : '🔒 Ур. ' + n) + '</span>';
+    return '<div class="wp-c ' + st + (r.rare ? ' r-' + r.rare : '') + '"><i class="wp-rar"></i><div class="wp-im"><img src="' + esc(bpSrc(r.img)) + '" onerror="this.style.opacity=0"></div><b>' + esc(r.text) + '</b>' + act + '</div>';
+}
 function menuBp(d) {
-    var bp = d.bp, pct = bp.lvl >= 30 ? 100 : bp.exp / bp.need * 100;
-    var ready = bp.rewards.filter(function (r) { return r.open && !r.claimed; }).length;
-    return '<div class="bp2-hero" style="background-image:linear-gradient(90deg,rgba(12,22,14,.95) 25%,rgba(12,22,14,.3)),url(img/banner.jpg)">' +
-        '<div class="bp2-lvl"><small>УРОВЕНЬ</small><b>' + bp.lvl + '</b><small>из 30</small></div>' +
-        '<div class="bp2-info"><span class="dn-tag g">СЕЗОН 1</span><h2>Battle Pass</h2><p>Каждые ' + bp.need + ' минут игры — новый уровень. VIP ускоряет прогресс.</p>' +
-        '<div class="bp2-bar"><i style="width:' + pct + '%"></i></div><small>' + (bp.lvl >= 30 ? 'Сезон пройден!' : bp.exp + ' / ' + bp.need + ' мин до ' + (bp.lvl + 1) + ' уровня') + '</small></div>' +
-        (ready ? '<div class="bp2-ready">🎁 Доступно наград: <b>' + ready + '</b></div>' : '') + '</div>' +
-        '<div class="bp2-track">' + bp.rewards.map(function (r) {
-            var st = r.claimed ? 'got' : r.open ? 'open' : 'lock';
-            var btn = r.claimed ? '<span class="st">✓ Получено</span>' : r.open ? '<button data-claim="' + r.lvl + '">Забрать</button>' : '<span class="st">🔒 Ур. ' + r.lvl + '</span>';
-            return '<div class="bp2 ' + st + (r.big ? ' big' : '') + '"><span class="bp2-n">' + r.lvl + '</span><div class="bp2-img"><img src="img/bp_' + r.img + '.jpg"></div><b>' + esc(r.text) + '</b>' + btn + '</div>';
-        }).join('') + '</div>';
+    var bp = d.bp, pct = bp.lvl >= bp.max ? 100 : bp.exp / bp.need * 100;
+    var ready = bp.levels.filter(function (L) { return (L.free && L.free.open && !L.free.claimed) || (L.premium && L.premium.open && !L.premium.claimed); }).length;
+    var desc = '<div class="wp-desc"><small>Описание</small><p>' + esc(bp.desc || '') + '</p></div>';
+    var buy = bp.prem ? '<div class="wp-own">❄ Премиум-пропуск активен</div>' :
+        '<div class="wp-price"><span class="wp-a">A</span>' + Number(bp.price).toLocaleString('ru-RU') + '<small>RC</small></div><button class="wp-btn main" data-bpbuy="1">🛒 Оформить пропуск</button>';
+    var gift = bp.gift ? (bpGiftOpen ? '<div class="wp-gift"><input id="bpGiftId" placeholder="ID игрока" inputmode="numeric"><button class="wp-btn" data-bpgiftok="1">Подарить за ' + bp.price + ' RC</button><button class="wp-x" data-bpgift="0">✕</button></div>' : '<button class="wp-btn" data-bpgift="1">🎁 Подарить другу</button>') : '';
+    var lvlBtn = bp.lvlPrice && bp.lvl < bp.max ? '<button class="wp-btn ico" data-bplevel="1" title="Купить уровень за ' + bp.lvlPrice + ' RC">+1 ур.<small>' + bp.lvlPrice + ' RC</small></button>' : '';
+    var hero = '<div class="wp-hero" style="background-image:url(' + esc(bpSrc(bp.bg)) + ')">' +
+        '<div class="wp-snow"></div>' +
+        '<h1 class="wp-t1">' + esc(bp.title1 || '') + '</h1><h1 class="wp-t2">' + esc(bp.title2 || '') + '</h1>' +
+        '<div class="wp-ed"><span>' + esc(bp.edition || '') + '</span></div>' +
+        '<div class="wp-bottom">' + desc + '<div class="wp-actions">' + buy + gift + lvlBtn + '</div></div></div>';
+    var info = '<div class="wp-info"><div class="wp-lvl"><b>' + bp.lvl + '</b><small>из ' + bp.max + '</small></div>' +
+        '<div class="wp-prog"><div class="wp-bar"><i style="width:' + pct + '%"></i></div><small>' + (bp.lvl >= bp.max ? 'Пропуск пройден!' : bp.exp + ' / ' + bp.need + ' мин до ' + (bp.lvl + 1) + ' уровня · VIP ускоряет прогресс') + '</small></div>' +
+        (bp.ends ? '<div class="wp-chip">До конца сезона: <b>' + bp.ends + ' дн.</b></div>' : '') +
+        (ready ? '<div class="wp-chip hot">🎁 Доступно наград: <b>' + ready + '</b></div>' : '') +
+        '<div class="wp-chip">Баланс: <b>' + (d.coins || 0) + ' RC</b></div></div>';
+    var cols = bp.levels.map(function (L) {
+        return '<div class="wp-col' + (L.lvl <= bp.lvl ? ' done' : '') + '">' + bpCell(L.free, L.lvl, 'f') + bpCell(L.premium, L.lvl, 'p') +
+            '<div class="wp-num"><span>' + (L.lvl < 10 ? '0' : '') + L.lvl + '</span></div></div>';
+    }).join('');
+    var track = '<div class="wp-track"><div class="wp-labels"><div class="wp-lab"><i>✓</i><span>Обычный</span></div><div class="wp-lab p' + (bp.prem ? ' on' : '') + '"><i>' + (bp.prem ? '✓' : '🔒') + '</i><span>Премиум</span></div></div>' +
+        '<button class="wp-nav l" data-bpnav="-1">‹</button><div class="wp-scroll" id="bpScroll">' + cols + '</div><button class="wp-nav r" data-bpnav="1">›</button></div>';
+    return '<div class="wp">' + hero + info + track + '</div>';
+}
+function bindBp() {
+    var b = $('mBody');
+    var sc = document.getElementById('bpScroll');
+    if (sc) { sc.scrollLeft = bpScroll; sc.onscroll = function () { bpScroll = sc.scrollLeft; }; sc.onwheel = function (e) { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { sc.scrollLeft += e.deltaY; e.preventDefault(); } }; }
+    b.querySelectorAll('[data-bpnav]').forEach(function (x) { x.onclick = function () { if (sc) sc.scrollBy({ left: Number(x.dataset.bpnav) * 600, behavior: 'smooth' }); }; });
+    b.querySelectorAll('[data-bpbuy]').forEach(function (x) { x.onclick = function () { trig('cef:bp:buy'); }; });
+    b.querySelectorAll('[data-bplevel]').forEach(function (x) { x.onclick = function () { trig('cef:bp:level'); }; });
+    b.querySelectorAll('[data-bpgift]').forEach(function (x) { x.onclick = function () { bpGiftOpen = x.dataset.bpgift === '1'; renderMenu(); var i = document.getElementById('bpGiftId'); if (i) i.focus(); }; });
+    b.querySelectorAll('[data-bpgiftok]').forEach(function (x) { x.onclick = function () { var v = Number((document.getElementById('bpGiftId') || {}).value); if (v >= 0 && String(v) !== 'NaN') { trig('cef:bp:gift', v); bpGiftOpen = false; } }; });
 }
 
 var KB_DEF = { cuff: 85, escort: 74, car: 75 };
@@ -906,7 +936,8 @@ function bindMenu() {
     var ei = b.querySelector('#exIn');
     if (ei) ei.onchange = function () { exN = Math.max(1, Math.floor(Number(ei.value) || 1)); renderMenu(); };
     b.querySelectorAll('[data-ex]').forEach(function (x) { x.onclick = function () { trig('cef:menu:exchange', exN); }; });
-    b.querySelectorAll('[data-claim]').forEach(function (x) { x.onclick = function () { trig('cef:menu:claim', Number(x.dataset.claim)); }; });
+    b.querySelectorAll('[data-claim]').forEach(function (x) { x.onclick = function () { trig('cef:menu:claim', Number(x.dataset.claim), x.dataset.track || 'f'); }; });
+    bindBp();
     b.querySelectorAll('[data-lic]').forEach(function (x) { x.onclick = function () { trig('cef:menu:lic', x.dataset.lic); }; });
     b.querySelectorAll('[data-sim]').forEach(function (x) { x.onclick = function () { var inp = b.querySelector('#simIn'); trig('cef:sim:buy', x.dataset.sim, x.dataset.sim === 'custom' && inp ? inp.value.trim() : ''); }; });
     b.querySelectorAll('[data-top]').forEach(function (x) { x.onclick = function () { trig('cef:sim:topup', Number(x.dataset.top)); }; });

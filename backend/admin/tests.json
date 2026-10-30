@@ -16,7 +16,35 @@
       "name": "Добавление без прав запрещено",
       "method": "POST",
       "path": "/?action=add-question",
-      "body": {"topic": "frac", "text": "test", "options": ["a", "b"], "right": 0},
+      "body": {
+        "topic": "frac",
+        "text": "test",
+        "options": [
+          "a",
+          "b"
+        ],
+        "right": 0
+      },
+      "expectedStatus": 403
+    },
+    {
+      "name": "Пропуск: настройки",
+      "method": "GET",
+      "path": "/?bp=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "config": {}
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Пропуск: неверный пароль",
+      "method": "POST",
+      "path": "/?bp=1",
+      "body": {
+        "action": "login",
+        "password": "wrong-xyz"
+      },
       "expectedStatus": 403
     }
   ]
