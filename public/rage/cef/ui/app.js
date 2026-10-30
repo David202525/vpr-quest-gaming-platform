@@ -1585,8 +1585,10 @@ function rlRender() {
         html += '<div class="rl-f">' + BK.map(function (f) { return '<button class="' + (RL.bf === f[0] ? 'on' : '') + '" data-rbf="' + f[0] + '">' + esc(f[1]) + '</button>'; }).join('') + '</div>' +
             '<div class="rl-msg">Оплата с банковской карты (на карте ' + money(d.bank) + '). После покупки управляйте бизнесом у его точки — клавиша E.</div>' +
             '<div class="rl-list">' + (bl.length ? bl.map(function (b) {
-                return '<div class="rl-c"><div class="rl-ct"><b>' + b.i + ' ' + esc(b.n) + '</b><span class="rl-p">' + money(b.price) + '</span></div><small>' + esc(b.kn) + ' · ' + (b.d > 1000 ? (b.d / 1000).toFixed(1) + ' км' : b.d + ' м') + ' от вас</small>' +
-                    '<div class="rl-b"><button class="btn ghost" data-rbg="' + b.kind + ':' + b.id + '">📍 Показать</button><button class="btn" data-rbb="' + b.kind + ':' + b.id + '"' + (d.bank < b.price ? ' disabled' : '') + '>Купить</button></div></div>';
+                var BC = { fuel: '#ff9f1c', shop: '#2fbf6a', gun: '#e5333d', atm: '#3fa9ff' }[b.kind] || '#8a8f99';
+                return '<div class="rl-hc"><div class="rl-img" style="background-image:url(img/b_' + b.kind + '.jpg)"><span class="rl-cls" style="--cc:' + BC + '">' + b.i + ' ' + esc(b.kn) + '</span><span class="rl-pr">' + money(b.price) + '</span></div>' +
+                    '<div class="rl-hb"><b>' + esc(b.n) + '</b><small>' + esc(b.kn) + ' · ' + (b.d > 1000 ? (b.d / 1000).toFixed(1) + ' км' : b.d + ' м') + ' от вас</small>' +
+                    '<div class="rl-b"><button class="btn ghost" data-rbg="' + b.kind + ':' + b.id + '">📍 Показать</button><button class="btn" data-rbb="' + b.kind + ':' + b.id + '"' + (d.bank < b.price ? ' disabled' : '') + '>Купить</button></div></div></div>';
             }).join('') : '<div class="empty-t">Свободных бизнесов нет</div>') + '</div>';
     } else if (RL.tab === 'auc') {
         var el = Date.now() - d.at;

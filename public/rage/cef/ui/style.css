@@ -2469,3 +2469,12 @@ body.streamer .tile.hello h2, body.streamer .t-kv b, body.streamer .t-big, body.
 .rl-hb{padding:12px}
 .rl-hb b{font-size:15px}
 .rl-hb small{display:block;font-size:11px;color:#9a9aa6;margin:3px 0 10px}
+
+.rl-box{scrollbar-width:thin;scrollbar-color:#ffc400 transparent}
+.rl-box::-webkit-scrollbar{width:8px}
+.rl-box::-webkit-scrollbar-track{background:rgba(255,255,255,.03);border-radius:8px;margin:14px 0}
+.rl-box::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#ffc400,#ff7a1a);border-radius:8px;border:2px solid #16161c}
+.rl-box::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#ffd64d,#ff9040)}
+.rl-box::-webkit-scrollbar-button{display:none;height:0}
+.rl-box .gps-tabs{grid-template-columns:repeat(4,1fr)}
+.rl-list{display:flex;flex-direction:column;gap:12px}

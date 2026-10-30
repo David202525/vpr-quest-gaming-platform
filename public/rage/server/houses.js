@@ -57,6 +57,35 @@ if (!D || !Array.isArray(D.houses)) {
     DEF.forEach(function (h) { D.houses.push({ id: D.seq++, n: h[0], x: h[1], y: h[2], z: h[3], h: 0, int: h[4], price: h[5], owner: 0, on: '', locked: true }); });
     FLATS.forEach(function (b) { for (let i = 1; i <= b[6]; i++) D.houses.push({ id: D.seq++, n: b[0] + ', кв. ' + i, x: b[1], y: b[2], z: b[3], h: 0, int: b[4], price: b[5] + i * 10000, owner: 0, on: '', locked: true, flat: 1 }); });
 }
+const EXTRA = [
+    ['Forum Drive, 14', -64.5, -1449.6, 32.5, 'low'], ['Forum Drive, 15', -45.4, -1445.6, 32.4, 'low'], ['Forum Drive, 16', -32.5, -1446.5, 31.9, 'low'],
+    ['Brouge Ave, 1', 198.1, -1725.6, 29.7, 'low'], ['Brouge Ave, 2', 216.5, -1717.4, 29.7, 'low'], ['Brouge Ave, 3', 223.0, -1703.2, 29.7, 'low'],
+    ['Covenant Ave, 1', 250.4, -1730.9, 29.7, 'low'], ['Covenant Ave, 2', 257.3, -1723.0, 29.7, 'low'], ['Covenant Ave, 3', 269.6, -1712.9, 29.7, 'low'],
+    ['Sandy Shores, 4', 1435.0, 3657.0, 34.4, 'low'], ['Sandy Shores, 5', 1532.7, 3721.9, 34.9, 'trailer'], ['Sandy Shores, 6', 1661.3, 3820.0, 35.4, 'trailer'],
+    ['Sandy Shores, 7', 1777.0, 3738.0, 34.6, 'low'], ['Sandy Shores, 8', 1691.0, 3866.0, 34.9, 'trailer'],
+    ['Grapeseed, 1', 1662.0, 4776.0, 42.0, 'low'], ['Grapeseed, 2', 1724.0, 4642.0, 43.9, 'low'],
+    ['Paleto Bay, 5', -360.2, 6260.5, 31.9, 'low'], ['Paleto Bay, 6', -302.1, 6326.9, 32.9, 'low'], ['Paleto Bay, 7', -280.2, 6350.5, 32.6, 'low'],
+    ['Paleto Bay, 8', -247.5, 6370.2, 31.8, 'med'], ['Paleto Bay, 9', -227.2, 6377.6, 31.8, 'med'], ['Paleto Bay, 10', -9.3, 6653.7, 31.5, 'med'],
+    ['Paleto Bay, 11', 31.0, 6596.6, 32.8, 'med'], ['Paleto Bay, 12', -41.7, 6637.4, 31.1, 'med'],
+    ['Nikola Place, 1', 1301.0, -574.0, 71.7, 'med'], ['Nikola Place, 2', 1323.4, -583.0, 73.2, 'med'], ['Nikola Place, 3', 1341.4, -597.4, 74.7, 'med'],
+    ['Nikola Place, 4', 1367.3, -606.3, 74.7, 'med'], ['Nikola Place, 5', 1385.9, -593.3, 74.5, 'med'], ['Nikola Place, 6', 1388.8, -570.0, 74.5, 'med'],
+    ['Nikola Place, 7', 1372.9, -555.6, 74.7, 'med'],
+    ['Great Ocean Hwy, 1', -3093.6, 349.5, 7.5, 'hill3'], ['Great Ocean Hwy, 2', -3088.6, 392.3, 11.4, 'hill4'], ['Great Ocean Hwy, 3', -3031.4, 525.1, 7.4, 'hill5'],
+    ['Richman, 1', -1452.7, 545.2, 120.8, 'hill1'], ['Richman, 2', -1405.5, 526.8, 123.8, 'hill2'], ['Richman, 3', -1500.4, 523.3, 118.2, 'hill3'],
+    ['Richman, 4', -1277.6, 497.0, 97.9, 'hill4'], ['Richman, 5', -1215.9, 458.2, 92.0, 'hill5'], ['Richman, 6', -1174.6, 440.1, 86.8, 'hill1'],
+    ['Vinewood Hills, 1', -762.3, 431.4, 100.2, 'hill2'], ['Vinewood Hills, 2', -824.0, 422.8, 92.1, 'hill3'], ['Vinewood Hills, 3', -848.7, 508.6, 90.8, 'hill4'],
+    ['Vinewood Hills, 4', -884.3, 517.9, 92.4, 'hill5'], ['Vinewood Hills, 5', -905.3, 587.5, 101.0, 'hill1'], ['Vinewood Hills, 6', -924.7, 561.4, 100.2, 'hill2'],
+    ['Vinewood Hills, 7', -1022.6, 587.4, 103.4, 'hill3'], ['Vinewood Hills, 8', -1107.6, 594.5, 104.5, 'hill4'], ['Vinewood Hills, 9', -1125.4, 548.6, 102.6, 'hill5'],
+    ['Vinewood Hills, 10', -1193.2, 563.8, 100.3, 'hill1'],
+    ['Rockford Hills, 1', -1896.4, 642.3, 130.2, 'hill2'], ['Rockford Hills, 2', -1928.6, 595.4, 122.3, 'hill3'], ['Rockford Hills, 3', -1974.7, 630.9, 122.5, 'hill4'],
+    ['Rockford Hills, 4', -1995.3, 591.0, 118.1, 'hill5']
+];
+(function () {
+    const have = {}; D.houses.forEach(function (h) { have[h.n] = 1; });
+    let add = 0;
+    EXTRA.forEach(function (e) { if (have[e[0]]) return; D.houses.push({ id: D.seq++, n: e[0], x: e[1], y: e[2], z: e[3], h: 0, int: e[4], price: 0, owner: 0, on: '', locked: true }); add++; });
+    if (add) console.log('[houses] добавлено новых домов: ' + add);
+})();
 const CLASS_PRICE = { trailer: [25000, 30000], low: [40000, 55000], med: [90000, 140000], apt: [180000, 260000], hill: [320000, 450000] };
 function classOf(k) { return /^hill/.test(k) ? 'hill' : (CLASS_PRICE[k] ? k : 'low'); }
 function classPrice(h) {
@@ -237,7 +266,7 @@ mp.events.addCommand('addhouse', function (p, full) {
     const a = String(full || '').trim().split(/\s+/);
     const price = Math.floor(Number(a[0])), int = a[1], name = a.slice(2).join(' ');
     if (!(price > 0) || !INTS[int] || !name) return p.outputChatBox('!{#ffcc66}/addhouse [цена] [' + Object.keys(INTS).join('/') + '] [название] — встаньте у двери');
-    D.houses.push({ id: D.seq++, n: name.slice(0, 48), x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, int: int, price: price, owner: 0, on: '', locked: true });
+    D.houses.push({ id: D.seq++, n: name.slice(0, 48), x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, int: int, price: price, customPrice: 1, owner: 0, on: '', locked: true });
     dirty = true; broadcastList();
     p.outputChatBox('!{#8fd14f}Дом «' + name + '» добавлен (#' + (D.seq - 1) + ')');
 });
