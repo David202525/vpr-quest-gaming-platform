@@ -1218,7 +1218,7 @@ mp.events.add('playerQuit', function (p) { delete tzAt[p.id]; });
 
 /* ================= МЭРИЯ: ПАСПОРТНЫЙ СТОЛ ================= */
 const PASS_FEE = 100, PASS_REPLACE = 500;
-function clerkPos() { const x = G.fac.gov; return (x && x.points && x.points.clerk) || [-75.85, -823.2, 243.39, 180]; }
+function clerkPos() { const x = G.fac.gov; return (x && x.points && x.points.clerk) || [-552.9, -190.83, 38.22, 26]; }
 function cityDim() { return global.HouseSystem && global.HouseSystem.facDim ? global.HouseSystem.facDim('gov') : -1; }
 let clerkPed = null;
 function spawnClerk() {
@@ -1260,7 +1260,7 @@ mp.events.add('srv:gov:passport', function (p) {
 mp.events.add('playerQuit', function (p) { delete passWait[p.id]; delete passAsk[p.id]; });
 mp.events.addCommand('govclerk', function (p) {
     if (admLvl(p) < 7) return;
-    if (p.dimension !== cityDim()) return p.outputChatBox('!{#ffcc66}Зайдите в мэрию и встаньте на место сотрудника паспортного стола');
+    if (p.dimension !== cityDim()) return p.outputChatBox('!{#ffcc66}Встаньте у стойки в мэрии на место сотрудника паспортного стола');
     const x = F('gov');
     if (!x.points) x.points = { spawns: [] };
     x.points.clerk = [p.position.x, p.position.y, p.position.z, p.heading || 0];

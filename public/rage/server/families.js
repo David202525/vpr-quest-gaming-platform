@@ -38,7 +38,7 @@ setInterval(function () { mp.players.forEach(function (p) { if (p.account) syncP
 
 /* ---------- NPC в мэрии ---------- */
 function cityDim() { return global.HouseSystem && global.HouseSystem.facDim ? global.HouseSystem.facDim('gov') : -1; }
-function npcPos() { return D.npc || [-72.6, -823.2, 243.39, 180]; }
+function npcPos() { return D.npc || [-549.75, -189.29, 38.22, 26]; }
 let ped = null;
 function spawnNpc() {
     try { if (ped && mp.peds.exists(ped)) ped.destroy(); } catch (e) {}
@@ -167,7 +167,7 @@ mp.events.addCommand('fbank', function (p, full) {
 mp.events.addCommand('fmenu', function (p) { if (!famP(p)) return notify(p, 'warn', 'Вы не состоите в семье. Создать — у регистратора в мэрии'); openUI(p); });
 mp.events.addCommand('famnpc', function (p) {
     if (admLvl(p) < 7) return;
-    if (p.dimension !== cityDim()) return p.outputChatBox('!{#ffcc66}Зайдите в мэрию и встаньте на место регистратора');
+    if (p.dimension !== cityDim()) return p.outputChatBox('!{#ffcc66}Встаньте у стойки в мэрии на место регистратора');
     D.npc = [p.position.x, p.position.y, p.position.z, p.heading || 0]; mark();
     spawnNpc(); mp.players.forEach(sendNpc);
     p.outputChatBox('!{#8fd14f}Место регистратора семей сохранено. Отойдите — NPC появится здесь');
