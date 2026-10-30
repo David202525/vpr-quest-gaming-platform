@@ -170,3 +170,59 @@ setInterval(function () {
         if (mp.game.system.vdist(pos.x, pos.y, pos.z, realtyPt.x, realtyPt.y, realtyPt.z) > 5) realtyClose();
     }
 }, 1000);
+
+/* ---------- гараж дома ---------- */
+var hG = [], hGNear = null, hGHint = '', hGBlips = [];
+var HGS = { walk: [240.6, -1004.8, -99.0], drive: [228.6, -1004.2, -99.0] };
+var HGL = { walk: [970.84, -2992.6, -39.65], drive: [994.6, -3002.3, -39.65] };
+function hgI(g) { return g[6] ? HGL : HGS; }
+mp.events.add('house:garages', function (j) {
+    try { hG = JSON.parse(j) || []; } catch (e) { hG = []; }
+    hGBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
+    hGBlips = hG.map(function (g) { try { return mp.blips.new(357, new mp.Vector3(g[1], g[2], g[3]), { name: 'Гараж дома (' + g[4] + ' мест)', color: 3, shortRange: true, scale: 0.75, dimension: 0 }); } catch (e) { return null; } });
+    if (hG.some(function (g) { return g[6]; })) {
+        try {
+            mp.game.streaming.requestIpl('imp_impexp_interior_placement_interior_1_impexp_intwaremed_milo_');
+            var id = mp.game.interior.getInteriorAtCoords(970.0, -3000.0, -40.0);
+            if (id) { ['garage_decor_01', 'lighting_option01', 'numbering_style01_n1', 'pump_01'].forEach(function (e) { try { mp.game.interior.enableInteriorProp(id, e); } catch (x) {} }); mp.game.interior.refreshInterior(id); }
+        } catch (e) {}
+    }
+});
+setInterval(function () {
+    var me = mp.players.local, pos = me.position, n = null;
+    hG.forEach(function (g) {
+        var I = hgI(g);
+        if (me.dimension === 0 && mp.game.system.vdist(pos.x, pos.y, pos.z, g[1], g[2], g[3]) < (me.vehicle ? 5 : 2.5)) n = { g: g, k: 'in' };
+        else if (me.dimension === g[5]) {
+            if (me.vehicle) n = mp.game.system.vdist(pos.x, pos.y, pos.z, I.drive[0], I.drive[1], I.drive[2]) < 5 ? { g: g, k: 'out' } : { g: g, k: 'park' };
+            else if (mp.game.system.vdist(pos.x, pos.y, pos.z, I.walk[0], I.walk[1], I.walk[2]) < 2.5) n = { g: g, k: 'out' };
+        }
+    });
+    hGNear = n;
+    var t = !n || n.k === 'park' ? '' : n.k === 'in' ? (me.vehicle ? 'E — заехать в гараж дома' : 'E — войти в гараж дома (' + n.g[4] + ' мест)') : (me.vehicle ? 'E — выехать из гаража' : 'E — выйти на улицу');
+    if (t && t !== hGHint) mp.events.call('hud:notify', 'ok', t, 2500);
+    hGHint = t;
+}, 400);
+mp.events.add('render', function () {
+    var me = mp.players.local, pos = me.position;
+    hG.forEach(function (g) {
+        var I = hgI(g);
+        if (me.dimension === g[5]) {
+            mp.game.graphics.drawMarker(1, I.walk[0], I.walk[1], I.walk[2] - 1, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 0.35, 255, 255, 255, 110, false, false, 2, false, null, null, false);
+            mp.game.graphics.drawMarker(1, I.drive[0], I.drive[1], I.drive[2] - 1, 0, 0, 0, 0, 0, 0, 4.0, 4.0, 0.5, 80, 170, 255, 90, false, false, 2, false, null, null, false);
+            if (me.vehicle && !(hGNear && hGNear.k === 'out')) mp.game.graphics.drawText('E — поставить машину на свободное место', [0.5, 0.9], { font: 4, color: [255, 255, 255, 200], scale: [0.36, 0.36], outline: true, centre: true });
+            return;
+        }
+        if (me.dimension !== 0) return;
+        var dx = pos.x - g[1], dy = pos.y - g[2], d2 = dx * dx + dy * dy;
+        if (d2 > 2500) return;
+        mp.game.graphics.drawMarker(36, g[1], g[2], g[3] + 0.6, 0, 0, 0, 0, 0, 0, 1.2, 1.2, 1.2, 80, 170, 255, 190, true, true, 2, false, null, null, false);
+        mp.game.graphics.drawMarker(1, g[1], g[2], g[3] - 1, 0, 0, 0, 0, 0, 0, 4.0, 4.0, 0.4, 80, 170, 255, 70, false, false, 2, false, null, null, false);
+        if (d2 < 100) mp.game.graphics.drawText('Гараж дома · ' + g[4] + ' мест', [g[1], g[2], g[3] + 1.6], { font: 4, color: [160, 210, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
+    });
+});
+mp.keys.bind(0x45, false, function () {
+    if (!hGNear || hBusy() || mp.gui.cursor.visible) return;
+    if (hGNear.k === 'park') mp.events.callRemote('srv:hgar:park');
+    else mp.events.callRemote('srv:hgar:use', hGNear.g[0]);
+});

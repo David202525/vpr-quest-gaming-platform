@@ -1221,8 +1221,9 @@ function saveVeh(v) {
     if (!v || !mp.vehicles.exists(v) || !v.dbId) return;
     saveWear(v);
     const pos = v.position;
-    q('UPDATE vehicles SET pos_x = ?, pos_y = ?, pos_z = ?, heading = ?, fuel = ?, locked = ?, fuel_type = ? WHERE id = ?',
-        [pos.x, pos.y, pos.z, v.heading || 0, Math.round(fuelOf(v)), v.locked ? 1 : 0, v.getVariable('fuelType') || 'ai92', v.dbId]);
+    const dm = v.dimension === 0 || (v.dimension >= 80000 && v.dimension < 90000) ? v.dimension : 0;
+    q('UPDATE vehicles SET pos_x = ?, pos_y = ?, pos_z = ?, heading = ?, fuel = ?, locked = ?, fuel_type = ?, dimension = ? WHERE id = ?',
+        [pos.x, pos.y, pos.z, v.heading || 0, Math.round(fuelOf(v)), v.locked ? 1 : 0, v.getVariable('fuelType') || 'ai92', dm, v.dbId]);
 }
 function saveWear(v) {
     if (!v || !mp.vehicles.exists(v) || !v.dbId) return;

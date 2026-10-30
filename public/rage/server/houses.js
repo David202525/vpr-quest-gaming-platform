@@ -179,6 +179,7 @@ mp.events.add('srv:house:act', function (p, act, id) {
         if (global.Realty && global.Realty.locked('house', h.id)) return notify(p, 'error', 'Жильё выставлено на аукцион — продать государству нельзя');
         const back = Math.round(h.price * SELL_BACK);
         mp.players.forEach(function (x) { if (x.dimension === DIM_HOUSE + h.id) { x.dimension = 0; x.position = V(h.x, h.y, h.z); } });
+        hgEvict(h);
         h.owner = 0; h.on = ''; h.locked = true; dirty = true;
         if (M()) M().addBank(p, back);
         notify(p, 'ok', 'Дом продан государству. На счёт зачислено ' + money(back));
@@ -297,7 +298,7 @@ mp.events.addCommand('hprice', function (p, full) {
 mp.events.addCommand('houseinfo', function (p) {
     if (!adm(p, 3)) return;
     const h = D.houses.slice().sort(function (a, b) { return Math.hypot(p.position.x - a.x, p.position.y - a.y) - Math.hypot(p.position.x - b.x, p.position.y - b.y); })[0];
-    if (h) p.outputChatBox('!{#7fd4ff}#' + h.id + ' ' + h.n + ' · ' + money(h.price) + ' · интерьер ' + h.int + ' · владелец: ' + (h.on || 'нет'));
+    if (h) p.outputChatBox('!{#7fd4ff}#' + h.id + ' ' + h.n + ' · ' + money(h.price) + ' · интерьер ' + h.int + ' · гараж: ' + (h.gar ? hgCap(h) + ' мест' : 'нет') + ' · владелец: ' + (h.on || 'нет'));
 });
 mp.events.addCommand('setint', function (p, full) {
     if (!adm(p, 7)) return;
@@ -322,6 +323,106 @@ mp.events.addCommand('facdoor', function (p, full) {
 });
 
 
+/* ---------- гаражи домов ---------- */
+const DIM_HG = 80000;
+const HG_S = {
+    walk: [240.6, -1004.8, -99.0, 90], drive: [228.6, -1004.2, -99.0, 180], arrive: [228.6, -996.5, -99.0, 0],
+    spots: [[223.4, -981.5, -99.4, 240], [233.6, -981.5, -99.4, 120], [223.4, -986.5, -99.4, 240], [233.6, -986.5, -99.4, 120],
+        [223.4, -991.5, -99.4, 240], [233.6, -991.5, -99.4, 120], [223.4, -996.5, -99.4, 240], [233.6, -996.5, -99.4, 120]]
+};
+const HG_L = {
+    walk: [970.84, -2992.6, -39.65, 180], drive: [994.6, -3002.3, -39.65, 0], arrive: [994.6, -2997.0, -39.65, 0],
+    spots: [[956.1, -2992.0, -39.6, 270], [956.1, -2996.2, -39.6, 270], [956.1, -3000.4, -39.6, 270], [956.1, -3004.6, -39.6, 270], [956.1, -3008.8, -39.6, 270],
+        [968.0, -3008.8, -39.6, 0], [972.5, -3008.8, -39.6, 0], [977.0, -3008.8, -39.6, 0], [981.5, -3008.8, -39.6, 0],
+        [986.0, -2992.0, -39.6, 90], [986.0, -2996.2, -39.6, 90], [986.0, -3000.4, -39.6, 90], [986.0, -3004.6, -39.6, 90], [986.0, -3008.8, -39.6, 90]]
+};
+function hgI(h) { return h.gar && h.gar.cap > 8 ? HG_L : HG_S; }
+function hgDim(h) { return DIM_HG + h.id; }
+function hgCap(h) { return h.gar ? Math.min(h.gar.cap, hgI(h).spots.length) : 0; }
+function VSt() { return global.VehStore; }
+function hgVehs(h) { const d = hgDim(h); return mp.vehicles.toArray().filter(function (v) { return v.dimension === d; }); }
+function hgFree(h, except) {
+    const d = hgDim(h);
+    return hgI(h).spots.slice(0, hgCap(h)).find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v !== except && v.dimension === d && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 2.4; }); }) || null;
+}
+function hgMove(v, pos, dim) {
+    const occ = mp.players.toArray().filter(function (o) { return o.vehicle === v; }).map(function (o) { return [o, o.seat]; });
+    v.dimension = dim;
+    v.position = V(pos[0], pos[1], pos[2] + 0.4);
+    try { v.rotation = new mp.Vector3(0, 0, pos[3] || 0); } catch (e) {}
+    occ.forEach(function (x) { x[0].dimension = dim; setTimeout(function () { if (mp.players.exists(x[0]) && mp.vehicles.exists(v)) try { x[0].putIntoVehicle(v, x[1]); } catch (e) {} }, 250); });
+    const U = VSt();
+    if (v.dbId && U && U.q) { U.q('UPDATE vehicles SET dimension = ?, pos_x = ?, pos_y = ?, pos_z = ?, heading = ? WHERE id = ?', [dim, pos[0], pos[1], pos[2], pos[3] || 0, v.dbId]); }
+}
+function hgOut(h) { const g = h.gar, a = (g.h || 0) * Math.PI / 180; return [g.x - Math.sin(a) * 2, g.y + Math.cos(a) * 2, g.z, g.h || 0]; }
+function hgEvict(h) {
+    if (!h.gar) return;
+    const out = hgOut(h);
+    hgVehs(h).forEach(function (v, i) { hgMove(v, [out[0] + i * 3, out[1], out[2], out[3]], 0); });
+    const U = VSt();
+    if (U && U.q) U.q('UPDATE vehicles SET dimension = 0, pos_x = ?, pos_y = ?, pos_z = ? WHERE dimension = ?', [out[0], out[1], out[2], hgDim(h)]);
+    mp.players.forEach(function (x) { if (x.dimension === hgDim(h)) { if (x.vehicle) try { x.removeFromVehicle(); } catch (e) {} x.dimension = 0; x.position = V(h.gar.x, h.gar.y, h.gar.z); x.call('house:inside', ['']); } });
+}
+function hgList(p) { const h = mine(p); return h && h.gar ? [[h.id, Math.round(h.gar.x * 100) / 100, Math.round(h.gar.y * 100) / 100, Math.round(h.gar.z * 100) / 100, hgCap(h), hgDim(h), h.gar.cap > 8 ? 1 : 0]] : []; }
+function sendHG(p) { const j = JSON.stringify(hgList(p)); if (p._hg === j) return; p._hg = j; p.call('house:garages', [j]); }
+setInterval(function () { mp.players.forEach(function (p) { if (sid(p)) sendHG(p); }); }, 3000);
+mp.events.add('srv:hgar:use', function (p, hid) {
+    const h = byId(hid), s = sid(p);
+    if (!h || !h.gar || !s) return;
+    const I = hgI(h);
+    if (p.dimension === hgDim(h)) {
+        const v = p.vehicle;
+        if (v) {
+            if (Math.hypot(p.position.x - I.drive[0], p.position.y - I.drive[1]) > 6) return;
+            hgMove(v, hgOut(h), 0);
+        } else {
+            if (Math.hypot(p.position.x - I.walk[0], p.position.y - I.walk[1]) > 3.5) return;
+            p.dimension = 0; p.position = V(h.gar.x, h.gar.y, h.gar.z);
+        }
+        return p.call('house:inside', ['']);
+    }
+    if (p.dimension !== 0 || Math.hypot(p.position.x - h.gar.x, p.position.y - h.gar.y) > 7) return;
+    if (h.owner !== s && admLvl(p) < 7) return notify(p, 'warn', 'Это гараж чужого дома');
+    const v = p.vehicle;
+    if (v) {
+        const o = v.getVariable('ownerId');
+        if (o === undefined || o === null || Number(o) !== s) return notify(p, 'warn', 'В гараж дома можно заехать только на своей личной машине');
+        if (v.getVariable('famCar')) return notify(p, 'warn', 'Машины семьи ставятся в гараж особняка');
+        if (!hgFree(h, v)) return notify(p, 'warn', 'Гараж заполнен: ' + hgCap(h) + ' мест');
+        hgMove(v, I.arrive, hgDim(h));
+    } else { p.dimension = hgDim(h); p.position = V(I.walk[0] - 2, I.walk[1], I.walk[2]); p.heading = I.walk[3]; }
+    p.call('house:inside', ['Гараж · ' + h.n + ' · выезд — E у ворот']);
+});
+mp.events.add('srv:hgar:park', function (p) {
+    const h = mine(p), v = p.vehicle;
+    if (!h || !h.gar || !v || p.dimension !== hgDim(h)) return;
+    const sp = hgFree(h, v);
+    if (!sp) return notify(p, 'warn', 'Нет свободного места');
+    try { p.removeFromVehicle(); } catch (e) {}
+    setTimeout(function () { if (!mp.vehicles.exists(v)) return; v.engine = false; hgMove(v, sp, hgDim(h)); }, 900);
+    notify(p, 'ok', 'Машина на своём месте');
+});
+function adminGarage(p, h, cap) {
+    if (!h) return 'Дом не найден';
+    if (!(cap > 0) || cap > 14) return 'Вместимость: от 1 до 14 машин';
+    if (p.dimension !== 0) return 'Гараж ставится только на улице';
+    if (h.gar && hgVehs(h).length > cap) return 'В гараже сейчас ' + hgVehs(h).length + ' машин — меньше сделать нельзя';
+    const e = p.vehicle || p;
+    const wasBig = h.gar && h.gar.cap > 8;
+    if (h.gar && wasBig !== cap > 8) hgEvict(h);
+    h.gar = { x: e.position.x, y: e.position.y, z: e.position.z, h: e.heading || p.heading || 0, cap: cap };
+    dirty = true; mp.players.forEach(function (x) { x._hg = null; });
+    return null;
+}
+mp.events.addCommand('hgarage', function (p, full) {
+    if (!adm(p, 7)) return;
+    const a = String(full || '').trim().split(/\s+/), h = byId(a[0]), cap = Math.floor(Number(a[1]));
+    if (a[1] === '0' && h) { hgEvict(h); h.gar = null; dirty = true; mp.players.forEach(function (x) { x._hg = null; }); return p.outputChatBox('!{#8fd14f}Гараж дома #' + h.id + ' удалён, машины выставлены на улицу'); }
+    if (!h || !cap) return p.outputChatBox('!{#ffcc66}/hgarage [номер дома] [мест 1-14] — встаньте на въезд в гараж · /hgarage [номер] 0 — удалить гараж');
+    const e = adminGarage(p, h, cap);
+    p.outputChatBox(e ? '!{#e05555}' + e : '!{#8fd14f}Гараж дома #' + h.id + ' «' + h.n + '» на ' + cap + ' мест сохранён');
+});
+
 /* ---------- метки в редакторе /points ---------- */
 const PR = global.PointReg || require('./points.js');
 PR.provider(function () {
@@ -343,8 +444,17 @@ PR.provider(function () {
     D.houses.forEach(function (h) {
         out.push({ id: 'house.' + h.id, g: 'Дома', n: '#' + h.id + ' ' + h.n, get: function () { return h; },
             set: function (v) { h.x = v.x; h.y = v.y; h.z = v.z; h.h = v.h; dirty = true; mp.players.forEach(sendList); } });
+        if (h.gar) out.push({ id: 'house.' + h.id + '.gar', g: 'Гаражи домов', n: '#' + h.id + ' ' + h.n + ' — гараж на ' + hgCap(h) + ' мест',
+            get: function () { return [h.gar.x, h.gar.y, h.gar.z, h.gar.h]; },
+            set: function (v) { h.gar.x = v.x; h.gar.y = v.y; h.gar.z = v.z; h.gar.h = v.h; dirty = true; mp.players.forEach(function (x) { x._hg = null; }); },
+            del: function () { hgEvict(h); h.gar = null; dirty = true; mp.players.forEach(function (x) { x._hg = null; }); } });
     });
     return out;
+});
+if (PR.creator) PR.creator(function () {
+    return [{ id: 'hgarage', n: 'Гараж дома', d: 'Въезд в гараж появится там, где вы стоите (можно сидя в машине). Владелец дома сможет ставить туда свои личные машины. Номер дома — /houseinfo у двери. До 8 мест — малый гараж, 9–14 — большой.',
+        f: [{ k: 'id', n: 'Номер дома', t: 'number', v: '' }, { k: 'cap', n: 'Вместимость (1–14)', t: 'number', v: 4 }],
+        make: function (p, v) { const h = byId(Math.floor(Number(v.id))); if (!h) return 'Дом #' + v.id + ' не найден'; const e = adminGarage(p, h, Math.floor(Number(v.cap))); if (!e) notify(p, 'ok', 'Гараж дома #' + h.id + ' «' + h.n + '» создан'); return e; } }];
 });
 
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) { sendStatic(p); sendList(p); } }, 4500); });
@@ -392,6 +502,7 @@ global.HouseSystem = {
         if (!h) return { err: 'Дом #' + id + ' не найден (номер — /houseinfo у двери)' };
         if (h.owner) return { err: 'Дом #' + id + ' занят игроком ' + (h.on || '') + ' — сначала освободите его' };
         if (global.Realty && global.Realty.locked && global.Realty.locked('house', h.id)) return { err: 'Дом на аукционе' };
+        hgEvict(h);
         D.houses = D.houses.filter(function (x) { return x !== h; });
         dirty = true; broadcastList();
         return { h: { n: h.n, x: h.x, y: h.y, z: h.z, h: h.h || 0, int: h.int, price: h.price } };
@@ -400,6 +511,7 @@ global.HouseSystem = {
         const h = byId(id);
         if (!h) return false;
         mp.players.forEach(function (x) { if (x.dimension === DIM_HOUSE + h.id) { x.dimension = 0; x.position = V(h.x, h.y, h.z); } });
+        hgEvict(h);
         if (toId) { h.owner = Number(toId); h.on = toName; } else { h.owner = 0; h.on = ''; }
         h.locked = true; dirty = true;
         broadcastList();
