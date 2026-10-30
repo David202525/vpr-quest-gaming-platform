@@ -32,6 +32,12 @@ const INTS = {
     hill5: { n: 'Milton', x: -572.6, y: 653.1, z: 145.6, h: 180 }
 };
 const DIM_FH = 70000;
+const DIM_FG = 75000;
+const GI = {
+    walk: [240.6, -1004.8, -99.0, 90], drive: [228.6, -1004.2, -99.0, 180], arrive: [228.6, -996.5, -99.0, 0],
+    spots: [[223.4, -981.5, -99.4, 240], [233.6, -981.5, -99.4, 120], [223.4, -986.5, -99.4, 240], [233.6, -986.5, -99.4, 120],
+        [223.4, -991.5, -99.4, 240], [233.6, -991.5, -99.4, 120], [223.4, -996.5, -99.4, 240], [233.6, -996.5, -99.4, 120]]
+};
 if (!Array.isArray(D.houses)) {
     D.houses = [
         { n: 'Особняк в Рокфорд-Хиллз', x: -817.6, y: 178.0, z: 72.2, h: 110, int: 'hill3', rep: 5000, park: [-811.5, 187.5, 72.5, 110] },
@@ -141,7 +147,7 @@ function sendHouses(p) {
 function sendHousesAll() { mp.players.forEach(sendHouses); mp.players.forEach(sendGarages); }
 function garJson(p) {
     const f = p.account ? famP(p) : null;
-    return JSON.stringify(D.houses.filter(function (h) { return h.gar && h.owner && f && h.owner === f.id; }).map(function (h) { return [h.id, Math.round(h.gar.x * 100) / 100, Math.round(h.gar.y * 100) / 100, Math.round(h.gar.z * 100) / 100, h.gar.cap]; }));
+    return JSON.stringify(D.houses.filter(function (h) { return h.gar && h.owner && f && h.owner === f.id; }).map(function (h) { return [h.id, Math.round(h.gar.x * 100) / 100, Math.round(h.gar.y * 100) / 100, Math.round(h.gar.z * 100) / 100, h.gar.cap, gDim(h)]; }));
 }
 function sendGarages(p) { const j = garJson(p); p._famGar = j; p.call('fam:garages', [j]); }
 setInterval(function () { mp.players.forEach(function (p) { if (!p.account) return; if (p._famGar !== garJson(p)) sendGarages(p); }); }, 3000);
@@ -164,7 +170,7 @@ function tabView(p) {
         f: { n: f.n, tag: f.tag, c: f.c, type: T.n, ti: T.i, slots: T.slots, carMax: garCap(f), baseGar: BASE_GARAGE, bank: f.bank, rep: f.rep, created: f.created, ownerN: f.ownerN, ranks: f.ranks, perms: f.perms },
         permNames: PERMS, rep: REP, maxRanks: MAX_RANKS,
         members: f.members.slice().sort(function (a, b) { return b.r - a.r; }).map(function (m) { return { id: m.id, n: m.n, r: m.r, on: !!online(m.id), head: isHead(f, m.id), j: m.j || 0 }; }),
-        cars: f.cars.map(function (c) { const v = live[f.id + ':' + c.id]; return { id: c.id, m: c.m, n: c.n, plate: c.plate, minR: c.minR, out: !!(v && mp.vehicles.exists(v)), by: v && mp.vehicles.exists(v) ? (v.famBy || '') : '', own: c.ownN || '', mine: c.own === me }; }),
+        cars: f.cars.map(function (c) { const v = live[f.id + ':' + c.id]; return { id: c.id, m: c.m, n: c.n, plate: c.plate, minR: c.minR, out: !!(v && mp.vehicles.exists(v) && v.dimension === 0), by: v && mp.vehicles.exists(v) && v.dimension === 0 ? (v.famBy || '') : '', own: c.ownN || '', mine: c.own === me }; }),
         house: h ? { id: h.id, n: h.n, int: INTS[h.int] ? INTS[h.int].n : '', open: !!h.open, rep: h.rep, cap: h.gar ? h.gar.cap : 0 } : null,
         houses: D.houses.map(function (x) { const o = x.owner ? famById(x.owner) : null; return { id: x.id, n: x.n, int: INTS[x.int] ? INTS[x.int].n : '', cap: x.gar ? x.gar.cap : 0, rep: x.rep, own: o ? '[' + o.tag + '] ' + o.n : '', mine: x.owner === f.id }; }),
         log: my.log ? f.log.slice(0, 120) : []
@@ -296,6 +302,81 @@ function giveBack(f, c, why) {
         if (o && mp.players.exists(o)) { o.ownedLoaded = false; notify(o, 'ok', c.n + ' возвращена вам из гаража семьи' + (why ? ' (' + why + ')' : '')); }
     });
 }
+function gDim(h) { return DIM_FG + h.id; }
+function hasUG(f) { const h = houseOf(f); return h && h.gar ? h : null; }
+function moveVeh(v, pos, dim) {
+    const occ = mp.players.toArray().filter(function (o) { return o.vehicle === v; }).map(function (o) { return [o, o.seat]; });
+    v.dimension = dim;
+    v.position = V(pos[0], pos[1], pos[2] + 0.4);
+    try { v.rotation = new mp.Vector3(0, 0, pos[3] || 0); } catch (e) {}
+    occ.forEach(function (x) {
+        x[0].dimension = dim;
+        setTimeout(function () { if (mp.players.exists(x[0]) && mp.vehicles.exists(v)) try { x[0].putIntoVehicle(v, x[1]); } catch (e) {} }, 250);
+    });
+}
+function freeSpot(h, except) {
+    const d = gDim(h);
+    return GI.spots.find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v !== except && v.dimension === d && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 2.4; }); }) || null;
+}
+function dress(v, f, c, r) {
+    if (r) {
+        try { v.setColor(Number(r.color1) || 0, Number(r.color2) || 0); } catch (e) {}
+        v.setVariable('fuel', r.fuel === null || r.fuel === undefined ? 100 : Number(r.fuel));
+        if (r.fuel_type) v.setVariable('fuelType', r.fuel_type);
+    } else { const rgb = hexRgb(f.c); try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {} }
+    v.setVariable('famCar', f.id); v.setVariable('famCarId', c.id);
+    v.adminSpawned = false; v.lastUse = Date.now();
+}
+function parkIn(f, c, v) {
+    const h = hasUG(f);
+    if (!h) { despawn(f, c); return false; }
+    const k = carKey(f, c);
+    if (v && mp.vehicles.exists(v)) {
+        const sp = freeSpot(h, v);
+        if (!sp) { despawn(f, c); return true; }
+        if (v.getOccupants && v.getOccupants().length) v.getOccupants().forEach(function (x) { try { x.removeFromVehicle(); } catch (e) {} });
+        moveVeh(v, sp, gDim(h)); v.engine = false; v.famBy = ''; v.famOwner = 0; v.lastUse = Date.now();
+        live[k] = v;
+        return true;
+    }
+    if (live[k] && mp.vehicles.exists(live[k])) return true;
+    const sp = freeSpot(h);
+    if (!sp) return false;
+    const go = function (r) {
+        if (live[k] && mp.vehicles.exists(live[k])) return;
+        if (!famById(f.id) || !f.cars.includes(c) || houseOf(f) !== h) return;
+        const nv = mp.vehicles.new(mp.joaat(c.m), V(sp[0], sp[1], sp[2] + 0.3), { heading: sp[3], numberPlate: c.plate, dimension: gDim(h), locked: false, engine: false });
+        dress(nv, f, c, r);
+        live[k] = nv;
+    };
+    if (c.vid) dbq('SELECT * FROM vehicles WHERE id = ? LIMIT 1', [c.vid]).then(function (rows) { go(rows && rows[0]); }); else go(null);
+    return true;
+}
+function parkAll(f) { if (!hasUG(f)) return; f.cars.forEach(function (c) { parkIn(f, c); }); }
+function clearUG(f, h) {
+    f.cars.forEach(function (c) { const v = live[carKey(f, c)]; if (v && mp.vehicles.exists(v) && v.dimension === gDim(h)) despawn(f, c); });
+    mp.players.forEach(function (x) { if (x.dimension === gDim(h)) { if (x.vehicle) try { x.removeFromVehicle(); } catch (e) {} x.dimension = 0; x.position = V(h.gar.x, h.gar.y, h.gar.z); } });
+}
+setTimeout(function () { D.fams.forEach(parkAll); }, 7000);
+setInterval(function () {
+    D.fams.forEach(function (f) {
+        f.cars.forEach(function (c) {
+            const v = live[carKey(f, c)];
+            if (!v || !mp.vehicles.exists(v)) { if (hasUG(f)) parkIn(f, c); return; }
+            if (v.getOccupants && v.getOccupants().length) { v.lastUse = Date.now(); return; }
+            const h = hasUG(f);
+            if (h && v.dimension === gDim(h)) return;
+            if (Date.now() - (v.lastUse || 0) > 15 * 60000) { if (h) parkIn(f, c, v); else despawn(f, c); flog(f, 'car', c.n + ' брошена — возвращена в гараж'); refresh(f); }
+        });
+    });
+}, 60000);
+mp.events.add('vehicleDeath', function (v) {
+    const fid = v.getVariable && v.getVariable('famCar'); if (!fid) return;
+    const f = famById(fid), c = f && f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); });
+    if (!c) return;
+    setTimeout(function () { if (live[carKey(f, c)] === v) { despawn(f, c); if (hasUG(f)) parkIn(f, c); refresh(f); } }, 30000);
+});
+mp.events.add('playerExitVehicle', function (p, v) { if (v && v.getVariable && v.getVariable('famCar')) v.lastUse = Date.now(); });
 function returnAll(f, ownerId, why) { f.cars.filter(function (c) { return c.own === Number(ownerId); }).forEach(function (c) { giveBack(f, c, why); }); }
 mp.events.add('playerEnterVehicle', function (p, v, seat) {
     const fid = v.getVariable('famCar');
@@ -312,7 +393,7 @@ mp.events.add('playerQuit', function (p) {
     const s = sid(p);
     Object.keys(live).forEach(function (k) {
         const v = live[k];
-        if (v && mp.vehicles.exists(v) && v.famOwner === s) setTimeout(function () { if (mp.vehicles.exists(v) && !(v.getOccupants && v.getOccupants().length)) { v.destroy(); delete live[k]; } }, 120000);
+        if (v && mp.vehicles.exists(v) && v.famOwner === s && v.dimension === 0) setTimeout(function () { if (!mp.vehicles.exists(v) || v.dimension !== 0 || (v.getOccupants && v.getOccupants().length)) return; const f = famById(v.getVariable('famCar')), c = f && f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); }); if (f && c && hasUG(f)) parkIn(f, c, v); else { v.destroy(); delete live[k]; } }, 120000);
     });
 });
 
@@ -351,47 +432,67 @@ function addCar(p, f, vid, sitting, cb) {
             w.adminSpawned = false; w.famOwner = me; w.famBy = nick(p);
             live[carKey(f, c)] = w;
         }
+        if (!(w && mp.vehicles.exists(w)) && hasUG(f)) parkIn(f, c);
         flog(f, 'car', nick(p) + ' добавил в гараж ' + nm + ' (' + r.plate + ')');
         famChat(f, nick(p) + ' добавил в гараж семьи ' + nm);
         mark(); refresh(f);
         cb(null, c);
     });
 }
+function enterUG(p, f, h, v) {
+    if (v) {
+        const occ = (v.getOccupants && v.getOccupants()) || [];
+        moveVeh(v, GI.arrive, gDim(h)); v.lastUse = Date.now();
+        occ.forEach(function (x) { if (x !== p) x.call('house:inside', ['Гараж семьи «' + f.n + '»']); });
+    } else { p.dimension = gDim(h); p.position = V(GI.walk[0] - 2, GI.walk[1], GI.walk[2]); p.heading = GI.walk[3]; }
+    p.call('house:inside', ['Гараж семьи «' + f.n + '» · выезд — E у ворот']);
+}
 mp.events.add('srv:fam:garage', function (p, hid) {
     const f = famP(p), h = D.houses.find(function (x) { return x.id === Number(hid); });
     if (!f || !h || !h.gar || h.owner !== f.id) return;
+    if (p.dimension === gDim(h)) {
+        const v = p.vehicle, g = h.gar, a = (g.h || 0) * Math.PI / 180, out = [g.x - Math.sin(a) * 2, g.y + Math.cos(a) * 2, g.z, g.h || 0];
+        if (v) { if (Math.hypot(p.position.x - GI.drive[0], p.position.y - GI.drive[1]) > 6) return; moveVeh(v, out, 0); v.lastUse = Date.now(); if (v.getVariable('famCar')) { v.famOwner = sid(p); v.famBy = nick(p); const c = f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); }); if (c) flog(f, 'car', nick(p) + ' выехал на ' + c.n); refresh(f); } }
+        else { if (Math.hypot(p.position.x - GI.walk[0], p.position.y - GI.walk[1]) > 3.5) return; p.dimension = 0; p.position = V(g.x, g.y, g.z); }
+        return p.call('house:inside', ['']);
+    }
     if (Math.hypot(p.position.x - h.gar.x, p.position.y - h.gar.y) > 7 || p.dimension !== 0) return;
     const v = p.vehicle;
-    if (v && v.getVariable('famCar') === f.id) {
-        const c = f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); });
-        if (!c) return;
-        try { p.removeFromVehicle(); } catch (e) {}
-        setTimeout(function () { despawn(f, c); flog(f, 'car', nick(p) + ' поставил ' + c.n + ' в гараж'); mark(); refresh(f); }, 1500);
-        return notify(p, 'ok', c.n + ' поставлена в гараж');
+    if (!v) return enterUG(p, f, h, null);
+    if (v.getVariable('famCar') === f.id) {
+        if (!freeSpot(h, v)) return notify(p, 'warn', 'В гараже нет свободных мест');
+        return enterUG(p, f, h, v);
     }
-    if (v) {
-        const pl = String(v.numberPlate || '').trim();
-        const known = f.cars.find(function (x) { return String(x.plate).trim() === pl; });
-        if (known) {
-            const lv = live[carKey(f, known)];
-            if (lv && lv !== v && mp.vehicles.exists(lv)) { try { lv.destroy(); } catch (e) {} }
-            try { p.removeFromVehicle(); } catch (e) {}
-            live[carKey(f, known)] = v;
-            const U = VS(); if (U && U.owned && known.vid) delete U.owned[known.vid];
-            v.dbId = 0;
-            setTimeout(function () { despawn(f, known); flog(f, 'car', nick(p) + ' поставил ' + known.n + ' в гараж'); mark(); refresh(f); }, 1500);
-            return notify(p, 'ok', known.n + ' поставлена в гараж');
-        }
-        if (v.adminSpawned) return notify(p, 'warn', 'Админ-машину нельзя поставить в гараж семьи');
-        if (!can(f, sid(p), 'cars')) return notify(p, 'warn', 'В гараж ставятся только машины семьи. Добавлять свои машины может ранг «' + rankN(f, f.perms.cars) + '»');
-        return addCar(p, f, 0, v, function (e, c) {
-            if (e) return notify(p, 'warn', e === 'Это не ваша личная машина' ? 'В гараж ставятся машины семьи или ваши личные машины' : e);
-            try { p.removeFromVehicle(); } catch (er) {}
-            setTimeout(function () { despawn(f, c); mark(); refresh(f); }, 1500);
-            notify(p, 'ok', c.n + ' добавлена в гараж семьи и поставлена на место');
-        });
+    const pl = String(v.numberPlate || '').trim();
+    const known = f.cars.find(function (x) { return String(x.plate).trim() === pl; });
+    if (known) {
+        const lv = live[carKey(f, known)];
+        if (lv && lv !== v && mp.vehicles.exists(lv)) { try { lv.destroy(); } catch (e) {} }
+        const U = VS(); if (U && U.owned && known.vid) delete U.owned[known.vid];
+        v.dbId = 0; dress(v, f, known, null);
+        try { v.setVariable('ownerId', null); } catch (e) {}
+        live[carKey(f, known)] = v;
+        return enterUG(p, f, h, v);
     }
-    p.famTab = true; p.call('fam:tabgo', ['cars']); openTab(p);
+    if (v.adminSpawned) return notify(p, 'warn', 'Админ-машину нельзя поставить в гараж семьи');
+    if (!can(f, sid(p), 'cars')) return notify(p, 'warn', 'Заехать можно на машине семьи. Добавлять свои машины может ранг «' + rankN(f, f.perms.cars) + '»');
+    if (!freeSpot(h, v)) return notify(p, 'warn', 'В гараже нет свободных мест');
+    addCar(p, f, 0, v, function (e, c) {
+        if (e) return notify(p, 'warn', e === 'Это не ваша личная машина' ? 'Заехать можно на машине семьи или своей личной' : e);
+        notify(p, 'ok', c.n + ' добавлена в гараж семьи');
+        enterUG(p, f, h, v);
+    });
+});
+mp.events.add('srv:fam:park', function (p) {
+    const f = famP(p), h = f && hasUG(f), v = p.vehicle;
+    if (!h || !v || p.dimension !== gDim(h) || v.getVariable('famCar') !== f.id) return;
+    const c = f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); });
+    if (!c) return;
+    const sp = freeSpot(h, v);
+    if (!sp) return notify(p, 'warn', 'Нет свободного места');
+    try { p.removeFromVehicle(); } catch (e) {}
+    setTimeout(function () { if (mp.vehicles.exists(v)) { v.position = V(sp[0], sp[1], sp[2] + 0.3); try { v.rotation = new mp.Vector3(0, 0, sp[3]); } catch (e) {} v.engine = false; } }, 900);
+    notify(p, 'ok', c.n + ' на своём месте');
 });
 
 /* ---------- особняки ---------- */
@@ -584,22 +685,24 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         if (!A(p, f, 'carcall') || !c) return;
         if (mr < c.minR && !head) return msg(p, 'Машина доступна с ранга «' + rankN(f, c.minR) + '»');
         const k = carKey(f, c);
-        if (live[k] && mp.vehicles.exists(live[k])) return msg(p, 'Машина уже на улице: ' + (live[k].famBy || ''));
+        const hu = hasUG(f), lv = live[k];
+        if (lv && mp.vehicles.exists(lv) && !(hu && lv.dimension === gDim(hu))) return msg(p, 'Машина уже на улице: ' + (lv.famBy || ''));
         if (p.dimension !== 0 || p.vehicle) return msg(p, 'Выйдите на улицу и из транспорта');
         if (global.WantedSystem && global.WantedSystem.get && global.WantedSystem.get(p) > 0) return msg(p, 'Вы в розыске — семья не пришлёт машину');
         if (callCd[me] && Date.now() - callCd[me] < 60000) return msg(p, 'Подождите минуту перед следующим вызовом');
         callCd[me] = Date.now();
         const sp = spawnPoint(f, p);
+        if (lv && mp.vehicles.exists(lv)) {
+            if (lv.getOccupants && lv.getOccupants().length) return msg(p, 'В машине кто-то сидит');
+            moveVeh(lv, [sp.x, sp.y, sp.z, sp.h], 0); lv.famOwner = me; lv.famBy = nick(p); lv.lastUse = Date.now();
+            p.call('phone:gps', [sp.x, sp.y, c.n]); flog(f, 'car', nick(p) + ' вызвал ' + c.n);
+            return done(c.n + ' ждёт ' + sp.at);
+        }
         const go = function (r) {
             if (!mp.players.exists(p) || (live[k] && mp.vehicles.exists(live[k]))) return;
             const v = mp.vehicles.new(mp.joaat(c.m), V(sp.x, sp.y, sp.z + 0.3), { heading: sp.h, numberPlate: c.plate, dimension: 0, locked: false, engine: false });
-            if (r) {
-                try { v.setColor(Number(r.color1) || 0, Number(r.color2) || 0); } catch (e) {}
-                v.setVariable('fuel', r.fuel === null || r.fuel === undefined ? 100 : Number(r.fuel));
-                if (r.fuel_type) v.setVariable('fuelType', r.fuel_type);
-            } else { const rgb = hexRgb(f.c); try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {} }
-            v.setVariable('famCar', f.id); v.setVariable('famCarId', c.id);
-            v.adminSpawned = false; v.famOwner = me; v.famBy = nick(p);
+            dress(v, f, c, r);
+            v.famOwner = me; v.famBy = nick(p);
             live[k] = v;
             p.call('phone:gps', [sp.x, sp.y, c.n]);
             flog(f, 'car', nick(p) + ' взял ' + c.n);
@@ -614,11 +717,13 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         if (!c) return;
         const v = live[carKey(f, c)];
         if (!v || !mp.vehicles.exists(v)) { delete live[carKey(f, c)]; return done(); }
+        const hb = hasUG(f); if (hb && v.dimension === gDim(hb)) return msg(p, 'Машина уже в гараже');
         if (v.famOwner !== me && !can(f, me, 'cars')) return msg(p, 'Вернуть может тот, кто взял, или ответственный за транспорт');
         const hh = houseOf(f);
         if (hh && hh.gar && Math.hypot(v.position.x - hh.gar.x, v.position.y - hh.gar.y) > 40 && !can(f, me, 'cars')) return msg(p, 'Пригоните машину к гаражу особняка');
         if (v.getOccupants && v.getOccupants().length) return msg(p, 'В машине кто-то есть');
-        despawn(f, c); flog(f, 'car', nick(p) + ' вернул ' + c.n + ' в гараж');
+        if (hasUG(f)) parkIn(f, c, v); else despawn(f, c);
+        flog(f, 'car', nick(p) + ' вернул ' + c.n + ' в гараж');
         return done('Машина в гараже');
     }
     if (act === 'hbuy') {
@@ -631,7 +736,7 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         flog(f, 'house', nick(p) + ' купил «' + h.n + '» за ' + num(h.rep) + ' репутации');
         famChat(f, 'Семья приобрела особняк «' + h.n + '»!');
         mp.players.forEach(function (x) { x.outputChatBox('!{' + f.c + '}[' + f.tag + '] !{#ffffff}Семья «' + f.n + '» заселилась в «' + h.n + '»'); });
-        sendHousesAll(); return done('Особняк ваш! Гараж на ' + garCap(f) + ' машин');
+        sendHousesAll(); setTimeout(function () { parkAll(f); }, 500); return done('Особняк ваш! Гараж на ' + garCap(f) + ' машин');
     }
     const h = houseOf(f);
     if (act === 'hgps') { if (h) p.call('phone:gps', [h.x, h.y, h.n]); return msg(p, 'Метка поставлена', 1); }
@@ -644,6 +749,7 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         if (!head || !h) return msg(p, 'Продать особняк может только глава');
         const back = Math.round(h.rep * REP.sellBack);
         if (f.cars.length > BASE_GARAGE) return msg(p, 'Без особняка в гараже останется ' + BASE_GARAGE + ' места — сначала заберите лишние машины');
+        if (h.gar) clearUG(f, h);
         kickOut(h); h.owner = 0; h.open = false; f.rep += back;
         flog(f, 'house', nick(p) + ' продал «' + h.n + '» (+' + num(back) + ' репутации)');
         sendHousesAll(); return done('Особняк продан, возвращено ' + num(back) + ' репутации');
