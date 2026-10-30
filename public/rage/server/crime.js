@@ -290,6 +290,10 @@ function captData(p) {
     Object.keys(ORGS).filter(function (x) { return ORGS[x].t === 'gang'; }).forEach(function (x) { orgs[x] = { n: ORGS[x].n, c: ORGS[x].c, busy: S.wars.some(function (w) { return w.a === x || w.d === x; }) }; });
     return {
         me: k, meN: ORGS[k].n, meC: ORGS[k].c, cols: GRID.cols, rows: GRID.rows,
+        nick: nick(p), rankN: isLeader(p) ? rankName(k, 99) : rankName(k, rank(p)), bank: O(k).bank, inc: ZONE_INCOME,
+        on: mp.players.toArray().filter(function (x) { return org(x) === k; }).map(function (x) { return [nick(x), isLeader(x) ? rankName(k, 99) : rankName(k, rank(x)), rank(x)]; }).sort(function (a, b) { return b[2] - a[2]; }).slice(0, 40),
+        onAll: (function () { const c = {}; mp.players.forEach(function (x) { const o = org(x); if (o && ORGS[o].t === 'gang') c[o] = (c[o] || 0) + 1; }); return c; })(),
+        log: (O(k).log || []).slice(0, 8),
         can: rank(p) >= 4 || mgr(p), hours: CAP_HOURS, hourOk: capHour() || admLvl(p) >= 6, min: Math.round(CAP_SEC / 60),
         orgs: orgs, myPos: (function () { const zz = zoneAt(p.position); return zz ? zz.i : -1; })(),
         hist: (S.capHist || []).filter(function (h) { return h.a === k || h.d === k; }).slice(0, 25).concat([]).map(function (h) { return h; }),

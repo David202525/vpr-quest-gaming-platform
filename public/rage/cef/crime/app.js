@@ -126,26 +126,58 @@ window.captMsg = function (t, ok) {
     var m = $('cpMsg'); if (!m) return;
     m.textContent = t; m.className = 'cp-msg ' + (ok ? 'ok' : 'err');
 };
+var CPmap = 'dark';
+function cpClock() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 function cpRender() {
-    var d = CP, b = base('capt', d.meC);
+    var d = CP, b = base('capt tab', d.meC);
     var cnt = {}; d.z.forEach(function (z) { if (z[2]) cnt[z[2]] = (cnt[z[2]] || 0) + 1; });
+    var wars = d.z.filter(function (z) { return z[5]; });
     var cells = d.z.map(function (z) {
         var o = z[2] ? d.orgs[z[2]] : null, w = z[5];
-        var cls = 'cp-c' + (z[2] === d.me ? ' mine' : '') + (z[3] ? ' base' : '') + (w ? ' war' : '') + (z[0] === CPsel ? ' sel' : '');
-        var bg = o ? 'background:' + o.c + (z[3] ? 'cc' : '73') : '';
-        return '<div class="' + cls + (z[0] === d.myPos ? ' here' : '') + '" data-z="' + z[0] + '" style="' + bg + '"><span>' + z[1] + '</span>' + (z[3] ? '<i>★</i>' : w ? '<i>⚔</i>' : '') + (z[0] === d.myPos ? '<em>●</em>' : '') + '</div>';
+        var cls = 'cp-c' + (z[2] === d.me ? ' mine' : '') + (z[3] ? ' base' : '') + (w ? ' war' : '') + (z[6] ? ' nt' : '') + (z[0] === CPsel ? ' sel' : '') + (z[0] === d.myPos ? ' here' : '');
+        var st = o ? '--oc:' + o.c : '';
+        return '<div class="' + cls + '" data-z="' + z[0] + '" style="' + st + '"><span>' + z[1] + '</span>' + (z[3] ? '<i>★</i>' : w ? '<i>⚔</i>' : '') + (z[0] === d.myPos ? '<em></em>' : '') + '</div>';
     }).join('');
-    var legend = Object.keys(d.orgs).map(function (k) { var o = d.orgs[k]; return '<div class="cp-lg"><s style="background:' + o.c + '"></s>' + esc(o.n) + ' <b>' + (cnt[k] || 0) + '</b></div>'; }).join('') + '<div class="cp-lg"><s style="background:rgba(255,255,255,.12)"></s>Ничьи <b>' + d.z.filter(function (z) { return !z[2]; }).length + '</b></div>';
-    b.innerHTML = '<div class="top"><i>⚔</i><div><b>Планшет каптов · ' + esc(d.meN) + '</b><small>Выберите квадрат, противника и начните захват · капт ' + d.min + ' мин · с ' + d.hours[0] + ':00 до ' + d.hours[1] + ':00 МСК</small></div><div class="x" id="cl">✕</div></div>' +
-        '<div class="cp-tabs"><div class="cp-tab' + (CPtab === 'map' ? ' on' : '') + '" data-tb="map">Карта квадратов</div><div class="cp-tab' + (CPtab === 'hist' ? ' on' : '') + '" data-tb="hist">История каптов</div></div>' +
-        (CPtab === 'hist' ? cpHist() : '<div class="cp-wrap"><div><div class="cp-grid" style="grid-template-columns:repeat(' + d.cols + ',1fr)">' + cells + '</div><div class="cp-legend">' + legend + '</div></div><div class="side" id="cpSide"></div></div>');
+    var gangs = Object.keys(d.orgs).sort(function (x, y) { return (cnt[y] || 0) - (cnt[x] || 0); });
+    var total = d.z.filter(function (z) { return !z[6]; }).length || 1;
+    var side = '<div class="tb-sec">Банды города</div>' + gangs.map(function (k, i) {
+        var o = d.orgs[k], c = cnt[k] || 0;
+        return '<div class="tb-g' + (k === d.me ? ' me' : '') + '" style="--oc:' + o.c + '"><span class="tb-gr">' + (i + 1) + '</span><s></s><div><b>' + esc(o.n) + '</b><small>' + c + ' кв. · ' + ((d.onAll || {})[k] || 0) + ' онлайн' + (o.busy ? ' · <em>война</em>' : '') + '</small><div class="tb-gb"><i style="width:' + Math.round(c / total * 100) + '%"></i></div></div></div>';
+    }).join('') +
+        '<div class="tb-sec">В сети · ' + ((d.on || []).length) + '</div><div class="tb-on">' + (d.on || []).map(function (m) { return '<div><i></i><b>' + esc(m[0]) + '</b><small>' + esc(m[1]) + '</small></div>'; }).join('') + '</div>';
+    var my = cnt[d.me] || 0;
+    var cards = [
+        ['🗺', 'Территорий', my + ' <small>/ ' + total + '</small>'],
+        ['💰', 'Доход в час', money(my * (d.inc || 0))],
+        ['🏦', 'Общак', money(d.bank || 0)],
+        ['⚔', 'Идёт войн', wars.length],
+        ['⏰', 'Окно каптов', d.hours[0] + ':00–' + d.hours[1] + ':00'],
+        ['⏱', 'Длительность', d.min + ' мин']
+    ].map(function (c) { return '<div class="tb-card"><i>' + c[0] + '</i><div><small>' + c[1] + '</small><b>' + c[2] + '</b></div></div>'; }).join('');
+    var mapH = '<div class="tb-map" style="background-image:url(img/map_' + CPmap + '.jpg)"><div class="cp-grid" style="grid-template-columns:repeat(' + d.cols + ',1fr);grid-template-rows:repeat(' + d.rows + ',1fr)">' + cells + '</div>' +
+        '<div class="tb-mtool"><span data-mp="dark" class="' + (CPmap === 'dark' ? 'on' : '') + '">Схема</span><span data-mp="sat" class="' + (CPmap === 'sat' ? 'on' : '') + '">Спутник</span></div>' +
+        '<div class="tb-leg"><span><s class="l-mine"></s>Ваши</span><span><s class="l-base">★</s>База</span><span><s class="l-war">⚔</s>Война</span><span><s class="l-here"></s>Вы здесь</span><span><s class="l-free"></s>Ничьи</span></div></div>';
+    var body = CPtab === 'hist' ? cpHist() : CPtab === 'log' ? cpLog() :
+        '<div class="tb-main"><div class="tb-center">' + mapH + '<div class="tb-cards">' + cards + '</div></div><div class="side" id="cpSide"></div></div>';
+    b.innerHTML = '<div class="tb-frame"><div class="tb-cam"></div><div class="tb-screen">' +
+        '<div class="tb-top"><div class="tb-user"><div class="tb-av">' + esc((d.nick || '?').charAt(0)) + '</div><div><b>' + esc(d.nick || '') + '</b><small>' + esc(d.rankN || '') + ' · <span style="color:' + d.meC + '">' + esc(d.meN) + '</span></small></div></div>' +
+        '<div class="tb-title"><small>ПЛАНШЕТ БАНДЫ</small><b>КОНТРОЛЬ ТЕРРИТОРИЙ</b></div>' +
+        '<div class="tb-right"><div class="tb-tabs">' + [['map', 'Карта'], ['hist', 'Капты'], ['log', 'Общак']].map(function (t) { return '<span data-tb="' + t[0] + '" class="' + (CPtab === t[0] ? 'on' : '') + '">' + t[1] + '</span>'; }).join('') + '</div>' +
+        '<div class="tb-clock">' + cpClock() + '</div><div class="x" id="cl">✕</div></div></div>' +
+        '<div class="tb-body"><div class="tb-side">' + side + '</div><div class="tb-content">' + body + '</div></div>' +
+        '</div></div>';
     bind('[data-tb]', function (el) { CPtab = el.dataset.tb; cpRender(); });
     bind('[data-ha]', function (el) { CPhAll = el.dataset.ha === '1'; cpRender(); });
+    bind('[data-mp]', function (el) { CPmap = el.dataset.mp; cpRender(); });
     $('cl').onclick = function () { CPsel = -1; trig('cef:crime:close'); };
-    if (CPtab === 'hist') return;
+    if (CPtab !== 'map') return;
     bind('[data-z]', function (el) { CPsel = Number(el.dataset.z); CPdef = ''; cpRender(); });
-    $('cl').onclick = function () { CPsel = -1; trig('cef:crime:close'); };
     cpSide();
+}
+function cpLog() {
+    var d = CP;
+    return '<div class="cp-hist"><div class="cp-hstat"><div><b>' + money(d.bank || 0) + '</b><small>в общаке</small></div><div><b>' + money((d.z.filter(function (z) { return z[2] === d.me; }).length) * (d.inc || 0)) + '</b><small>доход с квадратов в час</small></div></div>' +
+        ((d.log || []).length ? d.log.map(function (l) { return '<div class="tb-log"><span>' + cpDate(l.t) + '</span><b>' + esc(l.x) + '</b></div>'; }).join('') : '<div class="cp-empty" style="padding:40px 0">Операций пока не было</div>') + '</div>';
 }
 function cpSide() {
     var d = CP, s = $('cpSide');
@@ -172,7 +204,7 @@ function cpSide() {
     bind('[data-f]', function (el) { CPdef = el.dataset.f; cpSide(); });
     var g = $('cpGo'); if (g) g.onclick = function () { g.disabled = true; trig('cef:crime:capt', CPsel, CPdef); };
 }
-setInterval(function () { if (!CP || $('box').className.indexOf('capt') < 0) return; CP.z.forEach(function (z) { if (z[5] && z[5].left > 0) z[5].left--; }); if (CPsel >= 0 && CP.z[CPsel][5]) cpSide(); }, 1000);
+setInterval(function () { if (!CP || $('box').className.indexOf('capt') < 0) return; var ck = document.querySelector('.tb-clock'); if (ck) ck.textContent = cpClock(); CP.z.forEach(function (z) { if (z[5] && z[5].left > 0) z[5].left--; }); if (CPsel >= 0 && CP.z[CPsel][5]) cpSide(); }, 1000);
 
 function cpDate(t) { var d = new Date(t); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 function cpHist() {
