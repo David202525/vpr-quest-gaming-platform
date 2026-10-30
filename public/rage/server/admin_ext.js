@@ -873,6 +873,36 @@ cmd('skin', 'skin', '/skin [id] [модель]', function (p, a, u) {
     log(p, 'skin', login(t), a[1]);
     msg(p, 'Скин ' + a[1] + ' выдан ' + nick(t), '#8fd14f');
 });
+async function setGender(p, t, g) {
+    if (!t.account || !t.account.id) return 'У игрока нет персонажа';
+    g = g ? 1 : 0;
+    await q('UPDATE accounts SET gender = ? WHERE id = ?', [g, t.account.id]);
+    t.account.gender = g;
+    if (t.admAcc) t.admAcc.gender = g;
+    t.outfitOn = null; t.jobSkin = null; t.govSkin = null;
+    const hp = t.health, ar = t.armour;
+    if (global.CreatorSystem) global.CreatorSystem.apply(t, t.account);
+    else t.model = mp.joaat(g ? 'mp_f_freemode_01' : 'mp_m_freemode_01');
+    setTimeout(function () {
+        if (!mp.players.exists(t)) return;
+        try { t.health = hp; t.armour = ar; } catch (e) {}
+        try { [1, 4, 5, 6, 7, 8, 9, 10, 11].forEach(function (c) { t.setClothes(c, c === 8 ? 15 : c === 11 ? 15 : 0, 0, 0); }); t.setClothes(3, 15, 0, 0); } catch (e) {}
+        if (global.UiSystem && global.UiSystem.redress) global.UiSystem.redress(t);
+    }, 900);
+    log(p, 'setgender', login(t), g ? 'f' : 'm');
+    if (t !== p) admNote(login(p) + ' сменил пол ' + who(t) + ' → ' + (g ? 'женский' : 'мужской'));
+    return '';
+}
+function parseG(s) { s = String(s || '').toLowerCase(); return ['f', 'ж', 'female', 'жен', '1'].indexOf(s) >= 0 ? 1 : ['m', 'м', 'male', 'муж', '0'].indexOf(s) >= 0 ? 0 : -1; }
+cmd('setgender', 'skin', '/setgender [id] [m/f] — без id меняет пол вам', async function (p, a, u) {
+    let t = p, gs = a[0];
+    if (a.length >= 2) { t = find(a[0]); gs = a[1]; }
+    const g = gs === undefined && t ? (Number(t.account && t.account.gender) ? 0 : 1) : parseG(gs);
+    if (!need(p, t && g >= 0, u)) return;
+    const e = await setGender(p, t, g);
+    if (e) return msg(p, e, '#e05555');
+    msg(p, 'Пол ' + (t === p ? 'вашего персонажа' : nick(t)) + ': ' + (g ? 'женский' : 'мужской'), '#8fd14f');
+});
 cmd('greenzone', 'greenzone', '/greenzone [on/off] — все зелёные зоны', function (p, a) {
     S.zonesOn = a[0] ? a[0] === 'on' : !S.zonesOn; save();
     syncWorld();
@@ -1020,6 +1050,7 @@ function pact(p, d, t) {
     if (a === 'armourset') { if (!chk('armour')) return true; if (!t) return T('Нет игрока', false); t.armour = Math.max(0, Math.min(100, Number(d.value))); log(p, 'armour', login(t), String(d.value)); return T('Броня: ' + t.armour, true); }
     if (a === 'weapon') { if (!chk('giveweapon')) return true; A.runCmd(p, 'giveweapon ' + d.id + ' ' + d.w + ' ' + (d.ammo || 120)); return T('Оружие выдано', true); }
     if (a === 'skin') { if (!chk('skin')) return true; if (!t) return T('Нет игрока', false); t.model = mp.joaat(String(d.value)); log(p, 'skin', login(t), d.value); return T('Скин выдан', true); }
+    if (a === 'gender') { if (!chk('skin')) return true; if (!t) return T('Нет игрока', false); setGender(p, t, Number(d.value) ? 1 : 0).then(function (e) { T(e || 'Пол изменён', !e); }); return true; }
     if (a === 'screen') { if (!chk('screen')) return true; A.runCmd(p, 'screen ' + d.id); return T('Запрос отправлен', true); }
     if (a === 'takelic') { if (!chk('takelic')) return true; A.runCmd(p, 'takelic ' + d.id + ' ' + d.type + ' ' + (Number(d.minutes) || 0) + ' ' + (d.reason || '')); return T('Лицензия отобрана', true); }
     if (a === 'coins') {
