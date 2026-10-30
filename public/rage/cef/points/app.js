@@ -75,6 +75,7 @@ $('mkBtn').onclick = function () { var m = $('mk'); m.classList.toggle('on'); if
         lbl();
         s.parentNode.insertBefore(b, s.nextSibling);
         b.addEventListener('click', function (e) {
+            e.preventDefault();
             e.stopPropagation();
             var was = openL && openL._s === s;
             shut();
@@ -86,6 +87,7 @@ $('mkBtn').onclick = function () { var m = $('mk'); m.classList.toggle('on'); if
                 it.className = 'dd-i' + (o.value === s.value ? ' on' : '');
                 it.textContent = o.text;
                 it.addEventListener('click', function (ev) {
+                    ev.preventDefault();
                     ev.stopPropagation();
                     shut();
                     if (s.value === o.value) return;
@@ -103,7 +105,7 @@ $('mkBtn').onclick = function () { var m = $('mk'); m.classList.toggle('on'); if
         });
     }
     function scan() { document.querySelectorAll('select:not([data-dd])').forEach(build); }
-    document.addEventListener('click', shut);
+    document.addEventListener('click', function (e) { if (e.target && e.target.tagName === 'SELECT') return; shut(); });
     document.addEventListener('wheel', function (e) { if (openL && !openL.contains(e.target)) shut(); }, true);
     new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
     scan();

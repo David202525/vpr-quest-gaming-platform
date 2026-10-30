@@ -36,11 +36,27 @@ if (!Array.isArray(D.houses)) {
         { n: 'Особняк в Рокфорд-Хиллз', x: -817.6, y: 178.0, z: 72.2, h: 110, int: 'hill3', rep: 5000, park: [-811.5, 187.5, 72.5, 110] },
         { n: 'Ранчо на холмах Тонгва', x: 1395.0, y: 1141.0, z: 114.3, h: 90, int: 'hill2', rep: 6500, park: [1408.0, 1118.0, 114.8, 90] },
         { n: 'Винодельня Марлоу', x: -1888.0, y: 2049.0, z: 140.9, h: 160, int: 'hill1', rep: 8000, park: [-1903.0, 2032.0, 140.7, 250] },
-        { n: 'Поместье в Ричмане', x: -1536.0, y: 130.0, z: 57.4, h: 300, int: 'hill4', rep: 12000, park: [-1525.0, 98.0, 56.5, 230] }
+        { n: 'Поместье на холмах Тонгва', x: -2587.8, y: 1910.6, z: 167.5, h: 180, int: 'hill4', rep: 12000, park: [-2596.0, 1927.0, 167.3, 190] }
     ].map(function (h) { return Object.assign({ id: D.hseq++, owner: 0, open: false }, h); });
     mark();
 }
 const DEF_CAP = [4, 6, 8, 10];
+function orgNear(x, y, r) {
+    const C = global.CrimeSystem;
+    if (!C || !C.ORGS || !C.home) return null;
+    const k = Object.keys(C.ORGS).find(function (k) { try { const h = C.home(k); return h && Math.hypot(h.x - x, h.y - y) < (r || 120); } catch (e) { return false; } });
+    return k ? C.ORGS[k].n : null;
+}
+if (!D.mig1) {
+    D.houses.forEach(function (h) {
+        if (Math.hypot(h.x + 1536, h.y - 130) < 30) {
+            h.n = 'Поместье на холмах Тонгва'; h.x = -2587.8; h.y = 1910.6; h.z = 167.5; h.h = 180;
+            if (h.gar) { h.gar.x = -2596.0; h.gar.y = 1927.0; h.gar.z = 167.3; h.gar.h = 190; }
+            if (h.park) h.park = [-2596.0, 1927.0, 167.3, 190];
+        }
+    });
+    D.mig1 = 1; mark();
+}
 D.houses.forEach(function (h, i) {
     if (h.gar === undefined) { h.gar = h.park ? { x: h.park[0], y: h.park[1], z: h.park[2], h: h.park[3] || 0, cap: DEF_CAP[i] || 6 } : null; delete h.park; mark(); }
 });
@@ -637,6 +653,7 @@ mp.events.addCommand('fhcreate', function (p, full) {
     const a = String(full || '').trim().split(/\s+/), rep = Math.floor(Number(a[0])), it = 'hill' + Math.floor(Number(a[1]));
     const n = a.slice(2).join(' ').trim();
     if (!(rep > 0) || !INTS[it] || !n || p.dimension !== 0) return p.outputChatBox('!{#ffcc66}/fhcreate [цена в репутации] [интерьер 1-5] [название] — встаньте у двери');
+    const og = orgNear(p.position.x, p.position.y); if (og) return p.outputChatBox('!{#e05555}Здесь база «' + og + '» — отойдите дальше 120 м');
     const h = { id: D.hseq++, n: clean(n, 40), x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, int: it, rep: rep, owner: 0, open: false, gar: null };
     D.houses.push(h); mark(); sendHousesAll();
     p.outputChatBox('!{#8fd14f}Особняк #' + h.id + ' создан. Гараж: /fhgarage ' + h.id + ' [мест] или через /points');
@@ -651,6 +668,7 @@ mp.events.addCommand('fhgarage', function (p, full) {
 });
 mp.events.addCommand('fhlist', function (p) {
     if (admLvl(p) < 3) return;
+    D.houses.forEach(function (h) { const og = orgNear(h.x, h.y); if (og) p.outputChatBox('!{#e05555}#' + h.id + ' ' + h.n + ' стоит на базе «' + og + '» — перенесите через /points'); });
     D.houses.forEach(function (h) { const f = h.owner ? famById(h.owner) : null; p.outputChatBox('#' + h.id + ' ' + h.n + ' · ' + num(h.rep) + ' реп · гараж ' + (h.gar ? h.gar.cap : 0) + ' · ' + (f ? '[' + f.tag + '] ' + f.n : 'свободен')); });
 });
 mp.events.addCommand('fhdel', function (p, full) {
@@ -688,6 +706,7 @@ try {
                 if (!(rep > 0)) return 'Укажите цену в репутации';
                 if (!INTS[v.int]) return 'Выберите интерьер';
                 if (p.dimension !== 0) return 'Особняк ставится только на улице';
+                const og = orgNear(p.position.x, p.position.y); if (og) return 'Здесь база «' + og + '» — особняк семьи нельзя ставить ближе 120 м к базам банд и мафий';
                 if (cap < 0 || cap > 50) return 'Гараж: от 0 до 50 мест';
                 const h = { id: D.hseq++, n: n, x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, int: v.int, rep: rep, owner: 0, open: false, gar: null };
                 if (cap > 0) { const a = (p.heading || 0) * Math.PI / 180; h.gar = { x: p.position.x - Math.sin(a) * 8, y: p.position.y + Math.cos(a) * 8, z: p.position.z, h: p.heading || 0, cap: cap }; }
