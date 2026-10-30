@@ -33,11 +33,19 @@ const INTS = {
 };
 const DIM_FH = 70000;
 const DIM_FG = 75000;
-const GI = {
+const GI_S = {
     walk: [240.6, -1004.8, -99.0, 90], drive: [228.6, -1004.2, -99.0, 180], arrive: [228.6, -996.5, -99.0, 0],
     spots: [[223.4, -981.5, -99.4, 240], [233.6, -981.5, -99.4, 120], [223.4, -986.5, -99.4, 240], [233.6, -986.5, -99.4, 120],
         [223.4, -991.5, -99.4, 240], [233.6, -991.5, -99.4, 120], [223.4, -996.5, -99.4, 240], [233.6, -996.5, -99.4, 120]]
 };
+const GI_L = {
+    big: 1, ipl: 'imp_impexp_interior_placement_interior_1_impexp_intwaremed_milo_',
+    walk: [970.84, -2992.6, -39.65, 180], drive: [994.6, -3002.3, -39.65, 0], arrive: [994.6, -2997.0, -39.65, 0],
+    spots: [[956.1, -2992.0, -39.6, 270], [956.1, -2996.2, -39.6, 270], [956.1, -3000.4, -39.6, 270], [956.1, -3004.6, -39.6, 270], [956.1, -3008.8, -39.6, 270],
+        [968.0, -3008.8, -39.6, 0], [972.5, -3008.8, -39.6, 0], [977.0, -3008.8, -39.6, 0], [981.5, -3008.8, -39.6, 0],
+        [986.0, -2992.0, -39.6, 90], [986.0, -2996.2, -39.6, 90], [986.0, -3000.4, -39.6, 90], [986.0, -3004.6, -39.6, 90], [986.0, -3008.8, -39.6, 90]]
+};
+function GIof(h) { return h && h.gar && h.gar.cap > 8 ? GI_L : GI_S; }
 if (!Array.isArray(D.houses)) {
     D.houses = [
         { n: 'Особняк в Рокфорд-Хиллз', x: -817.6, y: 178.0, z: 72.2, h: 110, int: 'hill3', rep: 5000, park: [-811.5, 187.5, 72.5, 110] },
@@ -147,7 +155,7 @@ function sendHouses(p) {
 function sendHousesAll() { mp.players.forEach(sendHouses); mp.players.forEach(sendGarages); }
 function garJson(p) {
     const f = p.account ? famP(p) : null;
-    return JSON.stringify(D.houses.filter(function (h) { return h.gar && h.owner && f && h.owner === f.id; }).map(function (h) { return [h.id, Math.round(h.gar.x * 100) / 100, Math.round(h.gar.y * 100) / 100, Math.round(h.gar.z * 100) / 100, h.gar.cap, gDim(h)]; }));
+    return JSON.stringify(D.houses.filter(function (h) { return h.gar && h.owner && f && h.owner === f.id; }).map(function (h) { return [h.id, Math.round(h.gar.x * 100) / 100, Math.round(h.gar.y * 100) / 100, Math.round(h.gar.z * 100) / 100, h.gar.cap, gDim(h), h.gar.cap > 8 ? 1 : 0]; }));
 }
 function sendGarages(p) { const j = garJson(p); p._famGar = j; p.call('fam:garages', [j]); }
 setInterval(function () { mp.players.forEach(function (p) { if (!p.account) return; if (p._famGar !== garJson(p)) sendGarages(p); }); }, 3000);
@@ -316,7 +324,7 @@ function moveVeh(v, pos, dim) {
 }
 function freeSpot(h, except) {
     const d = gDim(h);
-    return GI.spots.find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v !== except && v.dimension === d && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 2.4; }); }) || null;
+    return GIof(h).spots.find(function (z) { return !mp.vehicles.toArray().some(function (v) { return v !== except && v.dimension === d && Math.hypot(v.position.x - z[0], v.position.y - z[1]) < 2.4; }); }) || null;
 }
 function dress(v, f, c, r) {
     if (r) {
@@ -442,9 +450,9 @@ function addCar(p, f, vid, sitting, cb) {
 function enterUG(p, f, h, v) {
     if (v) {
         const occ = (v.getOccupants && v.getOccupants()) || [];
-        moveVeh(v, GI.arrive, gDim(h)); v.lastUse = Date.now();
+        moveVeh(v, GIof(h).arrive, gDim(h)); v.lastUse = Date.now();
         occ.forEach(function (x) { if (x !== p) x.call('house:inside', ['Гараж семьи «' + f.n + '»']); });
-    } else { p.dimension = gDim(h); p.position = V(GI.walk[0] - 2, GI.walk[1], GI.walk[2]); p.heading = GI.walk[3]; }
+    } else { p.dimension = gDim(h); p.position = V(GIof(h).walk[0] - 2, GIof(h).walk[1], GIof(h).walk[2]); p.heading = GIof(h).walk[3]; }
     p.call('house:inside', ['Гараж семьи «' + f.n + '» · выезд — E у ворот']);
 }
 mp.events.add('srv:fam:garage', function (p, hid) {
@@ -452,8 +460,8 @@ mp.events.add('srv:fam:garage', function (p, hid) {
     if (!f || !h || !h.gar || h.owner !== f.id) return;
     if (p.dimension === gDim(h)) {
         const v = p.vehicle, g = h.gar, a = (g.h || 0) * Math.PI / 180, out = [g.x - Math.sin(a) * 2, g.y + Math.cos(a) * 2, g.z, g.h || 0];
-        if (v) { if (Math.hypot(p.position.x - GI.drive[0], p.position.y - GI.drive[1]) > 6) return; moveVeh(v, out, 0); v.lastUse = Date.now(); if (v.getVariable('famCar')) { v.famOwner = sid(p); v.famBy = nick(p); const c = f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); }); if (c) flog(f, 'car', nick(p) + ' выехал на ' + c.n); refresh(f); } }
-        else { if (Math.hypot(p.position.x - GI.walk[0], p.position.y - GI.walk[1]) > 3.5) return; p.dimension = 0; p.position = V(g.x, g.y, g.z); }
+        if (v) { if (Math.hypot(p.position.x - GIof(h).drive[0], p.position.y - GIof(h).drive[1]) > 6) return; moveVeh(v, out, 0); v.lastUse = Date.now(); if (v.getVariable('famCar')) { v.famOwner = sid(p); v.famBy = nick(p); const c = f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); }); if (c) flog(f, 'car', nick(p) + ' выехал на ' + c.n); refresh(f); } }
+        else { if (Math.hypot(p.position.x - GIof(h).walk[0], p.position.y - GIof(h).walk[1]) > 3.5) return; p.dimension = 0; p.position = V(g.x, g.y, g.z); }
         return p.call('house:inside', ['']);
     }
     if (Math.hypot(p.position.x - h.gar.x, p.position.y - h.gar.y) > 7 || p.dimension !== 0) return;
@@ -812,6 +820,29 @@ mp.events.addCommand('fhcreate', function (p, full) {
     D.houses.push(h); mark(); sendHousesAll();
     p.outputChatBox('!{#8fd14f}Особняк #' + h.id + ' создан. Гараж: /fhgarage ' + h.id + ' [мест] или через /points');
 });
+function fromAgency(p, id, rep, cap, intK) {
+    const H = global.HouseSystem;
+    if (!H || !H.take) return 'Модуль домов недоступен';
+    if (!(rep > 0)) return 'Укажите цену в репутации';
+    if (!(cap >= 0) || cap > 50) return 'Гараж: от 0 до 50 мест';
+    const r = H.take(id);
+    if (r.err) return r.err;
+    const x = r.h, it = INTS[intK] ? intK : (INTS[x.int] ? x.int : 'hill1');
+    const a = (x.h || 0) * Math.PI / 180;
+    const h = { id: D.hseq++, n: x.n, x: x.x, y: x.y, z: x.z, h: x.h, int: it, rep: rep, owner: 0, open: false,
+        gar: cap ? { x: x.x - Math.sin(a) * 8, y: x.y + Math.cos(a) * 8, z: x.z, h: x.h, cap: cap } : null };
+    D.houses.push(h); mark(); sendHousesAll();
+    notify(p, 'ok', '«' + h.n + '» теперь семейный особняк #' + h.id + (cap ? ' с гаражом на ' + cap + ' мест — подгоните гараж через /points' : ''));
+    return null;
+}
+mp.events.addCommand('fhfrom', function (p, full) {
+    if (admLvl(p) < 7) return;
+    const a = String(full || '').trim().split(/\s+/);
+    const id = Math.floor(Number(a[0])), rep = Math.floor(Number(a[1])), cap = a[2] === undefined ? 10 : Math.floor(Number(a[2]));
+    if (!id || !rep) return p.outputChatBox('!{#ffcc66}/fhfrom [номер дома] [цена в репутации] [мест в гараже, по умолч. 10] — сделать дом из агентства семейным особняком');
+    const e = fromAgency(p, id, rep, cap);
+    if (e) p.outputChatBox('!{#e05555}' + e);
+});
 mp.events.addCommand('fhgarage', function (p, full) {
     if (admLvl(p) < 7) return;
     const a = String(full || '').trim().split(/\s+/), h = D.houses.find(function (x) { return x.id === Number(a[0]); }), cap = Math.floor(Number(a[1]));
@@ -868,6 +899,10 @@ try {
                 notify(p, 'ok', 'Особняк #' + h.id + ' создан' + (cap ? '. Гараж поставлен в 8 м впереди — подгоните его в списке меток' : ''));
                 return null;
             } }];
+        list.push({ id: 'fhfrom', n: 'Дом агентства → особняк', d: 'Свободный дом из агентства недвижимости станет семейным особняком (уберётся из агентства). Номер дома — /houseinfo у двери. Стоять рядом не нужно.',
+            f: [{ k: 'id', n: 'Номер дома', t: 'number', v: '' }, { k: 'rep', n: 'Цена в репутации', t: 'number', v: 8000 },
+                { k: 'cap', n: 'Мест в гараже (до 8 — малый, больше — большой гараж)', t: 'number', v: 10 }, { k: 'int', n: 'Интерьер', t: 'select', o: [['', 'Как у дома']].concat(ints), v: '' }],
+            make: function (p, v) { return fromAgency(p, Math.floor(Number(v.id)), Math.floor(Number(v.rep)), Math.floor(Number(v.cap) || 0), v.int); } });
         if (hs.length) list.push({ id: 'fgarage', n: 'Гараж особняка', d: 'Въезд в гараж появится там, где вы стоите (можно сидя в машине). Если у особняка уже есть гараж — он переедет сюда с новой вместимостью.',
             f: [{ k: 'hid', n: 'Особняк', t: 'select', o: hs, v: hs[0][0] }, { k: 'cap', n: 'Вместимость (машин)', t: 'number', v: 6 }],
             make: function (p, v) {

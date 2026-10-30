@@ -1,7 +1,18 @@
 var fBr = null, fOpen = false, fNpc = null, fNear = false, fHint = false;
 var fHouses = [], fHNear = null, fHHint = 0, fBlips = {};
 var fGar = [], fGNear = null, fGHint = 0, fIn = null, fInHint = '';
-var GI = { walk: [240.6, -1004.8, -99.0], drive: [228.6, -1004.2, -99.0] };
+var GIS = { walk: [240.6, -1004.8, -99.0], drive: [228.6, -1004.2, -99.0] };
+var GIL = { walk: [970.84, -2992.6, -39.65], drive: [994.6, -3002.3, -39.65] };
+function GIo(g) { return g && g[6] ? GIL : GIS; }
+var fIplOk = false;
+function fIpl() {
+    if (fIplOk) return; fIplOk = true;
+    try {
+        mp.game.streaming.requestIpl('imp_impexp_interior_placement_interior_1_impexp_intwaremed_milo_');
+        var id = mp.game.interior.getInteriorAtCoords(970.0, -3000.0, -40.0);
+        if (id) { ['garage_decor_01', 'lighting_option01', 'numbering_style01_n1', 'pump_01'].forEach(function (e) { try { mp.game.interior.enableInteriorProp(id, e); } catch (x) {} }); mp.game.interior.refreshInterior(id); }
+    } catch (e) {}
+}
 function fUI(on, code) {
     if (on && !fBr) fBr = mp.browsers.new('package://cef/family/index.html');
     if (!fBr) return;
@@ -24,6 +35,7 @@ mp.events.add('cef:fam:create', function (j) { mp.events.callRemote('srv:fam:cre
 var fGarBlips = [];
 mp.events.add('fam:garages', function (j) {
     try { fGar = JSON.parse(j) || []; } catch (e) { fGar = []; }
+    if (fGar.some(function (g) { return g[6]; })) fIpl();
     fGarBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
     fGarBlips = fGar.map(function (g) { try { return mp.blips.new(357, new mp.Vector3(g[1], g[2], g[3]), { name: 'Гараж семьи (' + g[4] + ' мест)', color: 3, shortRange: true, scale: 0.8, dimension: 0 }); } catch (e) { return null; } });
 });
@@ -46,8 +58,8 @@ setInterval(function () {
     var gn = null; fIn = null;
     fGar.forEach(function (g) {
         if (me.dimension !== g[5]) return;
-        if (me.vehicle) fIn = mp.game.system.vdist(pos.x, pos.y, pos.z, GI.drive[0], GI.drive[1], GI.drive[2]) < 5 ? { g: g, k: 'out' } : { g: g, k: 'park' };
-        else if (mp.game.system.vdist(pos.x, pos.y, pos.z, GI.walk[0], GI.walk[1], GI.walk[2]) < 2.5) fIn = { g: g, k: 'out' };
+        if (me.vehicle) fIn = mp.game.system.vdist(pos.x, pos.y, pos.z, GIo(g).drive[0], GIo(g).drive[1], GIo(g).drive[2]) < 5 ? { g: g, k: 'out' } : { g: g, k: 'park' };
+        else if (mp.game.system.vdist(pos.x, pos.y, pos.z, GIo(g).walk[0], GIo(g).walk[1], GIo(g).walk[2]) < 2.5) fIn = { g: g, k: 'out' };
     });
     var ih = fIn ? (fIn.k === 'park' ? '' : me.vehicle ? 'E — выехать из гаража' : 'E — выйти на улицу') : '';
     if (ih && ih !== fInHint) mp.events.call('hud:notify', 'ok', ih, 2500);
@@ -72,9 +84,9 @@ mp.events.add('render', function () {
     }
     fGar.forEach(function (g) {
         if (me.dimension !== g[5]) return;
-        mp.game.graphics.drawMarker(1, GI.walk[0], GI.walk[1], GI.walk[2] - 1, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 0.35, 255, 255, 255, 110, false, false, 2, false, null, null, false);
-        mp.game.graphics.drawMarker(1, GI.drive[0], GI.drive[1], GI.drive[2] - 1, 0, 0, 0, 0, 0, 0, 4.0, 4.0, 0.5, 80, 170, 255, 90, false, false, 2, false, null, null, false);
-        if (me.vehicle && mp.game.system.vdist(pos.x, pos.y, pos.z, GI.drive[0], GI.drive[1], GI.drive[2]) < 12) mp.game.graphics.drawText('Выезд · E', [GI.drive[0], GI.drive[1], GI.drive[2] + 1.2], { font: 4, color: [160, 210, 255, 230], scale: [0.38, 0.38], outline: true, centre: true });
+        mp.game.graphics.drawMarker(1, GIo(g).walk[0], GIo(g).walk[1], GIo(g).walk[2] - 1, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 0.35, 255, 255, 255, 110, false, false, 2, false, null, null, false);
+        mp.game.graphics.drawMarker(1, GIo(g).drive[0], GIo(g).drive[1], GIo(g).drive[2] - 1, 0, 0, 0, 0, 0, 0, 4.0, 4.0, 0.5, 80, 170, 255, 90, false, false, 2, false, null, null, false);
+        if (me.vehicle && mp.game.system.vdist(pos.x, pos.y, pos.z, GIo(g).drive[0], GIo(g).drive[1], GIo(g).drive[2]) < 12) mp.game.graphics.drawText('Выезд · E', [GIo(g).drive[0], GIo(g).drive[1], GIo(g).drive[2] + 1.2], { font: 4, color: [160, 210, 255, 230], scale: [0.38, 0.38], outline: true, centre: true });
         if (me.vehicle && !(fIn && fIn.k === 'out')) mp.game.graphics.drawText('E — поставить машину на свободное место', [0.5, 0.9], { font: 4, color: [255, 255, 255, 200], scale: [0.36, 0.36], outline: true, centre: true });
     });
     if (me.dimension !== 0) return;

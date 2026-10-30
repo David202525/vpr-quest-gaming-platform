@@ -387,6 +387,15 @@ global.HouseSystem = {
         broadcastList();
         return null;
     },
+    take: function (id) {
+        const h = byId(id);
+        if (!h) return { err: 'Дом #' + id + ' не найден (номер — /houseinfo у двери)' };
+        if (h.owner) return { err: 'Дом #' + id + ' занят игроком ' + (h.on || '') + ' — сначала освободите его' };
+        if (global.Realty && global.Realty.locked && global.Realty.locked('house', h.id)) return { err: 'Дом на аукционе' };
+        D.houses = D.houses.filter(function (x) { return x !== h; });
+        dirty = true; broadcastList();
+        return { h: { n: h.n, x: h.x, y: h.y, z: h.z, h: h.h || 0, int: h.int, price: h.price } };
+    },
     transfer: function (id, toId, toName) {
         const h = byId(id);
         if (!h) return false;
