@@ -508,3 +508,12 @@ em.g { color: #2fbf6a; } em.o { color: #ffb347; }
 .logbox { max-height: 520px; overflow-y: auto; }
 .tab ::-webkit-scrollbar-thumb { background: #2b3242; }
 .si em { font-size: 12.5px; } .si em.o { color: #ffb347; }
+.dd-b { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 120px; padding: 9px 12px; border-radius: 9px; border: 1px solid #2b3242; background: #10131a; color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.dd-b::after { content: ''; width: 7px; height: 7px; border-right: 2px solid #9aa3b0; border-bottom: 2px solid #9aa3b0; transform: rotate(45deg) translateY(-2px); flex-shrink: 0; }
+.dd-b:hover { border-color: #4a5468; }
+.dd-l { position: fixed; z-index: 9999; max-height: 260px; overflow-y: auto; padding: 5px; border-radius: 10px; background: #181c26; border: 1px solid #2b3242; box-shadow: 0 14px 40px rgba(0,0,0,.6); font-family: inherit; }
+.dd-i { padding: 8px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; color: #d7dde8; cursor: pointer; white-space: nowrap; }
+.dd-i:hover { background: #262c3a; color: #fff; }
+.dd-i.on { background: rgba(255,255,255,.1); color: #fff; }
+.dd-l::-webkit-scrollbar { width: 5px; } .dd-l::-webkit-scrollbar-thumb { background: #3a4152; border-radius: 3px; }
+.pm .dd-b, .cacc .dd-b, td .dd-b { min-width: 160px; }

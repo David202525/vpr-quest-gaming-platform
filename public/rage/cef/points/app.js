@@ -61,3 +61,50 @@ function mkRender() {
     };
 }
 $('mkBtn').onclick = function () { var m = $('mk'); m.classList.toggle('on'); if (m.classList.contains('on')) mkRender(); };
+
+/* ---------- свои выпадающие списки (системный select в игре не открывается) ---------- */
+(function () {
+    var openL = null;
+    function shut() { if (openL) { openL.remove(); openL = null; } }
+    function build(s) {
+        s.dataset.dd = 1;
+        s.style.display = 'none';
+        var b = document.createElement('div');
+        b.className = 'dd-b';
+        var lbl = function () { var o = s.options[s.selectedIndex]; b.textContent = o ? o.text : '—'; };
+        lbl();
+        s.parentNode.insertBefore(b, s.nextSibling);
+        b.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var was = openL && openL._s === s;
+            shut();
+            if (was) return;
+            var r = b.getBoundingClientRect(), L = document.createElement('div');
+            L.className = 'dd-l'; L._s = s;
+            Array.prototype.forEach.call(s.options, function (o) {
+                var it = document.createElement('div');
+                it.className = 'dd-i' + (o.value === s.value ? ' on' : '');
+                it.textContent = o.text;
+                it.addEventListener('click', function (ev) {
+                    ev.stopPropagation();
+                    shut();
+                    if (s.value === o.value) return;
+                    s.value = o.value; lbl();
+                    if (typeof s.onchange === 'function') s.onchange();
+                });
+                L.appendChild(it);
+            });
+            document.body.appendChild(L);
+            var h = Math.min(L.scrollHeight, 260), below = window.innerHeight - r.bottom - 8;
+            L.style.left = r.left + 'px';
+            L.style.minWidth = r.width + 'px';
+            L.style.top = (below >= h || below > r.top ? r.bottom + 4 : r.top - h - 4) + 'px';
+            openL = L;
+        });
+    }
+    function scan() { document.querySelectorAll('select:not([data-dd])').forEach(build); }
+    document.addEventListener('click', shut);
+    document.addEventListener('wheel', function (e) { if (openL && !openL.contains(e.target)) shut(); }, true);
+    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+    scan();
+})();
