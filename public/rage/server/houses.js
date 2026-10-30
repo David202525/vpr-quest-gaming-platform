@@ -277,6 +277,23 @@ mp.events.addCommand('delhouse', function (p, full) {
     dirty = true; broadcastList();
     p.outputChatBox('!{#8fd14f}Дом #' + h.id + ' «' + h.n + '» удалён');
 });
+function nearestHouse(p) { return D.houses.slice().sort(function (a, b) { return Math.hypot(p.position.x - a.x, p.position.y - a.y) - Math.hypot(p.position.x - b.x, p.position.y - b.y); })[0] || null; }
+mp.events.addCommand('hprice', function (p, full) {
+    if (!adm(p, 7)) return;
+    const a = String(full || '').trim().split(/\s+/);
+    let h = null, raw = a[0];
+    if (a.length >= 2) { h = byId(a[0]); raw = a[1]; }
+    else { h = nearestHouse(p); if (h && Math.hypot(p.position.x - h.x, p.position.y - h.y) > 5) h = null; }
+    const auto = /^(auto|авто)$/i.test(raw || '');
+    const price = Math.floor(Number(String(raw || '').replace(/[^0-9]/g, '')));
+    if (!h || (!auto && !(price > 0))) return p.outputChatBox('!{#ffcc66}/hprice [цена] — у двери дома · /hprice [id дома] [цена] — по номеру · вместо цены auto — вернуть стандартную');
+    const old = h.price;
+    if (auto) { delete h.customPrice; h.price = classPrice(h); }
+    else { h.price = price; h.customPrice = 1; }
+    dirty = true; broadcastList();
+    slog(p, 'price', '#' + h.id + ' ' + h.n + ': ' + old + ' → ' + h.price);
+    p.outputChatBox('!{#8fd14f}#' + h.id + ' «' + h.n + '»: ' + money(old) + ' → ' + money(h.price) + (auto ? ' (стандартная)' : '') + (h.owner ? ' !{#aaaaaa}· дом занят, цена влияет на продажу государству (' + Math.round(SELL_BACK * 100) + '%)' : ''));
+});
 mp.events.addCommand('houseinfo', function (p) {
     if (!adm(p, 3)) return;
     const h = D.houses.slice().sort(function (a, b) { return Math.hypot(p.position.x - a.x, p.position.y - a.y) - Math.hypot(p.position.x - b.x, p.position.y - b.y); })[0];

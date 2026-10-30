@@ -251,6 +251,7 @@ mp.events.add('cef:menu:buy', function (k) { mp.events.callRemote('srv:menu:buy'
 mp.events.add('cef:menu:vip', function (k) { mp.events.callRemote('srv:menu:vip', k); });
 mp.events.add('cef:menu:exchange', function (n) { mp.events.callRemote('srv:menu:exchange', n); });
 mp.events.add('cef:menu:pack', function () { mp.events.callRemote('srv:menu:pack'); });
+mp.events.add('cef:menu:homegps', function () { mp.events.callRemote('srv:menu:homegps'); });
 mp.events.add('cef:menu:claim', function (l) { mp.events.callRemote('srv:menu:claim', l); });
 mp.events.add('cef:menu:report', function (t) { mp.events.callRemote('srv:menu:report', t); });
 mp.events.add('cef:phone:sms', function (to, t) { mp.events.callRemote('srv:phone:sms', to, t); });

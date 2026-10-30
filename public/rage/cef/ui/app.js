@@ -710,7 +710,7 @@ function menuChar(d) {
     }).join('') + '</div>' : tile('car', 'car.jpg', '<div class="t-cap t-dim">Автомобиль</div><div class="t-big">Нет личного транспорта</div><div class="t-sub">Купите машину в автосалоне</div>');
     var h = d.home;
     var home = tile('orange-t', h && h.flat ? 'flat.jpg' : 'house.jpg', '<div class="t-cap">' + (h ? esc(h.k || (h.flat ? 'Ваша квартира' : 'Ваш дом')) : 'Недвижимость') + '</div><div class="t-big">' + (h ? esc(h.n) : 'Нет жилья') + '</div>' +
-        '<div class="t-kv"><span>ID персонажа</span><b>' + (d.sid || d.id) + '</b><span>Телефон</span><b>' + esc(d.number || '—') + '</b>' + (h && !h.hotel ? '<span>' + (h.fam ? 'Гости' : 'Двери') + '</span><b>' + (h.fam ? (h.locked ? 'нельзя' : 'можно') : (h.locked ? 'закрыты' : 'открыты')) + '</b>' : '') + '</div>');
+        '<div class="t-kv"><span>ID персонажа</span><b>' + (d.sid || d.id) + '</b><span>Телефон</span><b>' + esc(d.number || '—') + '</b>' + (h && !h.hotel ? '<span>' + (h.fam ? 'Гости' : 'Двери') + '</span><b>' + (h.fam ? (h.locked ? 'нельзя' : 'можно') : (h.locked ? 'закрыты' : 'открыты')) + '</b>' : '') + '</div>' + (h ? '<button class=\"home-gps\" data-homegps=\"1\">📍 Метка на карте</button>' : ''));
     var S = d.salary;
     var sal = S ? tile('green-t', 'biz.jpg', '<div class="t-cap">Зарплата · ' + esc(S.fn) + '</div><div class="t-big">' + money(S.net) + '</div><div class="t-kv"><span>Должность</span><b>' + esc(S.rn) + '</b><span>Налог</span><b>-' + money(S.tax) + '</b><span>Выплата через</span><b>' + Math.max(0, Math.ceil((S.next - Date.now()) / 60000)) + ' мин</b></div>')
         : tile('green-t', 'biz.jpg', '<div class="t-cap">Зарплата</div><div class="t-big">Нет</div><div class="t-sub">Вступите в гос. фракцию, чтобы получать оклад из казны штата</div>');
@@ -897,6 +897,7 @@ function bindMenu() {
     var b = $('mBody');
     b.querySelectorAll('[data-cat]').forEach(function (x) { x.onclick = function () { shopCat = x.dataset.cat; renderMenu(); }; });
     b.querySelectorAll('[data-buy]').forEach(function (x) { x.onclick = function () { trig('cef:menu:buy', x.dataset.buy); }; });
+    b.querySelectorAll('[data-homegps]').forEach(function (x) { x.onclick = function (e) { e.stopPropagation(); trig('cef:menu:homegps'); }; });
     b.querySelectorAll('[data-sec]').forEach(function (x) { x.onclick = function () { shopSec = x.dataset.sec; renderMenu(); }; });
     b.querySelectorAll('[data-vip]').forEach(function (x) { x.onclick = function () { trig('cef:menu:vip', x.dataset.vip); }; });
     b.querySelectorAll('[data-pack]').forEach(function (x) { x.onclick = function () { trig('cef:menu:pack', Number(x.dataset.pack)); }; });

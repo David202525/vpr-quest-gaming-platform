@@ -840,11 +840,11 @@ async function menuPayload(p) {
         salary: global.Treasury ? global.Treasury.info(p) : null,
         home: (function () {
             const H = global.HouseSystem; const h = H && H.mine ? H.mine(p) : null;
-            if (h) return { n: h.n, flat: !!h.flat, locked: !!h.locked, k: h.flat ? 'Ваша квартира' : 'Ваш дом' };
+            if (h) return { x: h.x, y: h.y, n: h.n, flat: !!h.flat, locked: !!h.locked, k: h.flat ? 'Ваша квартира' : 'Ваш дом' };
             const F = global.FamilySystem; const fh = F && F.houseP ? F.houseP(p) : null;
-            if (fh) return { n: fh.n, k: 'Особняк семьи «' + fh.fam + '»', fam: true, locked: !fh.open };
+            if (fh) return { x: fh.x, y: fh.y, n: fh.n, k: 'Особняк семьи «' + fh.fam + '»', fam: true, locked: !fh.open };
             const S = global.SpawnSystem; const hl = S && S.hotelLeft ? S.hotelLeft(p) : 0;
-            if (hl > 0) return { n: (S.hotelPos ? S.hotelPos().n : 'Гостиница'), k: 'Номер в гостинице · ещё ' + Math.ceil(hl / 86400000) + ' дн.', hotel: true };
+            if (hl > 0) return { x: S.hotelPos ? S.hotelPos().x : 0, y: S.hotelPos ? S.hotelPos().y : 0, n: (S.hotelPos ? S.hotelPos().n : 'Гостиница'), k: 'Номер в гостинице · ещё ' + Math.ceil(hl / 86400000) + ' дн.', hotel: true };
             return null;
         })(),
         sid: accId(p) || 0,
@@ -935,6 +935,15 @@ mp.events.add('srv:menu:lic', function (p, k) {
     if (global.SLog) try { global.SLog.add('donate', { actor: p, action: 'license', amount: L.price, details: L.n }); } catch (e) {}
     notify(p, 'ok', 'Получено: ' + L.n + '. Документ лежит в папке документов');
     sendMenu(p);
+});
+mp.events.add('srv:menu:homegps', function (p) {
+    const H = global.HouseSystem, h = H && H.mine ? H.mine(p) : null;
+    let t = h ? { x: h.x, y: h.y, n: h.n } : null;
+    if (!t) { const F = global.FamilySystem, fh = F && F.houseP ? F.houseP(p) : null; if (fh) t = { x: fh.x, y: fh.y, n: fh.n }; }
+    if (!t) { const S = global.SpawnSystem; if (S && S.hotelLeft && S.hotelLeft(p) > 0 && S.hotelPos) { const hp = S.hotelPos(); t = { x: hp.x, y: hp.y, n: hp.n }; } }
+    if (!t) return notify(p, 'warn', 'У вас нет жилья');
+    p.call('phone:gps', [t.x, t.y, t.n]);
+    notify(p, 'ok', 'Метка поставлена: ' + t.n);
 });
 mp.events.add('srv:menu:pack', function (p) {
     notify(p, 'info', 'Пополнение коинов — через администрацию сервера (/report)');

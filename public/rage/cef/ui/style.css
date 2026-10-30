@@ -2478,3 +2478,6 @@ body.streamer .tile.hello h2, body.streamer .t-kv b, body.streamer .t-big, body.
 .rl-box::-webkit-scrollbar-button{display:none;height:0}
 .rl-box .gps-tabs{grid-template-columns:repeat(4,1fr)}
 .rl-list{display:flex;flex-direction:column;gap:12px}
+
+.home-gps { position: relative; z-index: 2; margin-top: 10px; padding: 7px 12px; border: 0; border-radius: 8px; background: rgba(0,0,0,.45); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.home-gps:hover { background: #ff8a2a; }
