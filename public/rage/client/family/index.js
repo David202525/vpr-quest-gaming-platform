@@ -3,7 +3,7 @@ var fHouses = [], fHNear = null, fHHint = 0, fBlips = {};
 var fGar = [], fGNear = null, fGHint = 0, fIn = null, fInHint = '';
 var GIS = { walk: [240.6, -1004.8, -99.0], drive: [228.6, -1004.2, -99.0] };
 var GIL = { walk: [970.84, -2992.6, -39.65], drive: [994.6, -3002.3, -39.65] };
-function GIo(g) { return g && g[6] ? GIL : GIS; }
+function GIo(g) { return GIS; }
 var fIplOk = false;
 function fIpl() {
     if (fIplOk) return; fIplOk = true;

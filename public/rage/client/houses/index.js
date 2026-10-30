@@ -175,7 +175,7 @@ setInterval(function () {
 var hG = [], hGNear = null, hGHint = '', hGBlips = [];
 var HGS = { walk: [240.6, -1004.8, -99.0], drive: [228.6, -1004.2, -99.0] };
 var HGL = { walk: [970.84, -2992.6, -39.65], drive: [994.6, -3002.3, -39.65] };
-function hgI(g) { return g[6] ? HGL : HGS; }
+function hgI(g) { return HGS; }
 mp.events.add('house:garages', function (j) {
     try { hG = JSON.parse(j) || []; } catch (e) { hG = []; }
     hGBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
