@@ -57,6 +57,21 @@ if (!D.mig1) {
     });
     D.mig1 = 1; mark();
 }
+if (!D.mig2) {
+    [
+        { n: 'Вилла в Вайнвуд-Хиллз', x: -1032.3, y: 685.9, z: 161.3, h: 90, int: 'hill5', rep: 9000, cap: 8 },
+        { n: 'Вилла на пляже Чумаш', x: -3093.0, y: 349.3, z: 7.5, h: 250, int: 'hill1', rep: 7000, cap: 6 },
+        { n: 'Усадьба в Палето-Бэй', x: -229.6, y: 6445.4, z: 31.2, h: 140, int: 'hill2', rep: 5500, cap: 6 },
+        { n: 'Ферма в Грейпсиде', x: 2438.9, y: 4975.0, z: 46.8, h: 45, int: 'hill3', rep: 6000, cap: 10 }
+    ].forEach(function (o) {
+        if (D.houses.some(function (h) { return Math.hypot(h.x - o.x, h.y - o.y) < 30; })) return;
+        const a = o.h * Math.PI / 180;
+        D.houses.push({ id: D.hseq++, n: o.n, x: o.x, y: o.y, z: o.z, h: o.h, int: o.int, rep: o.rep, owner: 0, open: false,
+            gar: { x: o.x - Math.sin(a) * 8, y: o.y + Math.cos(a) * 8, z: o.z, h: o.h, cap: o.cap } });
+    });
+    D.mig2 = 1; mark();
+}
+setTimeout(function () { D.houses.forEach(function (h) { const og = orgNear(h.x, h.y); if (og) console.log('[family] ВНИМАНИЕ: особняк #' + h.id + ' ' + h.n + ' стоит на базе ' + og); }); }, 8000);
 D.houses.forEach(function (h, i) {
     if (h.gar === undefined) { h.gar = h.park ? { x: h.park[0], y: h.park[1], z: h.park[2], h: h.park[3] || 0, cap: DEF_CAP[i] || 6 } : null; delete h.park; mark(); }
 });
