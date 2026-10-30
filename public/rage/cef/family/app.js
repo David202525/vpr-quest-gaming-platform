@@ -113,16 +113,28 @@ function pMem() {
 }
 function pRanks() {
     var L = D.f.ranks.length;
-    var names = D.f.ranks.map(function (r, i) {
-        return '<div class="rn"><span class="no">' + (i + 1) + '</span>' + (D.head ? '<input id="rn' + (i + 1) + '" value="' + esc(r) + '" maxlength="20"><button class="sm" data-rn="' + (i + 1) + '">Сохранить</button>' : '<b>' + esc(r) + '</b>') + '</div>';
+    var cnt = {}; D.members.forEach(function (m) { cnt[m.r] = (cnt[m.r] || 0) + 1; });
+    var names;
+    names = D.f.ranks.map(function (r, i) { return i; }).reverse().map(function (i) {
+        var no = i + 1, top = no === L;
+        return '<div class="rn"><span class="no">' + no + '</span>' + (D.head ? '<input id="rn' + no + '" value="' + esc(D.f.ranks[i]) + '" maxlength="20"><button class="sm" data-rn="' + no + '">Сохранить</button>' +
+            (top ? '<span class="rlock" title="Ранг главы удалить нельзя">👑</span>' : '<button class="sm r" data-rd="' + no + '" title="Удалить ранг">✕</button>') : '<b>' + esc(D.f.ranks[i]) + '</b>') +
+            '<em class="rc">' + (cnt[no] || 0) + ' чел.</em></div>';
     }).join('');
+    var add = '';
+    if (D.head) {
+        var o = ''; for (var k = L; k >= 1; k--) o += '<option value="' + k + '"' + (k === L ? ' selected' : '') + '>ниже «' + esc(rn(k)) + '»</option>';
+        add = '<div class="radd"><div class="lbl2">Новый ранг · ' + L + ' / ' + (D.maxRanks || 15) + '</div><div class="inl"><input id="nrN" maxlength="20" placeholder="Название, например «Охрана»"><select id="nrP">' + o + '</select><button id="nrGo">Создать</button></div></div>';
+    }
     var perms = Object.keys(D.permNames).map(function (k) {
         var cur = D.f.perms[k];
         return '<div class="pm"><span>' + esc(D.permNames[k]) + '</span>' + (D.head ? rankSel('p_' + k, cur, 1, L) : '<b class="rk">с ' + cur + ' · ' + esc(rn(cur)) + '</b>') + '<i class="' + (D.my[k] ? 'y' : 'n') + '">' + (D.my[k] ? '✓' : '✕') + '</i></div>';
     }).join('');
-    $('pg').innerHTML = '<h2>Ранги и доступы</h2><div class="g2">' + card('Названия рангов', names) +
+    $('pg').innerHTML = '<h2>Ранги и доступы</h2><div class="g2">' + card('Ранги · от старшего к младшему', names + add) +
         card('Доступы по рангам', '<div class="mut" style="margin-bottom:8px">Минимальный ранг для действия. Глава может всё.</div>' + perms) + '</div>';
     document.querySelectorAll('[data-rn]').forEach(function (b) { b.onclick = function () { act('rankname', { r: Number(b.dataset.rn), n: $('rn' + b.dataset.rn).value }); }; });
+    document.querySelectorAll('[data-rd]').forEach(function (b) { b.onclick = function () { if (b.dataset.ok) act('rankdel', { r: Number(b.dataset.rd) }); else { b.dataset.ok = 1; b.textContent = 'Удалить?'; } }; });
+    if ($('nrGo')) $('nrGo').onclick = function () { act('rankadd', { n: $('nrN').value, r: Number($('nrP').value) }); };
     Object.keys(D.permNames).forEach(function (k) { var s = $('p_' + k); if (s) s.onchange = function () { act('perm', { k: k, r: Number(s.value) }); }; });
 }
 var MYCARS = null;

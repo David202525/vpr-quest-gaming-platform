@@ -23,6 +23,7 @@ const PERMS = {
     bank: 'Снимать деньги из общака', house: 'Управлять особняком', log: 'Смотреть журнал'
 };
 const BASE_GARAGE = 2;
+const MAX_RANKS = 15;
 const INTS = {
     hill1: { n: 'Wild Oats', x: -174.32, y: 497.38, z: 137.66, h: 190 },
     hill2: { n: 'North Conker', x: 341.97, y: 437.77, z: 149.39, h: 110 },
@@ -161,7 +162,7 @@ function tabView(p) {
     return {
         mode: 'tab', me: me, head: isHead(f, me), myR: myR(f, me), my: my, cash: MS ? MS.get(p) : 0, coins: U && U.coinsOf ? U.coinsOf(p) : 0,
         f: { n: f.n, tag: f.tag, c: f.c, type: T.n, ti: T.i, slots: T.slots, carMax: garCap(f), baseGar: BASE_GARAGE, bank: f.bank, rep: f.rep, created: f.created, ownerN: f.ownerN, ranks: f.ranks, perms: f.perms },
-        permNames: PERMS, rep: REP,
+        permNames: PERMS, rep: REP, maxRanks: MAX_RANKS,
         members: f.members.slice().sort(function (a, b) { return b.r - a.r; }).map(function (m) { return { id: m.id, n: m.n, r: m.r, on: !!online(m.id), head: isHead(f, m.id), j: m.j || 0 }; }),
         cars: f.cars.map(function (c) { const v = live[f.id + ':' + c.id]; return { id: c.id, m: c.m, n: c.n, plate: c.plate, minR: c.minR, out: !!(v && mp.vehicles.exists(v)), by: v && mp.vehicles.exists(v) ? (v.famBy || '') : '', own: c.ownN || '', mine: c.own === me }; }),
         house: h ? { id: h.id, n: h.n, int: INTS[h.int] ? INTS[h.int].n : '', open: !!h.open, rep: h.rep, cap: h.gar ? h.gar.cap : 0 } : null,
@@ -478,6 +479,38 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         if (i < 0 || i >= L || n.length < 2) return msg(p, 'Название ранга: от 2 до 20 символов');
         flog(f, 'rank', nick(p) + ' переименовал ранг «' + f.ranks[i] + '» → «' + n + '»'); f.ranks[i] = n;
         return done('Ранг переименован');
+    }
+    if (act === 'rankadd' || act === 'rankdel') {
+        if (!head) return msg(p, 'Создавать и удалять ранги может только глава');
+        const pos = Math.floor(Number(a.r));
+        const shift = function (r, isMem) {
+            if (act === 'rankadd') return r >= pos ? r + 1 : r;
+            if (r > pos) return r - 1;
+            if (r === pos) return isMem ? Math.max(1, pos - 1) : pos;
+            return r;
+        };
+        if (act === 'rankadd') {
+            const n = clean(a.n, 20);
+            if (n.length < 2) return msg(p, 'Название ранга: от 2 до 20 символов');
+            if (L >= MAX_RANKS) return msg(p, 'Максимум ' + MAX_RANKS + ' рангов');
+            if (pos < 1 || pos > L) return msg(p, 'Выберите место для ранга');
+            if (f.ranks.some(function (x) { return x.toLowerCase() === n.toLowerCase(); })) return msg(p, 'Такой ранг уже есть');
+            f.members.forEach(function (m) { m.r = shift(m.r, true); });
+            Object.keys(f.perms).forEach(function (k) { f.perms[k] = shift(f.perms[k]); });
+            f.cars.forEach(function (c) { c.minR = shift(c.minR); });
+            f.ranks.splice(pos - 1, 0, n);
+            flog(f, 'rank', nick(p) + ' создал ранг «' + n + '» (№' + pos + ')');
+            return done('Ранг «' + n + '» создан');
+        }
+        if (L <= 2) return msg(p, 'Должно остаться минимум 2 ранга');
+        if (pos < 1 || pos >= L) return msg(p, 'Ранг главы удалить нельзя');
+        const old = f.ranks[pos - 1], cnt = f.members.filter(function (m) { return m.r === pos; }).length;
+        f.members.forEach(function (m) { if (!isHead(f, m.id)) m.r = shift(m.r, true); else m.r = L - 1; });
+        Object.keys(f.perms).forEach(function (k) { f.perms[k] = Math.max(1, Math.min(L - 1, shift(f.perms[k]))); });
+        f.cars.forEach(function (c) { c.minR = Math.max(1, Math.min(L - 1, shift(c.minR))); });
+        f.ranks.splice(pos - 1, 1);
+        flog(f, 'rank', nick(p) + ' удалил ранг «' + old + '»' + (cnt ? ' (' + cnt + ' чел. перешли на ранг ниже)' : ''));
+        return done('Ранг «' + old + '» удалён');
     }
     if (act === 'perm') {
         if (!head) return msg(p, 'Доступы настраивает только глава');
