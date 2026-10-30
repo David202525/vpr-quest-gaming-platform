@@ -127,6 +127,7 @@ window.captMsg = function (t, ok) {
     m.textContent = t; m.className = 'cp-msg ' + (ok ? 'ok' : 'err');
 };
 var CPmap = 'dark';
+function cpA(h, a) { h = String(h || '#888').replace('#', ''); if (h.length === 3) h = h.replace(/./g, '$&$&'); var n = parseInt(h.slice(0, 6), 16); return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')'; }
 function cpClock() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 function cpRender() {
     var d = CP, b = base('capt tab', d.meC);
@@ -135,14 +136,14 @@ function cpRender() {
     var cells = d.z.map(function (z) {
         var o = z[2] ? d.orgs[z[2]] : null, w = z[5];
         var cls = 'cp-c' + (z[2] === d.me ? ' mine' : '') + (z[3] ? ' base' : '') + (w ? ' war' : '') + (z[6] ? ' nt' : '') + (z[0] === CPsel ? ' sel' : '') + (z[0] === d.myPos ? ' here' : '');
-        var st = o ? '--oc:' + o.c : '';
+        var st = o ? '--oc:' + o.c + ';background:' + cpA(o.c, z[3] ? .62 : .38) + ';border-color:' + cpA(o.c, .85) : '';
         return '<div class="' + cls + '" data-z="' + z[0] + '" style="' + st + '"><span>' + z[1] + '</span>' + (z[3] ? '<i>★</i>' : w ? '<i>⚔</i>' : '') + (z[0] === d.myPos ? '<em></em>' : '') + '</div>';
     }).join('');
     var gangs = Object.keys(d.orgs).sort(function (x, y) { return (cnt[y] || 0) - (cnt[x] || 0); });
     var total = d.z.filter(function (z) { return !z[6]; }).length || 1;
     var side = '<div class="tb-sec">Банды города</div>' + gangs.map(function (k, i) {
         var o = d.orgs[k], c = cnt[k] || 0;
-        return '<div class="tb-g' + (k === d.me ? ' me' : '') + '" style="--oc:' + o.c + '"><span class="tb-gr">' + (i + 1) + '</span><s></s><div><b>' + esc(o.n) + '</b><small>' + c + ' кв. · ' + ((d.onAll || {})[k] || 0) + ' онлайн' + (o.busy ? ' · <em>война</em>' : '') + '</small><div class="tb-gb"><i style="width:' + Math.round(c / total * 100) + '%"></i></div></div></div>';
+        return '<div class="tb-g' + (k === d.me ? ' me' : '') + '" style="--oc:' + o.c + (k === d.me ? ';border-color:' + o.c + ';background:' + cpA(o.c, .12) : '') + '"><span class="tb-gr">' + (i + 1) + '</span><s></s><div><b>' + esc(o.n) + '</b><small>' + c + ' кв. · ' + ((d.onAll || {})[k] || 0) + ' онлайн' + (o.busy ? ' · <em>война</em>' : '') + '</small><div class="tb-gb"><i style="width:' + Math.round(c / total * 100) + '%"></i></div></div></div>';
     }).join('') +
         '<div class="tb-sec">В сети · ' + ((d.on || []).length) + '</div><div class="tb-on">' + (d.on || []).map(function (m) { return '<div><i></i><b>' + esc(m[0]) + '</b><small>' + esc(m[1]) + '</small></div>'; }).join('') + '</div>';
     var my = cnt[d.me] || 0;
