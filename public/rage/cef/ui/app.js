@@ -1060,50 +1060,63 @@ $('dtHosp').onclick = function () { if (!this.classList.contains('off')) trig('c
 
 /* ================= FUEL ================= */
 var FU = { d: null, t: 'ai92', l: 0, pay: 'cash' };
+function fuFree() {
+    var d = FU.d, free = Math.max(0, d.max - d.fuel);
+    if (d.station && d.station.stock !== null && d.station.stock !== undefined) free = Math.min(free, d.station.stock);
+    return Math.floor(free);
+}
 function fuelInit(d) {
-    FU.d = d; FU.t = d.cur || 'ai92';
-    var free = Math.max(0, d.max - d.fuel);
-    if (d.station && d.station.stock !== null) free = Math.min(free, d.station.stock);
+    FU.d = d; FU.t = d.cur || (d.types[0] && d.types[0].k) || 'ai92';
     var S = d.station || {};
     $('fuName').textContent = S.name || 'АЗС';
     $('fuSub').textContent = S.owner ? 'Владелец: ' + S.owner : 'Государственная заправка';
     if (S.stock !== null && S.stock !== undefined) {
-        var pc = Math.round(S.stock / S.maxStock * 100);
-        $('fuStock').innerHTML = '<span>Запас на станции</span><div class="fs-bar"><i style="width:' + pc + '%"></i></div><b>' + S.stock + ' л</b>' + (S.deficit ? '<em>ДЕФИЦИТ' + (S.owner ? '' : ' · цена ×1.5') + '</em>' : '');
-        $('fuStock').className = 'fu-stock show' + (S.deficit ? ' low' : '');
-    } else $('fuStock').className = 'fu-stock';
-    FU.l = free;
-    $('fuRange').max = free;
+        var pc = Math.max(0, Math.min(100, Math.round(S.stock / (S.maxStock || 1) * 100)));
+        $('fuStock').innerHTML = '<div class="fz-stock-top"><span>Резервуар станции</span><b>' + S.stock + ' л</b></div><div class="fz-stock-bar"><i style="width:' + pc + '%"></i></div>' + (S.deficit ? '<em>ДЕФИЦИТ' + (S.owner ? '' : ' · цена ×1.5') + '</em>' : '');
+        $('fuStock').className = 'fz-stock show' + (S.deficit ? ' low' : '');
+    } else $('fuStock').className = 'fz-stock';
+    FU.l = fuFree();
     renderFuel();
 }
 function renderFuel() {
     var d = FU.d;
     if (!d) return;
-    var free = Math.max(0, d.max - d.fuel);
-    if (d.station && d.station.stock !== null && d.station.stock !== undefined) free = Math.min(free, d.station.stock);
-    FU.l = Math.max(0, Math.min(free, FU.l));
+    var free = fuFree();
+    FU.l = Math.max(0, Math.min(free, Math.round(FU.l)));
     var t = d.types.find(function (x) { return x.k === FU.t; }) || d.types[0];
     var sum = Math.ceil(FU.l * t.price);
-    $('fuNow').textContent = d.fuel; $('fuFree').textContent = free;
-    $('fuCur').style.width = (d.fuel / d.max * 100) + '%';
-    $('fuAdd').style.width = (FU.l / d.max * 100) + '%';
-    $('fuAdd').style.background = t.c;
-    $('fuL').textContent = FU.l;
-    $('fuRange').value = FU.l;
+    var cur = Math.max(0, Math.min(100, d.fuel / d.max * 100)), add = Math.min(100 - cur, FU.l / d.max * 100);
+    $('fuGCur').style.strokeDasharray = cur + ' 100';
+    $('fuGAdd').style.strokeDasharray = '0 ' + cur + ' ' + add + ' 100';
+    $('fuGAdd').style.stroke = t.c;
+    $('fuNeedle').style.transform = 'rotate(' + (-90 + (cur + add) * 1.8) + 'deg)';
+    $('fuNow').textContent = Math.floor(d.fuel); $('fuFree').textContent = free;
+    $('fuL').textContent = FU.l.toFixed(1);
+    $('fuSum').textContent = money(sum);
+    $('fuTypeName').textContent = t.n;
+    $('fuPpl').textContent = '$' + t.price + ' / л';
+    var r = $('fuRange');
+    r.max = free; r.value = FU.l;
+    r.style.setProperty('--p', (free ? FU.l / free * 100 : 0) + '%');
+    r.style.setProperty('--fc', t.c);
+    $('fuMaxL').textContent = free + ' л';
     $('fuCash').textContent = money(d.money);
     $('fuCard').textContent = money(d.bank);
-    $('fuSum').textContent = money(sum);
     var have = FU.pay === 'card' ? d.bank : d.money;
-    $('fuGo').classList.toggle('off', FU.l <= 0 || have < sum);
+    var go = $('fuGo');
+    go.classList.toggle('off', FU.l <= 0 || have < sum);
+    $('fuGoTxt').textContent = free <= 0 ? 'Бак полон' : FU.l <= 0 ? 'Выберите литры' : have < sum ? 'Недостаточно средств' : 'Заправить ' + FU.l + ' л';
+    $('fuGoSum').textContent = money(sum);
     $('fuTypes').innerHTML = d.types.map(function (x) {
-        return '<div class="fu-t ' + (x.k === FU.t ? 'active' : '') + '" data-ft="' + x.k + '" style="--fc:' + x.c + '"><b>' + esc(x.n) + '</b><small>$' + x.price + ' / л</small></div>';
+        var num = (String(x.n).match(/\d+/) || [''])[0];
+        return '<div class="fz-t ' + (x.k === FU.t ? 'active' : '') + '" data-ft="' + x.k + '" style="--fc:' + x.c + '"><div class="fz-t-num">' + (num || 'ДТ') + '</div><b>' + esc(x.n) + '</b><small>$' + x.price + ' за литр</small></div>';
     }).join('');
     $('fuTypes').querySelectorAll('[data-ft]').forEach(function (el) { el.onclick = function () { FU.t = el.dataset.ft; renderFuel(); }; });
     document.querySelectorAll('.fu-pm').forEach(function (b) { b.classList.toggle('active', b.dataset.pay === FU.pay); });
 }
 $('fuRange').oninput = function () { FU.l = Number(this.value); renderFuel(); };
-document.querySelectorAll('.fu-quick button').forEach(function (b) {
-    b.onclick = function () { FU.l = b.dataset.q === 'full' ? 999 : Number(b.dataset.q); renderFuel(); };
+document.querySelectorAll('.fz-quick button').forEach(function (b) {
+    b.onclick = function () { FU.l = b.dataset.q === 'full' ? 9999 : FU.l + Number(b.dataset.q); renderFuel(); };
 });
 document.querySelectorAll('.fu-pm').forEach(function (b) { b.onclick = function () { FU.pay = b.dataset.pay; renderFuel(); }; });
 $('fuGo').onclick = function () { if (!this.classList.contains('off')) trig('cef:fuel:buy', FU.t, FU.l, FU.pay); };
@@ -1784,4 +1797,48 @@ window.taxiRate = function (json) {
     document.body.appendChild(el);
     el.querySelectorAll('[data-r]').forEach(function (b) { b.onclick = function () { trig('cef:taxi:rateDrv', d.id, Number(b.dataset.r)); el.remove(); }; });
     setTimeout(function () { if (el.parentNode) el.remove(); }, 20000);
+};
+
+window.railHud = function (json) {
+    var el = document.getElementById('railHud');
+    var m = json ? (typeof json === 'string' ? JSON.parse(json) : json) : null;
+    if (!m) { if (el) el.remove(); return; }
+    if (!el) {
+        el = document.createElement('div'); el.id = 'railHud';
+        el.innerHTML = '<div class="rh-spd"><svg viewBox="0 0 200 200"><circle class="rh-ring" cx="100" cy="100" r="84" pathLength="100"/><circle class="rh-lim" cx="100" cy="100" r="84" pathLength="100"/><circle class="rh-val" cx="100" cy="100" r="84" pathLength="100"/></svg><div class="rh-num"><b></b><span>км/ч</span></div><div class="rh-limb"><small>ЛИМИТ</small><i></i></div></div>' +
+            '<div class="rh-body"><div class="rh-head"><span class="rh-kind"></span><span class="rh-prog"></span></div>' +
+            '<div class="rh-st"><small></small><b></b><em></em></div>' +
+            '<div class="rh-track"><i></i></div>' +
+            '<div class="rh-next"></div>' +
+            '<div class="rh-row"><div class="rh-th"><small>ТЯГА</small><div class="rh-thbar"><i></i></div><b></b></div>' +
+            '<div class="rh-chip rh-br">ТОРМОЗ</div><div class="rh-chip rh-dr">ДВЕРИ</div><div class="rh-chip rh-wg"></div></div></div>' +
+            '<div class="rh-msg"></div>';
+        document.body.appendChild(el);
+    }
+    var q = function (c) { return el.querySelector(c); };
+    var over = m.sp > m.lim, near = !over && m.sp > m.lim - 8;
+    el.className = (over ? 'over' : near ? 'near' : '') + (m.k === 'metro' ? ' metro' : ' freight');
+    var top = Math.max(m.max, m.lim) * 1.15 || 1;
+    q('.rh-val').style.strokeDasharray = Math.min(75, m.sp / top * 75) + ' 100';
+    q('.rh-lim').style.strokeDasharray = '0 ' + Math.min(75, m.lim / top * 75) + ' 0.8 100';
+    q('.rh-num b').textContent = m.sp;
+    q('.rh-limb i').textContent = m.lim;
+    q('.rh-kind').textContent = m.k === 'metro' ? 'МЕТРОПОЛИТЕН' : 'ГРУЗОВОЙ СОСТАВ';
+    q('.rh-prog').textContent = 'Точка ' + (m.i + 1) + ' / ' + m.n;
+    var lbl = { pass: 'Проследовать', load: 'Погрузка', unload: 'Выгрузка', stop: 'Станция' }[m.sk] || 'Станция';
+    q('.rh-st small').textContent = lbl;
+    q('.rh-st b').textContent = m.st || '—';
+    q('.rh-st em').textContent = m.d > 1000 ? (m.d / 1000).toFixed(1) + ' км' : m.d + ' м';
+    q('.rh-track i').style.width = Math.max(4, Math.min(100, (1 - Math.min(m.d, 1500) / 1500) * 100)) + '%';
+    q('.rh-next').innerHTML = m.nx ? 'Далее: <b>' + esc(m.nx) + '</b>' : 'Конечная точка маршрута';
+    q('.rh-thbar i').style.width = m.th + '%';
+    q('.rh-th b').textContent = m.th + '%';
+    q('.rh-br').classList.toggle('on', !!m.br);
+    q('.rh-dr').style.display = m.k === 'metro' ? '' : 'none';
+    q('.rh-dr').classList.toggle('on', !!m.dr);
+    q('.rh-dr').textContent = m.dr ? 'ДВЕРИ ОТКР' : 'ДВЕРИ ЗАКР';
+    q('.rh-wg').textContent = m.wg + ' ваг.';
+    var msg = q('.rh-msg');
+    msg.textContent = m.msg || '';
+    msg.className = 'rh-msg' + (m.msg ? ' show ' + m.mk : '');
 };

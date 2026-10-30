@@ -125,29 +125,45 @@
 </div>
 
 <div id="fuel" class="screen fuel-screen">
-    <div class="fuel">
-        <div class="fu-head">
-            <div class="fu-logo">⛽</div>
-            <div><h2 id="fuName">АЗС</h2><small id="fuSub">Выберите топливо и количество литров</small></div>
-            <div class="m-close" id="fuClose">Закрыть <span>ESC</span></div>
+    <div class="fz">
+        <div class="fz-pump">
+            <div class="fz-brand"><div class="fz-logo"><svg viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 7h5v4H7zM15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg></div><div><h2 id="fuName">АЗС</h2><small id="fuSub">Государственная заправка</small></div></div>
+            <div class="fz-lcd">
+                <div class="fz-lcd-row"><span>К ОПЛАТЕ</span><b id="fuSum">$0</b></div>
+                <div class="fz-lcd-row sm"><span>ЛИТРЫ</span><b id="fuL">0</b></div>
+                <div class="fz-lcd-row xs"><span id="fuTypeName">АИ-92</span><b id="fuPpl">$0 / л</b></div>
+            </div>
+            <div class="fz-gauge">
+                <svg viewBox="0 0 200 118">
+                    <path class="g-bg" d="M 20 105 A 80 80 0 0 1 180 105" pathLength="100"/>
+                    <path class="g-cur" id="fuGCur" d="M 20 105 A 80 80 0 0 1 180 105" pathLength="100"/>
+                    <path class="g-add" id="fuGAdd" d="M 20 105 A 80 80 0 0 1 180 105" pathLength="100"/>
+                    <text x="14" y="117">E</text><text x="179" y="117">F</text>
+                    <line id="fuNeedle" x1="100" y1="105" x2="100" y2="40"/>
+                    <circle cx="100" cy="105" r="7"/>
+                </svg>
+                <div class="fz-gauge-txt"><span>В баке <b id="fuNow">0</b> л</span><span>Свободно <b id="fuFree">0</b> л</span></div>
+            </div>
+            <div class="fz-stock" id="fuStock"></div>
         </div>
-        <div class="fu-tank">
-            <div class="fu-tank-bar"><div class="fu-cur" id="fuCur"></div><div class="fu-add" id="fuAdd"></div></div>
-            <div class="fu-tank-txt"><span>В баке: <b id="fuNow">0</b> л</span><span>Свободно: <b id="fuFree">0</b> л</span></div>
+        <div class="fz-main">
+            <div class="fz-top"><div class="fz-step">1 · Топливо</div><div class="m-close" id="fuClose">Закрыть <span>ESC</span></div></div>
+            <div class="fz-types" id="fuTypes"></div>
+            <div class="fz-step">2 · Количество</div>
+            <div class="fz-lit">
+                <input type="range" id="fuRange" min="0" max="100" value="0">
+                <div class="fz-scale"><span>0 л</span><span id="fuMaxL">0 л</span></div>
+                <div class="fz-quick"><button data-q="10">+10 л</button><button data-q="25">+25 л</button><button data-q="50">+50 л</button><button data-q="full">Полный бак</button></div>
+            </div>
+            <div class="fz-step">3 · Оплата</div>
+            <div class="fz-pay">
+                <button class="fu-pm active" data-pay="cash"><i><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg></i><span>Наличные<b id="fuCash">$0</b></span></button>
+                <button class="fu-pm" data-pay="card"><i><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></i><span>Карта<b id="fuCard">$0</b></span></button>
+            </div>
+            <button class="fz-go" id="fuGo"><span id="fuGoTxt">Заправить</span><b id="fuGoSum">$0</b></button>
         </div>
-        <div class="fu-stock" id="fuStock"></div>
-        <div class="fu-types" id="fuTypes"></div>
-        <div class="fu-lit">
-            <div class="fu-lit-top"><span>Литров</span><b id="fuL">0</b></div>
-            <input type="range" id="fuRange" min="0" max="100" value="0">
-            <div class="fu-quick"><button data-q="10">10 л</button><button data-q="25">25 л</button><button data-q="50">50 л</button><button data-q="full">Полный бак</button></div>
-        </div>
-        <div class="fu-pay">
-            <button class="fu-pm active" data-pay="cash"><span>💵 Наличные</span><b id="fuCash">$0</b></button>
-            <button class="fu-pm" data-pay="card"><span>💳 Карта</span><b id="fuCard">$0</b></button>
-        </div>
-        <button class="fu-go" id="fuGo">Заправить за <b id="fuSum">$0</b></button>
     </div>
+</div>
 </div>
 
 <div id="atm" class="screen atm-screen">

@@ -99,8 +99,10 @@ function rlSpawnTry() {
         rlPoint();
     }, 900);
 }
+function rlHud(o) { if (global.uiExecG) global.uiExecG('window.railHud && window.railHud(' + JSON.stringify(o ? JSON.stringify(o) : '') + ');'); }
 function rlStop() {
     if (!RL) return;
+    rlHud(null);
     if (RL.blip) try { RL.blip.destroy(); } catch (e) {}
     var h = RL.h;
     RL = null;
@@ -141,18 +143,24 @@ mp.events.add('render', function () {
 
     var sp = rlSpeed(RL.h), p = rlPos(RL.h), s = rlCur();
     var d = s && p ? Math.hypot(p.x - s.x, p.y - s.y) : 0;
-    var col = kmh(sp) > RL.lim ? [255, 90, 90, 255] : kmh(sp) > RL.lim - 8 ? [255, 200, 90, 255] : [255, 255, 255, 240];
-    var G = mp.game.graphics;
-    G.drawRect(0.5, 0.905, 0.36, 0.085, 10, 14, 22, 190);
-    G.drawText(kmh(sp) + ' км/ч', [0.41, 0.868], { font: 7, color: col, scale: [0.75, 0.75], outline: true, centre: true });
-    G.drawText('лимит ' + RL.lim + (RL.brake ? '  ·  ЭКСТР. ТОРМОЗ' : ''), [0.41, 0.912], { font: 4, color: RL.brake ? [255, 90, 90, 255] : [200, 200, 200, 220], scale: [0.32, 0.32], outline: true, centre: true });
-    G.drawText(s ? (s.k === 'pass' ? 'Проследовать: ' : s.k === 'load' ? 'Погрузка: ' : s.k === 'unload' ? 'Выгрузка: ' : 'Станция: ') + s.n : '—', [0.55, 0.868], { font: 4, color: [127, 200, 255, 255], scale: [0.4, 0.4], outline: true, centre: true });
-    G.drawText(s ? (d > 1000 ? (d / 1000).toFixed(1) + ' км' : Math.round(d) + ' м') + '  ·  тяга ' + Math.round(RL.target / maxMs * 100) + '%  ·  вагонов ' + (RL.wagons + 1) + (RL.c.kind === 'metro' ? '  ·  двери ' + (RL.doors ? 'ОТКР' : 'закр') : '') : '', [0.55, 0.9], { font: 4, color: [220, 220, 220, 230], scale: [0.32, 0.32], outline: true, centre: true });
-    if (RL.stopAt && s) {
-        var left = Math.max(0, Math.ceil((RL.stopAt - Date.now()) / 1000));
-        G.drawText(s.k === 'load' ? 'Погрузка… ' + left + ' с' : s.k === 'unload' ? 'Выгрузка… ' + left + ' с' : RL.c.kind === 'metro' ? 'Посадка пассажиров… ' + left + ' с' : 'Стоянка… ' + left + ' с', [0.5, 0.8], { font: 4, color: [127, 255, 170, 255], scale: [0.5, 0.5], outline: true, centre: true });
-    } else if (s && s.k !== 'pass' && d < 70) {
-        G.drawText(sp > 0.5 ? 'Остановите состав у платформы' : RL.c.kind === 'metro' && !RL.doors ? 'Нажмите E — открыть двери' : '', [0.5, 0.8], { font: 4, color: [255, 220, 120, 255], scale: [0.45, 0.45], outline: true, centre: true });
+    var now = Date.now();
+    if (now - (RL.hudAt || 0) > 120) {
+        RL.hudAt = now;
+        var msg = '', mk = '';
+        if (RL.stopAt && s) {
+            var left = Math.max(0, Math.ceil((RL.stopAt - now) / 1000));
+            msg = (s.k === 'load' ? 'Погрузка' : s.k === 'unload' ? 'Выгрузка' : RL.c.kind === 'metro' ? 'Посадка пассажиров' : 'Стоянка') + ' · ' + left + ' с'; mk = 'ok';
+        } else if (s && s.k !== 'pass' && d < 70) {
+            if (sp > 0.5) { msg = 'Остановите состав у платформы'; mk = 'warn'; }
+            else if (RL.c.kind === 'metro' && !RL.doors) { msg = 'Нажмите E — открыть двери'; mk = 'warn'; }
+        }
+        var next = RL.c.st[RL.i + 1];
+        rlHud({
+            k: RL.c.kind, sp: kmh(sp), max: RL.c.max, lim: RL.lim, th: Math.round(RL.target / maxMs * 100),
+            br: RL.brake ? 1 : 0, dr: RL.doors ? 1 : 0, wg: RL.wagons + 1,
+            st: s ? s.n : '', sk: s ? s.k : '', d: Math.round(d), nx: next ? next.n : '',
+            i: RL.i, n: RL.c.st.length, msg: msg, mk: mk, name: RL.c.n || ''
+        });
     }
 });
 
