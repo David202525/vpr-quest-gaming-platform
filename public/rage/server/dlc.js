@@ -257,7 +257,13 @@ function scanOne(root, n, list) {
                 while ((m = re.exec(ct))) {
                     const rel = m[1].replace(/%PLATFORM%/gi, 'x64').toLowerCase().replace(/\/$/, '');
                     if (seen[rel]) continue; seen[rel] = 1;
-                    const has = out.files.some(function (x) { return x === rel || x.indexOf(rel + '/') === 0; });
+                    const bn = rel.slice(rel.lastIndexOf('/') + 1);
+                    const alt = /\.ityp$/.test(bn) ? bn.replace(/\.ityp$/, '.ytyp') : bn;
+                    const has = out.files.some(function (x) {
+                        if (x === rel || x.indexOf(rel + '/') === 0 || x.indexOf(rel + '.') === 0) return true;
+                        const xb = x.slice(x.lastIndexOf('/') + 1);
+                        return xb === bn || xb === alt || xb.indexOf(bn + '.') === 0 || xb.indexOf(bn + '151') === 0;
+                    }) || /\.rpf\//.test(rel) && out.files.some(function (x) { return x.indexOf(rel.slice(0, rel.indexOf('.rpf/') + 4)) >= 0; });
                     if (!has) out.errors.push('content.xml ссылается на «' + rel + '», но такого файла в архиве нет');
                 }
             }
