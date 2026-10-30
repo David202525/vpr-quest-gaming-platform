@@ -20,7 +20,12 @@ mp.events.add('fam:close', function () { if (fOpen) fUI(false); });
 mp.events.add('fam:msg', function (t, ok) { if (fBr) fBr.execute('window.famMsg && window.famMsg(' + JSON.stringify(String(t)) + ',' + (ok ? 1 : 0) + ');'); });
 mp.events.add('cef:fam:close', function () { fUI(false); });
 mp.events.add('cef:fam:create', function (j) { mp.events.callRemote('srv:fam:create', String(j)); });
-mp.events.add('fam:garages', function (j) { try { fGar = JSON.parse(j) || []; } catch (e) { fGar = []; } });
+var fGarBlips = [];
+mp.events.add('fam:garages', function (j) {
+    try { fGar = JSON.parse(j) || []; } catch (e) { fGar = []; }
+    fGarBlips.forEach(function (b) { try { b.destroy(); } catch (e) {} });
+    fGarBlips = fGar.map(function (g) { try { return mp.blips.new(357, new mp.Vector3(g[1], g[2], g[3]), { name: 'Гараж семьи (' + g[4] + ' мест)', color: 3, shortRange: true, scale: 0.8, dimension: 0 }); } catch (e) { return null; } });
+});
 mp.events.add('fam:extra', function (j) { if (fBr) fBr.execute('window.famExtra && window.famExtra(' + JSON.stringify(j) + ');'); });
 mp.events.add('fam:tabgo', function (t) { var code = 'window.famTab && window.famTab(' + JSON.stringify(String(t)) + ');'; if (fBr) { fBr.execute(code); setTimeout(function () { if (fBr) fBr.execute(code); }, 700); } });
 mp.events.add('cef:fam:act', function (a, j) { mp.events.callRemote('srv:fam:act', String(a), String(j || '{}')); });

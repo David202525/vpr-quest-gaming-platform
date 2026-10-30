@@ -107,10 +107,12 @@ function sendHouses(p) {
     p.call('fam:houses', [JSON.stringify(D.houses.map(function (h) { const f = h.owner ? famById(h.owner) : null; return [h.id, h.n, h.x, h.y, h.z, f ? f.tag : '', f ? f.c : '', f ? f.n : '']; }))]);
 }
 function sendHousesAll() { mp.players.forEach(sendHouses); mp.players.forEach(sendGarages); }
-function sendGarages(p) {
+function garJson(p) {
     const f = p.account ? famP(p) : null;
-    p.call('fam:garages', [JSON.stringify(D.houses.filter(function (h) { return h.gar && h.owner && f && h.owner === f.id; }).map(function (h) { return [h.id, h.gar.x, h.gar.y, h.gar.z, h.gar.cap]; }))]);
+    return JSON.stringify(D.houses.filter(function (h) { return h.gar && h.owner && f && h.owner === f.id; }).map(function (h) { return [h.id, Math.round(h.gar.x * 100) / 100, Math.round(h.gar.y * 100) / 100, Math.round(h.gar.z * 100) / 100, h.gar.cap]; }));
 }
+function sendGarages(p) { const j = garJson(p); p._famGar = j; p.call('fam:garages', [j]); }
+setInterval(function () { mp.players.forEach(function (p) { if (!p.account) return; if (p._famGar !== garJson(p)) sendGarages(p); }); }, 3000);
 setTimeout(function () { spawnNpc(); mp.players.forEach(function (p) { sendNpc(p); sendHouses(p); }); }, 6000);
 mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) { sendNpc(p); sendHouses(p); sendGarages(p); syncP(p); } }, 6000); });
 function nearNpc(p) { const c = npcPos(); return p.dimension === cityDim() && Math.hypot(p.position.x - c[0], p.position.y - c[1]) < 3.5 && Math.abs(p.position.z - c[2]) < 4; }
