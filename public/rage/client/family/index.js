@@ -1,5 +1,6 @@
 var fBr = null, fOpen = false, fNpc = null, fNear = false, fHint = false;
 var fHouses = [], fHNear = null, fHHint = 0, fBlips = {};
+var fGar = [], fGNear = null, fGHint = 0;
 function fUI(on, code) {
     if (on && !fBr) fBr = mp.browsers.new('package://cef/family/index.html');
     if (!fBr) return;
@@ -19,6 +20,9 @@ mp.events.add('fam:close', function () { if (fOpen) fUI(false); });
 mp.events.add('fam:msg', function (t, ok) { if (fBr) fBr.execute('window.famMsg && window.famMsg(' + JSON.stringify(String(t)) + ',' + (ok ? 1 : 0) + ');'); });
 mp.events.add('cef:fam:close', function () { fUI(false); });
 mp.events.add('cef:fam:create', function (j) { mp.events.callRemote('srv:fam:create', String(j)); });
+mp.events.add('fam:garages', function (j) { try { fGar = JSON.parse(j) || []; } catch (e) { fGar = []; } });
+mp.events.add('fam:extra', function (j) { if (fBr) fBr.execute('window.famExtra && window.famExtra(' + JSON.stringify(j) + ');'); });
+mp.events.add('fam:tabgo', function (t) { var code = 'window.famTab && window.famTab(' + JSON.stringify(String(t)) + ');'; if (fBr) { fBr.execute(code); setTimeout(function () { if (fBr) fBr.execute(code); }, 700); } });
 mp.events.add('cef:fam:act', function (a, j) { mp.events.callRemote('srv:fam:act', String(a), String(j || '{}')); });
 
 mp.events.add('fam:houses', function (j) {
@@ -30,9 +34,13 @@ mp.events.add('fam:houses', function (j) {
     });
 });
 
-function busy() { return fOpen || global.crimeOpen || global.chatOpen || mp.gui.cursor.visible || mp.players.local.isTypingInTextChat; }
+function busy() { var v = mp.players.local.vehicle; if (v && fGNear && !fOpen && !mp.gui.cursor.visible) return false; return fOpen || global.crimeOpen || global.chatOpen || mp.gui.cursor.visible || mp.players.local.isTypingInTextChat; }
 setInterval(function () {
     var me = mp.players.local, pos = me.position, n = false, hn = null;
+    var gn = null;
+    if (me.dimension === 0) fGar.forEach(function (g) { if (mp.game.system.vdist(pos.x, pos.y, pos.z, g[1], g[2], g[3]) < (me.vehicle ? 5 : 2.5)) gn = g; });
+    if (gn && fGHint !== gn[0]) mp.events.call('hud:notify', 'ok', me.vehicle ? 'E — поставить машину в гараж семьи' : 'E — гараж семьи (' + gn[4] + ' мест)', 2500);
+    fGHint = gn ? gn[0] : 0; fGNear = gn;
     if (!me.vehicle) {
         if (fNpc && me.dimension === fNpc.d) n = mp.game.system.vdist(pos.x, pos.y, pos.z, fNpc.p[0], fNpc.p[1], fNpc.p[2]) < 2.3;
         if (me.dimension === 0) fHouses.forEach(function (h) { if (mp.game.system.vdist(pos.x, pos.y, pos.z, h[2], h[3], h[4]) < 2.2) hn = h; });
@@ -46,20 +54,28 @@ mp.events.add('render', function () {
     var me = mp.players.local, pos = me.position;
     if (fNpc && me.dimension === fNpc.d) {
         var c = fNpc.p;
-        mp.game.graphics.drawText('Регистрация организаций', [c[0], c[1], c[2] + 1.15], { font: 4, color: [120, 200, 255, 235], scale: [0.4, 0.4], outline: true, centre: true });
+        if (mp.game.system.vdist(pos.x, pos.y, pos.z, c[0], c[1], c[2]) < 8) mp.game.graphics.drawText('Регистрация организаций', [c[0], c[1], c[2] + 1.15], { font: 4, color: [120, 200, 255, 235], scale: [0.4, 0.4], outline: true, centre: true });
     }
     if (me.dimension !== 0) return;
+    fGar.forEach(function (g) {
+        var gx = pos.x - g[1], gy = pos.y - g[2], g2 = gx * gx + gy * gy;
+        if (g2 > 2500) return;
+        mp.game.graphics.drawMarker(36, g[1], g[2], g[3] + 0.6, 0, 0, 0, 0, 0, 0, 1.2, 1.2, 1.2, 80, 170, 255, 190, true, true, 2, false, null, null, false);
+        mp.game.graphics.drawMarker(1, g[1], g[2], g[3] - 1, 0, 0, 0, 0, 0, 0, 4.0, 4.0, 0.4, 80, 170, 255, 70, false, false, 2, false, null, null, false);
+        if (g2 < 100) mp.game.graphics.drawText('Гараж семьи · ' + g[4] + ' мест', [g[1], g[2], g[3] + 1.6], { font: 4, color: [160, 210, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
+    });
     fHouses.forEach(function (h) {
         var dx = pos.x - h[2], dy = pos.y - h[3], d2 = dx * dx + dy * dy;
         if (d2 > 900) return;
         var col = h[5] ? [210, 170, 60] : [90, 200, 90];
         mp.game.graphics.drawMarker(1, h[2], h[3], h[4] - 1, 0, 0, 0, 0, 0, 0, 1.2, 1.2, 0.4, col[0], col[1], col[2], 120, false, false, 2, false, null, null, false);
-        if (d2 < 225) mp.game.graphics.drawText(h[1] + (h[5] ? '\n~y~[' + h[5] + '] ' + h[7] : '\n~g~Продаётся за репутацию семьи'), [h[2], h[3], h[4] + 1.1], { font: 4, color: [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
+        if (d2 < 64) mp.game.graphics.drawText(h[1] + (h[5] ? '\n~y~[' + h[5] + '] ' + h[7] : '\n~g~Продаётся за репутацию семьи'), [h[2], h[3], h[4] + 1.1], { font: 4, color: [255, 255, 255, 230], scale: [0.36, 0.36], outline: true, centre: true });
     });
 });
 mp.keys.bind(0x45, false, function () {
     if (busy()) return;
     if (fNear) return mp.events.callRemote('srv:fam:open');
+    if (fGNear) return mp.events.callRemote('srv:fam:garage', fGNear[0]);
     if (fHNear) mp.events.callRemote('srv:fhouse:door', fHNear[0]);
 });
 mp.keys.bind(0x4F, false, function () {

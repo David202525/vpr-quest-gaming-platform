@@ -193,7 +193,8 @@ setInterval(function () {
 mp.events.add('render', function () {
     var me = mp.players.local;
     if (!gClerk || me.dimension !== gClerk.d) return;
-    var c = gClerk.p;
+    var c = gClerk.p, mp0 = me.position;
+    if (mp.game.system.vdist(mp0.x, mp0.y, mp0.z, c[0], c[1], c[2]) > 8 || !mp.game.graphics.world3dToScreen2d(new mp.Vector3(c[0], c[1], c[2] + 1.15))) return;
     mp.game.graphics.drawText('Паспортный стол', [c[0], c[1], c[2] + 1.15], { font: 4, color: [255, 215, 120, 235], scale: [0.4, 0.4], outline: true, centre: true });
 });
 mp.keys.bind(0x45, false, function () {

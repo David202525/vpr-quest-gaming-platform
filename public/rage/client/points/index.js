@@ -13,6 +13,8 @@ function ptPush(j) {
 mp.events.add('pts:open', function (j) { ptUI(true); ptPush(j); });
 mp.events.add('pts:data', function (j) { if (ptOpen && ptBr) ptBr.execute('window.ptsData && window.ptsData(' + JSON.stringify(j) + ');'); });
 mp.events.add('cef:pts:close', function () { ptUI(false); });
+mp.events.add('pts:creators', function (j) { var run = function () { if (ptBr) ptBr.execute('window.ptsMk && window.ptsMk(' + JSON.stringify(j) + ');'); }; setTimeout(run, 200); setTimeout(run, 750); });
+mp.events.add('cef:pts:create', function (id, j) { mp.events.callRemote('srv:pts:create', String(id), String(j || '{}')); });
 mp.events.add('cef:pts:act', function (a, id) {
     if (a === 'tp' || a === 'edit') ptUI(false);
     mp.events.callRemote('srv:pts:' + a, String(id));

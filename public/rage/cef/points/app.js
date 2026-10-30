@@ -40,3 +40,24 @@ $('near').addEventListener('change', render);
 $('close').onclick = function () { trig('cef:pts:close'); };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') trig('cef:pts:close'); });
 window.ptsData = function (j) { DATA = typeof j === 'string' ? JSON.parse(j) : j; DATA.sort(function (a, b) { return a.g === b.g ? 0 : a.g < b.g ? -1 : 1; }); render(); };
+
+var MK = [], MKSEL = null;
+window.ptsMk = function (j) { MK = typeof j === 'string' ? JSON.parse(j) : j; $('mkBtn').style.display = MK.length ? '' : 'none'; if ($('mk').classList.contains('on')) mkRender(); };
+function mkRender() {
+    var c = MK.find(function (x) { return x.id === MKSEL; }) || MK[0];
+    if (!c) { $('mk').innerHTML = ''; return; }
+    MKSEL = c.id;
+    var tabs = MK.map(function (x) { return '<span class="mkt' + (x.id === c.id ? ' on' : '') + '" data-mk="' + esc(x.id) + '">' + esc(x.n) + '</span>'; }).join('');
+    var fields = c.f.map(function (f) {
+        var inp = f.t === 'select' ? '<select data-k="' + esc(f.k) + '">' + f.o.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(f.v) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'
+            : '<input data-k="' + esc(f.k) + '" type="' + (f.t === 'number' ? 'number' : 'text') + '" value="' + esc(f.v == null ? '' : f.v) + '" placeholder="' + esc(f.ph || '') + '">';
+        return '<label><span>' + esc(f.n) + '</span>' + inp + '</label>';
+    }).join('');
+    $('mk').innerHTML = '<div class="mkh">' + tabs + '</div><div class="mkd">' + esc(c.d) + '</div><div class="mkf">' + fields + '</div><button class="b main" id="mkGo">Создать там, где я стою</button>';
+    document.querySelectorAll('[data-mk]').forEach(function (b) { b.onclick = function () { MKSEL = b.dataset.mk; mkRender(); }; });
+    $('mkGo').onclick = function () {
+        var v = {}; document.querySelectorAll('#mk [data-k]').forEach(function (el) { v[el.dataset.k] = el.value; });
+        trig('cef:pts:create', c.id, JSON.stringify(v));
+    };
+}
+$('mkBtn').onclick = function () { var m = $('mk'); m.classList.toggle('on'); if (m.classList.contains('on')) mkRender(); };

@@ -8,9 +8,9 @@ function mark() { dirty = true; }
 setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FILE, JSON.stringify(D)); } catch (e) { console.log('[family] save: ' + e.message); } } }, 5000);
 
 const TYPES = {
-    family: { n: 'Семья', i: '👨‍👩‍👧', d: 'Мирное объединение друзей и родственников. Общий чат, общак, ранги', price: 150000, slots: 15, cars: 5, ranks: ['Новичок', 'Родственник', 'Брат', 'Старший', 'Глава семьи'] },
-    bikers: { n: 'Байкерский клуб', i: '🏍️', d: 'Мотоклуб со своей символикой. Больше мест и рангов', price: 350000, slots: 25, cars: 10, ranks: ['Проспект', 'Член клуба', 'Дорожный капитан', 'Сержант', 'Вице-президент', 'Президент'] },
-    syndicate: { n: 'Синдикат', i: '💼', d: 'Крупная организация. Максимум участников и статус в городе', price: 750000, slots: 40, cars: 15, ranks: ['Партнёр', 'Сотрудник', 'Менеджер', 'Директор', 'Совладелец', 'Глава синдиката'] }
+    family: { n: 'Семья', i: '👨‍👩‍👧', d: 'Мирное объединение друзей и родственников. Общий чат, общак, ранги', price: 150000, slots: 15, ranks: ['Новичок', 'Родственник', 'Брат', 'Старший', 'Глава семьи'] },
+    bikers: { n: 'Байкерский клуб', i: '🏍️', d: 'Мотоклуб со своей символикой. Больше мест и рангов', price: 350000, slots: 25, ranks: ['Проспект', 'Член клуба', 'Дорожный капитан', 'Сержант', 'Вице-президент', 'Президент'] },
+    syndicate: { n: 'Синдикат', i: '💼', d: 'Крупная организация. Максимум участников и статус в городе', price: 750000, slots: 40, ranks: ['Партнёр', 'Сотрудник', 'Менеджер', 'Директор', 'Совладелец', 'Глава синдиката'] }
 };
 const COLORS = ['#e5333d', '#ff7a1a', '#f0c82a', '#3fb34f', '#1fbfb0', '#3a8fe0', '#6b5bff', '#9b4fd1', '#e0479e', '#ffffff', '#9aa3b0', '#2b2b2b'];
 const REG_TAX = 0.1;
@@ -19,23 +19,10 @@ const REG_TAX = 0.1;
 const REP = { perOnline: 5, everyMin: 30, perDeposit: 10000, rcRate: 1, sellBack: 0.5 };
 const PERMS = {
     invite: 'Приглашать в семью', kick: 'Исключать участников', rank: 'Менять ранги',
-    cars: 'Покупать машины и настраивать доступ', carcall: 'Вызывать семейный транспорт',
+    cars: 'Добавлять свои машины и настраивать доступ', carcall: 'Вызывать семейный транспорт',
     bank: 'Снимать деньги из общака', house: 'Управлять особняком', log: 'Смотреть журнал'
 };
-const CARS = [
-    { m: 'faggio', n: 'Pegassi Faggio', c: 'Мото', price: 8000 },
-    { m: 'daemon', n: 'Western Daemon', c: 'Мото', price: 35000 },
-    { m: 'bati', n: 'Pegassi Bati 801', c: 'Мото', price: 55000 },
-    { m: 'primo', n: 'Albany Primo', c: 'Седан', price: 25000 },
-    { m: 'schafter2', n: 'Benefactor Schafter', c: 'Седан', price: 70000 },
-    { m: 'cognoscenti', n: 'Enus Cognoscenti', c: 'Седан', price: 160000 },
-    { m: 'granger', n: 'Declasse Granger', c: 'Внедорожник', price: 75000 },
-    { m: 'baller2', n: 'Gallivanter Baller', c: 'Внедорожник', price: 95000 },
-    { m: 'patriot', n: 'Mammoth Patriot', c: 'Внедорожник', price: 90000 },
-    { m: 'speedo', n: 'Vapid Speedo', c: 'Фургон', price: 40000 },
-    { m: 'sultan', n: 'Karin Sultan', c: 'Спорт', price: 60000 },
-    { m: 'stretch', n: 'Dundreary Stretch', c: 'Лимузин', price: 250000 }
-];
+const BASE_GARAGE = 2;
 const INTS = {
     hill1: { n: 'Wild Oats', x: -174.32, y: 497.38, z: 137.66, h: 190 },
     hill2: { n: 'North Conker', x: 341.97, y: 437.77, z: 149.39, h: 110 },
@@ -53,6 +40,11 @@ if (!Array.isArray(D.houses)) {
     ].map(function (h) { return Object.assign({ id: D.hseq++, owner: 0, open: false }, h); });
     mark();
 }
+const DEF_CAP = [4, 6, 8, 10];
+D.houses.forEach(function (h, i) {
+    if (h.gar === undefined) { h.gar = h.park ? { x: h.park[0], y: h.park[1], z: h.park[2], h: h.park[3] || 0, cap: DEF_CAP[i] || 6 } : null; delete h.park; mark(); }
+});
+function garCap(f) { const h = houseOf(f); return h && h.gar ? h.gar.cap : BASE_GARAGE; }
 
 function notify(p, type, text) { if (typeof global.hudNotify === 'function') global.hudNotify(p, type, text); else p.outputChatBox(text); }
 function sid(p) { return p && p.account && p.account.id ? Number(p.account.id) : 0; }
@@ -114,9 +106,13 @@ function sendNpc(p) { p.call('fam:npc', [JSON.stringify({ p: npcPos(), d: cityDi
 function sendHouses(p) {
     p.call('fam:houses', [JSON.stringify(D.houses.map(function (h) { const f = h.owner ? famById(h.owner) : null; return [h.id, h.n, h.x, h.y, h.z, f ? f.tag : '', f ? f.c : '', f ? f.n : '']; }))]);
 }
-function sendHousesAll() { mp.players.forEach(sendHouses); }
+function sendHousesAll() { mp.players.forEach(sendHouses); mp.players.forEach(sendGarages); }
+function sendGarages(p) {
+    const f = p.account ? famP(p) : null;
+    p.call('fam:garages', [JSON.stringify(D.houses.filter(function (h) { return h.gar && h.owner && f && h.owner === f.id; }).map(function (h) { return [h.id, h.gar.x, h.gar.y, h.gar.z, h.gar.cap]; }))]);
+}
 setTimeout(function () { spawnNpc(); mp.players.forEach(function (p) { sendNpc(p); sendHouses(p); }); }, 6000);
-mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) { sendNpc(p); sendHouses(p); syncP(p); } }, 6000); });
+mp.events.add('playerReady', function (p) { setTimeout(function () { if (mp.players.exists(p)) { sendNpc(p); sendHouses(p); sendGarages(p); syncP(p); } }, 6000); });
 function nearNpc(p) { const c = npcPos(); return p.dimension === cityDim() && Math.hypot(p.position.x - c[0], p.position.y - c[1]) < 3.5 && Math.abs(p.position.z - c[2]) < 4; }
 
 /* ---------- данные для окна ---------- */
@@ -131,13 +127,12 @@ function tabView(p) {
     const my = {}; Object.keys(PERMS).forEach(function (k) { my[k] = can(f, me, k); });
     return {
         mode: 'tab', me: me, head: isHead(f, me), myR: myR(f, me), my: my, cash: MS ? MS.get(p) : 0, coins: U && U.coinsOf ? U.coinsOf(p) : 0,
-        f: { n: f.n, tag: f.tag, c: f.c, type: T.n, ti: T.i, slots: T.slots, carMax: T.cars, bank: f.bank, rep: f.rep, created: f.created, ownerN: f.ownerN, ranks: f.ranks, perms: f.perms },
+        f: { n: f.n, tag: f.tag, c: f.c, type: T.n, ti: T.i, slots: T.slots, carMax: garCap(f), baseGar: BASE_GARAGE, bank: f.bank, rep: f.rep, created: f.created, ownerN: f.ownerN, ranks: f.ranks, perms: f.perms },
         permNames: PERMS, rep: REP,
         members: f.members.slice().sort(function (a, b) { return b.r - a.r; }).map(function (m) { return { id: m.id, n: m.n, r: m.r, on: !!online(m.id), head: isHead(f, m.id), j: m.j || 0 }; }),
-        cars: f.cars.map(function (c) { const v = live[f.id + ':' + c.id]; return { id: c.id, m: c.m, n: c.n, plate: c.plate, minR: c.minR, out: !!(v && mp.vehicles.exists(v)), by: v && mp.vehicles.exists(v) ? (v.famBy || '') : '', price: c.price }; }),
-        shop: CARS,
-        house: h ? { id: h.id, n: h.n, int: INTS[h.int] ? INTS[h.int].n : '', open: !!h.open, rep: h.rep } : null,
-        houses: D.houses.map(function (x) { const o = x.owner ? famById(x.owner) : null; return { id: x.id, n: x.n, int: INTS[x.int] ? INTS[x.int].n : '', rep: x.rep, own: o ? '[' + o.tag + '] ' + o.n : '', mine: x.owner === f.id }; }),
+        cars: f.cars.map(function (c) { const v = live[f.id + ':' + c.id]; return { id: c.id, m: c.m, n: c.n, plate: c.plate, minR: c.minR, out: !!(v && mp.vehicles.exists(v)), by: v && mp.vehicles.exists(v) ? (v.famBy || '') : '', own: c.ownN || '', mine: c.own === me }; }),
+        house: h ? { id: h.id, n: h.n, int: INTS[h.int] ? INTS[h.int].n : '', open: !!h.open, rep: h.rep, cap: h.gar ? h.gar.cap : 0 } : null,
+        houses: D.houses.map(function (x) { const o = x.owner ? famById(x.owner) : null; return { id: x.id, n: x.n, int: INTS[x.int] ? INTS[x.int].n : '', cap: x.gar ? x.gar.cap : 0, rep: x.rep, own: o ? '[' + o.tag + '] ' + o.n : '', mine: x.owner === f.id }; }),
         log: my.log ? f.log.slice(0, 120) : []
     };
 }
@@ -234,14 +229,40 @@ function carKey(f, c) { return f.id + ':' + c.id; }
 function hexRgb(h) { const n = parseInt(String(h).slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 function spawnPoint(f, p) {
     const h = houseOf(f);
-    if (h && h.park) {
-        const busy = mp.vehicles.toArray().some(function (v) { return v.dimension === 0 && Math.hypot(v.position.x - h.park[0], v.position.y - h.park[1]) < 3; });
-        if (!busy) return { x: h.park[0], y: h.park[1], z: h.park[2], h: h.park[3] || 0, at: 'у особняка' };
+    if (h && h.gar) {
+        const g = h.gar, a0 = (g.h || 0) * Math.PI / 180;
+        for (let i = 0; i < 6; i++) {
+            const x = g.x + Math.cos(a0) * 3.2 * i, y = g.y + Math.sin(a0) * 3.2 * i;
+            const busy = mp.vehicles.toArray().some(function (v) { return v.dimension === 0 && Math.hypot(v.position.x - x, v.position.y - y) < 2.6; });
+            if (!busy) return { x: x, y: y, z: g.z, h: g.h || 0, at: 'в гараже особняка' };
+        }
     }
     const a = (p.heading || 0) * Math.PI / 180;
     return { x: p.position.x - Math.sin(a) * 4, y: p.position.y + Math.cos(a) * 4, z: p.position.z + 0.3, h: p.heading || 0, at: 'рядом с вами' };
 }
-function despawn(f, c) { const k = carKey(f, c), v = live[k]; if (v && mp.vehicles.exists(v)) { try { v.destroy(); } catch (e) {} } delete live[k]; }
+function VS() { return global.VehStore; }
+function dbq(sql, a) { return VS() && VS().q ? VS().q(sql, a) : Promise.resolve([]); }
+function despawn(f, c) {
+    const k = carKey(f, c), v = live[k];
+    if (v && mp.vehicles.exists(v)) {
+        if (c.vid) { const fu = Number(v.getVariable('fuel')); dbq('UPDATE vehicles SET fuel = ? WHERE id = ?', [isFinite(fu) ? Math.round(fu) : 100, c.vid]); }
+        try { v.destroy(); } catch (e) {}
+    }
+    delete live[k];
+}
+function giveBack(f, c, why) {
+    despawn(f, c);
+    f.cars = f.cars.filter(function (x) { return x !== c; });
+    mark();
+    if (!c.vid) return;
+    const hh = houseOf(f), o = online(c.own);
+    const pos = o && o.dimension === 0 ? { x: o.position.x + 3, y: o.position.y + 3, z: o.position.z } : (hh && hh.gar ? hh.gar : null);
+    const sql = pos ? 'UPDATE vehicles SET fam_id = 0, pos_x = ?, pos_y = ?, pos_z = ?, dimension = 0 WHERE id = ?' : 'UPDATE vehicles SET fam_id = 0 WHERE id = ?';
+    dbq(sql, pos ? [pos.x, pos.y, pos.z, c.vid] : [c.vid]).then(function () {
+        if (o && mp.players.exists(o)) { o.ownedLoaded = false; notify(o, 'ok', c.n + ' возвращена вам из гаража семьи' + (why ? ' (' + why + ')' : '')); }
+    });
+}
+function returnAll(f, ownerId, why) { f.cars.filter(function (c) { return c.own === Number(ownerId); }).forEach(function (c) { giveBack(f, c, why); }); }
 mp.events.add('playerEnterVehicle', function (p, v, seat) {
     const fid = v.getVariable('famCar');
     if (!fid || (seat !== 0 && seat !== -1)) return;
@@ -259,6 +280,22 @@ mp.events.add('playerQuit', function (p) {
         const v = live[k];
         if (v && mp.vehicles.exists(v) && v.famOwner === s) setTimeout(function () { if (mp.vehicles.exists(v) && !(v.getOccupants && v.getOccupants().length)) { v.destroy(); delete live[k]; } }, 120000);
     });
+});
+
+mp.events.add('srv:fam:garage', function (p, hid) {
+    const f = famP(p), h = D.houses.find(function (x) { return x.id === Number(hid); });
+    if (!f || !h || !h.gar || h.owner !== f.id) return;
+    if (Math.hypot(p.position.x - h.gar.x, p.position.y - h.gar.y) > 7 || p.dimension !== 0) return;
+    const v = p.vehicle;
+    if (v && v.getVariable('famCar') === f.id) {
+        const c = f.cars.find(function (x) { return x.id === v.getVariable('famCarId'); });
+        if (!c) return;
+        try { p.removeFromVehicle(); } catch (e) {}
+        setTimeout(function () { despawn(f, c); flog(f, 'car', nick(p) + ' поставил ' + c.n + ' в гараж'); mark(); refresh(f); }, 1500);
+        return notify(p, 'ok', c.n + ' поставлена в гараж');
+    }
+    if (v) return notify(p, 'warn', 'В гараж ставятся только машины семьи');
+    p.famTab = true; p.call('fam:tabgo', ['cars']); openTab(p);
 });
 
 /* ---------- особняки ---------- */
@@ -300,11 +337,12 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         if (head) {
             if (f.members.length > 1) return msg(p, 'Глава не может выйти, пока в семье есть участники. Передайте главенство');
             const h = houseOf(f); if (h) { kickOut(h); h.owner = 0; h.open = false; sendHousesAll(); }
-            f.cars.forEach(function (c) { despawn(f, c); });
+            f.cars.slice().forEach(function (c) { giveBack(f, c, 'организация распущена'); });
             D.fams = D.fams.filter(function (x) { return x !== f; }); mark(); syncP(p);
             p.call('fam:close'); return notify(p, 'ok', 'Организация распущена');
         }
-        f.members = f.members.filter(function (x) { return x.id !== me; }); flog(f, 'mem', nick(p) + ' покинул семью'); syncP(p);
+        returnAll(f, me, 'вы покинули семью');
+        f.members = f.members.filter(function (x) { return x.id !== me; }); flog(f, 'mem', nick(p) + ' покинул семью'); syncP(p); sendGarages(p);
         famChat(f, nick(p) + ' покинул семью'); p.call('fam:close'); notify(p, 'ok', 'Вы вышли из семьи'); return done();
     }
     if (act === 'invite') {
@@ -326,6 +364,7 @@ mp.events.add('srv:fam:act', function (p, act, json) {
     if (act === 'kick') {
         if (!A(p, f, 'kick')) return;
         if (!m || m.id === me || isHead(f, m.id) || (!head && m.r >= mr)) return msg(p, 'Нельзя исключить этого участника');
+        returnAll(f, m.id, 'вас исключили');
         f.members = f.members.filter(function (x) { return x !== m; });
         flog(f, 'mem', nick(p) + ' исключил ' + m.n);
         const t = online(m.id); if (t) { syncP(t); notify(t, 'error', 'Вас исключили из «' + f.n + '»'); t.call('fam:close'); }
@@ -382,26 +421,52 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         famChat(f, nick(p) + ' пополнил репутацию семьи на ' + num(n));
         return done('Репутация пополнена на ' + num(n));
     }
-    if (act === 'carbuy') {
-        if (!A(p, f, 'cars')) return;
-        const it = CARS.find(function (x) { return x.m === a.m; });
-        if (!it) return;
-        if (f.cars.length >= TYPES[f.type].cars) return msg(p, 'Гараж заполнен: максимум ' + TYPES[f.type].cars + ' машин');
-        if (f.bank < it.price) return msg(p, 'В общаке не хватает: нужно ' + money(it.price));
-        f.bank -= it.price;
-        const c = { id: f.cseq++, m: it.m, n: it.n, price: it.price, minR: 1, plate: (f.tag + String(f.id).padStart(2, '0') + String(f.cseq).padStart(2, '0')).slice(0, 8) };
-        f.cars.push(c);
-        flog(f, 'car', nick(p) + ' купил ' + it.n + ' за ' + money(it.price) + ' из общака');
-        return done(it.n + ' в гараже семьи');
+    if (act === 'mycars') {
+        dbq('SELECT id, model, plate, impound, fam_id FROM vehicles WHERE owner_id = ? ORDER BY id', [me]).then(function (rows) {
+            if (!mp.players.exists(p)) return;
+            p.call('fam:extra', [JSON.stringify({ mycars: (rows || []).map(function (r) { return { id: r.id, m: String(r.model), plate: r.plate, imp: !!Number(r.impound), fam: Number(r.fam_id) || 0 }; }) })]);
+        });
+        return;
     }
     const c = a.cid !== undefined ? f.cars.find(function (x) { return x.id === Number(a.cid); }) : null;
-    if (act === 'carsell') {
-        if (!A(p, f, 'cars') || !c) return;
-        despawn(f, c);
-        const back = Math.round(c.price * REP.sellBack);
-        f.cars = f.cars.filter(function (x) { return x !== c; }); f.bank += back;
-        flog(f, 'car', nick(p) + ' продал ' + c.n + ' (+' + money(back) + ' в общак)');
-        return done('Продано, в общак ' + money(back));
+    if (act === 'caradd') {
+        if (!A(p, f, 'cars')) return;
+        if (f.cars.length >= garCap(f)) return msg(p, 'Гараж заполнен: ' + garCap(f) + ' мест' + (houseOf(f) ? '' : '. Купите особняк — у него гараж больше'));
+        const vid = Math.floor(Number(a.vid));
+        dbq('SELECT * FROM vehicles WHERE id = ? AND owner_id = ? LIMIT 1', [vid, me]).then(function (rows) {
+            const r = rows && rows[0];
+            if (!mp.players.exists(p) || famP(p) !== f) return;
+            if (!r) return msg(p, 'Это не ваша машина');
+            if (Number(r.fam_id)) return msg(p, 'Машина уже в гараже семьи');
+            if (Number(r.impound)) return msg(p, 'Машина на штрафстоянке — сначала заберите её');
+            if (f.cars.length >= garCap(f)) return msg(p, 'Гараж заполнен');
+            const U = VS(), w = U && U.owned ? U.owned[r.id] : null;
+            if (w && mp.vehicles.exists(w)) {
+                if (w.getOccupants && w.getOccupants().length) return msg(p, 'В машине кто-то сидит');
+                if (U.save) U.save(w);
+                try { w.destroy(); } catch (e) {}
+                delete U.owned[r.id];
+            }
+            dbq('UPDATE vehicles SET fam_id = ? WHERE id = ?', [f.id, r.id]);
+            const nm = String(r.model);
+            f.cars.push({ id: f.cseq++, vid: r.id, m: nm, n: nm.charAt(0).toUpperCase() + nm.slice(1), plate: r.plate, minR: 1, own: me, ownN: nick(p) });
+            flog(f, 'car', nick(p) + ' добавил в гараж ' + nm + ' (' + r.plate + ')');
+            famChat(f, nick(p) + ' добавил в гараж семьи ' + nm);
+            done('Машина добавлена в гараж семьи');
+            mp.events.call('srv:fam:act', p, 'mycars', '{}');
+        });
+        return;
+    }
+    if (act === 'carremove') {
+        if (!c) return;
+        if (c.own !== me && !head) return msg(p, 'Забрать машину может только её владелец или глава');
+        const v = live[carKey(f, c)];
+        if (v && mp.vehicles.exists(v) && v.getOccupants && v.getOccupants().length) return msg(p, 'В машине кто-то есть');
+        flog(f, 'car', nick(p) + ' забрал из гаража ' + c.n + ' (владелец ' + (c.ownN || '—') + ')');
+        giveBack(f, c, c.own === me ? '' : 'решение главы');
+        done('Машина возвращена владельцу');
+        if (c.own === me) setTimeout(function () { if (mp.players.exists(p)) mp.events.call('srv:fam:act', p, 'mycars', '{}'); }, 600);
+        return;
     }
     if (act === 'caraccess') {
         if (!A(p, f, 'cars') || !c) return;
@@ -420,21 +485,34 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         if (global.WantedSystem && global.WantedSystem.get && global.WantedSystem.get(p) > 0) return msg(p, 'Вы в розыске — семья не пришлёт машину');
         if (callCd[me] && Date.now() - callCd[me] < 60000) return msg(p, 'Подождите минуту перед следующим вызовом');
         callCd[me] = Date.now();
-        const sp = spawnPoint(f, p), rgb = hexRgb(f.c);
-        const v = mp.vehicles.new(mp.joaat(c.m), V(sp.x, sp.y, sp.z), { heading: sp.h, numberPlate: c.plate, dimension: 0, locked: false, engine: false });
-        try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {}
-        v.setVariable('famCar', f.id); v.setVariable('famCarId', c.id);
-        v.adminSpawned = false; v.famOwner = me; v.famBy = nick(p);
-        live[k] = v;
-        p.call('phone:gps', [sp.x, sp.y, c.n]);
-        flog(f, 'car', nick(p) + ' взял ' + c.n);
-        return done(c.n + ' ждёт ' + sp.at);
+        const sp = spawnPoint(f, p);
+        const go = function (r) {
+            if (!mp.players.exists(p) || (live[k] && mp.vehicles.exists(live[k]))) return;
+            const v = mp.vehicles.new(mp.joaat(c.m), V(sp.x, sp.y, sp.z + 0.3), { heading: sp.h, numberPlate: c.plate, dimension: 0, locked: false, engine: false });
+            if (r) {
+                try { v.setColor(Number(r.color1) || 0, Number(r.color2) || 0); } catch (e) {}
+                v.setVariable('fuel', r.fuel === null || r.fuel === undefined ? 100 : Number(r.fuel));
+                if (r.fuel_type) v.setVariable('fuelType', r.fuel_type);
+            } else { const rgb = hexRgb(f.c); try { v.setColorRGB(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]); } catch (e) {} }
+            v.setVariable('famCar', f.id); v.setVariable('famCarId', c.id);
+            v.adminSpawned = false; v.famOwner = me; v.famBy = nick(p);
+            live[k] = v;
+            p.call('phone:gps', [sp.x, sp.y, c.n]);
+            flog(f, 'car', nick(p) + ' взял ' + c.n);
+            done(c.n + ' ждёт ' + sp.at);
+        };
+        if (c.vid) dbq('SELECT * FROM vehicles WHERE id = ? LIMIT 1', [c.vid]).then(function (rows) { go(rows && rows[0]); });
+        else go(null);
+        return;
+
     }
     if (act === 'carback') {
         if (!c) return;
         const v = live[carKey(f, c)];
         if (!v || !mp.vehicles.exists(v)) { delete live[carKey(f, c)]; return done(); }
         if (v.famOwner !== me && !can(f, me, 'cars')) return msg(p, 'Вернуть может тот, кто взял, или ответственный за транспорт');
+        const hh = houseOf(f);
+        if (hh && hh.gar && Math.hypot(v.position.x - hh.gar.x, v.position.y - hh.gar.y) > 40 && !can(f, me, 'cars')) return msg(p, 'Пригоните машину к гаражу особняка');
         if (v.getOccupants && v.getOccupants().length) return msg(p, 'В машине кто-то есть');
         despawn(f, c); flog(f, 'car', nick(p) + ' вернул ' + c.n + ' в гараж');
         return done('Машина в гараже');
@@ -449,7 +527,7 @@ mp.events.add('srv:fam:act', function (p, act, json) {
         flog(f, 'house', nick(p) + ' купил «' + h.n + '» за ' + num(h.rep) + ' репутации');
         famChat(f, 'Семья приобрела особняк «' + h.n + '»!');
         mp.players.forEach(function (x) { x.outputChatBox('!{' + f.c + '}[' + f.tag + '] !{#ffffff}Семья «' + f.n + '» заселилась в «' + h.n + '»'); });
-        sendHousesAll(); return done('Особняк ваш!');
+        sendHousesAll(); return done('Особняк ваш! Гараж на ' + garCap(f) + ' машин');
     }
     const h = houseOf(f);
     if (act === 'hgps') { if (h) p.call('phone:gps', [h.x, h.y, h.n]); return msg(p, 'Метка поставлена', 1); }
@@ -461,10 +539,20 @@ mp.events.add('srv:fam:act', function (p, act, json) {
     if (act === 'hsell') {
         if (!head || !h) return msg(p, 'Продать особняк может только глава');
         const back = Math.round(h.rep * REP.sellBack);
+        if (f.cars.length > BASE_GARAGE) return msg(p, 'Без особняка в гараже останется ' + BASE_GARAGE + ' места — сначала заберите лишние машины');
         kickOut(h); h.owner = 0; h.open = false; f.rep += back;
         flog(f, 'house', nick(p) + ' продал «' + h.n + '» (+' + num(back) + ' репутации)');
         sendHousesAll(); return done('Особняк продан, возвращено ' + num(back) + ' репутации');
     }
+});
+
+/* ---------- жест «указать» ---------- */
+mp.events.add('srv:point', function (p, on) { p.setVariable('pointing', !!on); if (!on) { p.setVariable('ptP', 0); p.setVariable('ptY', 0); } });
+mp.events.add('srv:pointDir', function (p, pt, yw) {
+    if (!p.getVariable('pointing')) return;
+    pt = Math.max(-70, Math.min(42, Number(pt) || 0)); yw = Math.max(-180, Math.min(180, Number(yw) || 0));
+    if (Math.abs((p.getVariable('ptP') || 0) - pt) > 2) p.setVariable('ptP', pt);
+    if (Math.abs((p.getVariable('ptY') || 0) - yw) > 2) p.setVariable('ptY', yw);
 });
 
 /* ---------- команды ---------- */
@@ -492,7 +580,7 @@ mp.events.addCommand('famdel', function (p, full) {
     const f = famById(full);
     if (!f) return p.outputChatBox('!{#ffcc66}/famdel [id из /famlist]');
     const h = houseOf(f); if (h) { kickOut(h); h.owner = 0; }
-    f.cars.forEach(function (c) { despawn(f, c); });
+    f.cars.slice().forEach(function (c) { giveBack(f, c, 'семья удалена администрацией'); });
     D.fams = D.fams.filter(function (x) { return x !== f; }); mark();
     mp.players.forEach(syncP); sendHousesAll();
     p.outputChatBox('!{#8fd14f}Семья «' + f.n + '» удалена');
@@ -509,20 +597,21 @@ mp.events.addCommand('fhcreate', function (p, full) {
     const a = String(full || '').trim().split(/\s+/), rep = Math.floor(Number(a[0])), it = 'hill' + Math.floor(Number(a[1]));
     const n = a.slice(2).join(' ').trim();
     if (!(rep > 0) || !INTS[it] || !n || p.dimension !== 0) return p.outputChatBox('!{#ffcc66}/fhcreate [цена в репутации] [интерьер 1-5] [название] — встаньте у двери');
-    const h = { id: D.hseq++, n: clean(n, 40), x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, int: it, rep: rep, owner: 0, open: false, park: null };
+    const h = { id: D.hseq++, n: clean(n, 40), x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, int: it, rep: rep, owner: 0, open: false, gar: null };
     D.houses.push(h); mark(); sendHousesAll();
-    p.outputChatBox('!{#8fd14f}Особняк #' + h.id + ' создан. Парковка: /fhpark ' + h.id + ' (встаньте на место)');
+    p.outputChatBox('!{#8fd14f}Особняк #' + h.id + ' создан. Гараж: /fhgarage ' + h.id + ' [мест] или через /points');
 });
-mp.events.addCommand('fhpark', function (p, full) {
+mp.events.addCommand('fhgarage', function (p, full) {
     if (admLvl(p) < 7) return;
-    const h = D.houses.find(function (x) { return x.id === Number(full); });
-    if (!h) return p.outputChatBox('!{#ffcc66}/fhpark [id особняка] — встаньте на место парковки');
-    h.park = [p.position.x, p.position.y, p.position.z, p.heading || 0]; mark();
-    p.outputChatBox('!{#8fd14f}Парковка особняка «' + h.n + '» сохранена');
+    const a = String(full || '').trim().split(/\s+/), h = D.houses.find(function (x) { return x.id === Number(a[0]); }), cap = Math.floor(Number(a[1]));
+    if (!h || !(cap > 0) || cap > 50) return p.outputChatBox('!{#ffcc66}/fhgarage [id особняка] [мест 1-50] — встаньте на место въезда в гараж');
+    const e = p.vehicle || p;
+    h.gar = { x: e.position.x, y: e.position.y, z: e.position.z, h: e.heading || p.heading || 0, cap: cap }; mark(); sendHousesAll();
+    p.outputChatBox('!{#8fd14f}Гараж особняка «' + h.n + '» на ' + cap + ' мест сохранён');
 });
 mp.events.addCommand('fhlist', function (p) {
     if (admLvl(p) < 3) return;
-    D.houses.forEach(function (h) { const f = h.owner ? famById(h.owner) : null; p.outputChatBox('#' + h.id + ' ' + h.n + ' · ' + num(h.rep) + ' реп · ' + (f ? '[' + f.tag + '] ' + f.n : 'свободен')); });
+    D.houses.forEach(function (h) { const f = h.owner ? famById(h.owner) : null; p.outputChatBox('#' + h.id + ' ' + h.n + ' · ' + num(h.rep) + ' реп · гараж ' + (h.gar ? h.gar.cap : 0) + ' · ' + (f ? '[' + f.tag + '] ' + f.n : 'свободен')); });
 });
 mp.events.addCommand('fhdel', function (p, full) {
     if (admLvl(p) < 7) return;
@@ -541,10 +630,46 @@ try {
             out.push({ id: 'fhouse.' + h.id, g: 'Семейные особняки', n: '#' + h.id + ' ' + h.n + ' — дверь',
                 get: function () { return [h.x, h.y, h.z, h.h]; }, set: function (v) { h.x = v.x; h.y = v.y; h.z = v.z; h.h = v.h; mark(); sendHousesAll(); },
                 del: function () { kickOut(h); D.houses = D.houses.filter(function (x) { return x !== h; }); mark(); sendHousesAll(); } });
-            out.push({ id: 'fhouse.' + h.id + '.park', g: 'Семейные особняки', n: '#' + h.id + ' ' + h.n + ' — парковка',
-                get: function () { return h.park || [h.x, h.y, h.z, h.h]; }, set: function (v) { h.park = [v.x, v.y, v.z, v.h]; mark(); } });
+            if (h.gar) out.push({ id: 'fhouse.' + h.id + '.gar', g: 'Семейные особняки', n: '#' + h.id + ' ' + h.n + ' — гараж на ' + h.gar.cap + ' мест',
+                get: function () { return [h.gar.x, h.gar.y, h.gar.z, h.gar.h]; }, set: function (v) { h.gar.x = v.x; h.gar.y = v.y; h.gar.z = v.z; h.gar.h = v.h; mark(); sendHousesAll(); },
+                del: function () { h.gar = null; mark(); sendHousesAll(); } });
         });
         return out;
+    });
+    if (PR.creator) PR.creator(function () {
+        const ints = Object.keys(INTS).map(function (k) { return [k, INTS[k].n]; });
+        const hs = D.houses.map(function (h) { return [h.id, '#' + h.id + ' ' + h.n + (h.gar ? ' (гараж ' + h.gar.cap + ')' : ' (без гаража)')]; });
+        const list = [{ id: 'fhouse', n: 'Семейный особняк', d: 'Дверь особняка появится там, где вы стоите. Семьи покупают его за репутацию.',
+            f: [{ k: 'n', n: 'Название', t: 'text', ph: 'Особняк в Вайнвуде' }, { k: 'rep', n: 'Цена в репутации', t: 'number', v: 6000 },
+                { k: 'int', n: 'Интерьер', t: 'select', o: ints, v: 'hill1' }, { k: 'cap', n: 'Мест в гараже (0 — без гаража)', t: 'number', v: 6 }],
+            make: function (p, v) {
+                const n = clean(v.n, 40), rep = Math.floor(Number(v.rep)), cap = Math.floor(Number(v.cap) || 0);
+                if (n.length < 3) return 'Название: от 3 символов';
+                if (!(rep > 0)) return 'Укажите цену в репутации';
+                if (!INTS[v.int]) return 'Выберите интерьер';
+                if (p.dimension !== 0) return 'Особняк ставится только на улице';
+                if (cap < 0 || cap > 50) return 'Гараж: от 0 до 50 мест';
+                const h = { id: D.hseq++, n: n, x: p.position.x, y: p.position.y, z: p.position.z, h: p.heading || 0, int: v.int, rep: rep, owner: 0, open: false, gar: null };
+                if (cap > 0) { const a = (p.heading || 0) * Math.PI / 180; h.gar = { x: p.position.x - Math.sin(a) * 8, y: p.position.y + Math.cos(a) * 8, z: p.position.z, h: p.heading || 0, cap: cap }; }
+                D.houses.push(h); mark(); sendHousesAll();
+                notify(p, 'ok', 'Особняк #' + h.id + ' создан' + (cap ? '. Гараж поставлен в 8 м впереди — подгоните его в списке меток' : ''));
+                return null;
+            } }];
+        if (hs.length) list.push({ id: 'fgarage', n: 'Гараж особняка', d: 'Въезд в гараж появится там, где вы стоите (можно сидя в машине). Если у особняка уже есть гараж — он переедет сюда с новой вместимостью.',
+            f: [{ k: 'hid', n: 'Особняк', t: 'select', o: hs, v: hs[0][0] }, { k: 'cap', n: 'Вместимость (машин)', t: 'number', v: 6 }],
+            make: function (p, v) {
+                const h = D.houses.find(function (x) { return x.id === Number(v.hid); }), cap = Math.floor(Number(v.cap));
+                if (!h) return 'Выберите особняк';
+                if (!(cap > 0) || cap > 50) return 'Вместимость: от 1 до 50';
+                if (p.dimension !== 0) return 'Гараж ставится только на улице';
+                const f = h.owner ? famById(h.owner) : null;
+                if (f && f.cars.length > cap) return 'У семьи в гараже ' + f.cars.length + ' машин — меньше сделать нельзя';
+                const e = p.vehicle || p;
+                h.gar = { x: e.position.x, y: e.position.y, z: e.position.z, h: e.heading || p.heading || 0, cap: cap }; mark(); sendHousesAll();
+                notify(p, 'ok', 'Гараж «' + h.n + '» на ' + cap + ' мест сохранён');
+                return null;
+            } });
+        return list;
     });
 } catch (e) {}
 

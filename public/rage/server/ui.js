@@ -1178,6 +1178,7 @@ async function vehCols() {
     try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS wear_e FLOAT NOT NULL DEFAULT 100'); } catch (e) {}
     try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS wear_s FLOAT NOT NULL DEFAULT 100'); } catch (e) {}
     try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS wear_t FLOAT NOT NULL DEFAULT 100'); } catch (e) {}
+    try { await q('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS fam_id INT NOT NULL DEFAULT 0'); } catch (e) {}
 }
 setTimeout(function () { vehCols(); }, 4000);
 function spawnRow(r, ownerId, at) {
@@ -1224,8 +1225,8 @@ async function loadOwned(p) {
     p.ownedLoaded = true;
     await vehCols();
     const all = await q('SELECT * FROM vehicles WHERE owner_id = ?', [id]);
-    const rows = all.filter(function (r) { return !Number(r.impound); });
-    const imp = all.length - rows.length;
+    const rows = all.filter(function (r) { return !Number(r.impound) && !Number(r.fam_id); });
+    const imp = all.filter(function (r) { return Number(r.impound) && !Number(r.fam_id); }).length;
     rows.forEach(function (r) {
         const cur = ownedVeh[r.id];
         if (cur && mp.vehicles.exists(cur)) { if (cur.despawnAt) cur.despawnAt = 0; return; }

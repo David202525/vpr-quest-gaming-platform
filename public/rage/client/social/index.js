@@ -48,6 +48,11 @@ mp.events.add('render', function () {
         var known = !!names[s];
         mp.game.graphics.drawText((known ? names[s] + ' ' : '') + '[' + p.remoteId + ']', [pos.x, pos.y, z], { font: 4, color: known ? [255, 255, 255, 235] : [210, 210, 220, 225], scale: [k, k], outline: true, centre: true });
         mp.game.graphics.drawText('#' + s, [pos.x, pos.y, z - 0.1 - d * 0.004], { font: 4, color: [193, 140, 255, 235], scale: [k * 0.85, k * 0.85], outline: true, centre: true });
+        var fm = p.getVariable('fam');
+        if (fm) {
+            var fp = String(fm).split('|'), hx = parseInt(String(fp[1] || '#ffffff').slice(1), 16);
+            mp.game.graphics.drawText('[' + fp[0] + ']', [pos.x, pos.y, z + 0.1 + d * 0.004], { font: 4, color: [(hx >> 16) & 255, (hx >> 8) & 255, hx & 255, 240], scale: [k * 0.9, k * 0.9], outline: true, centre: true });
+        }
         var spk = false;
         try { spk = !!p.isVoiceActive; } catch (e) {}
         if (!spk) spk = !!p.getVariable('talk');

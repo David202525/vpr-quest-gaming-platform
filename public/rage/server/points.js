@@ -1,8 +1,10 @@
 const NEED = 7;
-const R = { items: {}, prov: [] };
+const R = { items: {}, prov: [], mk: [] };
 
 function add(id, o) { o.id = id; R.items[id] = o; }
 function provider(fn) { R.prov.push(fn); }
+function creator(fn) { R.mk.push(fn); }
+function creators() { let l = []; R.mk.forEach(function (f) { try { l = l.concat(f() || []); } catch (e) { console.log('[points] ' + e.message); } }); return l; }
 function all() {
     let list = Object.keys(R.items).map(function (k) { return R.items[k]; });
     R.prov.forEach(function (f) {
@@ -45,7 +47,8 @@ function apply(p, o, v) {
     }
 }
 
-function open(p) { if (ok(p)) send(p, 'pts:open'); }
+function sendMk(p) { if (mp.players.exists(p)) p.call('pts:creators', [JSON.stringify(creators().map(function (c) { return { id: c.id, n: c.n, d: c.d || '', f: c.f || [] }; }))]); }
+function open(p) { if (!ok(p)) return; send(p, 'pts:open'); sendMk(p); }
 mp.events.addCommand('points', open);
 mp.events.addCommand('pts', open);
 mp.events.add('srv:pts:list', function (p) { if (admLvl(p) >= NEED) send(p); });
@@ -103,6 +106,18 @@ mp.events.add('srv:pts:del', function (p, id) {
     send(p);
 });
 
-global.PointReg = { add: add, provider: provider, all: all, find: find };
+mp.events.add('srv:pts:create', function (p, id, json) {
+    if (!ok(p)) return;
+    const c = creators().find(function (x) { return x.id === String(id); });
+    if (!c) return;
+    let v = {}; try { v = JSON.parse(json) || {}; } catch (e) {}
+    let r = null;
+    try { r = c.make(p, v); } catch (e) { r = 'Ошибка: ' + e.message; }
+    if (r) notify(p, 'error', r);
+    else if (global.SLog) { try { global.SLog.add('admin', { actor: p, action: 'point-create', details: c.n }); } catch (e) {} }
+    send(p); sendMk(p);
+});
+
+global.PointReg = { add: add, provider: provider, creator: creator, all: all, find: find };
 module.exports = global.PointReg;
 console.log('[points] редактор меток загружен (/points)');

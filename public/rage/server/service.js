@@ -163,7 +163,7 @@ mp.events.add('srv:imp:open', async function (p) {
     const U = VS(), id = sid(p);
     if (!U || !id) return;
     await U.cols();
-    const rows = await U.q('SELECT id, model, plate, impound, impound_fee, impound_reason FROM vehicles WHERE owner_id = ? ORDER BY impound DESC, id LIMIT 11', [id]);
+    const rows = await U.q('SELECT id, model, plate, impound, impound_fee, impound_reason FROM vehicles WHERE owner_id = ? AND (fam_id IS NULL OR fam_id = 0) ORDER BY impound DESC, id LIMIT 11', [id]);
     if (!mp.players.exists(p)) return;
     if (!rows.length) return notify(p, 'ok', 'У вас нет личного транспорта');
     const items = rows.map(function (r) {

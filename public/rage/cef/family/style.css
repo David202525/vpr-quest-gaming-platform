@@ -507,3 +507,4 @@ em.g { color: #2fbf6a; } em.o { color: #ffb347; }
 .fts { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; } .ft { padding: 7px 13px; border-radius: 9px; background: #1a1f2a; font-size: 12.5px; font-weight: 700; cursor: pointer; color: #a7b0c0; } .ft.on { background: var(--c); color: #fff; }
 .logbox { max-height: 520px; overflow-y: auto; }
 .tab ::-webkit-scrollbar-thumb { background: #2b3242; }
+.si em { font-size: 12.5px; } .si em.o { color: #ffb347; }

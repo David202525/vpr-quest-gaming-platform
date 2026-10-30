@@ -32,3 +32,4 @@ require('./plates/index.js');
 require('./dealer/index.js');
 require('./rail/index.js');
 require('./family/index.js');
+require('./point/index.js');

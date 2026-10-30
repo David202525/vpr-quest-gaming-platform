@@ -72,7 +72,7 @@ function tablet() {
         '<div class="main"><div class="top"><div class="chips"><span>👥 ' + D.members.length + '/' + f.slots + '</span><span>🟢 ' + on + ' онлайн</span><span>💰 ' + money(f.bank) + '</span><span class="rp">⭐ ' + num(f.rep) + ' реп.</span></div><div class="x" id="cl">✕</div></div>' +
         '<div class="pg" id="pg"></div></div></div><div class="toast" id="toast"></div>';
     $('cl').onclick = close;
-    document.querySelectorAll('[data-tab]').forEach(function (el) { el.onclick = function () { TAB = el.dataset.tab; tablet(); }; });
+    document.querySelectorAll('[data-tab]').forEach(function (el) { el.onclick = function () { TAB = el.dataset.tab; if (TAB === 'cars') { window._mcReq = 0; MYCARS = null; } tablet(); }; });
     ({ home: pHome, mem: pMem, ranks: pRanks, cars: pCars, house: pHouse, bank: pBank, log: pLog }[TAB] || pHome)();
 }
 function card(t, b, cls) { return '<div class="cd ' + (cls || '') + '"><div class="ct">' + t + '</div>' + b + '</div>'; }
@@ -82,7 +82,7 @@ function pHome() {
     $('pg').innerHTML = '<h2>Добро пожаловать, ' + esc(rn(D.myR)) + '</h2>' +
         '<div class="g3">' +
         card('Репутация', '<div class="big rp">⭐ ' + num(f.rep) + '</div><div class="mut">+' + D.rep.perOnline + ' за каждого онлайн раз в ' + D.rep.everyMin + ' мин · +1 за каждые ' + money(D.rep.perDeposit) + ' в общак</div>') +
-        card('Общак', '<div class="big">' + money(f.bank) + '</div><div class="mut">Из общака покупаются машины семьи</div>') +
+        card('Общак', '<div class="big">' + money(f.bank) + '</div><div class="mut">Общие деньги семьи · каждые ' + money(D.rep.perDeposit) + ' взносов дают +1 репутации</div>') +
         card('Особняк', h ? '<div class="big sm">🏰 ' + esc(h.n) + '</div><div class="mut">' + (h.open ? 'Открыт для гостей' : 'Только для семьи') + '</div>' : '<div class="big sm">Нет</div><div class="mut">Покупается за репутацию во вкладке «Особняк»</div>') +
         '</div>' +
         '<div class="g2">' + card('Последние события', last) +
@@ -125,34 +125,43 @@ function pRanks() {
     document.querySelectorAll('[data-rn]').forEach(function (b) { b.onclick = function () { act('rankname', { r: Number(b.dataset.rn), n: $('rn' + b.dataset.rn).value }); }; });
     Object.keys(D.permNames).forEach(function (k) { var s = $('p_' + k); if (s) s.onchange = function () { act('perm', { k: k, r: Number(s.value) }); }; });
 }
+var MYCARS = null;
+window.famExtra = function (j) { var x = typeof j === 'string' ? JSON.parse(j) : j; if (x.mycars) { MYCARS = x.mycars; if (TAB === 'cars' && D && D.mode === 'tab') pCars(); } };
+window.famTab = function (t) { window._mcReq = 0; MYCARS = null; TAB = t; if (D && D.mode === 'tab') tablet(); };
 function pCars() {
-    var L = D.f.ranks.length;
+    var L = D.f.ranks.length, full = D.cars.length >= D.f.carMax;
     var mine = D.cars.map(function (c) {
         var ok = D.myR >= c.minR || D.head;
-        return '<div class="car"><div class="ci">🚗</div><div class="cn"><b>' + esc(c.n) + '</b><small>' + esc(c.plate) + ' · ' + (c.out ? '<em class="o">на улице · ' + esc(c.by) + '</em>' : '<em class="g">в гараже</em>') + '</small></div>' +
+        return '<div class="car"><div class="ci">🚗</div><div class="cn"><b>' + esc(c.n) + '</b><small>' + esc(c.plate) + ' · владелец ' + esc(c.own || '—') + ' · ' + (c.out ? '<em class="o">на улице · ' + esc(c.by) + '</em>' : '<em class="g">в гараже</em>') + '</small></div>' +
             '<div class="cacc">' + (D.my.cars ? 'Доступ ' + rankSel('ca' + c.id, c.minR, 1, L) : '<span class="rk">с ранга ' + esc(rn(c.minR)) + '</span>') + '</div><div class="ac">' +
             (c.out ? '<button class="sm" data-back="' + c.id + '">Вернуть</button>' : (D.my.carcall && ok ? '<button class="sm g" data-call="' + c.id + '">Вызвать</button>' : '<button class="sm" disabled>Нет доступа</button>')) +
-            (D.my.cars ? '<button class="sm r" data-sell="' + c.id + '">Продать</button>' : '') + '</div></div>';
+            (c.mine || D.head ? '<button class="sm r" data-rm="' + c.id + '" title="Вернуть машину владельцу">Забрать</button>' : '') + '</div></div>';
     }).join('') || '<div class="mut">В гараже пока нет машин</div>';
-    var shop = D.my.cars ? card('Купить в гараж семьи · оплата из общака (' + money(D.f.bank) + ')', '<div class="shop">' + D.shop.map(function (s) {
-        return '<div class="si"><small>' + esc(s.c) + '</small><b>' + esc(s.n) + '</b><em>' + money(s.price) + '</em><button class="sm' + (D.f.bank >= s.price ? ' g' : '') + '" data-buy="' + s.m + '"' + (D.f.bank >= s.price ? '' : ' disabled') + '>Купить</button></div>';
-    }).join('') + '</div>') : '';
-    $('pg').innerHTML = '<h2>Гараж семьи · ' + D.cars.length + ' / ' + D.f.carMax + '</h2>' + card('Транспорт', '<div class="mut" style="margin-bottom:8px">Машина приезжает к особняку (если он есть) или к вам. Сесть за руль могут только участники с нужным рангом.</div>' + mine) + shop;
+    var add = '';
+    if (D.my.cars) {
+        var list = MYCARS === null ? '<div class="mut">Загружаю ваши машины…</div>' : (MYCARS.filter(function (x) { return !x.fam; }).map(function (x) {
+            return '<div class="si"><small>' + esc(x.plate) + '</small><b>' + esc(x.m.charAt(0).toUpperCase() + x.m.slice(1)) + '</b>' + (x.imp ? '<em class="o">на штрафстоянке</em><button class="sm" disabled>Недоступна</button>' : '<em>личная машина</em><button class="sm' + (full ? '' : ' g') + '" data-add="' + x.id + '"' + (full ? ' disabled' : '') + '>В гараж семьи</button>') + '</div>';
+        }).join('') || '<div class="mut">У вас нет свободных личных машин. Купите машину в автосалоне.</div>');
+        add = card('Добавить свою машину · ' + (full ? 'гараж заполнен' : 'свободно ' + (D.f.carMax - D.cars.length) + ' мест'), '<div class="mut" style="margin-bottom:10px">Машина остаётся вашей: пока она в гараже семьи, на ней ездят участники с нужным рангом. Забрать её можно в любой момент, при выходе из семьи она вернётся вам автоматически.</div><div class="shop">' + list + '</div>');
+    }
+    var cap = D.house ? 'Гараж особняка «' + esc(D.house.n) + '»' : 'Без особняка гараж на ' + D.f.baseGar + ' места — у особняков он больше';
+    $('pg').innerHTML = '<h2>Гараж семьи · ' + D.cars.length + ' / ' + D.f.carMax + '</h2>' + card('Транспорт · ' + cap, '<div class="mut" style="margin-bottom:8px">Вызванная машина появляется у гаража особняка (если он есть) или рядом с вами. Сесть за руль могут только участники с нужным рангом. У синей метки гаража нажмите E, сидя в машине, — она встанет на место.</div>' + mine) + add;
     document.querySelectorAll('[data-call]').forEach(function (b) { b.onclick = function () { act('carcall', { cid: Number(b.dataset.call) }); }; });
     document.querySelectorAll('[data-back]').forEach(function (b) { b.onclick = function () { act('carback', { cid: Number(b.dataset.back) }); }; });
-    document.querySelectorAll('[data-sell]').forEach(function (b) { b.onclick = function () { if (b.dataset.ok) act('carsell', { cid: Number(b.dataset.sell) }); else { b.dataset.ok = 1; b.textContent = 'За 50%?'; } }; });
-    document.querySelectorAll('[data-buy]').forEach(function (b) { b.onclick = function () { act('carbuy', { m: b.dataset.buy }); }; });
+    document.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { if (b.dataset.ok) act('carremove', { cid: Number(b.dataset.rm) }); else { b.dataset.ok = 1; b.textContent = 'Точно?'; } }; });
+    document.querySelectorAll('[data-add]').forEach(function (b) { b.onclick = function () { b.disabled = true; act('caradd', { vid: Number(b.dataset.add) }); }; });
     D.cars.forEach(function (c) { var s = $('ca' + c.id); if (s) s.onchange = function () { act('caraccess', { cid: c.id, r: Number(s.value) }); }; });
+    if (D.my.cars && !window._mcReq) { window._mcReq = 1; act('mycars'); }
 }
 function pHouse() {
     var h = D.house, top = '';
     if (h) {
-        top = card('Ваш особняк', '<div class="hs"><div class="hi">🏰</div><div><b>' + esc(h.n) + '</b><small>Интерьер «' + esc(h.int) + '» · ' + (h.open ? 'открыт для гостей' : 'только для семьи') + '</small></div><div class="ac">' +
+        top = card('Ваш особняк', '<div class="hs"><div class="hi">🏰</div><div><b>' + esc(h.n) + '</b><small>Интерьер «' + esc(h.int) + '» · гараж на ' + h.cap + ' мест · ' + (h.open ? 'открыт для гостей' : 'только для семьи') + '</small></div><div class="ac">' +
             '<button class="sm g" id="hg">📍 Метка</button>' + (D.my.house ? '<button class="sm" id="hl">' + (h.open ? '🔒 Закрыть' : '🔓 Открыть гостям') + '</button>' : '') + (D.head ? '<button class="sm r" id="hs">Продать</button>' : '') + '</div></div>');
     }
     var list = D.houses.map(function (x) {
         var can = !h && !x.own && D.my.house, enough = D.f.rep >= x.rep;
-        return '<div class="hl' + (x.mine ? ' mine' : '') + '"><div class="hi">🏰</div><div class="hn"><b>' + esc(x.n) + '</b><small>Интерьер «' + esc(x.int) + '»' + (x.own ? ' · <em class="o">' + esc(x.own) + '</em>' : ' · <em class="g">свободен</em>') + '</small></div>' +
+        return '<div class="hl' + (x.mine ? ' mine' : '') + '"><div class="hi">🏰</div><div class="hn"><b>' + esc(x.n) + '</b><small>Интерьер «' + esc(x.int) + '» · 🚗 ' + (x.cap ? x.cap + ' мест' : 'без гаража') + (x.own ? ' · <em class="o">' + esc(x.own) + '</em>' : ' · <em class="g">свободен</em>') + '</small></div>' +
             '<div class="hp">⭐ ' + num(x.rep) + '</div>' + (can ? '<button class="sm' + (enough ? ' g' : '') + '" data-hb="' + x.id + '"' + (enough ? '' : ' disabled') + '>' + (enough ? 'Купить' : 'Не хватает') + '</button>' : '<span></span>') + '</div>';
     }).join('');
     $('pg').innerHTML = '<h2>Особняк семьи</h2>' + top + card('Особняки города · у семьи ⭐ ' + num(D.f.rep) + ' репутации', '<div class="mut" style="margin-bottom:8px">Особняк покупается только за репутацию семьи. Не хватает — пополните её во вкладке «Общак и репутация».</div>' + list);
