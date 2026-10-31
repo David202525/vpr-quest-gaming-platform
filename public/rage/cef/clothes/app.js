@@ -7,6 +7,8 @@ function toast(t) { var e = $('toast'); e.textContent = t; e.classList.add('on')
 var Q = '', D = null, CAT = '', SEL = null, TX = 0, ED = null, MAXD = 0, MAXT = 0, TAB = 'one';
 var ZOOM = { top: 'body', legs: 'legs', shoes: 'feet', hat: 'head', glasses: 'head', mask: 'head', chain: 'head', watch: 'body', bag: 'body' };
 
+function picUrl(u) { return !u ? '' : /^https?:/.test(u) ? u : '../ui/img/' + u; }
+function picHtml(u, cls) { return u ? '<div class="' + cls + '"><img src="' + esc(picUrl(u)) + '" onerror="this.parentNode.style.display=\'none\'"></div>' : ''; }
 function hit(x) { if (!Q) return true; var q = Q.toLowerCase(); return String(x.n).toLowerCase().indexOf(q) >= 0 || String(x.d) === q; }
 function slotOf(k) { return D.slots.find(function (s) { return s.k === k; }); }
 function tryOn(it, tx) {
@@ -33,10 +35,10 @@ function renderShop() {
     var list = D.list.filter(function (x) { return Q ? hit(x) : x.slot === CAT; });
     if (!list.length) { $('body').innerHTML = '<div class="empty">Ничего не найдено</div>'; return; }
     var h = '<div class="grid">' + list.map(function (it) {
-        return '<div class="card' + (SEL && SEL.id === it.id ? ' on' : '') + '" data-i="' + it.id + '"><b>' + esc(it.n) + '</b><small>' + (it.tx.length > 1 ? 'Цветов: ' + it.tx.length : '1 цвет') + (it.slot === 'bag' ? ' · +' + it.cap + ' кг' : '') + '</small><div class="pr">' + money(it.price) + '</div></div>';
+        return '<div class="card' + (SEL && SEL.id === it.id ? ' on' : '') + '" data-i="' + it.id + '">' + picHtml(it.img, 'pic') + '<b>' + esc(it.n) + '</b><small>' + (it.tx.length > 1 ? 'Цветов: ' + it.tx.length : '1 цвет') + (it.slot === 'bag' ? ' · +' + it.cap + ' кг' : '') + '</small><div class="pr">' + money(it.price) + '</div></div>';
     }).join('') + '</div>';
     if (SEL) {
-        h = '<div class="panel"><h4>' + esc(SEL.n) + '</h4>' +
+        h = '<div class="panel">' + picHtml(SEL.img, 'pic big') + '<h4>' + esc(SEL.n) + '</h4>' +
             (SEL.tx.length > 1 ? '<div class="sw">' + SEL.tx.map(function (t, i) { return '<span data-t="' + t + '" class="' + (t === TX ? 'on' : '') + '">' + (i + 1) + '</span>'; }).join('') + '</div>' : '') +
             (SEL.slot === 'bag' ? '<div class="hint">Вместимость: +' + SEL.cap + ' кг к инвентарю</div>' : '') +
             '<div class="btns"><button class="btn main" id="buyw" ' + (D.money < SEL.price ? 'disabled' : '') + '>Купить и надеть · ' + money(SEL.price) + '</button></div>' +
@@ -49,7 +51,7 @@ function renderShop() {
 }
 
 /* ---------- редактор ---------- */
-function newEd() { return { id: 0, n: '', sex: D.sex, slot: CAT, d: 0, tx: [0], t: 15, u: -1, ut: 0, price: 500, cap: 20 }; }
+function newEd() { return { id: 0, n: '', sex: D.sex, slot: CAT, d: 0, tx: [0], t: 15, u: -1, ut: 0, price: 500, cap: 20, img: '' }; }
 function askCount() { var s = slotOf(ED.slot); trig('cef:cs:count', JSON.stringify({ k: 'ed', c: s.c, p: s.p, d: ED.d })); }
 var PART_N = { jbib: 'Верх', lowr: 'Низ', feet: 'Обувь', hand: 'Рюкзаки и сумки', berd: 'Маски', teef: 'Аксессуары на шею', p_head: 'Головные уборы', p_eyes: 'Очки', p_lwrist: 'Часы', uppr: 'Торс / руки', accs: 'Майки под низ', decl: 'Нашивки', task: 'Бронежилеты', hair: 'Причёски' };
 var DLC_PEND = null;
@@ -121,7 +123,17 @@ function paintEdInfo() {
     e.textContent = 'Моделей в слоте: ' + MAXD + ' (0–' + Math.max(0, MAXD - 1) + ') · цветов у №' + ED.d + ': ' + MAXT;
     if ($('etx')) $('etx').value = ED.tx.join(',');
 }
-var PTX = 0, RD = null;
+var PTX = 0, RD = null, PICS_OPEN = false;
+function picPicker() {
+    var pics = D.pics || [];
+    var h = '<div class="f"><label>Фото в магазине</label><div class="picrow">' + (ED.img ? picHtml(ED.img, 'pic sm') : '<div class="pic sm none">нет</div>') +
+        '<button class="btn" id="epicb" style="flex:0 0 auto">' + (PICS_OPEN ? 'Скрыть' : 'Выбрать фото') + '</button>' + (ED.img ? '<button class="btn red" id="epicx" style="flex:0 0 auto">✕</button>' : '') + '</div>';
+    if (PICS_OPEN) {
+        h += pics.length ? '<div class="pics">' + pics.map(function (f) { var u = 'c/' + f; return '<div class="pk' + (ED.img === u ? ' on' : '') + '" data-pic="' + esc(u) + '"><img src="' + esc(picUrl(u)) + '"></div>'; }).join('') + '</div>' : '<div class="hint">Положите картинки в client_packages/cef/ui/img/c</div>';
+        h += '<input id="epicu" placeholder="или ссылка на картинку https://…" value="' + esc(/^https?:/.test(ED.img) ? ED.img : '') + '">';
+    }
+    return h + '</div>';
+}
 function stp(id, lab, val) { return '<div class="f"><label>' + lab + '</label><div class="stp"><button data-st="' + id + ':-10">«</button><button data-st="' + id + ':-1">‹</button><input id="' + id + '" type="number" value="' + esc(val) + '"><button data-st="' + id + ':1">›</button><button data-st="' + id + ':10">»</button></div></div>'; }
 function field(id, lab, val, type) { return '<div class="f"><label>' + lab + '</label><input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(val) + '"></div>'; }
 function renderEdit() {
@@ -139,6 +151,7 @@ function renderEdit() {
             field('en', 'Название в магазине', ED.n) +
             '<div class="row2">' + field('epr', 'Цена, $', ED.price, 'number') + (ED.slot === 'bag' ? field('ecap', 'Вместимость, кг', ED.cap, 'number') : '') + '</div>' +
             field('etx', 'Цвета (номера текстур через запятую)', ED.tx.join(',')) +
+            picPicker() +
             (ED.slot === 'top' ? '<div class="fit"><h5>Подгонка верха — меняется сразу на персонаже</h5>' + stp('et', 'Руки / торс', ED.t) + stp('eu', 'Майка под верхом (−1 = нет)', ED.u) + stp('eut', 'Цвет майки', ED.ut || 0) + stp('epx', 'Показать цвет вещи', PTX) + '<div class="hint">Видно тело или руки «проваливаются» — листайте «Руки». Дыры на груди закрывает майка. Нашли вариант — нажмите «Сохранить», и вещь будет продаваться в таком виде.</div></div>' : '') +
             '<div class="btns"><button class="btn main" id="esave">' + (ED.id ? 'Сохранить' : 'Добавить в каталог') + '</button>' + (ED.id ? '<button class="btn red" id="edel">Снять с продажи</button><button class="btn" id="enew">Новая</button>' : '') + '</div></div>';
     } else {
@@ -160,6 +173,9 @@ function renderEdit() {
         $('ed').onchange = function () { ED.d = Math.max(0, Number($('ed').value) || 0); if (!ED.id) ED.tx = [0]; askCount(); preview(); };
         ['etx', 'et', 'eu', 'eut', 'epx'].forEach(function (k) { if ($(k)) $(k).onchange = function () { rd(); preview(); }; });
         $('esave').onclick = function () { rd(); trig('cef:ce:save', JSON.stringify(ED)); };
+        $('epicb').onclick = function () { rd(); PICS_OPEN = !PICS_OPEN; render(); };
+        if ($('epicx')) $('epicx').onclick = function () { rd(); ED.img = ''; render(); };
+        if ($('epicu')) $('epicu').onchange = function () { var v = $('epicu').value.trim(); if (!v || /^https?:\/\//.test(v)) { rd(); ED.img = v; render(); } else toast('Нужна ссылка, начинающаяся с https://'); };
         if ($('edel')) $('edel').onclick = function () { trig('cef:ce:del', ED.id); ED = newEd(); askCount(); };
         if ($('enew')) $('enew').onclick = function () { ED = newEd(); askCount(); render(); };
         preview();
@@ -182,6 +198,7 @@ $('body').addEventListener('click', function (e) {
     if (e.target.id === 'dvback') { DLCV = null; DLCV_SEL = -1; trig('cef:cs:reset'); render(); return; }
     if (e.target.id === 'dvadd') { var num = DLCV_SEL, nmv = $('dvn').value; dvTx(num, function (t) { var tx = []; for (var k = 0; k < Math.max(1, Math.min(t, 32)); k++) tx.push(k); trig('cef:ce:save', JSON.stringify({ id: 0, n: nmv, sex: D.sex, slot: DLCV.g.slot, d: num, tx: tx, t: 15, u: -1, ut: 0, price: 500, cap: 20 })); }); return; }
     if ((c = e.target.closest('[data-dlc]'))) { var g = dlcGroups()[Number(c.dataset.dlc)]; if (!g) return; DLC_PEND = g; var gs = slotOf(g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlc', c: gs.c, p: gs.p })); return; }
+    if ((c = e.target.closest('[data-pic]'))) { if (RD) RD(); ED.img = c.dataset.pic; render(); return; }
     if ((c = e.target.closest('[data-st]'))) {
         var pr = c.dataset.st.split(':'), inp = $(pr[0]); if (!inp) return;
         var mn = pr[0] === 'eu' ? -1 : 0, v = Math.max(mn, (Number(inp.value) || 0) + Number(pr[1]));

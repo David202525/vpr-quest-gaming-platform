@@ -1110,7 +1110,7 @@ if (BP_ED.enabled) {
                 if (!u) return send(403, { err: 'Неверный ключ или нет прав (нужен уровень 7+)' });
                 if (d.op === 'get') {
                     const items = Object.keys(ITEMS).filter(function (k) { return !ITEMS[k].wp || k === 'pistol' || k === 'smg' || k === 'rifle'; }).filter(function (k) { return ['docs', 'card'].indexOf(k) < 0 && k.indexOf('g_') !== 0 && k.indexOf('i_') !== 0 && k.indexOf('c_') !== 0; }).map(function (k) { return [k, ITEMS[k].n]; });
-                    return send(200, { config: BPC, items: items, cars: carList(), vips: Object.keys(VIPS).map(function (k) { return [k, VIPS[k].n]; }), user: u.login, host: BP_ED.host || '' });
+                    return send(200, { config: BPC, items: items, pics: global.ClothesSystem && global.ClothesSystem.pics ? global.ClothesSystem.pics() : [], cars: carList(), vips: Object.keys(VIPS).map(function (k) { return [k, VIPS[k].n]; }), user: u.login, host: BP_ED.host || '' });
                 }
                 if (d.op === 'save') {
                     const c = d.config;

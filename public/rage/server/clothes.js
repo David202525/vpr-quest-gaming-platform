@@ -57,7 +57,7 @@ function registerAll() {
 }
 registerAll();
 
-function pub(it) { return { id: it.id, n: it.n, sex: it.sex, slot: it.slot, d: it.d, tx: it.tx, t: it.t, u: it.u, ut: it.ut, price: it.price, cap: it.cap, hide: it.hide ? 1 : 0 }; }
+function pub(it) { return { id: it.id, n: it.n, sex: it.sex, slot: it.slot, d: it.d, tx: it.tx, t: it.t, u: it.u, ut: it.ut, price: it.price, cap: it.cap, img: it.img || '', hide: it.hide ? 1 : 0 }; }
 function sanitize(e, p) {
     const S = SLOTS[e.slot];
     if (!S) return null;
@@ -71,6 +71,8 @@ function sanitize(e, p) {
     };
     if (e.slot === 'top') { it.t = Math.max(0, int(e.t, 15)); it.u = int(e.u, -1); it.ut = Math.max(0, int(e.ut, 0)); }
     if (e.slot === 'bag') it.cap = Math.max(1, Math.min(200, int(e.cap, 20)));
+    const im = String(e.img || '').trim();
+    it.img = /^(c\/[a-z0-9_\-]+\.(webp|png|jpg)|https?:\/\/[^\s"'<>]+)$/i.test(im) && im.indexOf('..') < 0 ? im.slice(0, 300) : '';
     return it;
 }
 
@@ -130,8 +132,13 @@ function dlcClothes() {
     });
     return out;
 }
+const PIC_DIRS = [path.join(__dirname, '..', '..', '..', 'client_packages', 'cef', 'ui', 'img', 'c'), path.join(process.cwd(), 'client_packages', 'cef', 'ui', 'img', 'c')];
+function clothesPics() {
+    for (let i = 0; i < PIC_DIRS.length; i++) { try { return fs.readdirSync(PIC_DIRS[i]).filter(function (f) { return /\.(webp|png|jpg)$/i.test(f); }).sort(); } catch (e) {} }
+    return [];
+}
 function editorData(p) {
-    return { mode: 'edit', sex: sexOf(p), dlc: dlcClothes(), list: Object.keys(C.items).map(function (k) { return pub(C.items[k]); }).filter(function (x) { return !x.hide; }),
+    return { mode: 'edit', sex: sexOf(p), pics: clothesPics(), dlc: dlcClothes(), list: Object.keys(C.items).map(function (k) { return pub(C.items[k]); }).filter(function (x) { return !x.hide; }),
         slots: Object.keys(SLOTS).map(function (k) { return { k: k, n: SLOTS[k].n, i: SLOTS[k].i, c: SLOTS[k].c, p: SLOTS[k].p }; }) };
 }
 mp.events.addCommand('clothedit', function (p) {
@@ -354,5 +361,5 @@ PR.provider(function () {
     });
 });
 
-global.ClothesSystem = { C: C, SLOTS: SLOTS };
+global.ClothesSystem = { C: C, SLOTS: SLOTS, pics: clothesPics };
 module.exports = global.ClothesSystem;

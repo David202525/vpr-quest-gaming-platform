@@ -57,6 +57,7 @@ header .r{display:flex;gap:8px;align-items:center}
 .cell .em{color:rgba(255,255,255,.2);font-size:26px}
 aside .card{position:sticky;top:76px}
 .ed-img{height:130px;border-radius:8px;background:linear-gradient(180deg,#1a283a,#0e1622);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px;background-size:cover;background-position:center}
+.gal{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;max-height:240px;overflow-y:auto}.gk{aspect-ratio:1;border-radius:8px;background:linear-gradient(180deg,#1a283a,#0e1622);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:4px}.gk img{max-width:100%;max-height:100%;object-fit:contain}.gk:hover,.gk.on{border-color:#9fe3ff}
 .ed-img img{max-width:100%;max-height:100%;object-fit:contain}
 .f{margin-bottom:10px}.row{display:flex;gap:8px}.row>*{flex:1}.row .sm{flex:0 0 80px}
 .hint{color:rgba(255,255,255,.45);text-align:center;padding:40px 10px;line-height:1.6}
@@ -70,6 +71,7 @@ aside .card{position:sticky;top:76px}
 <div class="toast" id="toast"></div>
 <script>
 var TK = sessionStorage.getItem('bptk') || '', C = null, SAVED = '', ITEMS = [], CARS = [], VIPS = [], SEL = null, HOST = '';
+var PICS = [], PICS_OPEN = false;
 var BIG = ['armour', 'backpack', 'medkit', 'rifle', 'repair'];
 var TYPES = [['', 'Нет награды'], ['money', 'Деньги $'], ['coins', 'Коины RC'], ['item', 'Предмет'], ['vehicle', 'Машина'], ['vip', 'VIP']];
 var RARE = [['', 'Обычная'], ['rare', 'Редкая'], ['epic', 'Эпическая'], ['legend', 'Легендарная']];
@@ -115,7 +117,7 @@ function login() {
 function load() {
     api({ op: 'get' }).then(function (d) {
         sessionStorage.setItem('bptk', TK);
-        C = d.config; SAVED = JSON.stringify(C); ITEMS = d.items; CARS = d.cars; VIPS = d.vips; HOST = d.host;
+        C = d.config; SAVED = JSON.stringify(C); ITEMS = d.items; PICS = d.pics || []; CARS = d.cars; VIPS = d.vips; HOST = d.host;
         render();
     }).catch(function (e) { sessionStorage.removeItem('bptk'); login(); if (TK) toast(e.message, true); });
 }
@@ -164,7 +166,8 @@ function side() {
     if (r.type) {
         h += '<div class="f"><label>Своё название (необязательно)</label><input data-r="title" value="' + esc(r.title || '') + '" placeholder="' + esc(rText(Object.assign({}, r, { title: '' }))) + '"></div>';
         h += '<div class="f"><label>Редкость (цвет рамки)</label><select data-r="rare">' + opts(RARE, r.rare || '') + '</select></div>';
-        h += '<div class="f"><label>Картинка</label><input type="file" id="rf" accept="image/*" hidden><div class="row"><button class="s" id="rup">🖼 ' + (r.image ? 'Сменить фото' : 'Своё фото') + '</button>' + (r.image ? '<button class="g" id="rdel" style="flex:0 0 auto">✕ Убрать</button>' : '') + '</div></div>';
+        h += '<div class="f"><label>Картинка</label><input type="file" id="rf" accept="image/*" hidden><div class="row"><button class="s" id="rup">🖼 ' + (r.image ? 'Сменить фото' : 'Своё фото') + '</button>' + (r.image ? '<button class="g" id="rdel" style="flex:0 0 auto">✕ Убрать</button>' : '') + (PICS.length ? '<button class="g" id="rgal" style="flex:0 0 auto">👕 Одежда</button>' : '') + '</div>' +
+            (PICS_OPEN && PICS.length ? '<div class="gal">' + PICS.map(function (f) { var u = 'img/c/' + f; return '<div class="gk' + (r.image === u ? ' on' : '') + '" data-gal="' + esc(u) + '"><img src="/' + esc(u) + '"></div>'; }).join('') + '</div>' : '') + '</div>';
         if (r.type === 'vehicle' && !r.image) h += '<div class="hint" style="padding:6px 0;text-align:left;font-size:11px">Если для модели нет картинки — загрузите своё фото машины.</div>';
     }
     return h;
@@ -212,6 +215,8 @@ function bind() {
     $('lvlp').onclick = function () { if (C.levels.length >= 100) return; C.levels.push({ free: null, premium: null }); render(); };
     $('lvlm').onclick = function () { if (C.levels.length <= 1) return; C.levels.pop(); if (SEL && SEL.i >= C.levels.length) SEL = null; render(); };
     if ($('rup')) { $('rup').onclick = function () { $('rf').click(); }; $('rf').onchange = function () { upload(this.files[0], function (p) { setR({ image: p }); }); }; }
+    if ($('rgal')) $('rgal').onclick = function () { PICS_OPEN = !PICS_OPEN; render(); };
+    document.querySelectorAll('[data-gal]').forEach(function (e) { e.onclick = function () { setR({ image: e.dataset.gal }); render(); }; });
     if ($('rdel')) $('rdel').onclick = function () { setR({ image: '' }); render(); };
     $('out').onclick = function () { sessionStorage.removeItem('bptk'); TK = ''; login(); };
     $('reset').onclick = function () { if (!confirm('Вернуть все настройки пропуска по умолчанию? Изменения сразу попадут в игру.')) return; api({ op: 'reset' }).then(function (d) { C = d.config; SAVED = JSON.stringify(C); SEL = null; render(); toast('Сброшено'); }).catch(function (e) { toast(e.message, true); }); };
