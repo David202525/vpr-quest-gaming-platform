@@ -62,3 +62,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: transparen
 .toast.on { opacity: 1; }
 .q { width: 100%; margin-bottom: 10px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 9px 12px; color: #fff; font-size: 13px; outline: none; }
 .q:focus { border-color: var(--a); }
+
+.fit { margin: 10px 0; padding: 10px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+.fit h5 { font-size: 12px; margin: 0 0 8px; opacity: .85; }
+.fit .stp input { flex: 1; min-width: 0; }

@@ -115,12 +115,14 @@ window.csCount = function (j) {
 var DLCV_PEND = null;
 function dvTx(n, cb) { DVTX_CB = cb; var s = slotOf(DLCV.g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dvtx', c: s.c, p: s.p, d: n })); }
 var DVTX_CB = null;
-function preview() { if (ED) tryOn(ED, ED.tx[0] || 0); }
+function preview() { if (ED) tryOn(ED, ED.tx.indexOf(PTX) >= 0 ? PTX : (ED.tx[0] || 0)); }
 function paintEdInfo() {
     var e = $('edinfo'); if (!e) return;
     e.textContent = 'Моделей в слоте: ' + MAXD + ' (0–' + Math.max(0, MAXD - 1) + ') · цветов у №' + ED.d + ': ' + MAXT;
     if ($('etx')) $('etx').value = ED.tx.join(',');
 }
+var PTX = 0, RD = null;
+function stp(id, lab, val) { return '<div class="f"><label>' + lab + '</label><div class="stp"><button data-st="' + id + ':-10">«</button><button data-st="' + id + ':-1">‹</button><input id="' + id + '" type="number" value="' + esc(val) + '"><button data-st="' + id + ':1">›</button><button data-st="' + id + ':10">»</button></div></div>'; }
 function field(id, lab, val, type) { return '<div class="f"><label>' + lab + '</label><input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(val) + '"></div>'; }
 function renderEdit() {
     $('ico').textContent = '🧵'; $('ttl').textContent = 'Редактор одежды'; $('sub').textContent = 'Пол персонажа: ' + (D.sex === 'f' ? 'женский' : 'мужской') + ' · вещи этого пола';
@@ -137,7 +139,7 @@ function renderEdit() {
             field('en', 'Название в магазине', ED.n) +
             '<div class="row2">' + field('epr', 'Цена, $', ED.price, 'number') + (ED.slot === 'bag' ? field('ecap', 'Вместимость, кг', ED.cap, 'number') : '') + '</div>' +
             field('etx', 'Цвета (номера текстур через запятую)', ED.tx.join(',')) +
-            (ED.slot === 'top' ? '<div class="row2">' + field('et', 'Торс / руки (3)', ED.t, 'number') + field('eu', 'Майка под низ (8), -1 = нет', ED.u, 'number') + '</div><div class="hint">Если руки «проваливаются» или торчат — подберите номер торса. Майка нужна для курток и пиджаков.</div>' : '') +
+            (ED.slot === 'top' ? '<div class="fit"><h5>Подгонка верха — меняется сразу на персонаже</h5>' + stp('et', 'Руки / торс', ED.t) + stp('eu', 'Майка под верхом (−1 = нет)', ED.u) + stp('eut', 'Цвет майки', ED.ut || 0) + stp('epx', 'Показать цвет вещи', PTX) + '<div class="hint">Видно тело или руки «проваливаются» — листайте «Руки». Дыры на груди закрывает майка. Нашли вариант — нажмите «Сохранить», и вещь будет продаваться в таком виде.</div></div>' : '') +
             '<div class="btns"><button class="btn main" id="esave">' + (ED.id ? 'Сохранить' : 'Добавить в каталог') + '</button>' + (ED.id ? '<button class="btn red" id="edel">Снять с продажи</button><button class="btn" id="enew">Новая</button>' : '') + '</div></div>';
     } else {
         h += '<div class="panel"><h4>Добавить пачкой · ' + esc(s.n) + '</h4><div class="hint">Добавит все существующие модели из диапазона со всеми их цветами. Удобно для DLC-одежды: узнайте номера своих вещей и добавьте их разом, потом переименуйте и поправьте цены.</div>' +
@@ -153,9 +155,10 @@ function renderEdit() {
     $('body').innerHTML = h;
     paintEdInfo();
     if (TAB === 'one') {
-        var rd = function () { ED.n = $('en').value; ED.price = Number($('epr').value) || 0; if ($('ecap')) ED.cap = Number($('ecap').value) || 20; ED.tx = $('etx').value.split(/[,\s]+/).map(Number).filter(function (x) { return !isNaN(x) && x >= 0; }); if (!ED.tx.length) ED.tx = [0]; if ($('et')) { ED.t = Number($('et').value); ED.u = Number($('eu').value); } };
+        var rd = function () { ED.n = $('en').value; ED.price = Number($('epr').value) || 0; if ($('ecap')) ED.cap = Number($('ecap').value) || 20; ED.tx = $('etx').value.split(/[,\s]+/).map(Number).filter(function (x) { return !isNaN(x) && x >= 0; }); if (!ED.tx.length) ED.tx = [0]; if ($('et')) { ED.t = Math.max(0, Number($('et').value) || 0); ED.u = Math.max(-1, Number($('eu').value)); if (isNaN(ED.u)) ED.u = -1; ED.ut = Math.max(0, Number($('eut').value) || 0); PTX = Math.max(0, Number($('epx').value) || 0); } };
+        RD = rd;
         $('ed').onchange = function () { ED.d = Math.max(0, Number($('ed').value) || 0); if (!ED.id) ED.tx = [0]; askCount(); preview(); };
-        ['etx', 'et', 'eu'].forEach(function (k) { if ($(k)) $(k).onchange = function () { rd(); preview(); }; });
+        ['etx', 'et', 'eu', 'eut', 'epx'].forEach(function (k) { if ($(k)) $(k).onchange = function () { rd(); preview(); }; });
         $('esave').onclick = function () { rd(); trig('cef:ce:save', JSON.stringify(ED)); };
         if ($('edel')) $('edel').onclick = function () { trig('cef:ce:del', ED.id); ED = newEd(); askCount(); };
         if ($('enew')) $('enew').onclick = function () { ED = newEd(); askCount(); render(); };
@@ -179,8 +182,14 @@ $('body').addEventListener('click', function (e) {
     if (e.target.id === 'dvback') { DLCV = null; DLCV_SEL = -1; trig('cef:cs:reset'); render(); return; }
     if (e.target.id === 'dvadd') { var num = DLCV_SEL, nmv = $('dvn').value; dvTx(num, function (t) { var tx = []; for (var k = 0; k < Math.max(1, Math.min(t, 32)); k++) tx.push(k); trig('cef:ce:save', JSON.stringify({ id: 0, n: nmv, sex: D.sex, slot: DLCV.g.slot, d: num, tx: tx, t: 15, u: -1, ut: 0, price: 500, cap: 20 })); }); return; }
     if ((c = e.target.closest('[data-dlc]'))) { var g = dlcGroups()[Number(c.dataset.dlc)]; if (!g) return; DLC_PEND = g; var gs = slotOf(g.slot); trig('cef:cs:count', JSON.stringify({ k: 'dlc', c: gs.c, p: gs.p })); return; }
+    if ((c = e.target.closest('[data-st]'))) {
+        var pr = c.dataset.st.split(':'), inp = $(pr[0]); if (!inp) return;
+        var mn = pr[0] === 'eu' ? -1 : 0, v = Math.max(mn, (Number(inp.value) || 0) + Number(pr[1]));
+        if (pr[0] === 'epx' && ED.tx.length) { var ix = ED.tx.indexOf(PTX); ix = (ix < 0 ? 0 : ix) + (Number(pr[1]) > 0 ? 1 : -1); ix = (ix + ED.tx.length) % ED.tx.length; v = ED.tx[ix]; }
+        inp.value = v; if (RD) RD(); preview(); return;
+    }
     if ((c = e.target.closest('[data-s]'))) { ED.d = Math.max(0, Math.min(Math.max(0, MAXD - 1), ED.d + Number(c.dataset.s))); $('ed').value = ED.d; if (!ED.id) ED.tx = [0]; askCount(); preview(); return; }
-    if ((c = e.target.closest('[data-e]'))) { var x = D.list.find(function (z) { return z.id === Number(c.dataset.e); }); if (x) { CAT = x.slot; ED = JSON.parse(JSON.stringify(x)); TAB = 'one'; askCount(); render(); } return; }
+    if ((c = e.target.closest('[data-e]'))) { var x = D.list.find(function (z) { return z.id === Number(c.dataset.e); }); if (x) { CAT = x.slot; ED = JSON.parse(JSON.stringify(x)); PTX = ED.tx[0] || 0; TAB = 'one'; askCount(); render(); } return; }
     if ((c = e.target.closest('[data-i]'))) { SEL = D.list.find(function (z) { return z.id === Number(c.dataset.i); }); TX = SEL.tx[0]; tryOn(SEL, TX); render(); return; }
     if ((c = e.target.closest('[data-t]'))) { TX = Number(c.dataset.t); tryOn(SEL, TX); render(); return; }
 });
