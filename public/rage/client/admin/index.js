@@ -74,6 +74,10 @@ mp.events.add('adm:vehCheck', function (json) {
     var hash = mp.game.joaat(d.model);
     var inImage = false;
     try { inImage = mp.game.streaming.isModelInCdimage(hash) || mp.game.streaming.isModelValid(hash); } catch (e) { inImage = true; }
+    if (!inImage) {
+        mp.events.callRemote('srv:adm:vehBad', d.model);
+        return;
+    }
     try { mp.game.streaming.requestModel(hash); } catch (e) {}
     var tries = 0;
     var timer = setInterval(function () {
@@ -82,7 +86,6 @@ mp.events.add('adm:vehCheck', function (json) {
         try { loaded = mp.game.streaming.hasModelLoaded(hash); } catch (e) { loaded = true; }
         if (loaded || tries >= 30) {
             clearInterval(timer);
-            if (!loaded && !inImage) mp.events.callRemote('srv:adm:vehBad', d.model);
             mp.events.callRemote('srv:adm:veh', JSON.stringify(d));
         }
     }, 100);

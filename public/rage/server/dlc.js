@@ -180,13 +180,11 @@ function scan() {
 
 const CL_MAP = { jbib: 'top', lowr: 'legs', feet: 'shoes', hand: 'bag', berd: 'mask', teef: 'chain', p_head: 'hat', p_eyes: 'glasses', p_lwrist: 'watch' };
 function clothesOf(files) {
-    const g = {}, tx = {};
+    const g = {};
     files.forEach(function (f) {
         const sx = f.match(/mp_([mf])_freemode_01/);
         if (!sx) return;
         const base = f.slice(f.lastIndexOf('/') + 1).split('^').pop();
-        const t = base.match(/^((?:p_)?[a-z]+)_diff_(\d{3})_[a-z]/);
-        if (t && /\.ytd$/.test(base)) { const tk = sx[1] + ':' + t[1] + ':' + Number(t[2]); tx[tk] = (tx[tk] || 0) + 1; return; }
         const m = base.match(/^((?:p_)?[a-z]+)_(\d{3})(?:_[a-z]+)?\.ydd$/);
         if (!m) return;
         const k = sx[1] + ':' + m[1];
@@ -195,7 +193,7 @@ function clothesOf(files) {
     return Object.keys(g).map(function (k) {
         const p = k.split(':');
         const ids = Object.keys(g[k]).map(Number).sort(function (a, b) { return a - b; });
-        return { sex: p[0], part: p[1], slot: CL_MAP[p[1]] || '', n: ids.length, ids: ids, tex: ids.map(function (id) { return tx[k + ':' + id] || 0; }) };
+        return { sex: p[0], part: p[1], slot: CL_MAP[p[1]] || '', n: ids.length, ids: ids };
     });
 }
 

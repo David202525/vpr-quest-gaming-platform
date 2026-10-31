@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const FILE = path.join(__dirname, 'clothes_data.json');
-const C = Object.assign({ seq: 1, sseq: 1, items: {}, shops: null, pins: {} }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
+const C = Object.assign({ seq: 1, sseq: 1, items: {}, shops: null }, (function () { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
 let dirty = false;
 setInterval(function () { if (dirty) { dirty = false; try { fs.writeFileSync(FILE, JSON.stringify(C)); } catch (e) { console.log('[clothes] save: ' + e.message); } } }, 5000);
 function mark() { dirty = true; }
@@ -212,10 +212,9 @@ function dlcGroupsFor(sx) {
         (d.cl || []).forEach(function (c) {
             if (c.sex !== sx || !c.slot || !SLOTS[c.slot]) return;
             const k = c.part;
-            g[k] = g[k] || { k: k, slot: c.slot, n: 0, names: [], packs: [], tex: [] };
-            (c.ids && c.ids.length ? c.ids : Array.apply(null, Array(c.n)).map(function (_, i) { return i; })).forEach(function (id, i) {
+            g[k] = g[k] || { k: k, slot: c.slot, n: 0, names: [], packs: [] };
+            (c.ids && c.ids.length ? c.ids : Array.apply(null, Array(c.n)).map(function (_, i) { return i; })).forEach(function (id) {
                 g[k].names.push((PART_RU[k] || 'Вещь') + ' ' + d.name + ' · ' + k + '_' + ('00' + id).slice(-3));
-                g[k].tex.push(c.tex ? c.tex[i] || 0 : 0);
             });
             g[k].n = g[k].names.length;
             if (g[k].packs.indexOf(d.name) < 0) g[k].packs.push(d.name);
@@ -223,19 +222,6 @@ function dlcGroupsFor(sx) {
     });
     return Object.keys(g).map(function (k) { return g[k]; });
 }
-function pinKey(sx, g) { return sx + ':' + g.k + ':' + g.packs.join(',') + ':' + g.n; }
-mp.events.add('srv:cs:dlcPicked', function (p, k, d) {
-    if (admLvl(p) < 6) return;
-    const sx = sexOf(p), g = dlcGroupsFor(sx).find(function (x) { return x.k === String(k); });
-    d = int(d, -1);
-    if (!g || d < 0) return;
-    C.pins[pinKey(sx, g)] = d;
-    Object.keys(C.items).forEach(function (key) { const x = C.items[key]; if (x.dlc && !x.hide && x.sex === sx && x.slot === g.slot && g.names.indexOf(x.n) >= 0) x.hide = 1; });
-    mark();
-    notify(p, 'ok', 'Запомнил: ' + g.names[0] + ' = №' + d + '. Добавляю в магазин…');
-    p._dlcWear = setTimeout(function () { p._dlcWear = null; if (mp.players.exists(p)) wearDlc(p, null); }, 6000);
-    dlcProbe(p);
-});
 function dlcProbe(p) {
     if (!mp.players.exists(p)) return;
     const gr = dlcGroupsFor(sexOf(p));
@@ -259,30 +245,15 @@ mp.events.add('srv:cs:dlcProbe', function (p, json, cm) {
         p.outputChatBox('!{#e05555}[DLC] Сервер считает персонажа ' + (sexOf(p) === 'f' ? 'женским' : 'мужским') + ', а в игре у вас ' + (cmn === F ? 'женская' : 'мужская') + ' модель. Номера одежды у полов разные, поэтому надевается чужая вещь. Смените пол через админку (или пересоздайте персонажа) и перезайдите');
         return notify(p, 'warn', 'Модель в игре и на сервере разного пола — подробности в чате');
     }
-    const sx = sexOf(p), gr = dlcGroupsFor(sx), added = [], probe = [], pick = [];
+    const sx = sexOf(p), gr = dlcGroupsFor(sx), added = [], probe = [];
     arr.forEach(function (r) {
         const g = gr.find(function (x) { return x.k === r.k; });
         const total = int(r.total, 0);
         if (g) probe.push({ k: g.k, slot: g.slot, total: total, n: g.n, packs: g.packs });
         if (!g || total <= g.n || total > 2000 || !Array.isArray(r.tx)) return;
-        let from = total - g.n;
-        const all = Array.isArray(r.all) ? r.all.map(function (x) { return int(x, 0); }) : [], base = int(r.base, 0);
-        const pk = pinKey(sx, g), pin = C.pins[pk];
-        const hasTex = all.length && g.tex.some(function (t) { return t > 0; });
-        if (pin !== undefined && (!hasTex || !g.tex[0] || all[pin - base] === g.tex[0])) from = pin;
-        else if (hasTex) {
-            if (pin !== undefined) { delete C.pins[pk]; mark(); }
-            Object.keys(C.items).forEach(function (k2) { const x = C.items[k2]; if (x.dlc && !x.hide && x.sex === sx && x.slot === g.slot && g.names.indexOf(x.n) >= 0) { x.hide = 1; mark(); } });
-            if (p._dlcWear) {
-                const cands = [];
-                for (let s = all.length - g.n; s >= 0; s--) if (g.tex.every(function (t, i) { return !t || all[s + i] === t; })) cands.push(base + s);
-                pick.push({ k: g.k, c: SLOTS[g.slot].c, p: SLOTS[g.slot].p, cands: cands, tex: g.tex[0], name: g.names[0] });
-            }
-            return;
-        }
-        Object.keys(C.items).forEach(function (k) { const x = C.items[k]; if (x.dlc && !x.hide && x.sex === sx && x.slot === g.slot && g.names.indexOf(x.n) >= 0 && (x.d < from || x.d >= from + g.n)) { x.hide = 1; mark(); } });
+        const from = total - g.n;
         for (let i = 0; i < g.n; i++) {
-            const d = from + i, tc = Math.max(1, Math.min(32, all.length && all[d - base] > 0 ? all[d - base] : int(r.tx[i], 1)));
+            const d = from + i, tc = Math.max(1, Math.min(32, int(r.tx[i], 1)));
             const ex = Object.keys(C.items).map(function (k) { return C.items[k]; }).find(function (x) { return x.sex === sx && x.slot === g.slot && x.d === d; });
             if (ex) {
                 if (ex.hide || !ex.dlc) { ex.hide = 0; ex.dlc = 1; ex.n = g.names[i]; if (!ex.tx || !ex.tx.length || ex.tx.length < tc) { ex.tx = []; for (let t = 0; t < tc; t++) ex.tx.push(t); } register(ex); mark(); added.push(ex); continue; }
@@ -296,12 +267,7 @@ mp.events.add('srv:cs:dlcProbe', function (p, json, cm) {
             C.items[it.id] = it; register(it); added.push(it);
         }
     });
-    if (p._dlcWear && pick.length) {
-        clearTimeout(p._dlcWear); p._dlcWear = null;
-        const pk0 = pick.find(function (x) { return x.cands.length; });
-        if (!pk0) { p.outputChatBox('!{#e05555}[DLC] В игре не найдено вещи с ' + pick[0].tex + ' цветами — пак не загрузился. Удалите RAGEMP/client_resources и перезайдите'); notify(p, 'warn', 'Пак не загрузился у вас в игре'); }
-        else { p.call('cs:dlcPick', [JSON.stringify(pk0)]); notify(p, 'info', 'Листайте ← → пока не увидите свою вещь, Enter — выбрать'); }
-    } else if (p._dlcWear) { clearTimeout(p._dlcWear); p._dlcWear = null; setTimeout(function () { if (mp.players.exists(p)) wearDlc(p, probe); }, 300); }
+    if (p._dlcWear) { clearTimeout(p._dlcWear); p._dlcWear = null; setTimeout(function () { if (mp.players.exists(p)) wearDlc(p, probe); }, 300); }
     if (!added.length) return;
     mark();
     console.log('[clothes] из DLC добавлено в магазин: ' + added.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
@@ -353,8 +319,9 @@ mp.events.addCommand('dlcwear', function (p) {
     if (admLvl(p) < 6) return;
     if (global.DlcSystem && global.DlcSystem.rescan) global.DlcSystem.rescan();
     const sx = sexOf(p);
-    if (!dlcGroupsFor(sx).length) return wearDlc(p);
-    notify(p, 'info', 'Проверяю одежду из DLC (v4)…');
+    const has = Object.keys(C.items).some(function (k) { const x = C.items[k]; return x.dlc && !x.hide && x.sex === sx; });
+    if (has || !dlcGroupsFor(sx).length) return wearDlc(p);
+    notify(p, 'info', 'Проверяю, загрузила ли игра одежду…');
     if (p._dlcWear) clearTimeout(p._dlcWear);
     p._dlcWear = setTimeout(function () { p._dlcWear = null; if (mp.players.exists(p)) wearDlc(p, null); }, 6000);
     dlcProbe(p);
