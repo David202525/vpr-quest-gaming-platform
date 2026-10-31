@@ -157,11 +157,11 @@ Tools → New → RPF7 Archive «dlc.rpf», Encryption: OPEN, и перенес�
 Вещи сами появятся в магазине одежды.
 
 ХУДИ AMRP УЖЕ ВНУТРИ
-В папке female лежит ваша женская худи (jbib_000) с 10 цветами — раньше она
+В папке female лежит ваша женская худи (jbib_000) с 18 цветами: a–j — AMRP,\nk — снежинки, l — свитер с оленями, m — ёлочки, n — зимний камуфляж,\no — северное сияние, p — тай-дай, q — граффити, r — облачка. Раньше она
 была в отдельном паке amrp_merch. После того как соберёте и положите этот пак,
 папку dlcpacks/amrp_merch УДАЛИТЕ, иначе худи будет в игре дважды.
 
-ДОБАВИТЬ ВЕЩИ ПОТОМ
+ОБНОВЛЕНИЕ ДО 18 ЦВЕТОВ\nОткройте свой проект в Durty Cloth Tool, у худи нажмите Add textures и\nдобавьте файлы jbib_diff_000_k_uni.ytd … jbib_diff_000_r_uni.ytd из папки female.\nПересоберите (имя amrp_clothes, Singleplayer) и замените dlc.rpf.\n\nДОБАВИТЬ ВЕЩИ ПОТОМ
 Откройте проект в Durty Cloth Tool, добавьте новые .ydd, пересоберите
 и замените dlc.rpf. Номера старых вещей не меняются, если добавлять в конец.
 
@@ -179,3 +179,7 @@ with zipfile.ZipFile(kit) as src, zipfile.ZipFile(out, 'a', zipfile.ZIP_DEFLATED
     for n in src.namelist():
         if n.startswith('amrp_merch/female/') and not n.endswith('/'):
             z.writestr(P + '/female/' + n.split('/')[-1], src.read(n))
+extra = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'female_extra')
+with zipfile.ZipFile(out, 'a', zipfile.ZIP_DEFLATED) as z:
+    for f in sorted(os.listdir(extra)):
+        if f.endswith('.ytd'): z.write(os.path.join(extra, f), P + '/female/' + f)

@@ -265,6 +265,7 @@ mp.events.add('srv:cs:dlcProbe', function (p, json, cm) {
             if (ex) {
                 if (ex.hide || !ex.dlc) { ex.hide = 0; ex.dlc = 1; ex.n = g.names[i]; if (!ex.tx || !ex.tx.length || ex.tx.length < tc) { ex.tx = []; for (let t = 0; t < tc; t++) ex.tx.push(t); } register(ex); mark(); added.push(ex); continue; }
                 if (ex.n !== g.names[i] && / · [a-z_]+_\d{3}$/.test(ex.n)) { ex.n = g.names[i]; register(ex); mark(); }
+                if (ex.dlc && ex.tx.length < tc && ex.tx.every(function (t, j) { return t === j; })) { for (let t = ex.tx.length; t < tc; t++) ex.tx.push(t); register(ex); mark(); console.log('[clothes] ' + ex.n + ': цветов стало ' + tc); }
                 continue;
             }
             const tx = []; for (let t = 0; t < tc; t++) tx.push(t);
