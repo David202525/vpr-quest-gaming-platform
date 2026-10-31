@@ -331,9 +331,8 @@ mp.events.addCommand('dlcwear', function (p) {
     if (admLvl(p) < 6) return;
     if (global.DlcSystem && global.DlcSystem.rescan) global.DlcSystem.rescan();
     const sx = sexOf(p);
-    const has = Object.keys(C.items).some(function (k) { const x = C.items[k]; return x.dlc && !x.hide && x.sex === sx; });
-    if (has || !dlcGroupsFor(sx).length) return wearDlc(p);
-    notify(p, 'info', 'Проверяю, загрузила ли игра одежду…');
+    if (!dlcGroupsFor(sx).length) return wearDlc(p);
+    notify(p, 'info', 'Ищу вещь в игре по цветам (v3)…');
     if (p._dlcWear) clearTimeout(p._dlcWear);
     p._dlcWear = setTimeout(function () { p._dlcWear = null; if (mp.players.exists(p)) wearDlc(p, null); }, 6000);
     dlcProbe(p);
