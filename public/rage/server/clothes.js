@@ -137,6 +137,7 @@ function editorData(p) {
 mp.events.addCommand('clothedit', function (p) {
     if (!canEdit(p)) return;
     if (p.vehicle) return notify(p, 'warn', 'Выйдите из машины');
+    dlcProbe(p);
     p.call('cs:open', [JSON.stringify(editorData(p))]);
 });
 mp.events.add('srv:ce:save', function (p, json) {
@@ -198,6 +199,75 @@ mp.events.addCommand('clothshop', function (p, full) {
         return notify(p, 'ok', 'Магазин одежды «' + s.n + '» добавлен. Двигать/удалять — /points');
     }
     p.outputChatBox('!{#ffcc66}/clothshop add [название] — магазин одежды на вашем месте · каталог — /clothedit · перенос/удаление — /points');
+});
+
+/* ---------- автодобавление одежды из DLC ---------- */
+const PART_RU = { jbib: 'Верх', lowr: 'Низ', feet: 'Обувь', hand: 'Сумка', berd: 'Маска', teef: 'Аксессуар', p_head: 'Головной убор', p_eyes: 'Очки', p_lwrist: 'Часы' };
+function dlcGroupsFor(sx) {
+    const R = global.DlcSystem && global.DlcSystem.get ? global.DlcSystem.get() : null;
+    const g = {};
+    if (!R) return [];
+    R.list.slice().sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; }).forEach(function (d) {
+        if (!d.ok) return;
+        (d.cl || []).forEach(function (c) {
+            if (c.sex !== sx || !c.slot || !SLOTS[c.slot]) return;
+            const k = c.part;
+            g[k] = g[k] || { k: k, slot: c.slot, n: 0, names: [], packs: [] };
+            (c.ids && c.ids.length ? c.ids : Array.apply(null, Array(c.n)).map(function (_, i) { return i; })).forEach(function (id) {
+                g[k].names.push((PART_RU[k] || 'Вещь') + ' ' + d.name + ' · ' + k + '_' + ('00' + id).slice(-3));
+            });
+            g[k].n = g[k].names.length;
+            if (g[k].packs.indexOf(d.name) < 0) g[k].packs.push(d.name);
+        });
+    });
+    return Object.keys(g).map(function (k) { return g[k]; });
+}
+function dlcProbe(p) {
+    if (!mp.players.exists(p)) return;
+    const gr = dlcGroupsFor(sexOf(p));
+    if (!gr.length) return;
+    p.call('cs:dlcProbe', [JSON.stringify(gr.map(function (x) { const S = SLOTS[x.slot]; return { k: x.k, c: S.c, p: S.p, n: x.n }; }))]);
+}
+mp.events.add('playerReady', function (p) { setTimeout(function () { dlcProbe(p); }, 9000); });
+mp.events.add('srv:cs:dlcProbe', function (p, json) {
+    let arr; try { arr = JSON.parse(json); } catch (e) { return; }
+    if (!Array.isArray(arr)) return;
+    const sx = sexOf(p), gr = dlcGroupsFor(sx), added = [];
+    arr.forEach(function (r) {
+        const g = gr.find(function (x) { return x.k === r.k; });
+        const total = int(r.total, 0);
+        if (!g || total <= g.n || total > 2000 || !Array.isArray(r.tx)) return;
+        const from = total - g.n;
+        for (let i = 0; i < g.n; i++) {
+            const d = from + i, tc = Math.max(1, Math.min(32, int(r.tx[i], 1)));
+            const ex = Object.keys(C.items).map(function (k) { return C.items[k]; }).find(function (x) { return x.sex === sx && x.slot === g.slot && x.d === d; });
+            if (ex) {
+                if (ex.dlc && ex.n !== g.names[i] && / · [a-z_]+_\d{3}$/.test(ex.n)) { ex.n = g.names[i]; register(ex); mark(); }
+                continue;
+            }
+            const tx = []; for (let t = 0; t < tc; t++) tx.push(t);
+            const it = { id: C.seq++, n: g.names[i], sex: sx, slot: g.slot, d: d, tx: tx, price: 500, dlc: 1 };
+            if (g.slot === 'top') { it.t = 15; it.u = -1; it.ut = 0; }
+            if (g.slot === 'bag') it.cap = 20;
+            C.items[it.id] = it; register(it); added.push(it);
+        }
+    });
+    if (!added.length) return;
+    mark();
+    console.log('[clothes] из DLC добавлено в магазин: ' + added.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
+    mp.players.forEach(function (x) { if (admLvl(x) >= 6) notify(x, 'ok', 'В магазины одежды добавлено из DLC: ' + added.length + ' шт. Цена 500$, поменять — /clothedit'); });
+});
+mp.events.addCommand('dlcwear', function (p) {
+    if (admLvl(p) < 6) return;
+    const sx = sexOf(p);
+    const mine = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex === sx; });
+    const other = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex !== sx; }).length + dlcGroupsFor(sx === 'f' ? 'm' : 'f').length;
+    if (!mine.length) {
+        dlcProbe(p);
+        return notify(p, 'warn', other ? 'Одежда из DLC сделана для ' + (sx === 'f' ? 'мужского' : 'женского') + ' персонажа — смените пол, иначе её не видно' : 'Одежды из DLC для вашего пола нет. Проверьте /dlc');
+    }
+    mine.forEach(function (it) { const S = SLOTS[it.slot]; p.call('cs:dlcWear', [JSON.stringify({ c: S.c, p: S.p, d: it.d, tx: 0, t: it.t, u: it.u })]); });
+    notify(p, 'ok', 'Надето из DLC: ' + mine.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
 });
 
 const PR = global.PointReg || require('./points.js');

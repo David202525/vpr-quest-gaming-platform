@@ -150,3 +150,28 @@ mp.events.add('render', function () {
         mp.game.graphics.drawText('👕 ' + s[1], [s[2], s[3], s[4] + 1.0], { font: 4, color: [255, 255, 255, 230], scale: [0.38, 0.38], outline: true, centre: true });
     });
 });
+mp.events.add('cs:dlcProbe', function (j) {
+    var arr; try { arr = JSON.parse(j); } catch (e) { return; }
+    var me = mp.players.local, out = [];
+    arr.forEach(function (g) {
+        var isP = g.p !== undefined && g.p !== null, total = 0;
+        try { total = isP ? me.getNumberOfPropDrawableVariations(Number(g.p)) : me.getNumberOfDrawableVariations(Number(g.c)); } catch (e) {}
+        var tx = [];
+        for (var i = total - g.n; i < total; i++) {
+            var t = 1;
+            try { t = isP ? me.getNumberOfPropTextureVariations(Number(g.p), i) : me.getNumberOfTextureVariations(Number(g.c), i); } catch (e) {}
+            tx.push(t > 0 ? t : 1);
+        }
+        out.push({ k: g.k, total: total, tx: tx });
+    });
+    mp.events.callRemote('srv:cs:dlcProbe', JSON.stringify(out));
+});
+mp.events.add('cs:dlcWear', function (j) {
+    var d; try { d = JSON.parse(j); } catch (e) { return; }
+    var me = mp.players.local;
+    if (d.p !== undefined && d.p !== null) me.setPropIndex(Number(d.p), Number(d.d), 0, true);
+    else {
+        me.setComponentVariation(Number(d.c), Number(d.d), 0, 2);
+        if (Number(d.c) === 11) { me.setComponentVariation(3, Number(d.t) >= 0 ? Number(d.t) : 15, 0, 2); me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : 15, 0, 2); }
+    }
+});
