@@ -243,7 +243,8 @@ mp.events.add('srv:cs:dlcProbe', function (p, json) {
             const d = from + i, tc = Math.max(1, Math.min(32, int(r.tx[i], 1)));
             const ex = Object.keys(C.items).map(function (k) { return C.items[k]; }).find(function (x) { return x.sex === sx && x.slot === g.slot && x.d === d; });
             if (ex) {
-                if (ex.dlc && ex.n !== g.names[i] && / · [a-z_]+_\d{3}$/.test(ex.n)) { ex.n = g.names[i]; register(ex); mark(); }
+                if (ex.hide || !ex.dlc) { ex.hide = 0; ex.dlc = 1; ex.n = g.names[i]; if (!ex.tx || !ex.tx.length || ex.tx.length < tc) { ex.tx = []; for (let t = 0; t < tc; t++) ex.tx.push(t); } register(ex); mark(); added.push(ex); continue; }
+                if (ex.n !== g.names[i] && / · [a-z_]+_\d{3}$/.test(ex.n)) { ex.n = g.names[i]; register(ex); mark(); }
                 continue;
             }
             const tx = []; for (let t = 0; t < tc; t++) tx.push(t);
