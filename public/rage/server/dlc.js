@@ -345,5 +345,5 @@ mp.events.addCommand('dlc', function (p, full) {
 
 setTimeout(function () { deepCheck(function (l) { console.log('[dlc] ' + l); }); }, 8000);
 
-global.DlcSystem = { deepCheck: deepCheck, scan: scan, get: function () { return R; } };
+global.DlcSystem = { deepCheck: deepCheck, scan: scan, rescan: function () { R = scan(); return R; }, get: function () { return R; } };
 module.exports = global.DlcSystem;

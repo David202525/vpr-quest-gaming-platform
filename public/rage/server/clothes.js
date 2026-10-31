@@ -232,10 +232,11 @@ mp.events.add('playerReady', function (p) { setTimeout(function () { dlcProbe(p)
 mp.events.add('srv:cs:dlcProbe', function (p, json) {
     let arr; try { arr = JSON.parse(json); } catch (e) { return; }
     if (!Array.isArray(arr)) return;
-    const sx = sexOf(p), gr = dlcGroupsFor(sx), added = [];
+    const sx = sexOf(p), gr = dlcGroupsFor(sx), added = [], probe = [];
     arr.forEach(function (r) {
         const g = gr.find(function (x) { return x.k === r.k; });
         const total = int(r.total, 0);
+        if (g) probe.push({ k: g.k, slot: g.slot, total: total, n: g.n, packs: g.packs });
         if (!g || total <= g.n || total > 2000 || !Array.isArray(r.tx)) return;
         const from = total - g.n;
         for (let i = 0; i < g.n; i++) {
@@ -252,6 +253,7 @@ mp.events.add('srv:cs:dlcProbe', function (p, json) {
             C.items[it.id] = it; register(it); added.push(it);
         }
     });
+    if (p._dlcWear) { clearTimeout(p._dlcWear); p._dlcWear = null; setTimeout(function () { if (mp.players.exists(p)) wearDlc(p, probe); }, 300); }
     if (!added.length) return;
     mark();
     console.log('[clothes] из DLC добавлено в магазин: ' + added.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
@@ -276,18 +278,39 @@ function dlcExplain(p, sx) {
         say((why ? '!{#e05555}  ✖ ' : '!{#6fd36a}  ✔ ') + d.name + (clt ? ' — ' + clt : '') + (why ? ' — ' + why : ' — в порядке, через 10 сек. появится в магазине'));
     });
 }
-mp.events.addCommand('dlcwear', function (p) {
-    if (admLvl(p) < 6) return;
+function wearDlc(p, probe) {
     const sx = sexOf(p);
     const mine = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex === sx; });
-    const other = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex !== sx; }).length + dlcGroupsFor(sx === 'f' ? 'm' : 'f').length;
-    if (!mine.length) {
-        dlcProbe(p);
-        dlcExplain(p, sx);
-        return notify(p, 'warn', other ? 'Одежда из DLC сделана для ' + (sx === 'f' ? 'мужского' : 'женского') + ' персонажа — смените пол, иначе её не видно' : 'Одежды из DLC для вашего пола нет. Проверьте /dlc');
+    if (mine.length) {
+        mine.forEach(function (it) { const S = SLOTS[it.slot]; p.call('cs:dlcWear', [JSON.stringify({ c: S.c, p: S.p, d: it.d, tx: 0, t: it.t, u: it.u })]); });
+        return notify(p, 'ok', 'Надето из DLC: ' + mine.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
     }
-    mine.forEach(function (it) { const S = SLOTS[it.slot]; p.call('cs:dlcWear', [JSON.stringify({ c: S.c, p: S.p, d: it.d, tx: 0, t: it.t, u: it.u })]); });
-    notify(p, 'ok', 'Надето из DLC: ' + mine.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
+    dlcExplain(p, sx);
+    const say = function (t) { p.outputChatBox(t); };
+    if (probe === null) {
+        say('!{#e05555}[DLC] Игра не ответила на проверку одежды за 6 сек. Перезайдите на сервер и повторите /dlcwear');
+        return notify(p, 'warn', 'Игра не ответила — перезайдите и повторите /dlcwear');
+    }
+    if (probe && probe.length) {
+        probe.forEach(function (r) {
+            if (r.total <= r.n) say('!{#e05555}[DLC] ' + r.packs.join(', ') + ': сервер видит ' + r.n + ' шт. (' + (PART_RU[r.k] || r.k) + '), но игра их не загрузила — всего вариантов в игре ' + r.total + '. Удалите у себя папку RAGEMP/client_resources и зайдите заново, чтобы пак скачался. Если не поможет — в grzyClothTool пересоберите с типом Singleplayer');
+            else say('!{#e05555}[DLC] ' + r.packs.join(', ') + ': игра загрузила ' + r.n + ' шт., но вещь не добавилась — пришлите этот текст разработчику (total ' + r.total + ')');
+        });
+        return notify(p, 'warn', 'Пак виден серверу, но игра его не загрузила — подробности в чате');
+    }
+    const other = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex !== sx; }).length + dlcGroupsFor(sx === 'f' ? 'm' : 'f').length;
+    notify(p, 'warn', other ? 'Одежда из DLC сделана для ' + (sx === 'f' ? 'мужского' : 'женского') + ' персонажа — смените пол, иначе её не видно' : 'Одежды из DLC для вашего пола нет — причина по каждому паку в чате (T)');
+}
+mp.events.addCommand('dlcwear', function (p) {
+    if (admLvl(p) < 6) return;
+    if (global.DlcSystem && global.DlcSystem.rescan) global.DlcSystem.rescan();
+    const sx = sexOf(p);
+    const has = Object.keys(C.items).some(function (k) { const x = C.items[k]; return x.dlc && !x.hide && x.sex === sx; });
+    if (has || !dlcGroupsFor(sx).length) return wearDlc(p);
+    notify(p, 'info', 'Проверяю, загрузила ли игра одежду…');
+    if (p._dlcWear) clearTimeout(p._dlcWear);
+    p._dlcWear = setTimeout(function () { p._dlcWear = null; if (mp.players.exists(p)) wearDlc(p, null); }, 6000);
+    dlcProbe(p);
 });
 
 const PR = global.PointReg || require('./points.js');
