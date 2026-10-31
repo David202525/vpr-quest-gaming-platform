@@ -409,7 +409,7 @@ function applyCloth(p, slot, item) {
             if (c.p !== undefined) p.setProp(c.p, c.d, c.tx || 0);
             else {
                 p.setClothes(c.c, c.d, c.tx || 0, 0);
-                if (c.t !== undefined) { p.setClothes(3, c.t, 0, 0); p.setClothes(8, c.u !== undefined ? c.u : 15, c.ut || 0, 0); }
+                if (c.t !== undefined) { p.setClothes(3, c.t, 0, 0); p.setClothes(8, c.u !== undefined ? c.u : (p.model === mp.joaat('mp_f_freemode_01') ? 14 : 15), c.ut || 0, 0); }
             }
         } else if (!item && DEF[slot]) {
             const df = DEF[slot];

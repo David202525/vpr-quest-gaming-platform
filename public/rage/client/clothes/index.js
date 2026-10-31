@@ -78,7 +78,7 @@ mp.events.add('cef:cs:try', function (j) {
             me.setComponentVariation(Number(d.c), Number(d.d), Number(d.tx) || 0, 2);
             if (Number(d.c) === 11) {
                 me.setComponentVariation(3, Number(d.t) >= 0 ? Number(d.t) : 15, 0, 2);
-                me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : 15, Number(d.ut) || 0, 2);
+                me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : (me.model === mp.game.joaat('mp_f_freemode_01') ? 14 : 15), Number(d.ut) || 0, 2);
             }
         }
     } catch (e) {}
@@ -172,6 +172,6 @@ mp.events.add('cs:dlcWear', function (j) {
     if (d.p !== undefined && d.p !== null) me.setPropIndex(Number(d.p), Number(d.d), 0, true);
     else {
         me.setComponentVariation(Number(d.c), Number(d.d), 0, 2);
-        if (Number(d.c) === 11) { me.setComponentVariation(3, Number(d.t) >= 0 ? Number(d.t) : 15, 0, 2); me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : 15, 0, 2); }
+        if (Number(d.c) === 11) { me.setComponentVariation(3, Number(d.t) >= 0 ? Number(d.t) : 15, 0, 2); me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : (me.model === mp.game.joaat('mp_f_freemode_01') ? 14 : 15), Number(d.ut) || 0, 2); }
     }
 });

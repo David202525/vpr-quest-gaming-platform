@@ -296,7 +296,7 @@ function wearDlc(p, probe) {
     const sx = sexOf(p);
     const mine = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex === sx; });
     if (mine.length) {
-        mine.forEach(function (it) { const S = SLOTS[it.slot]; p.call('cs:dlcWear', [JSON.stringify({ c: S.c, p: S.p, d: it.d, tx: 0, t: it.t, u: it.u })]); });
+        mine.forEach(function (it) { const S = SLOTS[it.slot]; p.call('cs:dlcWear', [JSON.stringify({ c: S.c, p: S.p, d: it.d, tx: 0, t: it.t, u: it.u, ut: it.ut || 0 })]); });
         return notify(p, 'ok', 'Надето из DLC: ' + mine.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
     }
     dlcExplain(p, sx);
@@ -315,6 +315,24 @@ function wearDlc(p, probe) {
     const other = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex !== sx; }).length + dlcGroupsFor(sx === 'f' ? 'm' : 'f').length;
     notify(p, 'warn', other ? 'Одежда из DLC сделана для ' + (sx === 'f' ? 'мужского' : 'женского') + ' персонажа — смените пол, иначе её не видно' : 'Одежды из DLC для вашего пола нет — причина по каждому паку в чате (T)');
 }
+mp.events.addCommand('dlcfit', function (p, full, a, b, c) {
+    if (admLvl(p) < 6) return;
+    const sx = sexOf(p);
+    const tops = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex === sx && x.slot === 'top'; });
+    if (!tops.length) return notify(p, 'warn', 'Нет верха из DLC для вашего пола — сначала /dlcwear');
+    if (a === undefined) {
+        const t0 = tops[0];
+        p.outputChatBox('!{#ffcc66}/dlcfit [руки] [майка] [цвет майки] — подгонка верха из DLC. Сейчас: руки ' + (t0.t === undefined ? 15 : t0.t) + ', майка ' + (t0.u >= 0 ? t0.u : 'нет') + ', цвет ' + (t0.ut || 0));
+        p.outputChatBox('!{#ffcc66}Руки — номер торса (0-15 и дальше), майка — что под верхом (-1 = нет). Пример: /dlcfit 3 2 0');
+        return;
+    }
+    const t = Math.max(0, int(a, 15)), u = int(b, -1), ut = Math.max(0, int(c, 0));
+    tops.forEach(function (it) { it.t = t; it.u = u; it.ut = ut; register(it); });
+    mark();
+    const it = tops[0];
+    p.call('cs:dlcWear', [JSON.stringify({ c: 11, d: it.d, tx: 0, t: t, u: u >= 0 ? u : -1, ut: ut })]);
+    notify(p, 'ok', 'Руки ' + t + ', майка ' + (u >= 0 ? u + ' (цвет ' + ut + ')' : 'нет') + ' — сохранено для магазина');
+});
 mp.events.addCommand('dlcwear', function (p) {
     if (admLvl(p) < 6) return;
     if (global.DlcSystem && global.DlcSystem.rescan) global.DlcSystem.rescan();
