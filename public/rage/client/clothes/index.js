@@ -180,3 +180,35 @@ mp.events.add('cs:dlcWear', function (j) {
         if (Number(d.c) === 11) { me.setComponentVariation(3, Number(d.t) >= 0 ? Number(d.t) : 15, 0, 2); me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : 15, 0, 2); }
     }
 });
+var dlcPick = null;
+function dlcPickShow() {
+    var me = mp.players.local, d = dlcPick.cur;
+    if (dlcPick.p !== undefined && dlcPick.p !== null) me.setPropIndex(Number(dlcPick.p), d, dlcPick.tx, true);
+    else { me.setComponentVariation(Number(dlcPick.c), d, dlcPick.tx, 2); if (Number(dlcPick.c) === 11) { me.setComponentVariation(3, 15, 0, 2); me.setComponentVariation(8, 15, 0, 2); } }
+}
+mp.events.add('cs:dlcPick', function (j) {
+    var d; try { d = JSON.parse(j); } catch (e) { return; }
+    var me = mp.players.local, isP = d.p !== undefined && d.p !== null;
+    var total = isP ? me.getNumberOfPropDrawableVariations(Number(d.p)) : me.getNumberOfDrawableVariations(Number(d.c));
+    dlcPick = { k: d.k, c: d.c, p: d.p, name: d.name, cands: d.cands, i: 0, cur: d.cands[0], tx: 0, total: total };
+    dlcPickShow();
+});
+function dlcStep(list, dir) {
+    if (!dlcPick) return;
+    if (list) { dlcPick.i = (dlcPick.i + dir + dlcPick.cands.length) % dlcPick.cands.length; dlcPick.cur = dlcPick.cands[dlcPick.i]; }
+    else dlcPick.cur = (dlcPick.cur + dir + dlcPick.total) % dlcPick.total;
+    dlcPick.tx = 0; dlcPickShow();
+}
+function dlcFree() { return dlcPick && !mp.players.local.isTypingInTextChat && !mp.gui.cursor.visible; }
+mp.keys.bind(0x27, false, function () { if (dlcFree()) dlcStep(true, 1); });
+mp.keys.bind(0x25, false, function () { if (dlcFree()) dlcStep(true, -1); });
+mp.keys.bind(0x26, false, function () { if (dlcFree()) dlcStep(false, 1); });
+mp.keys.bind(0x28, false, function () { if (dlcFree()) dlcStep(false, -1); });
+mp.keys.bind(0x43, false, function () { if (dlcFree()) { dlcPick.tx = (dlcPick.tx + 1) % Math.max(1, mp.players.local.getNumberOfTextureVariations(Number(dlcPick.c), dlcPick.cur)); dlcPickShow(); } });
+mp.keys.bind(0x0D, false, function () { if (!dlcFree()) return; var d = dlcPick; dlcPick = null; mp.events.callRemote('srv:cs:dlcPicked', d.k, d.cur); });
+mp.keys.bind(0x08, false, function () { if (dlcFree()) dlcPick = null; });
+mp.events.add('render', function () {
+    if (!dlcPick) return;
+    mp.game.graphics.drawText('Ищем: ' + dlcPick.name + '\nСейчас №' + dlcPick.cur + ' · цвет ' + (dlcPick.tx + 1) + (dlcPick.cands.length > 1 ? ' · вариант ' + (dlcPick.i + 1) + ' из ' + dlcPick.cands.length : ''), [0.5, 0.78], { font: 4, color: [255, 255, 255, 240], scale: [0.5, 0.5], outline: true, centre: true });
+    mp.game.graphics.drawText('← → подходящие варианты   ↑ ↓ все вещи по одной   C цвет   Enter — это моя вещь   Backspace — отмена', [0.5, 0.86], { font: 4, color: [255, 220, 120, 240], scale: [0.38, 0.38], outline: true, centre: true });
+});
