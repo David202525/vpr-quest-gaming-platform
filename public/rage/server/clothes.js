@@ -257,6 +257,25 @@ mp.events.add('srv:cs:dlcProbe', function (p, json) {
     console.log('[clothes] из DLC добавлено в магазин: ' + added.map(function (x) { return x.n + ' (№' + x.d + ')'; }).join(', '));
     mp.players.forEach(function (x) { if (admLvl(x) >= 6) notify(x, 'ok', 'В магазины одежды добавлено из DLC: ' + added.length + ' шт. Цена 500$, поменять — /clothedit'); });
 });
+function dlcExplain(p, sx) {
+    const R = global.DlcSystem && global.DlcSystem.scan ? global.DlcSystem.scan() : null;
+    const say = function (t) { p.outputChatBox(t); };
+    if (!R || !R.list) return say('!{#e05555}[DLC] Проверка паков недоступна на сервере');
+    say('!{#ffcc66}[DLC] Пол персонажа: ' + (sx === 'f' ? 'женский' : 'мужской') + ' (модель ' + (sx === 'f' ? 'mp_f_freemode_01' : 'mp_m_freemode_01') + '). Паков в dlcpacks: ' + R.list.length);
+    if (!R.list.length) return say('!{#e05555}  Папка client_packages/game_resources/dlcpacks пуста или не найдена');
+    R.list.forEach(function (d) {
+        const cl = d.cl || [];
+        const clt = cl.map(function (c) { return (c.sex === 'f' ? 'жен.' : 'муж.') + ' ' + (PART_RU[c.part] || c.part) + ' ' + c.n + ' шт.'; }).join(', ');
+        let why = '';
+        if ((d.errors || []).some(function (e) { return /нет файла dlc\.rpf/.test(e); })) why = 'внутри папки нет dlc.rpf. В Durty Cloth Tool при сборке выберите «Singleplayer», а не FiveM — FiveM делает папку stream, которую этот сервер не читает';
+        else if (d.enc && !cl.length) why = 'архив зашифрован, состав не прочитать. Пересоберите в Durty Cloth Tool или откройте dlc.rpf в OpenIV и сохраните с Encryption: OPEN';
+        else if (!cl.length) why = 'одежды внутри нет (нет файлов mp_f_freemode_01/…ydd)';
+        else if (!d.ok) why = 'ошибки: ' + d.errors.slice(0, 3).join('; ');
+        else if (!cl.some(function (c) { return c.sex === sx; })) why = 'одежда только для ' + (sx === 'f' ? 'мужского' : 'женского') + ' персонажа';
+        else if (!cl.some(function (c) { return c.sex === sx && c.slot; })) why = 'эти типы вещей не продаются отдельно';
+        say((why ? '!{#e05555}  ✖ ' : '!{#6fd36a}  ✔ ') + d.name + (clt ? ' — ' + clt : '') + (why ? ' — ' + why : ' — в порядке, через 10 сек. появится в магазине'));
+    });
+}
 mp.events.addCommand('dlcwear', function (p) {
     if (admLvl(p) < 6) return;
     const sx = sexOf(p);
@@ -264,6 +283,7 @@ mp.events.addCommand('dlcwear', function (p) {
     const other = Object.keys(C.items).map(function (k) { return C.items[k]; }).filter(function (x) { return x.dlc && !x.hide && x.sex !== sx; }).length + dlcGroupsFor(sx === 'f' ? 'm' : 'f').length;
     if (!mine.length) {
         dlcProbe(p);
+        dlcExplain(p, sx);
         return notify(p, 'warn', other ? 'Одежда из DLC сделана для ' + (sx === 'f' ? 'мужского' : 'женского') + ' персонажа — смените пол, иначе её не видно' : 'Одежды из DLC для вашего пола нет. Проверьте /dlc');
     }
     mine.forEach(function (it) { const S = SLOTS[it.slot]; p.call('cs:dlcWear', [JSON.stringify({ c: S.c, p: S.p, d: it.d, tx: 0, t: it.t, u: it.u })]); });
