@@ -19,6 +19,7 @@ function apply(p, acc) {
     const a = parse(acc.appearance);
     p.model = Number(acc.gender) ? FEMALE : MALE;
     if (!a) return;
+    a.gender = Number(acc.gender) ? 1 : 0;
     const par = a.parents || {};
     const hair = a.hair || {};
     try {
