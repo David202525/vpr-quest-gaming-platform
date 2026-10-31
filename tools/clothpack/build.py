@@ -156,6 +156,11 @@ Tools → New → RPF7 Archive «dlc.rpf», Encryption: OPEN, и перенес�
 Зайдите в игру и наберите /dlcwear — персонаж наденет вещи из вашего пака.
 Вещи сами появятся в магазине одежды.
 
+ХУДИ AMRP УЖЕ ВНУТРИ
+В папке female лежит ваша женская худи (jbib_000) с 10 цветами — раньше она
+была в отдельном паке amrp_merch. После того как соберёте и положите этот пак,
+папку dlcpacks/amrp_merch УДАЛИТЕ, иначе худи будет в игре дважды.
+
 ДОБАВИТЬ ВЕЩИ ПОТОМ
 Откройте проект в Durty Cloth Tool, добавьте новые .ydd, пересоберите
 и замените dlc.rpf. Номера старых вещей не меняются, если добавлять в конец.
@@ -168,3 +173,9 @@ out = sys.argv[1]
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
     for k, v in F.items():
         z.writestr(P + '/' + k, v.encode('utf-8'))
+import os
+kit = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../public/clothes/amrp_merch_kit.zip')
+with zipfile.ZipFile(kit) as src, zipfile.ZipFile(out, 'a', zipfile.ZIP_DEFLATED) as z:
+    for n in src.namelist():
+        if n.startswith('amrp_merch/female/') and not n.endswith('/'):
+            z.writestr(P + '/female/' + n.split('/')[-1], src.read(n))
