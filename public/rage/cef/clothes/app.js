@@ -103,6 +103,12 @@ function renderDlc() {
     if (enc.length) h2 += '<div class="hint">Зашифрованные архивы (состав не прочитать): ' + esc(enc.map(function (x) { return x.pack; }).join(', ')) + ' — смотрите их вкладкой «Одна вещь», это последние номера в слоте.</div>';
     return h2;
 }
+window.csFitInfo = function (j) {
+    var d = JSON.parse(j), e = $('fitinfo'); if (!e) return;
+    var ok = ED && d.t === ED.t && (ED.u < 0 || d.u === ED.u);
+    e.className = 'fitinfo ' + (ok ? 'ok' : 'bad');
+    e.textContent = 'В игре сейчас: руки ' + d.t + ' из ' + Math.max(0, d.nt - 1) + ', майка ' + d.u + ' из ' + Math.max(0, d.nu - 1) + ' (цвет ' + d.ut + ' из ' + Math.max(0, d.nut - 1) + ')' + (ok ? '' : ' — такого номера нет, взят ближайший');
+};
 window.csCount = function (j) {
     var d = JSON.parse(j);
     if (d.k === 'dvtx' && DVTX_CB) { var cb = DVTX_CB; DVTX_CB = null; cb(d.t); return; }
@@ -152,7 +158,7 @@ function renderEdit() {
             '<div class="row2">' + field('epr', 'Цена, $', ED.price, 'number') + (ED.slot === 'bag' ? field('ecap', 'Вместимость, кг', ED.cap, 'number') : '') + '</div>' +
             field('etx', 'Цвета (номера текстур через запятую)', ED.tx.join(',')) +
             picPicker() +
-            (ED.slot === 'top' ? '<div class="fit"><h5>Подгонка верха — меняется сразу на персонаже</h5>' + stp('et', 'Руки / торс', ED.t) + stp('eu', 'Майка под верхом (−1 = нет)', ED.u) + stp('eut', 'Цвет майки', ED.ut || 0) + stp('epx', 'Показать цвет вещи', PTX) + '<div class="hint">Видно тело или руки «проваливаются» — листайте «Руки». Дыры на груди закрывает майка. Нашли вариант — нажмите «Сохранить», и вещь будет продаваться в таком виде.</div></div>' : '') +
+            (ED.slot === 'top' ? '<div class="fit"><h5>Подгонка верха — меняется сразу на персонаже</h5>' + stp('et', 'Руки / торс', ED.t) + stp('eu', 'Майка под верхом (−1 = нет)', ED.u) + stp('eut', 'Цвет майки', ED.ut || 0) + stp('epx', 'Показать цвет вещи', PTX) + '<div class="fitinfo" id="fitinfo">Нажмите ‹ › — персонаж переоденется сразу</div><div class="hint">Видно тело или руки «проваливаются» — листайте «Руки». Дыры на груди закрывает майка. Нашли вариант — нажмите «Сохранить», и вещь будет продаваться в таком виде.</div></div>' : '') +
             '<div class="btns"><button class="btn main" id="esave">' + (ED.id ? 'Сохранить' : 'Добавить в каталог') + '</button>' + (ED.id ? '<button class="btn red" id="edel">Снять с продажи</button><button class="btn" id="enew">Новая</button>' : '') + '</div></div>';
     } else {
         h += '<div class="panel"><h4>Добавить пачкой · ' + esc(s.n) + '</h4><div class="hint">Добавит все существующие модели из диапазона со всеми их цветами. Удобно для DLC-одежды: узнайте номера своих вещей и добавьте их разом, потом переименуйте и поправьте цены.</div>' +
@@ -171,7 +177,7 @@ function renderEdit() {
         var rd = function () { ED.n = $('en').value; ED.price = Number($('epr').value) || 0; if ($('ecap')) ED.cap = Number($('ecap').value) || 20; ED.tx = $('etx').value.split(/[,\s]+/).map(Number).filter(function (x) { return !isNaN(x) && x >= 0; }); if (!ED.tx.length) ED.tx = [0]; if ($('et')) { ED.t = Math.max(0, Number($('et').value) || 0); ED.u = Math.max(-1, Number($('eu').value)); if (isNaN(ED.u)) ED.u = -1; ED.ut = Math.max(0, Number($('eut').value) || 0); PTX = Math.max(0, Number($('epx').value) || 0); } };
         RD = rd;
         $('ed').onchange = function () { ED.d = Math.max(0, Number($('ed').value) || 0); if (!ED.id) ED.tx = [0]; askCount(); preview(); };
-        ['etx', 'et', 'eu', 'eut', 'epx'].forEach(function (k) { if ($(k)) $(k).onchange = function () { rd(); preview(); }; });
+        ['etx', 'et', 'eu', 'eut', 'epx'].forEach(function (k) { if ($(k)) { $(k).onchange = function () { rd(); preview(); }; if (k !== 'etx') $(k).oninput = function () { rd(); preview(); }; } });
         $('esave').onclick = function () { rd(); trig('cef:ce:save', JSON.stringify(ED)); };
         $('epicb').onclick = function () { rd(); PICS_OPEN = !PICS_OPEN; render(); };
         if ($('epicx')) $('epicx').onclick = function () { rd(); ED.img = ''; render(); };

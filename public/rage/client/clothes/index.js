@@ -76,13 +76,27 @@ mp.events.add('cef:cs:try', function (j) {
         if (d.p !== undefined && d.p !== null) me.setPropIndex(Number(d.p), Number(d.d), Number(d.tx) || 0, true);
         else {
             me.setComponentVariation(Number(d.c), Number(d.d), Number(d.tx) || 0, 2);
-            if (Number(d.c) === 11) {
-                me.setComponentVariation(3, Number(d.t) >= 0 ? Number(d.t) : 15, 0, 2);
-                me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : (me.model === mp.game.joaat('mp_f_freemode_01') ? 14 : 15), Number(d.ut) || 0, 2);
-            }
+            if (Number(d.c) === 11) csFit(d);
         }
     } catch (e) {}
 });
+function csFit(d) {
+    var me = mp.players.local, fem = me.model === mp.game.joaat('mp_f_freemode_01');
+    var t = Number(d.t) >= 0 ? Number(d.t) : 15, u = Number(d.u) >= 0 ? Number(d.u) : (fem ? 14 : 15), ut = Number(d.ut) || 0;
+    var nt = 0, nu = 0, nut = 0;
+    try { nt = me.getNumberOfDrawableVariations(3); nu = me.getNumberOfDrawableVariations(8); nut = me.getNumberOfTextureVariations(8, u); } catch (e) {}
+    if (nt > 0 && t >= nt) t = nt - 1;
+    if (nu > 0 && u >= nu) u = nu - 1;
+    if (nut > 0 && ut >= nut) ut = 0;
+    me.setComponentVariation(3, t, 0, 2);
+    me.setComponentVariation(8, u, ut, 2);
+    setTimeout(function () {
+        var rt = -1, ru = -1, rut = -1;
+        try { rt = me.getDrawableVariation(3); ru = me.getDrawableVariation(8); rut = me.getTextureVariation(8); } catch (e) {}
+        var o = { t: rt, u: ru, ut: rut, nt: nt, nu: nu, nut: nut };
+        if (csBr) csBr.execute('window.csFitInfo && window.csFitInfo(' + JSON.stringify(JSON.stringify(o)) + ');');
+    }, 120);
+}
 mp.events.add('cef:cs:reset', function () { csRestore(csSaved); });
 mp.events.add('cef:cs:rot', function (deg) { csHead = (csHead + Number(deg) + 360) % 360; mp.players.local.setHeading(csHead); });
 mp.events.add('cef:cs:zoom', function (part) {
@@ -172,6 +186,6 @@ mp.events.add('cs:dlcWear', function (j) {
     if (d.p !== undefined && d.p !== null) me.setPropIndex(Number(d.p), Number(d.d), 0, true);
     else {
         me.setComponentVariation(Number(d.c), Number(d.d), 0, 2);
-        if (Number(d.c) === 11) { me.setComponentVariation(3, Number(d.t) >= 0 ? Number(d.t) : 15, 0, 2); me.setComponentVariation(8, Number(d.u) >= 0 ? Number(d.u) : (me.model === mp.game.joaat('mp_f_freemode_01') ? 14 : 15), Number(d.ut) || 0, 2); }
+        if (Number(d.c) === 11) csFit(d);
     }
 });
