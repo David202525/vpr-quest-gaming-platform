@@ -212,9 +212,10 @@ function dlcGroupsFor(sx) {
         (d.cl || []).forEach(function (c) {
             if (c.sex !== sx || !c.slot || !SLOTS[c.slot]) return;
             const k = c.part;
-            g[k] = g[k] || { k: k, slot: c.slot, n: 0, names: [], packs: [] };
-            (c.ids && c.ids.length ? c.ids : Array.apply(null, Array(c.n)).map(function (_, i) { return i; })).forEach(function (id) {
+            g[k] = g[k] || { k: k, slot: c.slot, n: 0, names: [], packs: [], tex: [] };
+            (c.ids && c.ids.length ? c.ids : Array.apply(null, Array(c.n)).map(function (_, i) { return i; })).forEach(function (id, i) {
                 g[k].names.push((PART_RU[k] || 'Вещь') + ' ' + d.name + ' · ' + k + '_' + ('00' + id).slice(-3));
+                g[k].tex.push(c.tex ? c.tex[i] || 0 : 0);
             });
             g[k].n = g[k].names.length;
             if (g[k].packs.indexOf(d.name) < 0) g[k].packs.push(d.name);
@@ -251,9 +252,20 @@ mp.events.add('srv:cs:dlcProbe', function (p, json, cm) {
         const total = int(r.total, 0);
         if (g) probe.push({ k: g.k, slot: g.slot, total: total, n: g.n, packs: g.packs });
         if (!g || total <= g.n || total > 2000 || !Array.isArray(r.tx)) return;
-        const from = total - g.n;
+        let from = total - g.n;
+        const all = Array.isArray(r.all) ? r.all.map(function (x) { return int(x, 0); }) : [], base = int(r.base, 0);
+        if (all.length && g.tex.some(function (t) { return t > 0; })) {
+            const fit = function (s) { return g.tex.every(function (t, i) { return !t || all[s + i] === t; }); };
+            let found = -1;
+            for (let s = all.length - g.n; s >= 0; s--) if (fit(s)) { found = s; break; }
+            if (found >= 0 && base + found !== from) {
+                from = base + found;
+                p.outputChatBox('!{#ffcc66}[DLC] ' + g.packs.join(', ') + ': вещь стоит не последней в списке игры — найдена по числу цветов (' + g.tex.join('/') + ') под №' + from);
+            } else if (found < 0) p.outputChatBox('!{#e05555}[DLC] ' + g.packs.join(', ') + ': в игре нет вещи с ' + g.tex.join('/') + ' цветами — пак не загрузился у клиента. Удалите RAGEMP/client_resources и перезайдите');
+        }
+        Object.keys(C.items).forEach(function (k) { const x = C.items[k]; if (x.dlc && !x.hide && x.sex === sx && x.slot === g.slot && g.names.indexOf(x.n) >= 0 && (x.d < from || x.d >= from + g.n)) { x.hide = 1; mark(); } });
         for (let i = 0; i < g.n; i++) {
-            const d = from + i, tc = Math.max(1, Math.min(32, int(r.tx[i], 1)));
+            const d = from + i, tc = Math.max(1, Math.min(32, all.length && all[d - base] > 0 ? all[d - base] : int(r.tx[i], 1)));
             const ex = Object.keys(C.items).map(function (k) { return C.items[k]; }).find(function (x) { return x.sex === sx && x.slot === g.slot && x.d === d; });
             if (ex) {
                 if (ex.hide || !ex.dlc) { ex.hide = 0; ex.dlc = 1; ex.n = g.names[i]; if (!ex.tx || !ex.tx.length || ex.tx.length < tc) { ex.tx = []; for (let t = 0; t < tc; t++) ex.tx.push(t); } register(ex); mark(); added.push(ex); continue; }

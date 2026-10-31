@@ -156,13 +156,18 @@ mp.events.add('cs:dlcProbe', function (j) {
     arr.forEach(function (g) {
         var isP = g.p !== undefined && g.p !== null, total = 0;
         try { total = isP ? me.getNumberOfPropDrawableVariations(Number(g.p)) : me.getNumberOfDrawableVariations(Number(g.c)); } catch (e) {}
-        var tx = [];
+        var tx = [], all = [], base = Math.max(0, total - 400);
+        for (var j = base; j < total; j++) {
+            var tj = 0;
+            try { tj = isP ? me.getNumberOfPropTextureVariations(Number(g.p), j) : me.getNumberOfTextureVariations(Number(g.c), j); } catch (e) {}
+            all.push(tj);
+        }
         for (var i = total - g.n; i < total; i++) {
             var t = 1;
             try { t = isP ? me.getNumberOfPropTextureVariations(Number(g.p), i) : me.getNumberOfTextureVariations(Number(g.c), i); } catch (e) {}
             tx.push(t > 0 ? t : 1);
         }
-        out.push({ k: g.k, total: total, tx: tx });
+        out.push({ k: g.k, total: total, tx: tx, base: base, all: all });
     });
     mp.events.callRemote('srv:cs:dlcProbe', JSON.stringify(out), String(me.model >>> 0));
 });
