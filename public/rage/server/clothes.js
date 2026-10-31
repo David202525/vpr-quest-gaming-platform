@@ -254,6 +254,23 @@ mp.events.add('srv:cs:dlcProbe', function (p, json, cm) {
         return notify(p, 'warn', 'Модель в игре и на сервере разного пола — подробности в чате');
     }
     const sx = sexOf(p), gr = dlcGroupsFor(sx), added = [], probe = [];
+    C.base = C.base || {};
+    const stale = [];
+    arr = arr.filter(function (r) {
+        const g = gr.find(function (x) { return x.k === r.k; });
+        const total = int(r.total, 0);
+        if (!g || total <= 0 || total > 2000) return true;
+        const bk = sx + ':' + g.k, b = total - g.n;
+        if (C.base[bk] === undefined || b > C.base[bk]) { C.base[bk] = b; mark(); return true; }
+        if (b === C.base[bk]) return true;
+        stale.push({ k: g.k, slot: g.slot, total: total, n: g.n, packs: g.packs, need: C.base[bk] + g.n });
+        return false;
+    });
+    if (stale.length) {
+        stale.forEach(function (r) { probe.push(r); });
+        p.outputChatBox('!{#e05555}[DLC] У вас в игре загрузились не все паки одежды (' + stale.map(function (r) { return (PART_RU[r.k] || r.k) + ': в игре ' + r.total + ', должно быть ' + r.need; }).join('; ') + '). Каталог не трогаю. Закройте RAGE MP, удалите папку RAGEMP/client_resources и зайдите заново.');
+        notify(p, 'warn', 'Игра не скачала новые паки одежды — удалите RAGEMP/client_resources и перезайдите');
+    }
     const moved = relinkDlc(sx, gr, arr);
     if (moved.length) {
         mark();
@@ -305,7 +322,12 @@ function relinkDlc(sx, gr, arr) {
                 if (m && pk) it.src = pk[1] + ':' + m[1] + ':' + Number(m[2]);
             }
             if (!it.src) return;
-            const i = g.src.indexOf(it.src);
+            let i = g.src.indexOf(it.src);
+            if (i < 0) {
+                const sp = it.src.split(':'), alt = g.src.findIndex(function (s2) { const q = s2.split(':'); return q[1] === sp[1] && q[2] === sp[2]; });
+                const gone = !g.packs.some(function (pk) { return pk === sp[0]; });
+                if (gone && alt >= 0) { i = alt; moved.push(it.n + ': пак ' + sp[0] + ' удалён → ' + g.src[alt]); it.src = g.src[alt]; }
+            }
             if (i < 0) return;
             const d = from + i;
             if (it.d !== d) { moved.push(it.n + ' №' + it.d + '→' + d); it.d = d; fixTx(it, tcOf(i)); register(it); }
@@ -380,6 +402,13 @@ mp.events.addCommand('dlcfit', function (p, full, a, b, c) {
     const it = tops[0];
     p.call('cs:dlcWear', [JSON.stringify({ c: 11, d: it.d, tx: 0, t: t, u: u >= 0 ? u : -1, ut: ut })]);
     notify(p, 'ok', 'Руки ' + t + ', майка ' + (u >= 0 ? u + ' (цвет ' + ut + ')' : 'нет') + ' — сохранено для магазина');
+});
+mp.events.addCommand('clothfix', function (p) {
+    if (admLvl(p) < 6) return;
+    C.base = {}; mark();
+    if (global.DlcSystem && global.DlcSystem.rescan) global.DlcSystem.rescan();
+    notify(p, 'ok', 'Пересчитываю номера одежды из DLC по вашей игре…');
+    dlcProbe(p);
 });
 mp.events.addCommand('dlcwear', function (p) {
     if (admLvl(p) < 6) return;
