@@ -405,22 +405,26 @@ function applyCloth(p, slot, item) {
             return;
         }
         const c = item && ITEMS[item.k] ? ITEMS[item.k].cloth : null;
+        const fem = p.model === mp.joaat('mp_f_freemode_01');
+        const ops = [];
+        const sc = function (id, d, tx) { p.setClothes(id, d, tx, 0); ops.push(['c', id, d, tx]); };
         if (item && c) {
-            if (c.p !== undefined) p.setProp(c.p, c.d, c.tx || 0);
+            if (c.p !== undefined) { p.setProp(c.p, c.d, c.tx || 0); ops.push(['p', c.p, c.d, c.tx || 0]); }
             else {
-                p.setClothes(c.c, c.d, c.tx || 0, 0);
-                if (c.t !== undefined) { p.setClothes(3, c.t, 0, 0); p.setClothes(8, c.u !== undefined ? c.u : (p.model === mp.joaat('mp_f_freemode_01') ? 14 : 15), c.ut || 0, 0); }
+                sc(c.c, c.d, c.tx || 0);
+                if (c.t !== undefined) { sc(3, c.t, 0); sc(8, c.u !== undefined && c.u >= 0 ? c.u : (fem ? 14 : 15), c.ut || 0); }
             }
         } else if (!item && DEF[slot]) {
             const df = DEF[slot];
             if (df.p !== undefined) {
                 try { p.setProp(df.p, -1, 0); } catch (e) {}
-                p.call('inv:clearProp', [df.p]);
+                ops.push(['p', df.p, -1, 0]);
             } else {
-                p.setClothes(df.c, df.d, 0, 0);
-                if (slot === 'top') { p.setClothes(3, 15, 0, 0); p.setClothes(8, 15, 0, 0); }
+                sc(df.c, df.d, 0);
+                if (slot === 'top') { sc(3, 15, 0); sc(8, fem ? 14 : 15, 0); }
             }
         }
+        if (ops.length) p.call('inv:wear', [JSON.stringify(ops)]);
     } catch (e) {}
 }
 

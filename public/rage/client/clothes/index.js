@@ -117,8 +117,8 @@ mp.events.add('cef:cs:range', function (j) {
 });
 
 mp.events.add('cef:cs:buy', function (shop, id, tx, wear) { mp.events.callRemote('srv:cs:buy', Number(shop), Number(id), Number(tx), Number(wear) ? 1 : 0); });
+mp.events.add('cs:wornChanged', function () { setTimeout(function () { if (csOpen) csSaved = csSave(); }, 400); });
 mp.events.add('cs:bought', function (slot, worn, m) {
-    if (Number(worn)) setTimeout(function () { if (csOpen) csSaved = csSave(); }, 700);
     if (csBr) csBr.execute('window.csBought && window.csBought(' + JSON.stringify(String(slot)) + ',' + Number(worn) + ',' + Number(m) + ');');
 });
 mp.events.add('cef:ce:save', function (j) { mp.events.callRemote('srv:ce:save', j); });

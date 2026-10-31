@@ -240,6 +240,22 @@ mp.events.add('inv:armour', function (v) {
     setTimeout(go, 300);
 });
 
+function invWear(ops) {
+    var me = mp.players.local;
+    ops.forEach(function (o) {
+        try {
+            if (o[0] === 'p') { if (Number(o[2]) < 0) me.clearProp(Number(o[1])); else me.setPropIndex(Number(o[1]), Number(o[2]), Number(o[3]) || 0, true); }
+            else me.setComponentVariation(Number(o[1]), Number(o[2]), Number(o[3]) || 0, 2);
+        } catch (e) {}
+    });
+}
+mp.events.add('inv:wear', function (j) {
+    var ops; try { ops = JSON.parse(j); } catch (e) { return; }
+    if (!Array.isArray(ops)) return;
+    invWear(ops);
+    setTimeout(function () { invWear(ops); }, 250);
+    mp.events.call('cs:wornChanged');
+});
 mp.events.add('inv:clearProp', function (idx) {
     try { mp.players.local.clearProp(idx); } catch (e) {}
 });
