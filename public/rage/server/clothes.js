@@ -229,9 +229,22 @@ function dlcProbe(p) {
     p.call('cs:dlcProbe', [JSON.stringify(gr.map(function (x) { const S = SLOTS[x.slot]; return { k: x.k, c: S.c, p: S.p, n: x.n }; }))]);
 }
 mp.events.add('playerReady', function (p) { setTimeout(function () { dlcProbe(p); }, 9000); });
-mp.events.add('srv:cs:dlcProbe', function (p, json) {
+mp.events.add('srv:cs:dlcProbe', function (p, json, cm) {
     let arr; try { arr = JSON.parse(json); } catch (e) { return; }
     if (!Array.isArray(arr)) return;
+    const F = mp.joaat('mp_f_freemode_01') >>> 0, Mm = mp.joaat('mp_m_freemode_01') >>> 0, cmn = Number(cm) >>> 0;
+    if (cm && cmn !== (p.model >>> 0) && (cmn === F || cmn === Mm)) {
+        if (p._dlcWear) { clearTimeout(p._dlcWear); p._dlcWear = null; }
+        const sx0 = sexOf(p), gr0 = dlcGroupsFor(sx0);
+        arr.forEach(function (r) {
+            const g = gr0.find(function (x) { return x.k === r.k; });
+            if (!g) return;
+            const from = int(r.total, 0) - g.n;
+            Object.keys(C.items).forEach(function (k) { const x = C.items[k]; if (x.dlc && !x.hide && x.sex === sx0 && x.slot === g.slot && x.d >= from && x.d < from + g.n) { x.hide = 1; mark(); } });
+        });
+        p.outputChatBox('!{#e05555}[DLC] Сервер считает персонажа ' + (sexOf(p) === 'f' ? 'женским' : 'мужским') + ', а в игре у вас ' + (cmn === F ? 'женская' : 'мужская') + ' модель. Номера одежды у полов разные, поэтому надевается чужая вещь. Смените пол через админку (или пересоздайте персонажа) и перезайдите');
+        return notify(p, 'warn', 'Модель в игре и на сервере разного пола — подробности в чате');
+    }
     const sx = sexOf(p), gr = dlcGroupsFor(sx), added = [], probe = [];
     arr.forEach(function (r) {
         const g = gr.find(function (x) { return x.k === r.k; });

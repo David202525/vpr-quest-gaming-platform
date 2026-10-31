@@ -164,7 +164,7 @@ mp.events.add('cs:dlcProbe', function (j) {
         }
         out.push({ k: g.k, total: total, tx: tx });
     });
-    mp.events.callRemote('srv:cs:dlcProbe', JSON.stringify(out));
+    mp.events.callRemote('srv:cs:dlcProbe', JSON.stringify(out), String(me.model >>> 0));
 });
 mp.events.add('cs:dlcWear', function (j) {
     var d; try { d = JSON.parse(j); } catch (e) { return; }
