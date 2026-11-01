@@ -1,4 +1,5 @@
 <?php
+if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) { http_response_code(404); exit; }
 require __DIR__ . '/config.php';
 date_default_timezone_set('Europe/Moscow');
 define('DATA_FILE', __DIR__ . '/data/players.json');

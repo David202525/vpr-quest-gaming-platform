@@ -1,5 +1,2 @@
-DirectoryIndex index.php
+DirectoryIndex index.php index.html
 AddDefaultCharset UTF-8
-<FilesMatch "^(config|lib)\.php$">
-Require all denied
-</FilesMatch>
