@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const CFG_FILE = path.join(__dirname, 'website_config.json');
 const PASS_FILE = path.join(__dirname, 'website_pass.json');
-const CFG = Object.assign({ url: '', key: '', every: 120 }, (function () { try { return JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
+const CFG = Object.assign({ url: '', ip: '', key: '', every: 120 }, (function () { try { return JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')) || {}; } catch (e) { return {}; } })());
 if (!fs.existsSync(CFG_FILE)) { try { fs.writeFileSync(CFG_FILE, JSON.stringify(CFG, null, 2)); } catch (e) {} }
 const PASS = (function () { try { return JSON.parse(fs.readFileSync(PASS_FILE, 'utf8')) || {}; } catch (e) { return {}; } })();
 let passDirty = false;
@@ -71,8 +71,8 @@ function post(body, cb) {
     let u; try { u = new URL(CFG.url); } catch (e) { return cb('в website_config.json неверный url'); }
     const mod = require(u.protocol === 'https:' ? 'https' : 'http');
     const data = Buffer.from(JSON.stringify(body));
-    const req = mod.request({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method: 'POST', timeout: 20000,
-        headers: { 'Content-Type': 'application/json', 'Content-Length': data.length, 'X-Amrp-Key': CFG.key, 'User-Agent': 'AMRP-Server' } }, function (res) {
+    const req = mod.request({ hostname: CFG.ip || u.hostname, servername: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method: 'POST', timeout: 20000,
+        headers: { 'Host': u.host, 'Content-Type': 'application/json', 'Content-Length': data.length, 'X-Amrp-Key': CFG.key, 'User-Agent': 'AMRP-Server' } }, function (res) {
         let s = ''; res.on('data', function (c) { s += c; }); res.on('end', function () { cb(res.statusCode === 200 && /"ok"\s*:\s*true/.test(s) ? null : 'ответ сайта ' + res.statusCode + ': ' + s.slice(0, 120)); });
     });
     req.on('timeout', function () { req.destroy(new Error('сайт не ответил за 20 сек')); });
