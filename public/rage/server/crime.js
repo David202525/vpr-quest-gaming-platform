@@ -224,6 +224,7 @@ function zoneList() {
             s = S.zones[i] = { o: own, cd: 0 };
             mark();
         }
+        if (s.o && (!ORGS[s.o] || ORGS[s.o].t !== 'gang')) { s.o = null; mark(); }
         if (base) { s.o = base; s.nt = false; }
         return { i: i, n: z[0], x: z[1], y: z[2], o: s.nt ? null : s.o, cd: s.cd || 0, base: base, nt: !!s.nt };
     });
@@ -242,6 +243,7 @@ function captCheck(p, z, def) {
     if (rank(p) < 4 && !mgr(p)) return 'Начать захват может «' + rankName(k, 4) + '» и выше';
     if (!capHour() && admLvl(p) < 6) return 'Захваты разрешены с ' + CAP_HOURS[0] + ':00 до ' + CAP_HOURS[1] + ':00 по МСК';
     if (!z) return 'Квадрат не найден';
+    if (ORGS[k].t === 'mafia') return 'Мафии не захватывают квадраты — ваше дело крыши бизнесов (/bizwar)';
     if (z.nt) return 'Нейтральный квадрат — захват запрещён администрацией';
     if (z.o === k) return 'Это уже ваш квадрат';
     if (z.base) return 'Это база ' + ORGS[z.base].n + ' — её захватить нельзя';
@@ -1091,7 +1093,7 @@ mp.events.addCommand('zoneset', function (p, full) {
     if (admLvl(p) < 6) return;
     const k = String(full || '').trim();
     const z = zoneAt(p.position);
-    if (!z || !(ORGS[k] || k === 'none')) return p.outputChatBox('!{#ffcc66}/zoneset [банда|none] — встаньте в квадрате');
+    if (!z || !((ORGS[k] && ORGS[k].t === 'gang') || k === 'none')) return p.outputChatBox('!{#ffcc66}/zoneset [банда|none] — встаньте в квадрате (только банды)');
     S.zones[z.i] = { o: k === 'none' ? null : k, cd: 0 }; mark(); zonesAll();
     p.outputChatBox('!{#8fd14f}' + z.n + ' → ' + (k === 'none' ? 'никто' : ORGS[k].n));
 });
@@ -1135,7 +1137,7 @@ function zoneAdm(by, d) {
     }
     if (op === 'swap') {
         const from = String(d.from || ''), to = String(d.to || '');
-        if (!ORGS[from] || from === to || (to && !ORGS[to])) return { err: 'Выберите две разные банды' };
+        if (!ORGS[from] || from === to || (to && (!ORGS[to] || ORGS[to].t !== 'gang'))) return { err: 'Выберите две разные банды' };
         let n = 0;
         L.forEach(function (z) { if (z.o === from && !z.base) { S.zones[z.i] = { o: to || null, cd: 0, nt: false }; n++; } });
         S.wars.slice().forEach(function (w) { if (w.a === from || w.d === from) warCancel(w, by); });
@@ -1152,7 +1154,7 @@ function zoneAdm(by, d) {
         if (z.base) { skip++; return; }
         const cur = S.zones[i] || (S.zones[i] = { o: null, cd: 0 });
         const w = S.wars.find(function (x) { return x.z === i; });
-        if (op === 'owner') { const k = String(d.k || ''); if (k && !ORGS[k]) return; if (w) warCancel(w, by); cur.o = k || null; cur.nt = false; cur.cd = 0; }
+        if (op === 'owner') { const k = String(d.k || ''); if (k && (!ORGS[k] || ORGS[k].t !== 'gang')) return; if (w) warCancel(w, by); cur.o = k || null; cur.nt = false; cur.cd = 0; }
         else if (op === 'neutral') { if (w) warCancel(w, by); cur.nt = !!d.on; if (cur.nt) cur.o = null; cur.cd = 0; }
         else if (op === 'cd') cur.cd = 0;
     });

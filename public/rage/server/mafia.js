@@ -54,6 +54,7 @@ function canDeclare(p) {
 }
 function declareCheck(p, b) {
     const k = org(p);
+    if (k && ORGS()[k] && ORGS()[k].t === 'gang') return 'Банды не захватывают бизнесы — ваше дело квадраты (/capt)';
     if (!isMafia(k)) return 'Войны за бизнес ведут только мафии';
     if (!canDeclare(p)) return 'Забить стрелу может «' + C().rankName(k, 5) + '» и выше';
     if (!b) return 'Бизнес не найден';

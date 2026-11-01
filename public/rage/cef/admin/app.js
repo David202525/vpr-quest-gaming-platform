@@ -76,7 +76,7 @@ window.admData = function (json) {
 
 function renderPlayers() {
     var f = $('pSearch').value.trim().toLowerCase();
-    var list = D.players.filter(function (p) { return !f || String(p.id) === f || p.name.toLowerCase().indexOf(f) >= 0; });
+    var list = D.players.filter(function (p) { return !f || String(p.id) === f || p.name.toLowerCase().indexOf(f) >= 0 || (p.nick || '').toLowerCase().indexOf(f) >= 0; });
     $('pCount').textContent = D.players.length;
     $('pList').innerHTML = list.map(function (p) {
         var tags = '';
@@ -85,7 +85,7 @@ function renderPlayers() {
         if (p.warns) tags += '<span class="tag wa">' + p.warns + '/3</span>';
         return '<div class="pl' + (selected === p.id ? ' sel' : '') + '" data-id="' + p.id + '">' +
             '<div class="pid">' + p.id + '</div>' +
-            '<div class="pn"><b>' + esc(p.name) + '</b><span style="color:' + COLORS[p.admin] + '">' + esc(p.rank) + '</span></div>' +
+            '<div class="pn"><b>' + esc(p.nick || p.name) + (p.nick ? ' <small style="opacity:.55;font-weight:500">' + esc(p.name) + '</small>' : '') + '</b><span style="color:' + COLORS[p.admin] + '">' + esc(p.rank) + '</span></div>' +
             '<div class="tags">' + tags + '</div>' +
             '<div class="hp"><div style="width:' + Math.max(0, Math.min(100, p.hp)) + '%"></div></div></div>';
     }).join('') || '<div class="empty">Никого не найдено</div>';
@@ -102,8 +102,8 @@ function renderDetail() {
     var p = D && D.players.find(function (x) { return x.id === selected; });
     if (!p) { $('pDetail').innerHTML = '<div class="empty">Выбери игрока слева</div>'; return; }
     $('pDetail').innerHTML =
-        '<div class="d-head"><div class="d-ava">' + esc(p.name.charAt(0).toUpperCase()) + '</div>' +
-        '<div><div class="d-name">' + esc(p.name) + ' <span class="badge">ID ' + p.id + '</span></div>' +
+        '<div class="d-head"><div class="d-ava">' + esc((p.nick || p.name).charAt(0).toUpperCase()) + '</div>' +
+        '<div><div class="d-name">' + esc(p.nick || p.name) + (p.nick ? ' <small style="opacity:.55;font-weight:500">(' + esc(p.name) + ')</small>' : '') + ' <span class="badge">ID ' + p.id + '</span></div>' +
         '<div style="color:' + COLORS[p.admin] + ';font-size:12px;font-weight:700">' + esc(p.rank) + '</div></div></div>' +
         '<div class="stats">' +
         '<div class="stat"><span>Здоровье</span><b>' + p.hp + '</b></div>' +

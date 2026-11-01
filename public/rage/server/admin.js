@@ -586,6 +586,7 @@ function playersData() {
         out.push({
             id: p.id,
             name: login(p),
+            nick: p.account && p.account.nick ? String(p.account.nick).replace(/_/g, ' ') : '',
             admin: lvl(p),
             rank: rankName(lvl(p)),
             hp: Math.round(p.health),
