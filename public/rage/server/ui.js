@@ -1352,6 +1352,7 @@ setTimeout(function () {
     try { require('./rail.js'); } catch (e) { console.log('[ui] rail.js: ' + e.message); }
     try { require('./dealer.js'); } catch (e) { console.log('[ui] dealer.js: ' + e.message); }
     try { require('./families.js'); } catch (e) { console.log('[ui] families.js: ' + e.message); }
+    try { require('./website.js'); } catch (e) { console.log('[ui] website.js: ' + e.message); }
 }, 1500);
 if (!global.SocialSystem) {
     try { require('./social.js'); } catch (e) { console.log('[ui] social.js: ' + e.message); }
@@ -2960,6 +2961,14 @@ setInterval(function () {
 
 /* ================= ДОП. API: уровень, деньги по id, бизнесы, карты ================= */
 global.UiSystem.lvlOf = function (p) { return Number(data(p).lvl) || 1; };
+global.UiSystem.webData = function (id) {
+    const d = store['a' + Number(id)];
+    if (!d) return null;
+    const v = vipOf(d);
+    return { lvl: Number(d.lvl) || 1, exp: Number(d.exp) || 0, need: needExp(Number(d.lvl) || 1), phone: d.phone || '', coins: d.coins || 0, skills: d.skills || {},
+        vip: v ? { n: VIPS[v.t].n, color: VIPS[v.t].color, left: Math.ceil((v.until - Date.now()) / 86400000) } : null,
+        docs: docList(d).map(function (x) { return { t: x.t, title: x.t === 'faction' && FACTIONS[x.f] ? 'Удостоверение ' + FACTIONS[x.f].s : (DOC_TYPES[x.t] || x.t), until: x.until || '', cats: x.cats || null }; }) };
+};
 global.MoneySystem.addBankId = function (id, n) {
     id = Number(id); n = Math.floor(n);
     if (!id || !n) return;
