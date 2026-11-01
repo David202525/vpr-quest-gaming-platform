@@ -95,11 +95,17 @@ function checkEntry(fd, fileSize, c) {
     return '';
 }
 let deepBusy = false;
-function deepCheck(to, done) {
+function deepCheck(to, done, force) {
     if (deepBusy) return to('проверка уже идёт, подождите');
     deepBusy = true;
     const root = findRoot();
-    const names = fs.existsSync(root) ? fs.readdirSync(root).filter(function (n) { return fs.existsSync(path.join(root, n, 'dlc.rpf')); }) : [];
+    const CACHE = path.join(__dirname, 'dlc_check_cache.json');
+    let cache = {}; try { cache = JSON.parse(fs.readFileSync(CACHE, 'utf8')) || {}; } catch (e) {}
+    const sig = function (n) { try { const st = fs.statSync(path.join(root, n, 'dlc.rpf')); return st.size + ':' + Math.floor(st.mtimeMs); } catch (e) { return ''; } };
+    const all = fs.existsSync(root) ? fs.readdirSync(root).filter(function (n) { return fs.existsSync(path.join(root, n, 'dlc.rpf')); }) : [];
+    const names = force ? all : all.filter(function (n) { return cache[n] !== sig(n); });
+    if (!force && !names.length) { deepBusy = false; to('паки не менялись — глубокая проверка пропущена (' + all.length + ' шт.). Принудительно: /dlc check'); if (done) done([]); return; }
+    const saveOk = function (n) { cache[n] = sig(n); try { fs.writeFileSync(CACHE, JSON.stringify(cache)); } catch (e) {} };
     const bad = [];
     let i = 0;
     to('глубокая проверка ' + names.length + ' паков началась…');
@@ -127,8 +133,8 @@ function deepCheck(to, done) {
             bad.push(n);
             to('✖ ' + n + ': битых файлов ' + errs.length);
             errs.slice(0, 5).forEach(function (e) { to('     ' + e); });
-        } else if (!out.encrypted.length) to('✔ ' + n + ' (' + out.chk.length + ' файлов)');
-        setImmediate(next);
+        } else { saveOk(n); if (!out.encrypted.length) to('✔ ' + n + ' (' + out.chk.length + ' файлов)'); }
+        setTimeout(next, 30);
     }
     setImmediate(next);
 }
@@ -347,7 +353,7 @@ mp.events.add('dlc:result', function (p, json) {
 mp.events.addCommand('dlc', function (p, full) {
     if (!isDev(p)) return;
     if (String(full || '').trim() === 'check') {
-        return deepCheck(function (l) { console.log('[dlc] ' + l); if (mp.players.exists(p)) p.outputChatBox('!{#ffcc66}[DLC] ' + l); });
+        return deepCheck(function (l) { console.log('[dlc] ' + l); if (mp.players.exists(p)) p.outputChatBox('!{#ffcc66}[DLC] ' + l); }, null, true);
     }
     if (String(full || '').trim() === 'rescan') {
         R = scan();
@@ -358,7 +364,7 @@ mp.events.addCommand('dlc', function (p, full) {
     p.call('dlc:load', [payload(), true]);
 });
 
-setTimeout(function () { deepCheck(function (l) { console.log('[dlc] ' + l); }); }, 8000);
+setTimeout(function () { deepCheck(function (l) { console.log('[dlc] ' + l); }); }, 60000);
 
 global.DlcSystem = { deepCheck: deepCheck, scan: scan, rescan: function () { R = scan(); return R; }, get: function () { return R; } };
 module.exports = global.DlcSystem;
