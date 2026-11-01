@@ -175,6 +175,20 @@ function scan() {
     const list = [];
     if (!fs.existsSync(root)) return { root: root, fixes: fixes, list: list, missing: true };
     fs.readdirSync(root).forEach(function (n) { try { scanOne(root, n, list); } catch (e) { list.push({ name: n, ok: false, errors: ['сбой проверки: ' + e.message], warns: [], ymaps: [], models: [] }); } });
+    const seen = {};
+    list.forEach(function (d) {
+        if (!d.ids) return;
+        [['dev', d.ids.dev, 'deviceName'], ['nh', d.ids.nh, 'nameHash']].concat(d.ids.meta.map(function (m) { return ['meta', m, 'файл']; })).forEach(function (k) {
+            if (!k[1]) return;
+            const key = k[0] + ':' + k[1];
+            if (seen[key] && seen[key] !== d.name) {
+                const msg = 'конфликт с паком «' + seen[key] + '»: одинаковый ' + k[2] + ' «' + k[1] + '». Из-за этого игра перестаёт грузить ВСЕ DLC (и машины). Пересоберите этот пак с уникальным именем';
+                d.ok = false; d.errors.push(msg);
+                const o = list.find(function (x) { return x.name === seen[key]; });
+                if (o) { o.ok = false; o.errors.push('конфликт с паком «' + d.name + '»: одинаковый ' + k[2] + ' «' + k[1] + '»'); }
+            } else seen[key] = d.name;
+        });
+    });
     return { root: root, fixes: fixes, list: list };
 }
 
@@ -250,6 +264,7 @@ function scanOne(root, n, list) {
         }
         if (s2) {
             const nh = tag(s2, 'nameHash'), dev = tag(s2, 'deviceName');
+            out.ids = { nh: (nh || '').toLowerCase(), dev: (dev || '').toLowerCase(), meta: out.files.filter(function (x) { return /freemode_01[^/]*\.(ymt|meta)$/.test(x); }).map(function (x) { return x.slice(x.lastIndexOf('/') + 1).toLowerCase(); }) };
             if (nh && nh.toLowerCase() !== n.toLowerCase()) warns.push('nameHash «' + nh + '» не совпадает с папкой «' + n + '»');
             if (ct && dev) {
                 const re = new RegExp(dev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':/([^<\\s]+)', 'gi');
@@ -281,7 +296,7 @@ function scanOne(root, n, list) {
             if (ct && /SHOP_PED_APPAREL_META_FILE/i.test(ct) && !meta) out.errors.push('одежда: нет файла *_freemode_01_*.meta (описание вещей для магазина)');
         }
         list.push({
-            name: n, ok: !out.errors.length, errors: out.errors, warns: warns, cl: cl, enc: out.encrypted.length, ymt: out.files.some(function (x) { return /freemode_01[^/]*\.ymt$/.test(x); }), ext: extCount(out.files),
+            name: n, ids: out.ids, ok: !out.errors.length, errors: out.errors, warns: warns, cl: cl, enc: out.encrypted.length, ymt: out.files.some(function (x) { return /freemode_01[^/]*\.ymt$/.test(x); }), ext: extCount(out.files),
             ymaps: Array.from(new Set(out.ymaps)), models: Array.from(new Set(out.models)), ytyps: out.ytyps.length, files: out.files.length
         });
     }
