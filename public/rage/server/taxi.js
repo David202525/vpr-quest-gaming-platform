@@ -157,6 +157,18 @@ mp.events.add('srv:taxi:accept', function (p, id) {
     notify(p, 'ok', 'Заказ принят — метка клиента на карте');
     push(p); push(o.cl); pushDrivers();
 });
+mp.events.add('srv:taxi:wp', function (p, x, y) {
+    const o = rideOf(p);
+    if (!o || o.cl !== p || !o.dr || !mp.players.exists(o.dr)) return;
+    x = Number(x); y = Number(y);
+    if (!isFinite(x) || !isFinite(y) || Math.abs(x) > 20000 || Math.abs(y) > 20000) return;
+    if (p._taxiWpT && Date.now() - p._taxiWpT < 800) return;
+    p._taxiWpT = Date.now();
+    o.wp = { x: x, y: y };
+    if (o.st === 'ride') { o.dr.call('taxi:wp', [x, y]); notify(o.dr, 'ok', '🚕 Клиент поставил метку — маршрут на карте'); }
+    else notify(o.dr, 'ok', '🚕 Клиент указал, куда ехать — маршрут появится после посадки');
+    notify(p, 'ok', 'Метка отправлена водителю');
+});
 function cancel(o, why) {
     if (!orders[o.id]) return;
     delete orders[o.id];
@@ -184,6 +196,7 @@ mp.events.add('srv:taxi:start', function (p) {
     o.st = 'ride'; o.t0 = Date.now(); o.km = 0; o.last = { x: p.position.x, y: p.position.y };
     p.call('taxi:gps', [0, 0, 0, '']);
     c.call('taxi:drvBlip', [-1]);
+    if (o.wp) p.call('taxi:wp', [o.wp.x, o.wp.y]);
     notify(c, 'ok', '🚕 Счётчик включён. Тариф: ' + money(CFG.start) + ' посадка + ' + money(CFG.perKm) + '/км + ' + money(CFG.perMin) + '/мин' + (o.free ? ' · вам бесплатно' : ''));
     push(p); push(c);
 });

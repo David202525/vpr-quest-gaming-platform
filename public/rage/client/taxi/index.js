@@ -48,3 +48,25 @@ mp.keys.bind(0x45, false, function () {
     if (!tParkHint || global.chatOpen || mp.players.local.isTypingInTextChat || mp.gui.cursor.visible) return;
     mp.events.callRemote('srv:taxi:rent');
 });
+var tWpLast = '';
+function tWpGet() {
+    try {
+        var b = mp.game.ui.getFirstBlipInfoId(8);
+        if (!b || !mp.game.ui.doesBlipExist(b)) return null;
+        var c = mp.game.ui.getBlipInfoIdCoord(b);
+        return c ? { x: c.x, y: c.y } : null;
+    } catch (e) { return null; }
+}
+setInterval(function () {
+    var pas = tDrvId >= 0 || (tMeter && tMeter.who === 'cl');
+    if (!pas) { tWpLast = ''; return; }
+    var w = tWpGet();
+    var k = w ? Math.round(w.x) + ',' + Math.round(w.y) : '';
+    if (k === tWpLast) return;
+    tWpLast = k;
+    if (w) mp.events.callRemote('srv:taxi:wp', w.x, w.y);
+}, 1000);
+mp.events.add('taxi:wp', function (x, y) {
+    try { mp.game.ui.setNewWaypoint(Number(x), Number(y)); } catch (e) {}
+    try { mp.game.audio.playSoundFrontend(-1, 'WAYPOINT_SET', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true); } catch (e) {}
+});
