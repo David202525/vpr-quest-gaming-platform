@@ -48,7 +48,7 @@ function amrp_head($title) {
 <header class="nav"><div class="wrap nav-in">
   <a href="index.php" class="brand"><img src="assets/logo.png" alt="AMRP"><span>AMRP</span></a>
   <nav>
-    <a href="index.php#about">О сервере</a><a href="index.php#start">Как начать</a><a href="index.php#top">Топ</a>
+    <a href="index.php#about">О сервере</a><a href="index.php#start">Как начать</a><a href="index.php#top">Топ</a><a href="donate.php">Донат</a>
     <a class="btn btn-sm" href="cabinet.php">Личный кабинет</a>
   </nav>
   <div class="online"><i class="<?= $fresh ? 'on' : '' ?>"></i><?= $fresh ? (int)$d['online'] . ' онлайн' : 'сервер офлайн' ?></div>

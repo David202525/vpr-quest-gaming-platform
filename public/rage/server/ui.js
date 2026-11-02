@@ -1022,7 +1022,7 @@ mp.events.add('srv:menu:homegps', function (p) {
     notify(p, 'ok', 'Метка поставлена: ' + t.n);
 });
 mp.events.add('srv:menu:pack', function (p) {
-    notify(p, 'info', 'Пополнение коинов — через администрацию сервера (/report)');
+    const b = global.WebSite && global.WebSite.url ? global.WebSite.url() : ''; notify(p, 'info', b ? 'Пополнение RC — на сайте: ' + b + 'donate.php' : 'Пополнение коинов — через администрацию сервера (/report)'); if (b) p.outputChatBox('!{#ffcc66}Пополнить RC коины: ' + b + 'donate.php');
 });
 function coinTarget(s) {
     s = String(s || '').trim();

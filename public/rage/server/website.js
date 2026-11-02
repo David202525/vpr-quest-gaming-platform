@@ -105,5 +105,49 @@ mp.events.addCommand('site', function (p) {
     sync(true, function (err, b) { if (mp.players.exists(p)) p.outputChatBox(err ? '!{#e05555}[site] ' + err : '!{#8fd14f}[site] Готово: игроков ' + b.total + ', онлайн ' + b.online); });
 });
 
-global.WebSite = { sync: sync };
+function siteBase() { try { const u = new URL(CFG.url); return u.origin + u.pathname.replace(/api\/[^/]*$/, ''); } catch (e) { return ''; } }
+function call(method, file, body, cb) {
+    let u; try { u = new URL(siteBase() + file); } catch (e) { return cb('нет url'); }
+    const mod = require(u.protocol === 'https:' ? 'https' : 'http');
+    const data = body ? Buffer.from(JSON.stringify(body)) : null;
+    const h = { 'Host': u.host, 'X-Amrp-Key': CFG.key, 'User-Agent': 'AMRP-Server' };
+    if (data) { h['Content-Type'] = 'application/json'; h['Content-Length'] = data.length; }
+    const req = mod.request({ hostname: CFG.ip || u.hostname, servername: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method: method, timeout: 20000, headers: h }, function (res) {
+        let s = ''; res.on('data', function (c) { s += c; }); res.on('end', function () { let j = null; try { j = JSON.parse(s); } catch (e) {} cb(res.statusCode === 200 && j && j.ok ? null : 'ответ ' + res.statusCode + ': ' + s.slice(0, 120), j); });
+    });
+    req.on('timeout', function () { req.destroy(new Error('сайт не ответил')); });
+    req.on('error', function (e) { cb(e.message); });
+    req.end(data || undefined);
+}
+const DONE_FILE = path.join(__dirname, 'website_donates.json');
+const DONE = (function () { try { return JSON.parse(fs.readFileSync(DONE_FILE, 'utf8')) || {}; } catch (e) { return {}; } })();
+let donBusy = false, donErr = '';
+function donates() {
+    if (!CFG.url || !CFG.key || donBusy) return;
+    donBusy = true;
+    call('GET', 'api/orders.php', null, function (err, j) {
+        if (err) { donBusy = false; if (err !== donErr) console.log('[donate] ' + err); donErr = err; return; }
+        donErr = '';
+        const ok = [];
+        (j.orders || []).forEach(function (o) {
+            if (DONE[o.n]) { ok.push(o.n); return; }
+            const r = global.UiSystem && global.UiSystem.addCoins ? global.UiSystem.addCoins('Сайт-донат', '#' + o.id, o.coins) : 'нет UiSystem';
+            if (typeof r === 'string') { console.log('[donate] не удалось зачислить ' + o.n + ': ' + r); return; }
+            DONE[o.n] = { id: o.id, coins: o.coins, rub: o.rub, t: Date.now() }; ok.push(o.n);
+            console.log('[donate] #' + o.id + ' +' + o.coins + ' RC (' + o.rub + ' ₽, заказ ' + o.n + ')');
+            mp.players.forEach(function (p) { if (p.account && Number(p.account.id) === Number(o.id)) p.outputChatBox('!{#8fd14f}[Донат] Спасибо за поддержку! Начислено ' + o.coins + ' RC'); });
+        });
+        if (ok.length) try { fs.writeFileSync(DONE_FILE, JSON.stringify(DONE)); } catch (e) {}
+        if (!ok.length) { donBusy = false; return; }
+        call('POST', 'api/orders.php', { done: ok }, function () { donBusy = false; });
+    });
+}
+setTimeout(donates, 15000);
+setInterval(donates, 30000);
+mp.events.addCommand('donatesite', function (p) {
+    const b = siteBase();
+    p.outputChatBox('!{#ffcc66}Пополнить RC коины: ' + (b ? b + 'donate.php' : 'сайт ещё не настроен'));
+});
+
+global.WebSite = { sync: sync, donates: donates, url: siteBase };
 console.log('[site] модуль сайта загружен' + (CFG.url ? ' → ' + CFG.url : ' (впишите адрес сайта в website_config.json)'));

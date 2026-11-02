@@ -57,7 +57,7 @@ $pct = $me['need'] ? min(100, round($me['exp'] / $me['need'] * 100)) : 0;
   <div class="grid4 money">
     <div class="card m"><span>Наличные</span><b><?= money($me['money']) ?></b></div>
     <div class="card m"><span>Банковский счёт</span><b><?= money($me['bank']) ?></b></div>
-    <div class="card m"><span>AM-коины</span><b class="gold"><?= number_format((int)$me['coins'], 0, '', '.') ?></b></div>
+    <div class="card m"><span>RC коины</span><b class="gold"><?= number_format((int)$me['coins'], 0, '', '.') ?></b></div>
     <div class="card m"><span>Всего в игре</span><b><?= hours($me['playtime']) ?></b></div>
   </div>
 
