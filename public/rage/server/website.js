@@ -105,7 +105,7 @@ mp.events.addCommand('site', function (p) {
     sync(true, function (err, b) { if (mp.players.exists(p)) p.outputChatBox(err ? '!{#e05555}[site] ' + err : '!{#8fd14f}[site] Готово: игроков ' + b.total + ', онлайн ' + b.online); });
 });
 
-function siteBase() { try { const u = new URL(CFG.url); return u.origin + u.pathname.replace(/api\/[^/]*$/, ''); } catch (e) { return ''; } }
+function siteBase() { try { const u = new URL(CFG.url); return u.origin + u.pathname.replace(/(api\/)?[^/]*$/, ''); } catch (e) { return ''; } }
 function call(method, file, body, cb) {
     let u; try { u = new URL(siteBase() + file); } catch (e) { return cb('нет url'); }
     const mod = require(u.protocol === 'https:' ? 'https' : 'http');
@@ -125,7 +125,7 @@ let donBusy = false, donErr = '';
 function donates() {
     if (!CFG.url || !CFG.key || donBusy) return;
     donBusy = true;
-    call('GET', 'api/orders.php', null, function (err, j) {
+    call('GET', 'orders.php', null, function (err, j) {
         if (err) { donBusy = false; if (err !== donErr) console.log('[donate] ' + err); donErr = err; return; }
         donErr = '';
         const ok = [];
@@ -139,7 +139,7 @@ function donates() {
         });
         if (ok.length) try { fs.writeFileSync(DONE_FILE, JSON.stringify(DONE)); } catch (e) {}
         if (!ok.length) { donBusy = false; return; }
-        call('POST', 'api/orders.php', { done: ok }, function () { donBusy = false; });
+        call('POST', 'orders.php', { done: ok }, function () { donBusy = false; });
     });
 }
 setTimeout(donates, 15000);

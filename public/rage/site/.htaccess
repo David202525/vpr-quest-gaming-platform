@@ -1,2 +1,12 @@
 DirectoryIndex index.php index.html
 AddDefaultCharset UTF-8
+Options -Indexes
+<FilesMatch "\.(json|lock|tmp|log)$|^(config|lib|pay)\.php$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

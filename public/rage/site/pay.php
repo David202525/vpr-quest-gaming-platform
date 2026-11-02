@@ -1,7 +1,6 @@
 <?php
 if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) { http_response_code(404); exit; }
-require_once __DIR__ . '/donate_config.php';
-define('ORDERS_FILE', __DIR__ . '/data/orders.json');
+define('ORDERS_FILE', __DIR__ . '/orders.json');
 
 function pay_api() { return ALFA_TEST ? 'https://alfa.rbsuat.com/payment/rest/' : 'https://payment.alfabank.ru/payment/rest/'; }
 function pay_req($method, $params) {
@@ -23,7 +22,6 @@ function pay_coins($rub) {
     return $c + (int)floor($c * $b / 100);
 }
 function orders_tx($fn) {
-    $dir = dirname(ORDERS_FILE); if (!is_dir($dir)) mkdir($dir, 0755, true);
     $f = fopen(ORDERS_FILE . '.lock', 'c'); flock($f, LOCK_EX);
     $o = is_file(ORDERS_FILE) ? json_decode(file_get_contents(ORDERS_FILE), true) : [];
     if (!is_array($o)) $o = [];
@@ -36,7 +34,6 @@ function orders_all() { $o = is_file(ORDERS_FILE) ? json_decode(file_get_content
 function pay_base() {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-    $dir = preg_replace('~/api$~', '', $dir);
     return ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $dir . '/';
 }
 function pay_create($player, $rub) {
@@ -46,7 +43,7 @@ function pay_create($player, $rub) {
     $r = pay_req('register.do', [
         'orderNumber' => $num, 'amount' => $rub * 100, 'currency' => 643, 'language' => 'ru',
         'returnUrl' => $base . 'donate.php?order=' . $num, 'failUrl' => $base . 'donate.php?order=' . $num,
-        'dynamicCallbackUrl' => $base . 'api/alfa_callback.php',
+        'dynamicCallbackUrl' => $base . 'alfa_callback.php',
         'description' => 'AMRP: ' . $coins . ' RC для ' . $player['login'],
     ]);
     if (empty($r['orderId']) || empty($r['formUrl'])) return ['err' => 'Банк отклонил создание платежа: ' . ($r['errorMessage'] ?? 'неизвестная ошибка')];

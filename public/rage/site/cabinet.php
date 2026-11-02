@@ -19,9 +19,9 @@ $me = isset($_SESSION['uid']) ? amrp_byId($_SESSION['uid']) : null;
 amrp_head($me ? 'Кабинет — ' . ($me['nick'] ?: $me['login']) : 'Вход в личный кабинет — AMRP');
 
 if (!$me) { ?>
-<section class="auth" style="background-image:url(assets/hero.jpg)"><div class="hero-fade"></div>
+<section class="auth" style="background-image:url(hero.jpg)"><div class="hero-fade"></div>
   <form method="post" class="card login">
-    <img src="assets/logo.png" alt="">
+    <img src="logo.png" alt="">
     <h2>Личный кабинет</h2>
     <p class="muted">Логин и пароль — те же, что при входе в игру</p>
     <?php if ($err) { ?><div class="err"><?= h($err) ?></div><?php } ?>

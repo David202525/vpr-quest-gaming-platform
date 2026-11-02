@@ -7,7 +7,7 @@ $lvl = $pl; usort($lvl, function ($a, $b) { return [$b['lvl'], $b['exp']] <=> [$
 $time = $pl; usort($time, function ($a, $b) { return $b['playtime'] <=> $a['playtime']; });
 amrp_head('AMRP — GTA 5 RolePlay сервер');
 ?>
-<section class="hero" style="background-image:url(assets/hero.jpg)">
+<section class="hero" style="background-image:url(hero.jpg)">
   <div class="hero-fade"></div>
   <div class="wrap hero-in">
     <span class="tag">Открытый бета-тест</span>
@@ -36,7 +36,7 @@ amrp_head('AMRP — GTA 5 RolePlay сервер');
 </section>
 
 <section class="sec wrap split">
-  <img src="assets/beta.jpg" alt="Бета-тест AMRP">
+  <img src="beta.jpg" alt="Бета-тест AMRP">
   <div>
     <h2>Бета-тест <b>уже идёт</b></h2>
     <p class="muted">Заходи сейчас, помогай находить ошибки и получай бонусы участника бета-теста. Весь прогресс персонажа виден в личном кабинете на сайте.</p>

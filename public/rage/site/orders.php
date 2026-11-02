@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../config.php';
-require __DIR__ . '/../pay.php';
+require_once __DIR__ . '/config.php';
+require __DIR__ . '/pay.php';
 header('Content-Type: application/json; charset=utf-8');
 $key = $_SERVER['HTTP_X_AMRP_KEY'] ?? '';
 if (!AMRP_KEY || !hash_equals(AMRP_KEY, $key)) { http_response_code(403); echo '{"ok":false,"err":"bad key"}'; exit; }

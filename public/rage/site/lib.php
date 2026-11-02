@@ -2,7 +2,7 @@
 if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) { http_response_code(404); exit; }
 require __DIR__ . '/config.php';
 date_default_timezone_set('Europe/Moscow');
-define('DATA_FILE', __DIR__ . '/data/players.json');
+define('DATA_FILE', __DIR__ . '/players.json');
 
 function amrp_data() {
     static $d = null;
@@ -40,13 +40,13 @@ function amrp_head($title) {
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= h($title) ?></title>
 <meta name="description" content="AMRP — ролевой GTA 5 сервер на RAGE MP. Работы, фракции, семьи, дома и машины.">
-<link rel="icon" href="assets/logo.png">
+<link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head><body>
 <header class="nav"><div class="wrap nav-in">
-  <a href="index.php" class="brand"><img src="assets/logo.png" alt="AMRP"><span>AMRP</span></a>
+  <a href="index.php" class="brand"><img src="logo.png" alt="AMRP"><span>AMRP</span></a>
   <nav>
     <a href="index.php#about">О сервере</a><a href="index.php#start">Как начать</a><a href="index.php#top">Топ</a><a href="donate.php">Донат</a>
     <a class="btn btn-sm" href="cabinet.php">Личный кабинет</a>
@@ -56,7 +56,7 @@ function amrp_head($title) {
 <?php }
 function amrp_foot() { ?>
 <footer class="foot"><div class="wrap foot-in">
-  <div class="brand"><img src="assets/logo.png" alt=""><span>AMRP</span></div>
+  <div class="brand"><img src="logo.png" alt=""><span>AMRP</span></div>
   <div class="links">
     <?php if (AMRP_DISCORD) { ?><a href="<?= h(AMRP_DISCORD) ?>" target="_blank">Discord</a><?php } ?>
     <?php if (AMRP_VK) { ?><a href="<?= h(AMRP_VK) ?>" target="_blank">ВКонтакте</a><?php } ?>
