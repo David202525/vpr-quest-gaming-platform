@@ -28,10 +28,10 @@ amrp_head('AMRP — GTA 5 RolePlay сервер');
 <section id="about" class="sec wrap">
   <h2>Что ждёт в <b>AMRP</b></h2>
   <div class="grid4">
-    <div class="card f"><div class="ic">💼</div><h3>Работы</h3><p>Ферма, курьер, автобус, дальнобой, инкассатор, такси — заработай первые деньги честно.</p></div>
-    <div class="card f"><div class="ic">🚓</div><h3>Фракции</h3><p>Полиция, FIB, больница, армия, правительство и Weazel News. Карьера с рангами.</p></div>
-    <div class="card f"><div class="ic">🔫</div><h3>Криминал</h3><p>Банды и мафии, захват территорий, ограбления и розыск — для тех, кто любит риск.</p></div>
-    <div class="card f"><div class="ic">🏠</div><h3>Имущество</h3><p>Дома, квартиры, бизнесы, автосалоны и свой гараж. Создай семью с особняком.</p></div>
+    <div class="card f"><div class="ph"><img src="f_jobs.jpg" alt="" loading="lazy"></div><h3>Работы</h3><p>Ферма, курьер, автобус, дальнобой, инкассатор, такси — заработай первые деньги честно.</p></div>
+    <div class="card f"><div class="ph"><img src="f_fract.jpg" alt="" loading="lazy"></div><h3>Фракции</h3><p>Полиция, FIB, больница, армия, правительство и Weazel News. Карьера с рангами.</p></div>
+    <div class="card f"><div class="ph"><img src="f_crime.jpg" alt="" loading="lazy"></div><h3>Криминал</h3><p>Банды и мафии, захват территорий, ограбления и розыск — для тех, кто любит риск.</p></div>
+    <div class="card f"><div class="ph"><img src="f_home.jpg" alt="" loading="lazy"></div><h3>Имущество</h3><p>Дома, квартиры, бизнесы, автосалоны и свой гараж. Создай семью с особняком.</p></div>
   </div>
 </section>
 
