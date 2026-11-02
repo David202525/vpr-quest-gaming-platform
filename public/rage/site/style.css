@@ -108,3 +108,21 @@ dt{color:var(--mut)}dd{text-align:right;font-weight:500}
 .dstatus{text-align:center;margin-bottom:20px;border-width:2px}
 .dstatus.good{border-color:var(--grn)}.dstatus.bad{border-color:var(--red)}.dstatus.wait{border-color:var(--gold)}
 @media(max-width:600px){.packs{grid-template-columns:1fr 1fr}}
+
+.car{position:relative}
+.car-track{display:flex;gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;padding:6px 2px 10px}
+.car-track::-webkit-scrollbar{display:none}
+.car-track .f{flex:0 0 calc((100% - 36px)/3);scroll-snap-align:start;min-width:0}
+.car-track .f:hover{transform:translateY(-4px)}
+.car-btn{position:absolute;top:calc(50% - 30px);transform:translateY(-50%);z-index:3;width:52px;height:52px;border-radius:50%;border:1px solid rgba(224,166,58,.55);background:rgba(12,11,18,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:grid;place-items:center;cursor:pointer;transition:.2s;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.car-btn svg{width:22px;height:22px;fill:none;stroke:#f1c46a;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.car-btn:hover{background:linear-gradient(135deg,#f1c46a,#e0a63a);border-color:transparent;transform:translateY(-50%) scale(1.08)}
+.car-btn:hover svg{stroke:#14131c}
+.car-btn.prev{left:-24px}.car-btn.next{right:-24px}
+.car-btn:disabled{opacity:0;pointer-events:none}
+.car.noscroll .car-btn{display:none}
+.car-bar{position:relative;height:6px;max-width:360px;margin:22px auto 0;border-radius:6px;background:rgba(255,255,255,.08);cursor:pointer}
+.car-bar span{position:absolute;top:0;left:0;height:100%;min-width:40px;border-radius:6px;background:linear-gradient(90deg,#f1c46a,#e0a63a);box-shadow:0 0 12px rgba(224,166,58,.6);cursor:grab;transition:left .15s linear}
+.car-bar span:active{cursor:grabbing}
+@media(max-width:960px){.car-track .f{flex-basis:calc((100% - 18px)/2)}.car-btn.prev{left:4px}.car-btn.next{right:4px}}
+@media(max-width:600px){.car-track .f{flex-basis:85%}.car-btn{width:42px;height:42px}}

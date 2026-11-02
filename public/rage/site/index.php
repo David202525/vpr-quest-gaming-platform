@@ -27,13 +27,29 @@ amrp_head('AMRP — GTA 5 RolePlay сервер');
 
 <section id="about" class="sec wrap">
   <h2>Что ждёт в <b>AMRP</b></h2>
-  <div class="grid4">
+  <div class="car" id="feat">
+   <button class="car-btn prev" type="button" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+   <div class="car-track">
     <div class="card f"><div class="ph"><img src="f_jobs.jpg" alt="" loading="lazy"></div><h3>Работы</h3><p>Ферма, курьер, автобус, дальнобой, инкассатор, такси — заработай первые деньги честно.</p></div>
     <div class="card f"><div class="ph"><img src="f_fract.jpg" alt="" loading="lazy"></div><h3>Фракции</h3><p>Полиция, FIB, больница, армия, правительство и Weazel News. Карьера с рангами.</p></div>
     <div class="card f"><div class="ph"><img src="f_crime.jpg" alt="" loading="lazy"></div><h3>Криминал</h3><p>Банды и мафии, захват территорий, ограбления и розыск — для тех, кто любит риск.</p></div>
     <div class="card f"><div class="ph"><img src="f_home.jpg" alt="" loading="lazy"></div><h3>Имущество</h3><p>Дома, квартиры, бизнесы, автосалоны и свой гараж. Создай семью с особняком.</p></div>
   </div>
+   <button class="car-btn next" type="button" aria-label="Вперёд"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+  </div>
+  <div class="car-bar"><span></span></div>
 </section>
+<script>
+(function(){var c=document.getElementById('feat');if(!c)return;var t=c.querySelector('.car-track'),pv=c.querySelector('.prev'),nx=c.querySelector('.next'),bar=document.querySelector('#about .car-bar'),th=bar.querySelector('span');
+function step(){var f=t.querySelector('.f');return f?f.offsetWidth+18:300}
+function upd(){var m=t.scrollWidth-t.clientWidth,r=m>0?t.scrollLeft/m:0,w=t.scrollWidth?t.clientWidth/t.scrollWidth:1;th.style.width=(w*100)+'%';th.style.left=(r*(1-w)*100)+'%';pv.disabled=t.scrollLeft<4;nx.disabled=t.scrollLeft>m-4;bar.style.display=m>4?'':'none';c.classList.toggle('noscroll',m<=4)}
+pv.onclick=function(){t.scrollBy({left:-step(),behavior:'smooth'})};nx.onclick=function(){t.scrollBy({left:step(),behavior:'smooth'})};
+t.addEventListener('scroll',upd,{passive:true});window.addEventListener('resize',upd);upd();
+bar.addEventListener('click',function(e){var r=bar.getBoundingClientRect();t.scrollTo({left:(e.clientX-r.left)/r.width*(t.scrollWidth-t.clientWidth),behavior:'smooth'})});
+var dn=false,sx=0,sl=0;th.addEventListener('pointerdown',function(e){dn=true;sx=e.clientX;sl=t.scrollLeft;th.setPointerCapture(e.pointerId);e.stopPropagation()});
+th.addEventListener('pointermove',function(e){if(!dn)return;t.scrollLeft=sl+(e.clientX-sx)*t.scrollWidth/bar.offsetWidth});th.addEventListener('pointerup',function(){dn=false});th.addEventListener('click',function(e){e.stopPropagation()});
+})();
+</script>
 
 <section class="sec wrap split">
   <img src="beta.jpg" alt="Бета-тест AMRP">
