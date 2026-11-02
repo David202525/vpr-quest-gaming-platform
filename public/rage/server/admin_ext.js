@@ -1146,6 +1146,18 @@ async function tokenUser(tk) {
     return { s: rec.s, login: 'WEB:' + rec.login, lvl: lv };
 }
 A.tokenUser = tokenUser;
+A.webTokens = async function () {
+    const out = [];
+    for (const h of Object.keys(S.consoleTokens)) {
+        const rec = S.consoleTokens[h];
+        const r = await q('SELECT admin FROM accounts WHERE id = ? LIMIT 1', [rec.s]).catch(function () { return []; });
+        const L = r[0] ? Number(r[0].admin) || 0 : 0;
+        const owner = ['Rainold Star', 'Rainold_Star', 'Rainold_Verigo'].indexOf(rec.login) >= 0 ? 9 : 0;
+        const lv = Math.max(L, owner);
+        if (lv >= 7) out.push({ h: h, login: rec.login, lvl: lv });
+    }
+    return out;
+};
 const hits = {};
 if (CONSOLE_CFG.enabled) {
     try {

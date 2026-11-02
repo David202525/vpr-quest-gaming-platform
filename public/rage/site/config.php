@@ -13,3 +13,4 @@ define('DONATE_MIN', 10);
 define('DONATE_MAX', 100000);
 define('DONATE_PACKS', [100, 300, 500, 1000, 2500, 5000]);
 define('DONATE_BONUS', [1000 => 10, 2500 => 15, 5000 => 20]);
+define('VK_TOKEN', '');
