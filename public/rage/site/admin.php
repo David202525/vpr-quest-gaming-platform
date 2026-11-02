@@ -4,14 +4,7 @@ session_start();
 $err = ''; $ok = '';
 $tokens = amrp_data()['tokens'] ?? [];
 function adm_csrf() { if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16)); return $_SESSION['csrf']; }
-function adm_img($src, $vk) {
-    if (!$src || !preg_match('~^https?://~', $src)) return $src;
-    $dir = __DIR__ . '/news'; if (!is_dir($dir)) @mkdir($dir, 0755);
-    $bin = http_get($src, 'Mozilla/5.0');
-    if (!$bin || strlen($bin) < 1000 || !@getimagesizefromstring($bin)) return $src;
-    $f = 'news/' . preg_replace('~[^\d_-]~', '', $vk ?: (string)time()) . '_' . substr(md5($src), 0, 6) . '.jpg';
-    return @file_put_contents(__DIR__ . '/' . $f, $bin) ? $f : $src;
-}
+function adm_img($src, $vk) { return news_img($src, $vk); }
 if (isset($_GET['out'])) { unset($_SESSION['adm']); header('Location: admin.php'); exit; }
 if (($_POST['a'] ?? '') === 'login') {
     $_SESSION['atries'] = ($_SESSION['atries'] ?? 0) + 1;
@@ -52,7 +45,13 @@ if ($adm && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['a'] ?? '') !== 'lo
                 if (news_save($n)) { header('Location: admin.php?ok=' . ($old ? 'upd' : 'add')); exit; }
                 $err = 'Нет прав на запись в папку сайта';
             }
+        } elseif ($a === 'auto') {
+            $c = news_cfg(); $c['auto'] = !empty($_POST['on']); news_cfg_save($c); header('Location: admin.php'); exit;
+        } elseif ($a === 'sync') {
+            $r = vk_autosync(true);
+            if (is_string($r)) $err = 'ВК ответил: ' . $r; elseif ($r === null) $err = 'Проверка уже идёт или не задан ключ/группа ВК'; else { header('Location: admin.php?ok=sync&c=' . (int)$r); exit; }
         } elseif ($a === 'del') {
+            $dp = news_get($_POST['id'] ?? ''); if ($dp && !empty($dp['vk'])) { $c = news_cfg(); $c['hidden'][] = $dp['vk']; $c['hidden'] = array_slice(array_unique($c['hidden']), -300); news_cfg_save($c); }
             $n = array_filter(news_all(), function ($x) { return $x['id'] !== ($_POST['id'] ?? ''); });
             news_save($n); header('Location: admin.php?ok=del'); exit;
         } elseif ($a === 'pin') {
@@ -62,7 +61,7 @@ if ($adm && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['a'] ?? '') !== 'lo
     }
 }
 if (isset($_GET['edit']) && $adm) $draft = news_get($_GET['edit']);
-$ok = ['add' => 'Новость опубликована', 'upd' => 'Новость обновлена', 'del' => 'Новость удалена'][$_GET['ok'] ?? ''] ?? '';
+$ok = ['add' => 'Новость опубликована', 'upd' => 'Новость обновлена', 'del' => 'Новость удалена', 'sync' => 'Проверено. Новых постов: ' . (int)($_GET['c'] ?? 0)][$_GET['ok'] ?? ''] ?? '';
 amrp_head('Админка — AMRP');
 
 if (!$adm) { ?>
@@ -78,7 +77,7 @@ if (!$adm) { ?>
   </form>
 </section>
 <?php amrp_foot(); exit; }
-$list = news_all(); $cs = adm_csrf();
+$cs = adm_csrf(); $list = news_all();
 ?>
 <section class="cab wrap adm">
   <div class="adm-head">
@@ -87,6 +86,18 @@ $list = news_all(); $cs = adm_csrf();
   </div>
   <?php if ($ok) { ?><div class="okm"><?= h($ok) ?></div><?php } ?>
   <?php if ($err) { ?><div class="err"><?= h($err) ?></div><?php } ?>
+
+  <?php $nc = news_cfg(); $vt = defined('VK_TOKEN') ? VK_TOKEN : ''; ?>
+  <div class="card adm-auto">
+    <div class="adm-auto-i"><h3>Автоимпорт из ВК</h3>
+      <p class="muted"><?php if (!$vt) { ?>Впишите сервисный ключ ВК в config.php (VK_TOKEN), чтобы включить автоимпорт.<?php } elseif (!vk_group()) { ?>Укажите ссылку на группу в config.php (AMRP_VK).<?php } else { ?>Новые посты группы <b class="gold"><?= h(vk_group()) ?></b> появляются на сайте сами (проверка раз в 10 минут).
+      <?= $nc['last'] ? 'Последняя проверка: ' . date('d.m H:i', $nc['last']) . '.' : '' ?><?php } ?></p>
+      <?php if ($nc['err']) { ?><p class="red small-l">Ошибка ВК: <?= h($nc['err']) ?></p><?php } ?></div>
+    <?php if ($vt && vk_group()) { ?><div class="adm-act">
+      <form method="post"><input type="hidden" name="csrf" value="<?= $cs ?>"><input type="hidden" name="a" value="sync"><button class="btn btn-ghost btn-sm">Проверить сейчас</button></form>
+      <form method="post"><input type="hidden" name="csrf" value="<?= $cs ?>"><input type="hidden" name="a" value="auto"><input type="hidden" name="on" value="<?= $nc['auto'] ? '' : '1' ?>"><button class="tgl<?= $nc['auto'] ? ' on' : '' ?>" title="Вкл/выкл"><i></i></button></form>
+    </div><?php } ?>
+  </div>
 
   <form method="post" class="card adm-fetch">
     <input type="hidden" name="a" value="fetch"><input type="hidden" name="csrf" value="<?= $cs ?>">

@@ -60,22 +60,7 @@ function vk_fetch($url) {
                 if (!$items) { if (!empty($w['error']['error_msg'])) $j = $w; break; }
             }
         }
-        if ($it) {
-            $txt = $it['text'] ?? '';
-            if (!$txt && !empty($it['copy_history'][0]['text'])) $txt = $it['copy_history'][0]['text'];
-            $img = '';
-            $atts = array_merge($it['attachments'] ?? [], $it['copy_history'][0]['attachments'] ?? []);
-            foreach ($atts as $a) {
-                if ($a['type'] === 'photo') { $sz = $a['photo']['sizes'] ?? []; usort($sz, function ($x, $y) { return $y['width'] <=> $x['width']; }); if ($sz) { $img = $sz[0]['url']; break; } }
-                if ($a['type'] === 'video' && !empty($a['video']['image'])) { $v = $a['video']['image']; usort($v, function ($x, $y) { return $y['width'] <=> $x['width']; }); $img = $v[0]['url']; break; }
-                if ($a['type'] === 'link' && !empty($a['link']['photo']['sizes'])) { $sz = $a['link']['photo']['sizes']; usort($sz, function ($x, $y) { return $y['width'] <=> $x['width']; }); $img = $sz[0]['url']; break; }
-            }
-            $post['text'] = preg_replace('~\[(?:id|club|public)\d+\|([^\]]+)\]~u', '$1', $txt);
-            $post['title'] = vk_title($txt);
-            $post['img'] = $img; $post['date'] = (int)($it['date'] ?? time());
-            $post['likes'] = (int)($it['likes']['count'] ?? 0); $post['views'] = (int)($it['views']['count'] ?? 0);
-            return $post;
-        }
+        if ($it) return vk_parse($it, $post);
         if (!empty($j['error']['error_msg'])) $vkErr = (strpos($j['error']['error_msg'], 'group auth') !== false ? 'Ключ сообщества ВК не подходит — нужен сервисный ключ приложения. ' : 'ВК ответил: ' . $j['error']['error_msg'] . '. ');
     }
     $html = http_get('https://vk.com/wall' . $id, 'TelegramBot (like TwitterBot)');
@@ -89,6 +74,61 @@ function vk_fetch($url) {
     $post['title'] = vk_title($desc) ?: ($meta['og:title'] ?? '');
     $post['img'] = $meta['og:image'] ?? '';
     return $post;
+}
+function vk_parse($it, $post = null) {
+    if (!$post) { $id = $it['owner_id'] . '_' . $it['id']; $post = ['vk' => $id, 'url' => 'https://vk.com/wall' . $id]; }
+    $txt = $it['text'] ?? '';
+    if (!$txt && !empty($it['copy_history'][0]['text'])) $txt = $it['copy_history'][0]['text'];
+    $img = '';
+    $atts = array_merge($it['attachments'] ?? [], $it['copy_history'][0]['attachments'] ?? []);
+    foreach ($atts as $a) {
+        if ($a['type'] === 'photo') { $sz = $a['photo']['sizes'] ?? []; usort($sz, function ($x, $y) { return $y['width'] <=> $x['width']; }); if ($sz) { $img = $sz[0]['url']; break; } }
+        if ($a['type'] === 'video' && !empty($a['video']['image'])) { $v = $a['video']['image']; usort($v, function ($x, $y) { return $y['width'] <=> $x['width']; }); $img = $v[0]['url']; break; }
+        if ($a['type'] === 'link' && !empty($a['link']['photo']['sizes'])) { $sz = $a['link']['photo']['sizes']; usort($sz, function ($x, $y) { return $y['width'] <=> $x['width']; }); $img = $sz[0]['url']; break; }
+    }
+    $post['text'] = preg_replace('~\[(?:id|club|public)\d+\|([^\]]+)\]~u', '$1', $txt);
+    $post['title'] = vk_title($txt);
+    $post['img'] = $img; $post['date'] = (int)($it['date'] ?? time());
+    $post['likes'] = (int)($it['likes']['count'] ?? 0); $post['views'] = (int)($it['views']['count'] ?? 0);
+    return $post;
+}
+function news_cfg() { $c = is_file(__DIR__ . '/news_cfg.json') ? json_decode(file_get_contents(__DIR__ . '/news_cfg.json'), true) : []; return array_merge(['auto' => true, 'last' => 0, 'hidden' => [], 'err' => ''], is_array($c) ? $c : []); }
+function news_cfg_save($c) { file_put_contents(__DIR__ . '/news_cfg.json', json_encode($c, JSON_UNESCAPED_UNICODE)); }
+function news_img($src, $vk) {
+    if (!$src || !preg_match('~^https?://~', $src)) return $src;
+    $dir = __DIR__ . '/news'; if (!is_dir($dir)) @mkdir($dir, 0755);
+    $bin = http_get($src, 'Mozilla/5.0');
+    if (!$bin || strlen($bin) < 1000 || !@getimagesizefromstring($bin)) return $src;
+    $f = 'news/' . preg_replace('~[^\d_-]~', '', $vk ?: (string)time()) . '_' . substr(md5($src), 0, 6) . '.jpg';
+    return @file_put_contents(__DIR__ . '/' . $f, $bin) ? $f : $src;
+}
+function vk_group() { return preg_match('~vk\.(?:com|ru)/([A-Za-z0-9_.]+)~', AMRP_VK, $m) ? $m[1] : ''; }
+function vk_autosync($force = false) {
+    $vt = defined('VK_TOKEN') ? VK_TOKEN : '';
+    $c = news_cfg();
+    if (!$vt || !vk_group() || (!$c['auto'] && !$force) || (!$force && time() - $c['last'] < 600)) return null;
+    $lock = @fopen(__DIR__ . '/news.lock', 'c'); if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) return null;
+    $c['last'] = time(); news_cfg_save($c);
+    $g = vk_group();
+    $q = preg_match('~^(?:club|public)(\d+)$~', $g, $m) ? 'owner_id=-' . $m[1] : 'domain=' . urlencode($g);
+    $w = json_decode(http_get('https://api.vk.com/method/wall.get?' . $q . '&count=15&filter=owner&v=5.131&access_token=' . urlencode($vt), 'AMRP'), true);
+    if (!isset($w['response']['items'])) { $c['err'] = $w['error']['error_msg'] ?? 'ВК не ответил'; news_cfg_save($c); flock($lock, LOCK_UN); return $c['err']; }
+    $n = news_all(); $have = []; foreach ($n as $x) if (!empty($x['vk'])) $have[$x['vk']] = 1;
+    $add = 0;
+    foreach (array_reverse($w['response']['items']) as $it) {
+        $id = $it['owner_id'] . '_' . $it['id'];
+        if (isset($have[$id]) || in_array($id, $c['hidden'], true)) continue;
+        if (!empty($it['marked_as_ads'])) continue;
+        $p = vk_parse($it);
+        if (trim($p['text']) === '' && !$p['img']) continue;
+        $p['img'] = news_img($p['img'], $id);
+        $n[] = $p + ['id' => bin2hex(random_bytes(5)), 'tag' => '', 'pin' => false, 'by' => 'авто из ВК'];
+        $add++;
+    }
+    if ($add) news_save($n);
+    $c['err'] = ''; news_cfg_save($c);
+    flock($lock, LOCK_UN);
+    return $add;
 }
 function news_text($t) {
     $t = h($t);

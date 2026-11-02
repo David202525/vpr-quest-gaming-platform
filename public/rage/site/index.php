@@ -5,7 +5,7 @@ $pl = array_values(array_filter($d['players'], function ($p) { return empty($p['
 $rich = $pl; usort($rich, function ($a, $b) { return ($b['money'] + $b['bank']) <=> ($a['money'] + $a['bank']); });
 $lvl = $pl; usort($lvl, function ($a, $b) { return [$b['lvl'], $b['exp']] <=> [$a['lvl'], $a['exp']]; });
 $time = $pl; usort($time, function ($a, $b) { return $b['playtime'] <=> $a['playtime']; });
-$news = news_all(); usort($news, function ($a, $b) { return [!empty($b['pin']), $b['date']] <=> [!empty($a['pin']), $a['date']]; }); $news = array_slice($news, 0, 6);
+vk_autosync(); $news = news_all(); usort($news, function ($a, $b) { return [!empty($b['pin']), $b['date']] <=> [!empty($a['pin']), $a['date']]; }); $news = array_slice($news, 0, 6);
 amrp_head('AMRP — GTA 5 RolePlay сервер');
 ?>
 <section class="hero" style="background-image:url(hero.jpg)">
