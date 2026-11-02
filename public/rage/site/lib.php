@@ -51,6 +51,15 @@ function vk_fetch($url) {
     if ($vt) {
         $j = json_decode(http_get('https://api.vk.com/method/wall.getById?posts=' . $id . '&v=5.131&access_token=' . urlencode($vt), 'AMRP'), true);
         $it = $j['response']['items'][0] ?? ($j['response'][0] ?? null);
+        if (!$it) {
+            list($own, $pid) = explode('_', $id);
+            for ($off = 0; $off < 300 && !$it; $off += 100) {
+                $w = json_decode(http_get('https://api.vk.com/method/wall.get?owner_id=' . $own . '&count=100&offset=' . $off . '&v=5.131&access_token=' . urlencode($vt), 'AMRP'), true);
+                $items = $w['response']['items'] ?? [];
+                foreach ($items as $x) if ((int)$x['id'] === (int)$pid) { $it = $x; break; }
+                if (!$items) { if (!empty($w['error']['error_msg'])) $j = $w; break; }
+            }
+        }
         if ($it) {
             $txt = $it['text'] ?? '';
             if (!$txt && !empty($it['copy_history'][0]['text'])) $txt = $it['copy_history'][0]['text'];
@@ -67,14 +76,15 @@ function vk_fetch($url) {
             $post['likes'] = (int)($it['likes']['count'] ?? 0); $post['views'] = (int)($it['views']['count'] ?? 0);
             return $post;
         }
-        if (!empty($j['error']['error_msg'])) $post['warn'] = 'ВК ответил: ' . $j['error']['error_msg'];
+        if (!empty($j['error']['error_msg'])) $vkErr = (strpos($j['error']['error_msg'], 'group auth') !== false ? 'Ключ сообщества ВК не подходит — нужен сервисный ключ приложения. ' : 'ВК ответил: ' . $j['error']['error_msg'] . '. ');
     }
     $html = http_get('https://vk.com/wall' . $id, 'TelegramBot (like TwitterBot)');
     if ($html && !mb_check_encoding($html, 'UTF-8')) $html = mb_convert_encoding($html, 'UTF-8', 'Windows-1251');
     $meta = [];
     if (preg_match_all('~<meta\s+(?:property|name)="(og:[a-z:]+)"\s+content="([^"]*)"~i', $html, $m, PREG_SET_ORDER)) foreach ($m as $x) if (!isset($meta[$x[1]])) $meta[$x[1]] = html_entity_decode($x[2], ENT_QUOTES, 'UTF-8');
     $desc = $meta['og:description'] ?? '';
-    if (!$desc && !($meta['og:image'] ?? '')) { $post['warn'] = ($post['warn'] ?? '') . ' Не удалось прочитать пост автоматически — заполните текст и картинку вручную.'; return $post; }
+    if (!$desc && !($meta['og:image'] ?? '')) { $post['warn'] = ($vkErr ?? '') . 'Не удалось прочитать пост автоматически — заполните текст и картинку вручную.'; return $post; }
+    if (!empty($vkErr)) $post['warn'] = $vkErr . 'Текст подтянут кратко — проверьте его перед публикацией.';
     $post['text'] = $desc;
     $post['title'] = vk_title($desc) ?: ($meta['og:title'] ?? '');
     $post['img'] = $meta['og:image'] ?? '';
