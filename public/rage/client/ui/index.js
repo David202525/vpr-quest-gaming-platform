@@ -266,7 +266,7 @@ mp.events.add('cef:inv:act', function (json) { mp.events.callRemote('srv:inv:act
 mp.events.add('cef:menu:buy', function (k) { mp.events.callRemote('srv:menu:buy', k); });
 mp.events.add('cef:menu:vip', function (k) { mp.events.callRemote('srv:menu:vip', k); });
 mp.events.add('cef:menu:exchange', function (n) { mp.events.callRemote('srv:menu:exchange', n); });
-mp.events.add('cef:menu:pack', function () { mp.events.callRemote('srv:menu:pack'); });
+mp.events.add('cef:menu:pack', function (i) { mp.events.callRemote('srv:menu:pack', Number(i) || 0); });
 mp.events.add('cef:menu:homegps', function () { mp.events.callRemote('srv:menu:homegps'); });
 mp.events.add('cef:menu:claim', function (l, t) { mp.events.callRemote('srv:menu:claim', l, t || 'f'); });
 mp.events.add('cef:bp:buy', function () { mp.events.callRemote('srv:bp:buy'); });

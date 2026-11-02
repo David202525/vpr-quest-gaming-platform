@@ -815,8 +815,8 @@ function menuShop(d) {
             '<div class="ex-ctl"><button data-exm="1">−</button><input id="exIn" type="number" min="1" value="' + exN + '"><button data-exp="1">+</button></div>' +
             '<div class="ex-r">= <b>' + money(exN * d.rate) + '</b></div><button class="ex-go" data-ex="1"' + (coins < exN ? ' disabled' : '') + '>Обменять</button></div>' +
             '<div class="pk-grid">' + d.packs.map(function (p, i) {
-                return '<div class="pk"><div class="pk-img"><img src="img/bp_coins.jpg">' + (p.bonus ? '<span>+' + p.bonus + ' бонус</span>' : '') + '</div><b>' + (p.c + p.bonus).toLocaleString('ru-RU') + ' RC</b><small>' + p.c + ' + ' + p.bonus + '</small><button data-pack="' + i + '">' + p.rub + ' ₽</button></div>';
-            }).join('') + '</div><p class="pk-note">Пополнение пока через администрацию: напишите /report — коины начислят вручную.</p>';
+                return '<div class="pk"><div class="pk-img"><img src="img/bp_coins.jpg">' + (p.bonus ? '<span>+' + p.bonus.toLocaleString('ru-RU') + ' бонус</span>' : '') + '</div><b>' + (p.c + p.bonus).toLocaleString('ru-RU') + ' RC</b><small>' + (p.bonus ? p.c.toLocaleString('ru-RU') + ' + ' + p.bonus.toLocaleString('ru-RU') : 'без бонуса') + '</small><button data-pack="' + i + '">' + p.rub.toLocaleString('ru-RU') + ' ₽</button></div>';
+            }).join('') + '</div><p class="pk-note">' + (d.site ? 'Оплата через СБП или картой на сайте ' + esc(d.site.replace(/^https?:\/\//, '').replace(/\/$/, '')) + '/donate.php — коины придут автоматически.' : 'Пополнение через администрацию: напишите /report.') + '</p>';
     } else {
         var cats = ['Все', 'Разное', 'Одежда', 'Оружие'];
         var list = d.shop.filter(function (x) { return shopCat === 'Все' || x.cat === shopCat; });

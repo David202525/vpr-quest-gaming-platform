@@ -2053,14 +2053,15 @@ textarea {
 .ex-ctl input{width:80px;height:34px;text-align:center;background:rgba(0,0,0,.35);border:0;color:#fff;font-weight:700}
 .ex-r{font-size:13px;min-width:120px}.ex-r b{color:#8fff9c;font-size:16px}
 .ex-go{width:auto;padding:10px 24px}.ex-go[disabled]{opacity:.4}
-.pk-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.pk-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .pk{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px;transition:.15s}
 .pk:hover{border-color:rgba(177,140,255,.6);transform:translateY(-3px)}
-.pk-img{position:relative;width:100%;aspect-ratio:1;overflow:hidden;margin-bottom:6px}
-.pk-img img{width:100%;height:100%;object-fit:cover}
+.pk-img{position:relative;width:100%;height:0;padding-top:100%;overflow:hidden;margin-bottom:6px;flex-shrink:0}
+.pk-img img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
 .pk-img span{position:absolute;top:6px;left:6px;background:#1fbf5a;font-size:10px;font-weight:800;padding:3px 7px}
-.pk b{font-size:16px;color:#d6c2ff}.pk small{font-size:10.5px;color:rgba(255,255,255,.45);margin-bottom:6px}
-.pk-note{margin-top:12px;font-size:11px;color:rgba(255,255,255,.45)}
+.pk b{font-size:16px;color:#d6c2ff;line-height:1.2;white-space:nowrap}.pk small{display:block;font-size:10.5px;line-height:1.3;color:rgba(255,255,255,.45);margin-bottom:6px;white-space:nowrap}
+.pk button{width:100%;margin-top:auto}
+.pk-note{clear:both;display:block;position:static;margin-top:14px;font-size:11px;line-height:1.4;color:rgba(255,255,255,.55)}
 .bp2-lvl{width:110px;height:110px;flex-shrink:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,rgba(31,191,90,.35),rgba(0,0,0,.4));border:2px solid #2ecc60;box-shadow:0 0 30px -5px #2ecc60}
 .bp2-lvl b{font-family:Unbounded,Montserrat,sans-serif;font-size:38px;color:#7dff9e;line-height:1}
 .bp2-lvl small{font-size:9px;letter-spacing:1px;color:rgba(255,255,255,.6)}

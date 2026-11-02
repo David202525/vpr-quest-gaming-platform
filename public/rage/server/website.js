@@ -122,12 +122,14 @@ function call(method, file, body, cb) {
 const DONE_FILE = path.join(__dirname, 'website_donates.json');
 const DONE = (function () { try { return JSON.parse(fs.readFileSync(DONE_FILE, 'utf8')) || {}; } catch (e) { return {}; } })();
 let donBusy = false, donErr = '';
+let PACKS = null, payOn = false;
 function donates() {
     if (!CFG.url || !CFG.key || donBusy) return;
     donBusy = true;
     call('GET', 'orders.php', null, function (err, j) {
         if (err) { donBusy = false; if (err !== donErr) console.log('[donate] ' + err); donErr = err; return; }
         donErr = '';
+        if (Array.isArray(j.packs) && j.packs.length) { PACKS = j.packs; payOn = !!j.enabled; }
         const ok = [];
         (j.orders || []).forEach(function (o) {
             if (DONE[o.n]) { ok.push(o.n); return; }
@@ -149,5 +151,5 @@ mp.events.addCommand('donatesite', function (p) {
     p.outputChatBox('!{#ffcc66}Пополнить RC коины: ' + (b ? b + 'donate.php' : 'сайт ещё не настроен'));
 });
 
-global.WebSite = { sync: sync, donates: donates, url: siteBase };
+global.WebSite = { sync: sync, donates: donates, url: siteBase, packs: function () { return PACKS; }, payOn: function () { return payOn; } };
 console.log('[site] модуль сайта загружен' + (CFG.url ? ' → ' + CFG.url : ' (впишите адрес сайта в website_config.json)'));

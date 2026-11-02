@@ -13,4 +13,5 @@ $checked = 0;
 foreach (orders_all() as $n => $x) if ($x['st'] === 'new' && $x['t'] < time() - 60 && $checked < 5) { pay_check($n); $checked++; }
 $out = [];
 foreach (orders_all() as $x) if ($x['st'] === 'paid') $out[] = ['n' => $x['n'], 'id' => $x['id'], 'coins' => $x['coins'], 'rub' => $x['rub']];
-echo json_encode(['ok' => true, 'orders' => $out]);
+$packs = []; foreach (DONATE_PACKS as $r) { $c = pay_coins($r); $base = (int)floor($r * DONATE_RATE); $packs[] = ['c' => $base, 'bonus' => $c - $base, 'rub' => $r]; }
+echo json_encode(['ok' => true, 'orders' => $out, 'packs' => $packs, 'enabled' => ALFA_USER && ALFA_PASS]);

@@ -124,11 +124,13 @@ const VIPS = {
 };
 const COIN_PACKS = [
     { c: 100, bonus: 0, rub: 100 },
-    { c: 500, bonus: 50, rub: 500 },
-    { c: 1000, bonus: 150, rub: 1000 },
-    { c: 2500, bonus: 500, rub: 2500 },
-    { c: 5000, bonus: 1250, rub: 5000 }
+    { c: 300, bonus: 0, rub: 300 },
+    { c: 500, bonus: 0, rub: 500 },
+    { c: 1000, bonus: 100, rub: 1000 },
+    { c: 2500, bonus: 375, rub: 2500 },
+    { c: 5000, bonus: 1000, rub: 5000 }
 ];
+function coinPacks() { const w = global.WebSite && global.WebSite.packs ? global.WebSite.packs() : null; return w && w.length ? w : COIN_PACKS; }
 function vipOf(d) { return d.vip && d.vip.until > Date.now() && VIPS[d.vip.t] ? d.vip : null; }
 function vipMult(d) { const v = vipOf(d); return v ? VIPS[v.t].mult : 1; }
 
@@ -937,7 +939,7 @@ async function menuPayload(p) {
         coins: d.coins || 0, rate: COIN_RATE, pbal: Math.floor(d.pbal === undefined ? 200 : d.pbal),
         vip: vipOf(d) ? { t: d.vip.t, n: VIPS[d.vip.t].n, color: VIPS[d.vip.t].color, left: Math.ceil((d.vip.until - Date.now()) / 86400000) } : null,
         vips: Object.keys(VIPS).map(function (k) { const v = VIPS[k]; return { k: k, n: v.n, price: v.price, days: v.days, color: v.color, img: v.img, perks: v.perks }; }),
-        packs: COIN_PACKS
+        packs: coinPacks(), site: global.WebSite && global.WebSite.url ? global.WebSite.url() : ''
     };
 }
 
@@ -1021,8 +1023,14 @@ mp.events.add('srv:menu:homegps', function (p) {
     p.call('phone:gps', [t.x, t.y, t.n]);
     notify(p, 'ok', 'Метка поставлена: ' + t.n);
 });
-mp.events.add('srv:menu:pack', function (p) {
-    const b = global.WebSite && global.WebSite.url ? global.WebSite.url() : ''; notify(p, 'info', b ? 'Пополнение RC — на сайте: ' + b + 'donate.php' : 'Пополнение коинов — через администрацию сервера (/report)'); if (b) p.outputChatBox('!{#ffcc66}Пополнить RC коины: ' + b + 'donate.php');
+mp.events.add('srv:menu:pack', function (p, i) {
+    const b = global.WebSite && global.WebSite.url ? global.WebSite.url() : '';
+    if (!b) return notify(p, 'info', 'Пополнение коинов — через администрацию сервера (/report)');
+    const pk = coinPacks()[Number(i)];
+    const login = p.account ? (p.account.login || p.account.username || p.account.id) : '';
+    notify(p, 'info', 'Откройте сайт в браузере — ссылка в чате');
+    p.outputChatBox('!{#ffcc66}[Донат] ' + (pk ? (pk.c + pk.bonus) + ' RC за ' + pk.rub + ' ₽' : 'Пополнение RC') + ' — оплатите на сайте: !{#ffffff}' + b + 'donate.php');
+    p.outputChatBox('!{#ffcc66}[Донат] Укажите логин !{#ffffff}' + login + ' !{#ffcc66}или ID !{#ffffff}' + accId(p) + '!{#ffcc66}. Коины придут автоматически за 1–2 минуты.');
 });
 function coinTarget(s) {
     s = String(s || '').trim();
