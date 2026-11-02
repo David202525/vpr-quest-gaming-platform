@@ -1347,6 +1347,7 @@ setTimeout(function () {
     try { require('./news.js'); } catch (e) { console.log('[ui] news.js: ' + e.message); }
     try { require('./medic.js'); } catch (e) { console.log('[ui] medic.js: ' + e.message); }
     try { require('./ems.js'); } catch (e) { console.log('[ui] ems.js: ' + e.message); }
+    try { require('./mz.js'); } catch (e) { console.log('[ui] mz.js: ' + e.message); }
     try { require('./service.js'); } catch (e) { console.log('[ui] service.js: ' + e.message); }
     try { require('./mafia.js'); } catch (e) { console.log('[ui] mafia.js: ' + e.message); }
     try { require('./rail.js'); } catch (e) { console.log('[ui] rail.js: ' + e.message); }

@@ -7,7 +7,13 @@ const DEF = {
     locker: { x: -447.2, y: -337.6, z: 34.5, h: 80 },
     garage: { x: -457.0, y: -353.0, z: 34.3, h: 80 },
     er: [{ x: -449.5, y: -340.8, z: 34.5 }],
-    beds: []
+    beds: [],
+    reception: null,
+    surgery: null,
+    chief: null,
+    liftDown: null,
+    liftUp: null,
+    heli: null
 };
 
 const P = JSON.parse(JSON.stringify(DEF));
